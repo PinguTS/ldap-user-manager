@@ -1,30 +1,52 @@
 # Example organization
-dn: o=OrgA,ou=organizations,dc=example,dc=com
+dn: o=Example Company,ou=organizations,dc=example,dc=com
 objectClass: organization
 objectClass: top
-o: OrgA
-postalAddress: 123 Main St$12345$City$Country
-telephoneNumber: +1 555 1234
-labeledURI: http://www.orga.com
-mail: info@orga.com
+o: Example Company
+postalAddress: 123 Business Street$New York$NY$10001$USA
+telephoneNumber: +1-555-0123
+labeledURI: https://examplecompany.com
+mail: info@examplecompany.com
 
-# Users container
-dn: ou=users,o=OrgA,ou=organizations,dc=example,dc=com
+# Users organizational unit for this company
+dn: ou=users,o=Example Company,ou=organizations,dc=example,dc=com
 objectClass: organizationalUnit
 ou: users
 
-# Example user
-dn: uid=jane.doe,ou=users,o=OrgA,ou=organizations,dc=example,dc=com
+# Roles organizational unit for this company
+dn: ou=roles,o=Example Company,ou=organizations,dc=example,dc=com
+objectClass: organizationalUnit
+ou: roles
+
+# Organization admin role
+dn: cn=org_admin,ou=roles,o=Example Company,ou=organizations,dc=example,dc=com
+objectClass: groupOfNames
+objectClass: top
+cn: org_admin
+description: Organization administrator for Example Company
+member: uid=admin@examplecompany.com,ou=users,o=Example Company,ou=organizations,dc=example,dc=com
+
+# Example user accounts
+dn: uid=admin@examplecompany.com,ou=users,o=Example Company,ou=organizations,dc=example,dc=com
 objectClass: inetOrgPerson
 objectClass: top
-uid: jane.doe
-mail: jane.doe@orga.com
-cn: Jane Doe
-sn: Doe
-userPassword: {SSHA}dummyhash
+uid: admin@examplecompany.com
+cn: Company Admin
+sn: Admin
+givenName: Company
+mail: admin@examplecompany.com
+userPassword: {SSHA}encrypted_password_here
+userRole: org_admin
+organization: Example Company
 
-# Org Managers group
-dn: cn=orgManagers,o=OrgA,ou=organizations,dc=example,dc=com
-objectClass: groupOfNames
-cn: orgManagers
-member: uid=jane.doe,ou=users,o=OrgA,ou=organizations,dc=example,dc=com 
+dn: uid=user1@examplecompany.com,ou=users,o=Example Company,ou=organizations,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: top
+uid: user1@examplecompany.com
+cn: John Doe
+sn: Doe
+givenName: John
+mail: user1@examplecompany.com
+userPassword: {SSHA}encrypted_password_here
+userRole: user
+organization: Example Company 

@@ -1,0 +1,23 @@
+# System Administrator
+dn: uid=admin@example.com,ou=system_users,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: top
+uid: admin@example.com
+cn: System Administrator
+sn: Administrator
+givenName: System
+mail: admin@example.com
+userPassword: {SSHA}encrypted_password_here
+userRole: administrator
+
+# System Maintainer
+dn: uid=maintainer@example.com,ou=system_users,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: top
+uid: maintainer@example.com
+cn: System Maintainer
+sn: Maintainer
+givenName: System
+mail: maintainer@example.com
+userPassword: {SSHA}encrypted_password_here
+userRole: maintainer 

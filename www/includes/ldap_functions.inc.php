@@ -85,7 +85,7 @@ function open_ldap_connection($ldap_bind=TRUE) {
 
 function ldap_auth_username($ldap_connection, $username, $password) {
 
- # Search for the DN for the given username.  If found, try binding with the DN and user's password.
+ # Search for the DN for the given username across all organizations.  If found, try binding with the DN and user's password.
  # If the binding succeeds, return the DN.
 
  global $log_prefix, $LDAP, $SITE_LOGIN_LDAP_ATTRIBUTE, $LDAP_DEBUG;
@@ -93,7 +93,8 @@ function ldap_auth_username($ldap_connection, $username, $password) {
  $ldap_search_query="{$SITE_LOGIN_LDAP_ATTRIBUTE}=" . ldap_escape(($username === null ? '' : $username), "", LDAP_ESCAPE_FILTER);
  if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix Running LDAP search for: $ldap_search_query"); }
 
- $ldap_search = @ ldap_search( $ldap_connection, $LDAP['user_dn'], $ldap_search_query );
+ # Search across all organizations for the user
+ $ldap_search = @ ldap_search( $ldap_connection, $LDAP['org_dn'], $ldap_search_query );
 
  if (!$ldap_search) {
   error_log("$log_prefix Couldn't search for $ldap_search_query: " . ldap_error($ldap_connection),0);
@@ -183,6 +184,159 @@ function generate_salt($length) {
   }
 
  return $salt;
+
+}
+
+
+##################################
+
+function verify_ldap_passcode($passcode, $stored_hash) {
+  global $log_prefix;
+  
+  // Handle different LDAP hash formats
+  if (preg_match('/^\{ARGON2\}(.+)$/', $stored_hash, $matches)) {
+    return password_verify($passcode, $matches[1]);
+  } elseif (preg_match('/^\{SSHA\}(.+)$/', $stored_hash, $matches)) {
+    $hash_data = base64_decode($matches[1]);
+    $salt = substr($hash_data, -8);
+    $hash = substr($hash_data, 0, -8);
+    return hash_equals(sha1($passcode . $salt, TRUE), $hash);
+  } elseif (preg_match('/^\{CRYPT\}(.+)$/', $stored_hash, $matches)) {
+    return hash_equals(crypt($passcode, $matches[1]), $stored_hash);
+  } elseif (preg_match('/^\{SMD5\}(.+)$/', $stored_hash, $matches)) {
+    $hash_data = base64_decode($matches[1]);
+    $salt = substr($hash_data, -8);
+    $hash = substr($hash_data, 0, -8);
+    return hash_equals(md5($passcode . $salt, TRUE), $hash);
+  } elseif (preg_match('/^\{MD5\}(.+)$/', $stored_hash, $matches)) {
+    return hash_equals(base64_encode(md5($passcode, TRUE)), $matches[1]);
+  } elseif (preg_match('/^\{SHA\}(.+)$/', $stored_hash, $matches)) {
+    return hash_equals(base64_encode(sha1($passcode, TRUE)), $matches[1]);
+  } else {
+    // Fallback to direct comparison for cleartext (not recommended)
+    error_log("$log_prefix Warning: Using cleartext passcode comparison", 0);
+    return hash_equals($passcode, $stored_hash);
+  }
+}
+
+function ldap_hashed_passcode($passcode) {
+
+ global $PASSWORD_HASH, $log_prefix;
+
+ // For passcodes, we'll use a simpler but still secure hashing approach
+ // Strongest to weakest
+ $preferred_algos = [
+     'ARGON2',
+     'SSHA',
+     'SHA512CRYPT',
+     'SHA256CRYPT',
+     'MD5CRYPT',
+     'SMD5',
+     'SHA',
+     'MD5',
+     'CRYPT',
+     'CLEAR'
+ ];
+ $check_algos = array(
+     "SHA512CRYPT" => "CRYPT_SHA512",
+     "SHA256CRYPT" => "CRYPT_SHA256",
+     "MD5CRYPT"    => "CRYPT_MD5"
+ );
+ $available_algos = array();
+ foreach ($check_algos as $algo_name => $algo_function) {
+     if (defined($algo_function) and constant($algo_function) != 0) {
+         array_push($available_algos, $algo_name);
+     }
+ }
+ // Always allow ARGON2 and SSHA
+ $available_algos = array_merge(['ARGON2', 'SSHA'], $available_algos, ['SMD5', 'SHA', 'MD5', 'CRYPT']);
+
+ // Select the best available algorithm
+ $hash_algo = null;
+ if (isset($PASSWORD_HASH)) {
+     $PASSWORD_HASH = strtoupper($PASSWORD_HASH);
+     if (!in_array($PASSWORD_HASH, $preferred_algos)) {
+         error_log("$log_prefix LDAP passcode: unknown hash method ($PASSWORD_HASH), falling back to secure default", 0);
+     } elseif ($PASSWORD_HASH === 'CLEAR') {
+         error_log("$log_prefix passcode hashing - FATAL - CLEAR selected, refusing to store passcode in cleartext.", 0);
+         die("FATAL: Refusing to store passcode in cleartext. Set PASSWORD_HASH to a secure value (ARGON2 or SSHA recommended).");
+     } elseif (in_array($PASSWORD_HASH, ['MD5', 'SMD5', 'SHA', 'CRYPT'])) {
+         error_log("$log_prefix passcode hashing - WARNING - Weak hash method ($PASSWORD_HASH) selected. Use ARGON2 or SSHA.", 0);
+         $hash_algo = $PASSWORD_HASH;
+     } elseif (in_array($PASSWORD_HASH, $available_algos)) {
+         $hash_algo = $PASSWORD_HASH;
+     }
+ }
+ if (!$hash_algo) {
+     // Default to strongest available
+     foreach ($preferred_algos as $algo) {
+         if ($algo === 'CLEAR') continue;
+         if ($algo === 'ARGON2' && defined('PASSWORD_ARGON2ID')) {
+             $hash_algo = 'ARGON2';
+             break;
+         }
+         if (in_array($algo, $available_algos)) {
+             $hash_algo = $algo;
+             break;
+         }
+     }
+ }
+ if (!$hash_algo) {
+     die("FATAL: No secure passcode hash available. Check your PHP and system configuration.");
+ }
+ error_log("$log_prefix LDAP passcode: using '{$hash_algo}' as the hashing method",0);
+
+ switch ($hash_algo) {
+
+  case 'ARGON2':
+    $hashed_passcode = '{ARGON2}' . password_hash($passcode, PASSWORD_ARGON2ID, ['memory_cost' => 2048, 'time_cost' => 4, 'threads' => 3]);
+    break;
+
+  case 'SSHA':
+    $salt = generate_salt(8);
+    $hashed_passcode = '{SSHA}' . base64_encode(sha1($passcode . $salt, TRUE) . $salt);
+    break;
+
+  case 'SHA512CRYPT':
+    $hashed_passcode = '{CRYPT}' . crypt($passcode, '$6$' . generate_salt(8));
+    break;
+
+  case 'SHA256CRYPT':
+    $hashed_passcode = '{CRYPT}' . crypt($passcode, '$5$' . generate_salt(8));
+    break;
+
+  case 'MD5CRYPT':
+    $hashed_passcode = '{CRYPT}' . crypt($passcode, '$1$' . generate_salt(9));
+    break;
+
+  case 'SMD5':
+    $salt = generate_salt(8);
+    $hashed_passcode = '{SMD5}' . base64_encode(md5($passcode . $salt, TRUE) . $salt);
+    break;
+
+  case 'MD5':
+    $hashed_passcode = '{MD5}' . base64_encode(md5($passcode, TRUE));
+    break;
+
+  case 'SHA':
+    $hashed_passcode = '{SHA}' . base64_encode(sha1($passcode, TRUE));
+    break;
+
+  case 'CRYPT':
+    $salt = generate_salt(2);
+    $hashed_passcode = '{CRYPT}' . crypt($passcode, $salt);
+    break;
+
+  case 'CLEAR':
+    error_log("$log_prefix passcode hashing - WARNING - Saving passcode in cleartext. This is extremely bad practice and should never ever be done in a production environment.",0);
+    $hashed_passcode = $passcode;
+    break;
+
+ }
+
+ error_log("$log_prefix passcode update - algo $hash_algo | passcode $hashed_passcode",0);
+
+ return $hashed_passcode;
 
 }
 
@@ -336,35 +490,56 @@ function ldap_get_user_list($ldap_connection,$start=0,$entries=NULL,$sort="asc",
 
  global $log_prefix, $LDAP, $LDAP_DEBUG;
 
- if (!isset($fields)) { $fields = array_unique( array("{$LDAP['account_attribute']}", "givenname", "sn", "mail")); }
+ if (!isset($fields)) { $fields = array_unique( array("{$LDAP['account_attribute']}", "givenname", "sn", "cn", "mail", "userRole", "organization")); }
 
  if (!isset($sort_key)) { $sort_key = $LDAP['account_attribute']; }
 
- $this_filter = "(&({$LDAP['account_attribute']}=*)$filters)";
+ $this_filter = "(&(objectclass=inetOrgPerson)({$LDAP['account_attribute']}=*)$filters)";
 
- $ldap_search = @ ldap_search($ldap_connection, "{$LDAP['user_dn']}", $this_filter, $fields);
- $result = @ ldap_get_entries($ldap_connection, $ldap_search);
- if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix LDAP returned {$result['count']} users for {$LDAP['user_dn']} when using this filter: $this_filter",0); }
-
- $records = array();
- foreach ($result as $record) {
-
-  if (isset($record[$sort_key][0])) {
-
-   $add_these = array();
-   foreach($fields as $this_attr) {
-    if ($this_attr !== $sort_key and isset($record[$this_attr])) { $add_these[$this_attr] = $record[$this_attr][0]; }
+ # Search across all organizations and system users for users
+ $users = array();
+ 
+ # Search in organizations
+ $ldap_search = @ ldap_search($ldap_connection, $LDAP['org_dn'], $this_filter, $fields);
+ if ($ldap_search) {
+   $result = @ ldap_get_entries($ldap_connection, $ldap_search);
+   if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix LDAP returned {$result['count']} users in organizations when using this filter: $this_filter",0); }
+   
+   foreach ($result as $record) {
+     if (isset($record[$sort_key][0])) {
+       $add_these = array();
+       foreach($fields as $this_attr) {
+         if ($this_attr !== $sort_key and isset($record[$this_attr])) { 
+           $add_these[$this_attr] = $record[$this_attr][0]; 
+         }
+       }
+       $users[$record[$sort_key][0]] = $add_these;
+     }
    }
-
-   $records[$record[$sort_key][0]] = $add_these;
-
-  }
+ }
+ 
+ # Search in system users
+ $ldap_search = @ ldap_search($ldap_connection, $LDAP['system_users_dn'], $this_filter, $fields);
+ if ($ldap_search) {
+   $result = @ ldap_get_entries($ldap_connection, $ldap_search);
+   if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix LDAP returned {$result['count']} system users when using this filter: $this_filter",0); }
+   
+   foreach ($result as $record) {
+     if (isset($record[$sort_key][0])) {
+       $add_these = array();
+       foreach($fields as $this_attr) {
+         if ($this_attr !== $sort_key and isset($record[$this_attr])) { 
+           $add_these[$this_attr] = $record[$this_attr][0]; 
+         }
+       }
+       $users[$record[$sort_key][0]] = $add_these;
+     }
+   }
  }
 
- if ($sort == "asc") { ksort($records); } else { krsort($records); }
+ if ($sort == "asc") { ksort($users); } else { krsort($users); }
 
- return(array_slice($records,$start,$entries));
-
+ return(array_slice($users,$start,$entries));
 
 }
 
@@ -540,6 +715,44 @@ function ldap_get_group_members($ldap_connection,$group_name,$start=0,$entries=N
 
 }
 
+##################################
+
+function ldap_get_role_members($ldap_connection, $role_name, $start=0, $entries=NULL, $sort="asc") {
+ global $log_prefix, $LDAP, $LDAP_DEBUG;
+
+ // Search for the role in the global roles OU
+ $ldap_search_query = "(cn=" . ldap_escape($role_name, "", LDAP_ESCAPE_FILTER) . ")";
+ $ldap_search = @ ldap_search($ldap_connection, "ou=roles,ou=organizations,{$LDAP['base_dn']}", $ldap_search_query, array('member'));
+
+ $result = @ ldap_get_entries($ldap_connection, $ldap_search);
+ if ($result) { $result_count = $result['count']; } else { $result_count = 0; }
+
+ $records = array();
+
+ if ($result_count > 0 && isset($result[0]['member'])) {
+  foreach ($result[0]['member'] as $key => $value) {
+   if ($key !== 'count' and !empty($value)) {
+    // Extract the DN from the member attribute
+    $records[] = $value;
+    if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix {$value} is a member of role {$role_name}",0); }
+   }
+  }
+
+  $actual_result_count = count($records);
+  if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix LDAP returned $actual_result_count members of role {$role_name}",0); }
+
+  if ($actual_result_count > 0) {
+   if ($sort == "asc") { sort($records); } else { rsort($records); }
+   return(array_slice($records,$start,$entries));
+  }
+  else {
+   return array();
+  }
+ }
+ else {
+  return array();
+ }
+}
 
 ##################################
 
@@ -583,24 +796,64 @@ function ldap_user_group_membership($ldap_connection,$username) {
 
  global $log_prefix, $LDAP, $LDAP_DEBUG;
 
- $rfc2307bis_available = ldap_detect_rfc2307bis($ldap_connection);
-
- if ($LDAP['group_membership_uses_uid'] == FALSE) {
-  $username = "{$LDAP['account_attribute']}=$username,{$LDAP['user_dn']}";
+ # Get user DN first
+ $user_dn = null;
+ $user_filter = "(&(objectclass=inetOrgPerson)({$LDAP['account_attribute']}=$username))";
+ 
+ # Search in organizations
+ $ldap_search = @ ldap_search($ldap_connection, $LDAP['org_dn'], $user_filter, array('dn'));
+ if ($ldap_search) {
+   $result = @ ldap_get_entries($ldap_connection, $ldap_search);
+   if ($result['count'] > 0) {
+     $user_dn = $result[0]['dn'];
+   }
+ }
+ 
+ # If not found in organizations, search in system users
+ if (!$user_dn) {
+   $ldap_search = @ ldap_search($ldap_connection, $LDAP['system_users_dn'], $user_filter, array('dn'));
+   if ($ldap_search) {
+     $result = @ ldap_get_entries($ldap_connection, $ldap_search);
+     if ($result['count'] > 0) {
+       $user_dn = $result[0]['dn'];
+     }
+   }
+ }
+ 
+ if (!$user_dn) {
+   if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix User $username not found for role membership check",0); }
+   return array();
  }
 
- $ldap_search_query = "(&(objectClass=posixGroup)({$LDAP['group_membership_attribute']}={$username}))";
- $ldap_search = @ ldap_search($ldap_connection, "{$LDAP['group_dn']}", $ldap_search_query, array($LDAP['group_attribute']));
- $result = ldap_get_entries($ldap_connection, $ldap_search);
-
- $groups = array();
- foreach ($result as $record) {
-  if (isset($record[$LDAP['group_attribute']][0])) {
-   array_push($groups, $record[$LDAP['group_attribute']][0]);
-  }
+ # Search for roles that contain this user
+ $roles = array();
+ 
+ # Check global roles (administrator, maintainer)
+ $global_roles_filter = "(&(objectclass=groupOfNames)(member=$user_dn))";
+ $ldap_search = @ ldap_search($ldap_connection, $LDAP['roles_dn'], $global_roles_filter, array('cn'));
+ if ($ldap_search) {
+   $result = @ ldap_get_entries($ldap_connection, $ldap_search);
+   foreach ($result as $record) {
+     if (isset($record['cn'][0])) {
+       $roles[] = $record['cn'][0];
+     }
+   }
  }
- sort($groups);
- return $groups;
+ 
+ # Check organization-specific roles
+ $org_roles_filter = "(&(objectclass=groupOfNames)(member=$user_dn))";
+ $ldap_search = @ ldap_search($ldap_connection, $LDAP['org_dn'], $org_roles_filter, array('cn'));
+ if ($ldap_search) {
+   $result = @ ldap_get_entries($ldap_connection, $ldap_search);
+   foreach ($result as $record) {
+     if (isset($record['cn'][0])) {
+       $roles[] = $record['cn'][0];
+     }
+   }
+ }
+ 
+ sort($roles);
+ return $roles;
 
 }
 
@@ -844,18 +1097,28 @@ function ldap_complete_attribute_array($default_attributes,$additional_attribute
 
 function ldap_new_account($ldap_connection,$account_r) {
 
-  global $log_prefix, $LDAP, $LDAP_DEBUG, $DEFAULT_USER_SHELL, $DEFAULT_USER_GROUP;
+  global $log_prefix, $LDAP, $LDAP_DEBUG;
 
   if (    isset($account_r['givenname'][0])
       and isset($account_r['sn'][0])
       and isset($account_r['cn'][0])
-      and isset($account_r['uid'][0])
       and isset($account_r[$LDAP['account_attribute']])
-      and isset($account_r['password'][0])) {
+      and isset($account_r['password'][0])
+      and isset($account_r['organization'][0])) {
 
    $account_identifier = $account_r[$LDAP['account_attribute']][0];
-   $user_dn=$LDAP['user_dn'];
-   $ldap_search_query = "({$LDAP['account_attribute']}=" . ldap_escape(($account_identifier === null ? '' : $account_identifier), "", LDAP_ESCAPE_FILTER) . ",$user_dn)";
+   $organization = $account_r['organization'][0];
+   
+   # Check if organization exists
+   $org_search = @ ldap_search($ldap_connection, $LDAP['org_dn'], "o=" . ldap_escape($organization, "", LDAP_ESCAPE_FILTER));
+   if (!$org_search || ldap_count_entries($ldap_connection, $org_search) == 0) {
+     error_log("$log_prefix Create account; Organization '$organization' does not exist",0);
+     return FALSE;
+   }
+   
+   # Check if user already exists in this organization
+   $user_dn = "ou=users,o=" . ldap_escape($organization, "", LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
+   $ldap_search_query = "({$LDAP['account_attribute']}=" . ldap_escape(($account_identifier === null ? '' : $account_identifier), "", LDAP_ESCAPE_FILTER) . ")";
    $ldap_search = @ ldap_search($ldap_connection, $user_dn, $ldap_search_query);
    $result = @ ldap_get_entries($ldap_connection, $ldap_search);
 
@@ -870,53 +1133,38 @@ function ldap_new_account($ldap_connection,$account_r) {
                                  'userpassword' => $hashed_pass,
                        );
 
+     # Handle passcode if provided
+     if (isset($account_r['passcode'][0]) && !empty($account_r['passcode'][0])) {
+       $hashed_passcode = ldap_hashed_passcode($account_r['passcode'][0]);
+       $account_attributes['passcode'] = $hashed_passcode;
+       unset($account_r['passcode']);
+     }
+
      $account_attributes = array_merge($account_r, $account_attributes);
 
-     if (!isset($account_attributes['uidnumber'][0]) or !is_numeric($account_attributes['uidnumber'][0])) {
-       $highest_uid = ldap_get_highest_id($ldap_connection,'uid');
-       $account_attributes['uidnumber'][0] = $highest_uid + 1;
+     # Set default userRole if not specified
+     if (!isset($account_attributes['userRole'][0])) {
+       $account_attributes['userRole'][0] = 'user';
      }
 
-     if (!isset($account_attributes['gidnumber'][0]) or !is_numeric($account_attributes['gidnumber'][0])) {
-       $default_gid = ldap_get_gid_of_group($ldap_connection,$DEFAULT_USER_GROUP);
-       if (!is_numeric($default_gid)) {
-         $group_add = ldap_new_group($ldap_connection,$account_identifier,$account_identifier);
-         $account_attributes['gidnumber'][0] = ldap_get_gid_of_group($ldap_connection,$account_identifier);
-       }
-       else {
-        $account_attributes['gidnumber'][0] = $default_gid;
-        $add_to_group = $DEFAULT_USER_GROUP;
-       }
+     # Ensure uid is set to email for email-based login
+     if ($LDAP['account_attribute'] === 'mail') {
+       $account_attributes['uid'] = $account_identifier;
      }
-     else {
-       $add_to_group = ldap_get_group_name_from_gid($ldap_connection,$account_attributes['gidnumber'][0]);
-       if (!$add_to_group) { $add_to_group = $DEFAULT_USER_GROUP; }
-     }
-
-     if (empty($account_attributes['loginshell']))    { $account_attributes['loginshell']    = $DEFAULT_USER_SHELL; }
-     if (empty($account_attributes['homedirectory'])) { $account_attributes['homedirectory'] = "/home/" . $account_r['uid'][0]; }
 
      $add_account = @ ldap_add($ldap_connection,
-                               "{$LDAP['account_attribute']}=$account_identifier,{$LDAP['user_dn']}",
+                               "{$LDAP['account_attribute']}=$account_identifier,{$user_dn}",
                                $account_attributes
                               );
 
      if ($add_account) {
-       error_log("$log_prefix Created new account: $account_identifier",0);
-       ldap_add_member_to_group($ldap_connection,$add_to_group,$account_identifier);
-
-       $this_uid = fetch_id_stored_in_ldap($ldap_connection,"uid");
-       $new_uid = $account_attributes['uidnumber'][0];
-
-       if ($this_uid != FALSE) {
-         $update_uid = @ ldap_mod_replace($ldap_connection, "cn=lastUID,{$LDAP['base_dn']}", array( 'serialNumber' => $new_uid ));
-         if ($update_uid) {
-           error_log("$log_prefix Create account; Updated cn=lastUID with $new_uid",0);
-         }
-         else {
-           error_log("$log_prefix Unable to update cn=lastUID to $new_uid - this could cause user accounts to share the same UID.",0);
-         }
+       error_log("$log_prefix Created new account: $account_identifier in organization: $organization",0);
+       
+       # Add user to organization if they have org_admin role
+       if (isset($account_attributes['userRole'][0]) && $account_attributes['userRole'][0] === 'org_admin') {
+         addUserToOrgManagers($organization, "{$LDAP['account_attribute']}=$account_identifier,{$user_dn}");
        }
+       
        return TRUE;
      }
      else {
@@ -927,12 +1175,12 @@ function ldap_new_account($ldap_connection,$account_r) {
    }
 
    else {
-     error_log("$log_prefix Create account; Account for {$account_identifier} already exists",0);
+     error_log("$log_prefix Create account; Account for {$account_identifier} already exists in organization {$organization}",0);
    }
 
   }
   else {
-    error_log("$log_prefix Create account; missing parameters",0);
+    error_log("$log_prefix Create account; missing parameters (organization is now required)",0);
   }
 
   return FALSE;
@@ -948,19 +1196,49 @@ function ldap_delete_account($ldap_connection,$username) {
 
  if (isset($username)) {
 
-  $delete_query = "{$LDAP['account_attribute']}=" . ldap_escape(($username === null ? '' : $username), "", LDAP_ESCAPE_FILTER) . ",{$LDAP['user_dn']}";
-  $delete = @ ldap_delete($ldap_connection, $delete_query);
+  # Search for the user across all organizations and system users to find their DN
+  $ldap_search_query = "{$LDAP['account_attribute']}=" . ldap_escape(($username === null ? '' : $username), "", LDAP_ESCAPE_FILTER);
+  $user_dn = null;
+  
+  # Search in organizations first
+  $ldap_search = @ ldap_search($ldap_connection, $LDAP['org_dn'], $ldap_search_query);
+  if ($ldap_search) {
+    $result = @ ldap_get_entries($ldap_connection, $ldap_search);
+    if ($result['count'] > 0) {
+      $user_dn = $result[0]['dn'];
+    }
+  }
+  
+  # If not found in organizations, search in system users
+  if (!$user_dn) {
+    $ldap_search = @ ldap_search($ldap_connection, $LDAP['system_users_dn'], $ldap_search_query);
+    if ($ldap_search) {
+      $result = @ ldap_get_entries($ldap_connection, $ldap_search);
+      if ($result['count'] > 0) {
+        $user_dn = $result[0]['dn'];
+      }
+    }
+  }
+  
+  if (!$user_dn) {
+   error_log("$log_prefix Delete account; User {$username} not found",0);
+   return FALSE;
+  }
+  
+  $delete = @ ldap_delete($ldap_connection, $user_dn);
 
   if ($delete) {
-   error_log("$log_prefix Deleted account for $username",0);
+   error_log("$log_prefix Deleted account for $username at DN: $user_dn",0);
    return TRUE;
   }
   else {
-   error_log("$log_prefix Couldn't delete account for {$username}: " . ldap_error($ldap_connection),0);
+   error_log("$log_prefix Couldn't delete account for {$username} at DN {$user_dn}: " . ldap_error($ldap_connection),0);
    return FALSE;
   }
 
  }
+
+ return FALSE;
 
 }
 
@@ -971,24 +1249,66 @@ function ldap_add_member_to_group($ldap_connection,$group_name,$username) {
 
   global $log_prefix, $LDAP, $LDAP_DEBUG;
 
-  $rfc2307bis_available = ldap_detect_rfc2307bis($ldap_connection);
-
-  $group_dn = "{$LDAP['group_attribute']}=" . ldap_escape(($group_name === null ? '' : $group_name), "", LDAP_ESCAPE_FILTER) . ",{$LDAP['group_dn']}";
-
-  if ($LDAP['group_membership_uses_uid'] == FALSE) {
-   $username = "{$LDAP['account_attribute']}=$username,{$LDAP['user_dn']}";
+  # Get user DN first
+  $user_dn = null;
+  $user_filter = "(&(objectclass=inetOrgPerson)({$LDAP['account_attribute']}=$username))";
+  
+  # Search in organizations
+  $ldap_search = @ ldap_search($ldap_connection, $LDAP['org_dn'], $user_filter, array('dn'));
+  if ($ldap_search) {
+    $result = @ ldap_get_entries($ldap_connection, $ldap_search);
+    if ($result['count'] > 0) {
+      $user_dn = $result[0]['dn'];
+    }
+  }
+  
+  # If not found in organizations, search in system users
+  if (!$user_dn) {
+    $ldap_search = @ ldap_search($ldap_connection, $LDAP['system_users_dn'], $user_filter, array('dn'));
+    if ($ldap_search) {
+      $result = @ ldap_get_entries($ldap_connection, $ldap_search);
+      if ($result['count'] > 0) {
+        $user_dn = $result[0]['dn'];
+      }
+    }
+  }
+  
+  if (!$user_dn) {
+    error_log("$log_prefix Add member to group; User $username not found",0);
+    return FALSE;
   }
 
-  $group_update = array($LDAP['group_membership_attribute'] => $username);
-  $update = @ ldap_mod_add($ldap_connection,$group_dn,$group_update);
+  # Determine if this is a global role or organization-specific role
+  $role_dn = null;
+  
+  # Check if it's a global role (administrator, maintainer)
+  if (in_array($group_name, array('administrator', 'maintainer'))) {
+    $role_dn = "cn=$group_name,{$LDAP['roles_dn']}";
+  } else {
+    # Check if it's an organization-specific role
+    $org_search = @ ldap_search($ldap_connection, $LDAP['org_dn'], "(&(objectclass=groupOfNames)(cn=$group_name))", array('dn'));
+    if ($org_search) {
+      $result = @ ldap_get_entries($ldap_connection, $org_search);
+      if ($result['count'] > 0) {
+        $role_dn = $result[0]['dn'];
+      }
+    }
+  }
+  
+  if (!$role_dn) {
+    error_log("$log_prefix Add member to group; Role/group $group_name not found",0);
+    return FALSE;
+  }
 
-  if ($update) {
-   error_log("$log_prefix Added $username to group '$group_name'",0);
+  # Add user to the role
+  $add_member = @ ldap_mod_add($ldap_connection, $role_dn, array('member' => $user_dn));
+
+  if ($add_member) {
+   error_log("$log_prefix Added user $username to role/group $group_name",0);
    return TRUE;
   }
   else {
-   ldap_get_option($ldap_connection, LDAP_OPT_DIAGNOSTIC_MESSAGE, $detailed_err);
-   error_log("$log_prefix Couldn't add $username to group '{$group_name}': " . ldap_error($ldap_connection) . " -- " . $detailed_err,0);
+   error_log("$log_prefix Couldn't add user $username to role/group $group_name: " . ldap_error($ldap_connection),0);
    return FALSE;
   }
 
@@ -999,33 +1319,71 @@ function ldap_add_member_to_group($ldap_connection,$group_name,$username) {
 
 function ldap_delete_member_from_group($ldap_connection,$group_name,$username) {
 
-  global $log_prefix, $LDAP, $LDAP_DEBUG, $USER_ID;
+  global $log_prefix, $LDAP, $LDAP_DEBUG;
 
-  if ($group_name == $LDAP['admins_group'] and $username == $USER_ID) {
-    error_log("$log_prefix Won't remove {$username} from {$group_name} because you're logged in as {$username} and {$group_name} is the admin group.",0);
+  # Get user DN first
+  $user_dn = null;
+  $user_filter = "(&(objectclass=inetOrgPerson)({$LDAP['account_attribute']}=$username))";
+  
+  # Search in organizations
+  $ldap_search = @ ldap_search($ldap_connection, $LDAP['org_dn'], $user_filter, array('dn'));
+  if ($ldap_search) {
+    $result = @ ldap_get_entries($ldap_connection, $ldap_search);
+    if ($result['count'] > 0) {
+      $user_dn = $result[0]['dn'];
+    }
+  }
+  
+  # If not found in organizations, search in system users
+  if (!$user_dn) {
+    $ldap_search = @ ldap_search($ldap_connection, $LDAP['system_users_dn'], $user_filter, array('dn'));
+    if ($ldap_search) {
+      $result = @ ldap_get_entries($ldap_connection, $ldap_search);
+      if ($result['count'] > 0) {
+        $user_dn = $result[0]['dn'];
+      }
+    }
+  }
+  
+  if (!$user_dn) {
+    error_log("$log_prefix Remove member from group; User $username not found",0);
     return FALSE;
   }
-  else {
-    $rfc2307bis_available = ldap_detect_rfc2307bis($ldap_connection);
 
-    $group_dn = "{$LDAP['group_attribute']}=" . ldap_escape(($group_name === null ? '' : $group_name), "", LDAP_ESCAPE_FILTER) . ",{$LDAP['group_dn']}";
-
-    if ($LDAP['group_membership_uses_uid'] == FALSE and $username != "") {
-      $username = "{$LDAP['account_attribute']}=$username,{$LDAP['user_dn']}";
-    }
-
-    $group_update = array($LDAP['group_membership_attribute'] => $username);
-    $update = @ ldap_mod_del($ldap_connection,$group_dn,$group_update);
-
-    if ($update) {
-     error_log("$log_prefix Removed '$username' from $group_name",0);
-     return TRUE;
-    }
-    else {
-     error_log("$log_prefix Couldn't remove '$username' from {$group_name}: " . ldap_error($ldap_connection),0);
-     return FALSE;
+  # Determine if this is a global role or organization-specific role
+  $role_dn = null;
+  
+  # Check if it's a global role (administrator, maintainer)
+  if (in_array($group_name, array('administrator', 'maintainer'))) {
+    $role_dn = "cn=$group_name,{$LDAP['roles_dn']}";
+  } else {
+    # Check if it's an organization-specific role
+    $org_search = @ ldap_search($ldap_connection, $LDAP['org_dn'], "(&(objectclass=groupOfNames)(cn=$group_name))", array('dn'));
+    if ($org_search) {
+      $result = @ ldap_get_entries($ldap_connection, $org_search);
+      if ($result['count'] > 0) {
+        $role_dn = $result[0]['dn'];
+      }
     }
   }
+  
+  if (!$role_dn) {
+    error_log("$log_prefix Remove member from group; Role/group $group_name not found",0);
+    return FALSE;
+  }
+
+  # Remove user from the role
+  $remove_member = @ ldap_mod_delete($ldap_connection, $role_dn, array('member' => $user_dn));
+
+  if ($remove_member) {
+   error_log("$log_prefix Removed user $username from role/group $group_name",0);
+   return TRUE;
+  }
+  else {
+   error_log("$log_prefix Couldn't remove user $username from role/group $group_name: " . ldap_error($ldap_connection),0);
+   return FALSE;
+  }
+
 }
 
 
@@ -1035,27 +1393,37 @@ function ldap_change_password($ldap_connection,$username,$new_password) {
 
  global $log_prefix, $LDAP, $LDAP_DEBUG;
 
- #Find DN of user
-
+ # Find DN of user across all organizations and system users
  $ldap_search_query = "{$LDAP['account_attribute']}=" . ldap_escape(($username === null ? '' : $username), "", LDAP_ESCAPE_FILTER);
- $ldap_search = @ ldap_search( $ldap_connection, $LDAP['user_dn'], $ldap_search_query);
+ $user_dn = null;
+ 
+ # Search in organizations first
+ $ldap_search = @ ldap_search($ldap_connection, $LDAP['org_dn'], $ldap_search_query);
  if ($ldap_search) {
-  $result = @ ldap_get_entries($ldap_connection, $ldap_search);
-  if ($result["count"] == 1) {
-  $this_dn=$result[0]['dn'];
-  }
-  else {
+   $result = @ ldap_get_entries($ldap_connection, $ldap_search);
+   if ($result["count"] == 1) {
+     $user_dn = $result[0]['dn'];
+   }
+ }
+ 
+ # If not found in organizations, search in system users
+ if (!$user_dn) {
+   $ldap_search = @ ldap_search($ldap_connection, $LDAP['system_users_dn'], $ldap_search_query);
+   if ($ldap_search) {
+     $result = @ ldap_get_entries($ldap_connection, $ldap_search);
+     if ($result["count"] == 1) {
+       $user_dn = $result[0]['dn'];
+     }
+   }
+ }
+ 
+ if (!$user_dn) {
    error_log("$log_prefix Couldn't find the DN for user $username");
    return FALSE;
-  }
- }
- else {
-  error_log("$log_prefix Couldn't perform an LDAP search for {$LDAP['account_attribute']}={$username}: " . ldap_error($ldap_connection),0);
-  return FALSE;
  }
 
  $entries["userPassword"] = ldap_hashed_password($new_password);
- $update = @ ldap_mod_replace($ldap_connection, $this_dn, $entries);
+ $update = @ ldap_mod_replace($ldap_connection, $user_dn, $entries);
 
  if ($update) {
   error_log("$log_prefix Updated the password for $username",0);
@@ -1063,7 +1431,172 @@ function ldap_change_password($ldap_connection,$username,$new_password) {
  }
  else {
   error_log("$log_prefix Couldn't update the password for {$username}: " . ldap_error($ldap_connection),0);
+  return FALSE;
+ }
+
+}
+
+
+##################################
+
+function ldap_change_passcode($ldap_connection,$username,$new_passcode) {
+
+ global $log_prefix, $LDAP, $LDAP_DEBUG;
+
+ # Find DN of user across all organizations and system users
+ $ldap_search_query = "{$LDAP['account_attribute']}=" . ldap_escape(($username === null ? '' : $username), "", LDAP_ESCAPE_FILTER);
+ $user_dn = null;
+ 
+ # Search in organizations first
+ $ldap_search = @ ldap_search($ldap_connection, $LDAP['org_dn'], $ldap_search_query);
+ if ($ldap_search) {
+   $result = @ ldap_get_entries($ldap_connection, $ldap_search);
+   if ($result["count"] == 1) {
+     $user_dn = $result[0]['dn'];
+   }
+ }
+ 
+ # If not found in organizations, search in system users
+ if (!$user_dn) {
+   $ldap_search = @ ldap_search($ldap_connection, $LDAP['system_users_dn'], $ldap_search_query);
+   if ($ldap_search) {
+     $result = @ ldap_get_entries($ldap_connection, $ldap_search);
+     if ($result["count"] == 1) {
+       $user_dn = $result[0]['dn'];
+     }
+   }
+ }
+ 
+ if (!$user_dn) {
+   error_log("$log_prefix Couldn't find the DN for user $username");
+   return FALSE;
+ }
+
+ $entries["passcode"] = ldap_hashed_passcode($new_passcode);
+ $update = @ ldap_mod_replace($ldap_connection, $user_dn, $entries);
+
+ if ($update) {
+  error_log("$log_prefix Updated the passcode for $username",0);
   return TRUE;
+ }
+ else {
+  error_log("$log_prefix Couldn't update the passcode for {$username}: " . ldap_error($ldap_connection),0);
+  return FALSE;
+ }
+
+}
+
+
+##################################
+
+function ldap_get_user_info($ldap_connection, $username, $fields = NULL) {
+
+ global $log_prefix, $LDAP, $LDAP_DEBUG;
+
+ if (!isset($fields)) { 
+   $fields = array_unique( array("{$LDAP['account_attribute']}", "givenname", "sn", "cn", "mail", "userRole", "organization", "passcode")); 
+ }
+
+ $ldap_search_query = "{$LDAP['account_attribute']}=" . ldap_escape(($username === null ? '' : $username), "", LDAP_ESCAPE_FILTER);
+ $user_info = null;
+ 
+ # Search in organizations first
+ $ldap_search = @ ldap_search($ldap_connection, $LDAP['org_dn'], $ldap_search_query, $fields);
+ if ($ldap_search) {
+   $result = @ ldap_get_entries($ldap_connection, $ldap_search);
+   if ($result['count'] > 0) {
+     $user_info = array();
+     foreach ($fields as $field) {
+       if (isset($result[0][strtolower($field)][0])) {
+         $user_info[$field] = $result[0][strtolower($field)][0];
+       }
+     }
+     $user_info['dn'] = $result[0]['dn'];
+     return $user_info;
+   }
+ }
+ 
+ # If not found in organizations, search in system users
+ $ldap_search = @ ldap_search($ldap_connection, $LDAP['system_users_dn'], $ldap_search_query, $fields);
+ if ($ldap_search) {
+   $result = @ ldap_get_entries($ldap_connection, $ldap_search);
+   if ($result['count'] > 0) {
+     $user_info = array();
+     foreach ($fields as $field) {
+       if (isset($result[0][strtolower($field)][0])) {
+         $user_info[$field] = $result[0][strtolower($field)][0];
+       }
+     }
+     $user_info['dn'] = $result[0]['dn'];
+     return $user_info;
+   }
+ }
+ 
+ if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix User {$username} not found",0); }
+ return FALSE;
+
+}
+
+
+##################################
+
+function ldap_update_user_attributes($ldap_connection, $username, $attributes) {
+
+ global $log_prefix, $LDAP, $LDAP_DEBUG;
+
+ if (empty($attributes) || !is_array($attributes)) {
+  error_log("$log_prefix Update user attributes; no attributes provided or invalid format",0);
+  return FALSE;
+ }
+
+ # Find the user across all organizations and system users
+ $ldap_search_query = "{$LDAP['account_attribute']}=" . ldap_escape(($username === null ? '' : $username), "", LDAP_ESCAPE_FILTER);
+ $user_dn = null;
+ 
+ # Search in organizations first
+ $ldap_search = @ ldap_search($ldap_connection, $LDAP['org_dn'], $ldap_search_query);
+ if ($ldap_search) {
+   $result = @ ldap_get_entries($ldap_connection, $ldap_search);
+   if ($result['count'] > 0) {
+     $user_dn = $result[0]['dn'];
+   }
+ }
+ 
+ # If not found in organizations, search in system users
+ if (!$user_dn) {
+   $ldap_search = @ ldap_search($ldap_connection, $LDAP['system_users_dn'], $ldap_search_query);
+   if ($ldap_search) {
+     $result = @ ldap_get_entries($ldap_connection, $ldap_search);
+     if ($result['count'] > 0) {
+       $user_dn = $result[0]['dn'];
+     }
+   }
+ }
+ 
+ if (!$user_dn) {
+  error_log("$log_prefix Update user attributes; User {$username} not found",0);
+  return FALSE;
+ }
+ 
+ # Handle password hashing if password is being updated
+ if (isset($attributes['userPassword'])) {
+  $attributes['userPassword'] = ldap_hashed_password($attributes['userPassword']);
+ }
+ 
+ # Handle passcode hashing if passcode is being updated
+ if (isset($attributes['passcode'])) {
+  $attributes['passcode'] = ldap_hashed_passcode($attributes['passcode']);
+ }
+
+ $update = @ ldap_mod_replace($ldap_connection, $user_dn, $attributes);
+
+ if ($update) {
+  error_log("$log_prefix Updated attributes for user {$username}",0);
+  return TRUE;
+ }
+ else {
+  error_log("$log_prefix Couldn't update attributes for user {$username}: " . ldap_error($ldap_connection),0);
+  return FALSE;
  }
 
 }

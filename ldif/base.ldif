@@ -1,26 +1,35 @@
+# Base DN
 dn: dc=example,dc=com
-objectClass: top
-objectClass: domain
+objectClass: dcObject
+objectClass: organization
 dc: example
+o: Example Organization
 
-# Organizations container
+# Organizational units
 dn: ou=organizations,dc=example,dc=com
 objectClass: organizationalUnit
 ou: organizations
 
-# Roles container
-dn: ou=roles,dc=example,dc=com
+dn: ou=system_users,dc=example,dc=com
+objectClass: organizationalUnit
+ou: system_users
+
+dn: ou=roles,ou=organizations,dc=example,dc=com
 objectClass: organizationalUnit
 ou: roles
 
-# Administrators group
-dn: cn=administrators,ou=roles,dc=example,dc=com
+# Administrator role
+dn: cn=administrator,ou=roles,ou=organizations,dc=example,dc=com
 objectClass: groupOfNames
-cn: administrators
-member: cn=dummy,dc=example,dc=com
+objectClass: top
+cn: administrator
+description: Full system administrator with all privileges
+member: uid=admin@example.com,ou=system_users,dc=example,dc=com
 
-# Maintainers group
-dn: cn=maintainers,ou=roles,dc=example,dc=com
+# Maintainer role
+dn: cn=maintainer,ou=roles,ou=organizations,dc=example,dc=com
 objectClass: groupOfNames
-cn: maintainers
-member: cn=dummy,dc=example,dc=com 
+objectClass: top
+cn: maintainer
+description: System maintainer with limited privileges
+member: uid=maintainer@example.com,ou=system_users,dc=example,dc=com 

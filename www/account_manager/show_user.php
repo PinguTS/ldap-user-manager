@@ -6,6 +6,7 @@ include_once "web_functions.inc.php";
 include_once "ldap_functions.inc.php";
 include_once "module_functions.inc.php";
 include_once "access_functions.inc.php";
+include_once "organization_functions.inc.php";
 set_page_access(["admin", "user"]); // Allow both admin and user roles
 
 render_header("$ORGANISATION_NAME account manager");
@@ -22,7 +23,7 @@ if ($SMTP['host'] != "") { $can_send_email = TRUE; } else { $can_send_email = FA
 $LDAP['default_attribute_map']["mail"]  = array("label" => "Email", "onkeyup" => "check_if_we_should_enable_sending_email();");
 
 $attribute_map = $LDAP['default_attribute_map'];
-if (isset($LDAP['account_additional_attributes'])) { $attribute_map = ldap_complete_attribute_array($attribute_map,$LDAP['account_additional_attributes']); }
+if (isset($LDAP['account_additional_attributes'])) { $attribute_map = ldap_complete_attribute_map($attribute_map,$LDAP['account_additional_attributes']); }
 if (! array_key_exists($LDAP['account_attribute'], $attribute_map)) {
   $attribute_r = array_merge($attribute_map, array($LDAP['account_attribute'] => array("label" => "Account UID")));
 }
@@ -46,12 +47,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $ldap_connection = open_ldap_connection();
+
+// Search for user across both organizations and system users
 $ldap_search_query="({$LDAP['account_attribute']}=". ldap_escape($account_identifier, "", LDAP_ESCAPE_FILTER) . ")";
-$ldap_search = ldap_search( $ldap_connection, $LDAP['user_dn'], $ldap_search_query);
+
+// First try to find in organizations
+$ldap_search = ldap_search( $ldap_connection, $LDAP['org_dn'], $ldap_search_query);
+$user = null;
+$user_location = '';
 
 if ($ldap_search) {
  $user = ldap_get_entries($ldap_connection, $ldap_search);
  if ($user && isset($user["count"]) && $user["count"] > 0) {
+   $user_location = 'organization';
+ }
+}
+
+// If not found in organizations, try system users
+if (!$user || $user["count"] == 0) {
+ $ldap_search = ldap_search( $ldap_connection, $LDAP['system_users_dn'], $ldap_search_query);
+ if ($ldap_search) {
+   $user = ldap_get_entries($ldap_connection, $ldap_search);
+   if ($user && isset($user["count"]) && $user["count"] > 0) {
+     $user_location = 'system';
+   }
+ }
+}
+
+if ($ldap_search && $user && isset($user["count"]) && $user["count"] > 0) {
 
   foreach ($attribute_map as $attribute => $attr_r) {
 
@@ -257,42 +280,66 @@ else {
 
  ################################################
 
+// Get available organizations for selection (only for organization users)
+$available_organizations = [];
+$available_user_roles = ['user', 'org_admin'];
 
- $all_groups = ldap_get_group_list($ldap_connection);
+if ($user_location === 'organization') {
+    $available_organizations = listOrganizations();
+}
 
- $currently_member_of = ldap_user_group_membership($ldap_connection,$account_identifier);
+// Get current role memberships
+$currently_member_of = ldap_user_group_membership($ldap_connection, $account_identifier);
 
- $not_member_of = array_diff($all_groups,$currently_member_of);
+// Get all available roles (global and organization-specific)
+$all_roles = [];
 
- #########  Add/remove from groups
+// Global roles
+$global_roles = ['administrator', 'maintainer'];
+foreach ($global_roles as $role) {
+    $all_roles[] = $role;
+}
+
+// Organization-specific roles (if user is in an organization)
+if ($user_location === 'organization' && isset($organization[0])) {
+    $org_roles = ['org_admin'];
+    foreach ($org_roles as $role) {
+        $all_roles[] = $role;
+    }
+}
+
+$not_member_of = array_diff($all_roles, $currently_member_of);
+
+ #########  Add/remove from roles
 
  if (isset($_POST["update_member_of"])) {
 
-  $updated_group_membership = array();
+  $updated_role_membership = array();
 
-  foreach ($_POST as $index => $group) {
+  foreach ($_POST as $index => $role) {
    if (is_numeric($index)) {
-    array_push($updated_group_membership,$group);
+    array_push($updated_role_membership,$role);
    }
   }
 
-  if ($USER_ID == $account_identifier and !array_search($USER_ID, $updated_group_membership)){
-    array_push($updated_group_membership,$LDAP["admins_group"]);
+  // Ensure admin users can't remove themselves from admin role
+  if ($USER_ID == $account_identifier and !array_search($LDAP["admins_group"], $updated_role_membership)){
+    array_push($updated_role_membership,$LDAP["admins_group"]);
   }
 
-  $groups_to_add = array_diff($updated_group_membership,$currently_member_of);
-  $groups_to_del = array_diff($currently_member_of,$updated_group_membership);
+  $roles_to_add = array_diff($updated_role_membership,$currently_member_of);
+  $roles_to_del = array_diff($currently_member_of,$updated_role_membership);
 
-  foreach ($groups_to_del as $this_group) {
-   ldap_delete_member_from_group($ldap_connection,$this_group,$account_identifier);
+  foreach ($roles_to_del as $this_role) {
+   ldap_delete_member_from_group($ldap_connection,$this_role,$account_identifier);
   }
-  foreach ($groups_to_add as $this_group) {
-   ldap_add_member_to_group($ldap_connection,$this_group,$account_identifier);
+  foreach ($roles_to_add as $this_role) {
+   ldap_add_member_to_group($ldap_connection,$this_role,$account_identifier);
   }
 
-  $not_member_of = array_diff($all_groups,$updated_group_membership);
-  $member_of = $updated_group_membership;
-  render_alert_banner("The group membership has been updated.");
+  $not_member_of = array_diff($all_roles,$updated_role_membership);
+  $member_of = $updated_role_membership;
+  render_alert_banner("The role membership has been updated.");
 
  }
  else {
@@ -347,23 +394,23 @@ else {
 
  }
 
- function update_form_with_groups() {
+ function update_form_with_roles() {
 
-  var group_form = document.getElementById('update_with_groups');
-  var group_list_ul = document.getElementById('member_of_list');
+  var role_form = document.getElementById('update_with_roles');
+  var role_list_ul = document.getElementById('member_of_list');
 
-  var group_list = group_list_ul.getElementsByTagName("li");
+  var role_list = role_list_ul.getElementsByTagName("li");
 
-  for (var i = 0; i < group_list.length; ++i) {
+  for (var i = 0; i < role_list.length; ++i) {
     var hidden = document.createElement("input");
         hidden.type = "hidden";
         hidden.name = i;
-        hidden.value = group_list[i]['textContent'];
-        group_form.appendChild(hidden);
+        hidden.value = role_list[i]['textContent'];
+        role_form.appendChild(hidden);
 
   }
 
-  group_form.submit();
+  role_form.submit();
 
  }
 
@@ -371,21 +418,6 @@ else {
 
     $('body').on('click', '.list-group .list-group-item', function () {
         $(this).toggleClass('active');
-    });
-    $('.list-arrows button').click(function () {
-        var $button = $(this), actives = '';
-        if ($button.hasClass('move-left')) {
-            actives = $('.list-right ul li.active');
-            actives.clone().appendTo('.list-left ul');
-            $('.list-left ul li.active').removeClass('active');
-            actives.remove();
-        } else if ($button.hasClass('move-right')) {
-            actives = $('.list-left ul li.active');
-            actives.clone().appendTo('.list-right ul');
-            $('.list-right ul li.active').removeClass('active');
-            actives.remove();
-        }
-        $("#submit_members").prop("disabled", false);
     });
     $('.dual-list .selector').click(function () {
         var $checkBox = $(this);
@@ -478,7 +510,14 @@ else {
     </div>
     <ul class="list-group">
       <li class="list-group-item"><?php print htmlspecialchars($dn); ?></li>
-    </li>
+      <li class="list-group-item"><strong>Location:</strong> <?php print htmlspecialchars(ucfirst($user_location)); ?> User</li>
+      <?php if ($user_location === 'organization' && isset($organization[0])) { ?>
+        <li class="list-group-item"><strong>Organization:</strong> <?php print htmlspecialchars($organization[0]); ?></li>
+      <?php } ?>
+      <?php if (isset($userRole[0])) { ?>
+        <li class="list-group-item"><strong>User Role:</strong> <?php print htmlspecialchars(ucfirst(str_replace('_', ' ', $userRole[0]))); ?></li>
+      <?php } ?>
+    </ul>
     <div class="panel-body">
      <form class="form-horizontal" action="" enctype="multipart/form-data" method="post">
       <?= csrf_token_field() ?>
@@ -493,7 +532,36 @@ else {
           if (isset($attr_r['inputtype'])) { $inputtype = $attr_r['inputtype']; } else { $inputtype = ""; }
           if ($attribute == $LDAP['account_attribute']) { $label = "<strong>$label</strong><sup>&ast;</sup>"; }
           if (isset($$attribute)) { $these_values=$$attribute; } else { $these_values = array(); }
-          render_attribute_fields($attribute,$label,$these_values,$dn,$onkeyup,$inputtype);
+          
+          // Special handling for organization and userRole fields
+          if ($attribute === 'organization' && $user_location === 'organization') {
+            echo '<div class="form-group" id="organization_div">';
+            echo '<label for="organization" class="col-sm-3 control-label"><strong>Organization</strong></label>';
+            echo '<div class="col-sm-6">';
+            echo '<select class="form-control" name="organization" id="organization" disabled>';
+            foreach ($available_organizations as $org) {
+              $selected = (isset($these_values[0]) && $these_values[0] === $org['name']) ? 'selected' : '';
+              echo '<option value="' . htmlspecialchars($org['name']) . '" ' . $selected . '>' . htmlspecialchars($org['name']) . '</option>';
+            }
+            echo '</select>';
+            echo '<small class="form-text text-muted">Organization cannot be changed after account creation</small>';
+            echo '</div>';
+            echo '</div>';
+          } elseif ($attribute === 'userRole' && $user_location === 'organization') {
+            echo '<div class="form-group" id="userRole_div">';
+            echo '<label for="userRole" class="col-sm-3 control-label">User Role</label>';
+            echo '<div class="col-sm-6">';
+            echo '<select class="form-control" name="userRole" id="userRole">';
+            foreach ($available_user_roles as $role) {
+              $selected = (isset($these_values[0]) && $these_values[0] === $role) ? 'selected' : '';
+              echo '<option value="' . htmlspecialchars($role) . '" ' . $selected . '>' . htmlspecialchars(ucfirst(str_replace('_', ' ', $role))) . '</option>';
+            }
+            echo '</select>';
+            echo '</div>';
+            echo '</div>';
+          } else {
+            render_attribute_fields($attribute,$label,$these_values,$dn,$onkeyup,$inputtype);
+          }
         }
       ?>
 
@@ -547,7 +615,7 @@ else {
 
   <div class="panel panel-default">
    <div class="panel-heading clearfix">
-    <h3 class="panel-title pull-left" style="padding-top: 7.5px;">Group membership</h3>
+    <h3 class="panel-title pull-left" style="padding-top: 7.5px;">Role membership</h3>
    </div>
    <div class="panel-body">
 
@@ -571,12 +639,12 @@ else {
            </div>
            <ul class="list-group" id="member_of_list">
             <?php
-            foreach ($member_of as $group) {
-              if ($group == $LDAP["admins_group"] and $USER_ID == $account_identifier) {
-                print "<div class='list-group-item' style='opacity: 0.5; pointer-events:none;'>" . htmlspecialchars($group) . "</div>\n";
+            foreach ($member_of as $role) {
+              if ($role == $LDAP["admins_group"] and $USER_ID == $account_identifier) {
+                print "<div class='list-group-item' style='opacity: 0.5; pointer-events:none;'>" . htmlspecialchars($role) . "</div>\n";
               }
               else {
-                print "<li class='list-group-item'>" . htmlspecialchars($group) . "</li>\n";
+                print "<li class='list-group-item'>" . htmlspecialchars($role) . "</li>\n";
               }
             }
             ?>
@@ -591,15 +659,15 @@ else {
           <button class="btn btn-default btn-sm move-right">
            <span class="glyphicon glyphicon-chevron-right"></span>
           </button>
-          <form id="update_with_groups" action="<?php print $CURRENT_PAGE ?>" method="post">
+          <form id="update_with_roles" action="<?php print $CURRENT_PAGE ?>" method="post">
            <input type="hidden" name="update_member_of">
            <input type="hidden" name="account_identifier" value="<?php print $account_identifier; ?>">
           </form>
-          <button id="submit_members" class="btn btn-info" disabled type="submit" onclick="update_form_with_groups()">Save</button>
+          <button id="submit_members" class="btn btn-info" disabled type="submit" onclick="update_form_with_roles()">Save</button>
          </div>
 
          <div class="dual-list list-right col-md-5">
-          <strong>Available groups</strong>
+          <strong>Available roles</strong>
           <div class="well">
            <div class="row">
             <div class="col-md-2">
@@ -616,8 +684,8 @@ else {
            </div>
            <ul class="list-group">
             <?php
-             foreach ($not_member_of as $group) {
-               print "<li class='list-group-item'>" . htmlspecialchars($group) . "</li>\n";
+             foreach ($not_member_of as $role) {
+               print "<li class='list-group-item'>" . htmlspecialchars($role) . "</li>\n";
              }
             ?>
            </ul>
@@ -666,7 +734,7 @@ if (isset($_POST['change_passcode'])) {
         render_alert_banner("The passcodes didn't match.", "warning");
     } else {
         $ldap_connection = open_ldap_connection();
-        $entry = ['loginPasscode' => password_hash($new_passcode, PASSWORD_DEFAULT)];
+        $entry = ['passcode' => ldap_hashed_passcode($new_passcode)];
         $result = @ldap_modify($ldap_connection, $dn, $entry);
         if ($result) {
             render_alert_banner("Your passcode has been updated.", "success");

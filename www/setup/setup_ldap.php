@@ -5,6 +5,7 @@ set_include_path( ".:" . __DIR__ . "/../includes/");
 include_once "web_functions.inc.php";
 include_once "ldap_functions.inc.php";
 include_once "module_functions.inc.php";
+include_once "organization_functions.inc.php";
 
 validate_setup_cookie();
 set_page_access("setup");
@@ -34,125 +35,146 @@ if (isset($_POST['fix_problems'])) {
 
 <?php
 
- if (isset($_POST['setup_group_ou'])) {
-  $ou_add = @ ldap_add($ldap_connection, $LDAP['group_dn'], array( 'objectClass' => 'organizationalUnit', 'ou' => $LDAP['group_ou'] ));
+ if (isset($_POST['setup_organizations_ou'])) {
+  $ou_add = @ ldap_add($ldap_connection, "ou=organizations,{$LDAP['base_dn']}", array( 'objectClass' => 'organizationalUnit', 'ou' => 'organizations' ));
   if ($ou_add == TRUE) {
-   print "$li_good Created OU <strong>{$LDAP['group_dn']}</strong></li>\n";
+   print "$li_good Created OU <strong>ou=organizations,{$LDAP['base_dn']}</strong></li>\n";
   }
   else {
    $error = ldap_error($ldap_connection);
-   print "$li_fail Couldn't create {$LDAP['group_dn']}: <pre>$error</pre></li>\n";
+   print "$li_fail Couldn't create ou=organizations,{$LDAP['base_dn']}: <pre>$error</pre></li>\n";
    $no_errors = FALSE;
   }
  }
 
-
- if (isset($_POST['setup_user_ou'])) {
-  $ou_add = @ ldap_add($ldap_connection, $LDAP['user_dn'], array( 'objectClass' => 'organizationalUnit', 'ou' => $LDAP['user_ou'] ));
+ if (isset($_POST['setup_system_users_ou'])) {
+  $ou_add = @ ldap_add($ldap_connection, "ou=system_users,{$LDAP['base_dn']}", array( 'objectClass' => 'organizationalUnit', 'ou' => 'system_users' ));
   if ($ou_add == TRUE) {
-   print "$li_good Created OU <strong>{$LDAP['user_dn']}</strong></li>\n";
+   print "$li_good Created OU <strong>ou=system_users,{$LDAP['base_dn']}</strong></li>\n";
   }
   else {
    $error = ldap_error($ldap_connection);
-   print "$li_fail Couldn't create {$LDAP['user_dn']}: <pre>$error</pre></li>\n";
+   print "$li_fail Couldn't create ou=system_users,{$LDAP['base_dn']}: <pre>$error</pre></li>\n";
    $no_errors = FALSE;
   }
  }
 
-
- if (isset($_POST['setup_last_gid'])) {
-
-  $highest_gid = ldap_get_highest_id($ldap_connection,'gid');
-  $description = "Records the last GID used to create a Posix group. This prevents the re-use of a GID from a deleted group.";
-
-  $add_lastgid_r = array( 'objectClass' => array('device','top'),
-                          'serialnumber' => $highest_gid,
-                          'description' => $description );
-
-  $gid_add = @ ldap_add($ldap_connection, "cn=lastGID,{$LDAP['base_dn']}", $add_lastgid_r);
-
-  if ($gid_add == TRUE) {
-   print "$li_good Created <strong>cn=lastGID,{$LDAP['base_dn']}</strong></li>\n";
+ if (isset($_POST['setup_global_roles_ou'])) {
+  $ou_add = @ ldap_add($ldap_connection, "ou=roles,ou=organizations,{$LDAP['base_dn']}", array( 'objectClass' => 'organizationalUnit', 'ou' => 'roles' ));
+  if ($ou_add == TRUE) {
+   print "$li_good Created OU <strong>ou=roles,ou=organizations,{$LDAP['base_dn']}</strong></li>\n";
   }
   else {
    $error = ldap_error($ldap_connection);
-   print "$li_fail Couldn't create cn=lastGID,{$LDAP['base_dn']}: <pre>$error</pre></li>\n";
+   print "$li_fail Couldn't create ou=roles,ou=organizations,{$LDAP['base_dn']}: <pre>$error</pre></li>\n";
    $no_errors = FALSE;
   }
  }
 
-
- if (isset($_POST['setup_last_uid'])) {
-
-  $highest_uid = ldap_get_highest_id($ldap_connection,'uid');
-  $description = "Records the last UID used to create a Posix account. This prevents the re-use of a UID from a deleted account.";
-
-  $add_lastuid_r = array( 'objectClass' => array('device','top'),
-                          'serialnumber' => $highest_uid,
-                          'description' => $description );
-
-  $uid_add = @ ldap_add($ldap_connection, "cn=lastUID,{$LDAP['base_dn']}", $add_lastuid_r);
-
-  if ($uid_add == TRUE) {
-   print "$li_good Created <strong>cn=lastUID,{$LDAP['base_dn']}</strong></li>\n";
-  }
-  else {
-   $error = ldap_error($ldap_connection);
-   print "$li_fail Couldn't create cn=lastUID,{$LDAP['base_dn']}: <pre>$error</pre></li>\n";
-   $no_errors = FALSE;
-  }
- }
-
-
- if (isset($_POST['setup_default_group'])) {
-
-  $group_add = ldap_new_group($ldap_connection,$DEFAULT_USER_GROUP);
+ if (isset($_POST['setup_admin_role'])) {
+  $admin_role = array(
+   'objectClass' => array('top', 'groupOfNames'),
+   'cn' => 'administrator',
+   'description' => 'Full system administrator with all privileges',
+   'member' => array()
+  );
   
-  if ($group_add == TRUE) {
-   print "$li_good Created default group: <strong>$DEFAULT_USER_GROUP</strong></li>\n";
+  $role_add = @ ldap_add($ldap_connection, "cn=administrator,ou=roles,ou=organizations,{$LDAP['base_dn']}", $admin_role);
+  if ($role_add == TRUE) {
+   print "$li_good Created administrator role <strong>cn=administrator,ou=roles,ou=organizations,{$LDAP['base_dn']}</strong></li>\n";
   }
   else {
    $error = ldap_error($ldap_connection);
-   print "$li_fail Couldn't create default group: <pre>$error</pre></li>\n";
+   print "$li_fail Couldn't create administrator role: <pre>$error</pre></li>\n";
    $no_errors = FALSE;
   }
  }
 
- if (isset($_POST['setup_admins_group'])) {
-
-  $group_add = ldap_new_group($ldap_connection,$LDAP['admins_group']);
+ if (isset($_POST['setup_maintainer_role'])) {
+  $maintainer_role = array(
+   'objectClass' => array('top', 'groupOfNames'),
+   'cn' => 'maintainer',
+   'description' => 'System maintainer with limited privileges',
+   'member' => array()
+  );
   
-  if ($group_add == TRUE) {
-   print "$li_good Created LDAP administrators group: <strong>{$LDAP['admins_group']}</strong></li>\n";
+  $role_add = @ ldap_add($ldap_connection, "cn=maintainer,ou=roles,ou=organizations,{$LDAP['base_dn']}", $maintainer_role);
+  if ($role_add == TRUE) {
+   print "$li_good Created maintainer role <strong>cn=maintainer,ou=roles,ou=organizations,{$LDAP['base_dn']}</strong></li>\n";
   }
   else {
    $error = ldap_error($ldap_connection);
-   print "$li_fail Couldn't create LDAP administrators group: <pre>$error</pre></li>\n";
+   print "$li_fail Couldn't create maintainer role: <pre>$error</pre></li>\n";
    $no_errors = FALSE;
   }
  }
 
- $admins = ldap_get_group_members($ldap_connection,$LDAP['admins_group']);
-
- if (count($admins) < 1) {
-
-  ?>
-  <div class="form-group">
-  <form action="<?php print "{$SERVER_PATH}account_manager/new_user.php"; ?>" method="post">
-  <input type="hidden" name="setup_admin_account">
-  <?php
-  print "$li_fail The LDAP administration group is empty. ";
-  print "<a href='#' data-toggle='popover' title='LDAP account administrators' data-content='";
-  print "Only members of this group ({$LDAP['admins_group']}) will be able to access the account managment section, so we need to add people to it.";
-  print "'>What's this?</a>";
-  print "<label class='pull-right'><input type='checkbox' name='setup_admin_account' class='pull-right' checked>Create a new account and add it to the admin group?&nbsp;</label>";
-  print "</li>\n";
-  $show_create_admin_button = TRUE;
+ if (isset($_POST['setup_admin_user'])) {
+  $admin_user = array(
+   'objectClass' => array('top', 'inetOrgPerson'),
+   'uid' => 'admin@example.com',
+   'cn' => 'System Administrator',
+   'sn' => 'Administrator',
+   'givenName' => 'System',
+   'mail' => 'admin@example.com',
+   'userPassword' => ldap_hashed_password('admin123'), // Default password - should be changed
+   'userRole' => 'administrator'
+  );
+  
+  $user_add = @ ldap_add($ldap_connection, "uid=admin@example.com,ou=system_users,{$LDAP['base_dn']}", $admin_user);
+  if ($user_add == TRUE) {
+   print "$li_good Created system administrator user <strong>uid=admin@example.com,ou=system_users,{$LDAP['base_dn']}</strong></li>\n";
+   print "$li_warn <strong>Default password is 'admin123' - please change this immediately!</strong></li>\n";
+  }
+  else {
+   $error = ldap_error($ldap_connection);
+   print "$li_fail Couldn't create system administrator user: <pre>$error</pre></li>\n";
+   $no_errors = FALSE;
+  }
  }
- else {
-  print "$li_good The LDAP account administrators group (<strong>{$LDAP['admins_group']}</strong>) isn't empty.</li>";
+
+ if (isset($_POST['setup_admin_role_membership'])) {
+  $admin_user_dn = "uid=admin@example.com,ou=system_users,{$LDAP['base_dn']}";
+  $admin_role_dn = "cn=administrator,ou=roles,ou=organizations,{$LDAP['base_dn']}";
+  
+  $modify = array(
+   'member' => array($admin_user_dn)
+  );
+  
+  $role_modify = @ ldap_modify($ldap_connection, $admin_role_dn, $modify);
+  if ($role_modify == TRUE) {
+   print "$li_good Added system administrator user to administrator role</li>\n";
+  }
+  else {
+   $error = ldap_error($ldap_connection);
+   print "$li_fail Couldn't add user to administrator role: <pre>$error</pre></li>\n";
+   $no_errors = FALSE;
+  }
  }
 
+ if (isset($_POST['setup_example_org'])) {
+  $example_org_data = array(
+   'o' => 'Example Company',
+   'street' => '123 Business Street',
+   'city' => 'New York',
+   'state' => 'NY',
+   'postalCode' => '10001',
+   'country' => 'USA',
+   'telephoneNumber' => '+1-555-0123',
+   'labeledURI' => 'https://examplecompany.com',
+   'mail' => 'info@examplecompany.com',
+   'creatorDN' => "uid=admin@example.com,ou=system_users,{$LDAP['base_dn']}"
+  );
+  
+  $org_result = createOrganization($example_org_data);
+  if ($org_result[0] === TRUE) {
+   print "$li_good Created example organization: <strong>Example Company</strong></li>\n";
+  }
+  else {
+   print "$li_fail Couldn't create example organization: <pre>{$org_result[1]}</pre></li>\n";
+   $no_errors = FALSE;
+  }
+ }
 
 ?>
   </ul>

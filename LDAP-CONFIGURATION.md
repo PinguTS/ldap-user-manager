@@ -1,6 +1,6 @@
 # LDAP Configuration for LDAP User Manager
 
-This document describes all LDAP schema and configuration requirements for running LDAP User Manager, including required and optional schemas, custom extensions, and troubleshooting tips.
+This document describes all LDAP schema and configuration requirements for running LDAP User Manager, including required schemas and configuration details.
 
 ---
 
@@ -18,69 +18,97 @@ These are typically included by default in most OpenLDAP installations.
 
 ---
 
-## 2. Custom Schemas Provided
+## 2. LDAP Structure
 
-### 2.1 orgWithCountry (Auxiliary Object Class)
-- **Purpose:** Allows the `c` (country) attribute on organization entries, which is not permitted by the standard `organization` object class.
-- **LDIF:** [`ldif/orgWithCountry.ldif`](ldif/orgWithCountry.ldif)
-- **How to load:**
-  ```sh
-  ldapadd -Y EXTERNAL -H ldapi:/// -f ldif/orgWithCountry.ldif
-  ```
-- **Usage:** Add the `orgWithCountry` object class to organization entries to allow the `c` attribute.
+### 2.1 Base Structure
+The system uses a hierarchical structure with organizations containing users:
 
-### 2.2 loginPasscode (Auxiliary Object Class)
-- **Purpose:** Allows a hashed `loginPasscode` attribute on user entries for optional passcode authentication.
-- **LDIF:** [`ldif/loginPasscode.ldif`](ldif/loginPasscode.ldif)
-- **How to load:**
-  ```sh
-  ldapadd -Y EXTERNAL -H ldapi:/// -f ldif/loginPasscode.ldif
-  ```
-- **Usage:** Add the `loginPasscodeUser` object class to user entries to allow the `loginPasscode` attribute.
+```
+dc=example,dc=com
+├── ou=organizations
+│   ├── o=Company Name
+│   │   ├── ou=users
+│   │   │   ├── uid=admin@company.com
+│   │   │   └── uid=user1@company.com
+│   │   └── ou=roles
+│   │       └── cn=org_admin
+│   └── o=University Name
+│       ├── ou=users
+│       └── ou=roles
+├── ou=system_users
+│   ├── uid=admin@example.com
+│   └── uid=maintainer@example.com
+└── ou=roles
+    ├── cn=administrator
+    └── cn=maintainer
+```
+
+### 2.2 Organization Attributes
+Organizations use the standard `postalAddress` attribute in the format:
+```
+postalAddress: Street$City$State$ZIP$Country
+```
+
+### 2.3 User Attributes
+Users are stored with email addresses as their `uid` and include:
+- `userRole`: administrator, maintainer, org_admin, or user
+- `organization`: the organization they belong to
 
 ---
 
-## 3. Example LDIF Loading
+## 3. Role-Based Access Control
 
-To load a schema LDIF into OpenLDAP (as root/admin):
+### 3.1 System Roles
+- **Administrators**: Full access to all organizations, users, and settings
+- **Maintainers**: Can manage all organizations and users, but cannot modify administrator accounts
+- **Organization Managers**: Can manage users within their assigned organization(s)
+
+### 3.2 Access Control Rules
+- Administrators can modify anyone
+- Maintainers can modify anyone except administrators
+- Organization managers can only modify users in their organization
+- Users can modify their own account
+
+---
+
+## 4. Example LDIF Loading
+
+To load the base structure into OpenLDAP (as root/admin):
 ```sh
-ldapadd -Y EXTERNAL -H ldapi:/// -f ldif/orgWithCountry.ldif
-ldapadd -Y EXTERNAL -H ldapi:/// -f ldif/loginPasscode.ldif
+ldapadd -Y EXTERNAL -H ldapi:/// -f ldif/base.ldif
+ldapadd -Y EXTERNAL -H ldapi:/// -f ldif/system_users.ldif
+ldapadd -Y EXTERNAL -H ldapi:/// -f ldif/example-org.ldif
 ```
 
 Restart or reload your LDAP server if required.
 
 ---
 
-## 4. Attribute and ObjectClass Explanations
+## 5. Configuration
 
-- **orgWithCountry**: Auxiliary object class to allow the `c` (country) attribute on organizations.
-- **loginPasscodeUser**: Auxiliary object class to allow the `loginPasscode` attribute on user entries (for optional passcode authentication).
-- **loginPasscode**: Single-valued, case-exact string attribute for storing a hashed passcode.
+### 5.1 Environment Variables
+- `LDAP_ADMINS_GROUP`: administrator (default)
+- `LDAP_MAINTAINERS_GROUP`: maintainer (default)
+- `LDAP_ORG_OU`: organizations (default)
 
----
-
-## 5. Troubleshooting Schema Errors
-
-- **objectClass violation** or **attribute type undefined**: Ensure the relevant schema LDIF is loaded and the entry includes the required object class.
-- **Cannot add country to organization**: Make sure `orgWithCountry` is loaded and the entry includes this object class.
-- **Cannot add loginPasscode to user**: Make sure `loginPasscode.ldif` is loaded and the entry includes the `loginPasscodeUser` object class.
+### 5.2 LDAP Base DN
+Ensure your `LDAP_BASE_DN` matches the structure in the LDIF files.
 
 ---
 
-## 6. Advanced LDAP Compatibility Notes
+## 6. Troubleshooting
 
-- The application is designed for OpenLDAP but may work with other LDAP servers if the required schemas and object classes are present.
-- If you use custom or additional attributes/objectClasses, ensure your LDAP server schema supports them.
-- For advanced group and role management, see the main README and the "Extra objectClasses and attributes" section.
+- **objectClass violation**: Ensure all required schemas are loaded
+- **Cannot add organization**: Verify the base structure exists
+- **Access denied**: Check user roles and group memberships
 
 ---
 
 ## 7. See Also
 
-- [ldif/orgWithCountry.ldif](ldif/orgWithCountry.ldif)
-- [ldif/loginPasscode.ldif](ldif/loginPasscode.ldif)
-- [ldif/base.ldif](ldif/base.ldif) (example data, not schema)
+- [ldif/base.ldif](ldif/base.ldif) - Base LDAP structure
+- [ldif/system_users.ldif](ldif/system_users.ldif) - System user accounts
+- [ldif/example-org.ldif](ldif/example-org.ldif) - Example organization
 - Main [README.md](README.md) for general setup and environment variables. 
 
 ---
@@ -97,36 +125,52 @@ project-root/
   ldif/
     10-orgWithCountry.ldif
     20-loginPasscode.ldif
-    ...
+    ... (other schema/data LDIFs as needed)
 ```
 
-**docker-compose.yml:**
+- Place all your custom and required LDIF files in the `ldif/` directory.
+- Reference this directory in your `docker-compose.yml` as shown below.
+
+### Required: Use `--copy-service` When Mounting LDIFs
+
+When mounting LDIF files or directories into the osixia/openldap container, you **must** use the `--copy-service` command. This copies the files into the container's writable layer, allowing the container to process and remove them as needed. Without this, you will get errors like `Device or resource busy` or `Read-only file system`, and slapd will fail to start.
+
+#### **Recommended: Mount a Directory to a Custom Subdirectory**
+
 ```yaml
 services:
   ldap:
-    image: osixia/openldap:1.5.0
-    container_name: openldap
-    environment:
-      LDAP_ORGANISATION: "ExampleOrg"
-      LDAP_DOMAIN: "example.org"
-      LDAP_ADMIN_PASSWORD: "admin"
-      LDAP_CONFIG_PASSWORD: "config"
-      LDAP_RFC2307BIS_SCHEMA: "true"
-    ports:
-      - "389:389"
-      - "636:636"
+    image: osixia/openldap:latest
+    command: ["--copy-service"]
     volumes:
-      - ./ldif:/container/service/slapd/assets/config/bootstrap/ldif:ro
+      - ./ldif:/container/service/slapd/assets/config/bootstrap/ldif/custom
+    # ... other config ...
 ```
+- Place your LDIFs in `./ldif/` on the host; they will be loaded from `/ldif/custom` in the container.
+- All LDIF files in the directory will be loaded at startup (in filename order).
 
-- **All LDIF files in `./ldif/`** will be loaded at container startup, in filename order.
-- **To control load order**, prefix filenames with numbers (e.g., `10-...`, `20-...`).
-- **To add new schemas or data**, simply drop new LDIF files into the directory—no need to edit your compose file.
+#### **Alternative: Mount Individual Files**
+
+```yaml
+services:
+  ldap:
+    image: osixia/openldap:latest
+    command: ["--copy-service"]
+    volumes:
+      - ./ldif/10-orgWithCountry.ldif:/container/service/slapd/assets/config/bootstrap/ldif/10-orgWithCountry.ldif
+      - ./ldif/20-loginPasscode.ldif:/container/service/slapd/assets/config/bootstrap/ldif/20-loginPasscode.ldif
+    # ... other config ...
+```
 
 ---
 
-### Alternative: Map Individual Files
+### Troubleshooting
 
-You can still map individual LDIF files if you prefer, but using a directory is more scalable and maintainable.
+- **Error: `Device or resource busy` or `Read-only file system`**
+  - This happens if you mount LDIF files or directories without using `--copy-service`.
+  - Always add `command: --copy-service` to your service definition when mounting LDIFs.
+
+- **Error: `chown: changing ownership ... Read-only file system`**
+  - This also indicates the container is trying to change file ownership on a mounted file or directory. Use `--copy-service` to avoid this.
 
 --- 

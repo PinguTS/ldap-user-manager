@@ -14,12 +14,20 @@ if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["pas
 
  // If password failed, try passcode
  if ($account_id == FALSE && isset($_POST["passcode"]) && $_POST["passcode"] !== "") {
-   // Search for user DN
-   $user_search = ldap_search($ldap_connection, $LDAP['user_dn'], "({$LDAP['account_attribute']}=" . ldap_escape($_POST["user_id"], "", LDAP_ESCAPE_FILTER) . ")", ["dn", "loginPasscode"]);
+   // Search for user DN across all organizations and system users
+   $user_search = ldap_search($ldap_connection, $LDAP['org_dn'], "({$LDAP['account_attribute']}=" . ldap_escape($_POST["user_id"], "", LDAP_ESCAPE_FILTER) . ")", ["dn", "passcode"]);
    $user_entries = ldap_get_entries($ldap_connection, $user_search);
-   if ($user_entries["count"] > 0 && isset($user_entries[0]["loginpasscode"][0])) {
-     $stored_hash = $user_entries[0]["loginpasscode"][0];
-     if (password_verify($_POST["passcode"], $stored_hash)) {
+   
+   // If not found in organizations, search in system users
+   if ($user_entries["count"] == 0) {
+     $user_search = ldap_search($ldap_connection, $LDAP['system_users_dn'], "({$LDAP['account_attribute']}=" . ldap_escape($_POST["user_id"], "", LDAP_ESCAPE_FILTER) . ")", ["dn", "passcode"]);
+     $user_entries = ldap_get_entries($ldap_connection, $user_search);
+   }
+   
+   if ($user_entries["count"] > 0 && isset($user_entries[0]["passcode"][0])) {
+     $stored_hash = $user_entries[0]["passcode"][0];
+     // Verify passcode using LDAP-compatible hashing
+     if (verify_ldap_passcode($_POST["passcode"], $stored_hash)) {
        $account_id = $_POST["user_id"];
        // Optionally, set $is_admin = false; (passcode logins are not admin)
      }

@@ -10,6 +10,6 @@ olcAttributeTypes: ( 1.3.6.1.4.1.4203.666.1.201
 olcObjectClasses: ( 1.3.6.1.4.1.4203.666.1.202
   NAME 'loginPasscodeUser'
   DESC 'User object with optional loginPasscode'
-  SUP inetOrgPerson
+  SUP top
   AUXILIARY
   MAY ( loginPasscode ) ) 

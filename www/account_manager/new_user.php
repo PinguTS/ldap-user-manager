@@ -6,9 +6,10 @@ include_once "web_functions.inc.php";
 include_once "ldap_functions.inc.php";
 include_once "module_functions.inc.php";
 include_once "access_functions.inc.php";
+include_once "organization_functions.inc.php";
 
 $attribute_map = $LDAP['default_attribute_map'];
-if (isset($LDAP['account_additional_attributes'])) { $attribute_map = ldap_complete_attribute_array($attribute_map,$LDAP['account_additional_attributes']); }
+if (isset($LDAP['account_additional_attributes'])) { $attribute_map = ldap_complete_attribute_map($attribute_map,$LDAP['account_additional_attributes']); }
 
 if (! array_key_exists($LDAP['account_attribute'], $attribute_map)) {
   $attribute_r = array_merge($attribute_map, array($LDAP['account_attribute'] => array("label" => "Account UID")));
@@ -48,13 +49,20 @@ $invalid_cn = FALSE;
 $invalid_givenname = FALSE;
 $invalid_sn = FALSE;
 $invalid_account_identifier = FALSE;
+$invalid_organization = FALSE;
+$invalid_user_role = FALSE;
 $account_attribute = $LDAP['account_attribute'];
 
 $new_account_r = array();
 
-if ($SHOW_POSIX_ATTRIBUTES == TRUE) {
-
+// Get available organizations for selection
+$available_organizations = [];
+if (!$admin_setup) {
+    $available_organizations = listOrganizations();
 }
+
+// Get available user roles
+$available_user_roles = ['user', 'org_admin'];
 
 foreach ($attribute_map as $attribute => $attr_r) {
 
@@ -181,6 +189,8 @@ if (isset($_POST['create_account'])) {
  $this_givenname=$givenname[0];
  $this_sn=$sn[0];
  $this_password=$password[0];
+ $this_organization = isset($organization[0]) ? $organization[0] : '';
+ $this_user_role = isset($userRole[0]) ? $userRole[0] : 'user';
 
  if (!isset($this_cn) or $this_cn == "") { $invalid_cn = TRUE; }
  if ((!isset($account_identifier) or $account_identifier == "") and $invalid_cn != TRUE) { $invalid_account_identifier = TRUE; }
@@ -191,6 +201,31 @@ if (isset($_POST['create_account'])) {
  if (preg_match("/\"|'/",$password)) { $invalid_password = TRUE; }
  if ($password != $_POST['password_match']) { $mismatched_passwords = TRUE; }
  if ($ENFORCE_SAFE_SYSTEM_NAMES == TRUE and !preg_match("/$USERNAME_REGEX/",$account_identifier)) { $invalid_account_identifier = TRUE; }
+ 
+ // Validate organization selection (only for non-admin setup)
+ if (!$admin_setup) {
+   if (empty($this_organization)) {
+     $invalid_organization = TRUE;
+   } else {
+     // Check if organization exists
+     $org_exists = false;
+     foreach ($available_organizations as $org) {
+       if ($org['name'] === $this_organization) {
+         $org_exists = true;
+         break;
+       }
+     }
+     if (!$org_exists) {
+       $invalid_organization = TRUE;
+     }
+   }
+ }
+ 
+ // Validate user role
+ if (!in_array($this_user_role, $available_user_roles)) {
+   $invalid_user_role = TRUE;
+ }
+ 
  if (isset($_POST['send_email']) and isset($mail) and $EMAIL_SENDING_ENABLED == TRUE) { $send_user_email = TRUE; }
 
  if (     isset($this_givenname)
@@ -201,10 +236,21 @@ if (isset($_POST['create_account'])) {
       and !$invalid_password
       and !$invalid_account_identifier
       and !$invalid_cn
-      and !$invalid_email) {
+      and !$invalid_email
+      and !$invalid_organization
+      and !$invalid_user_role) {
 
   $ldap_connection = open_ldap_connection();
-  $new_account = ldap_new_account($ldap_connection, $new_account_r);
+  
+  // For admin setup, create in system_users, otherwise in organization
+  if ($admin_setup) {
+    $new_account = ldap_new_account($ldap_connection, $new_account_r);
+  } else {
+    // Add organization to the account data
+    $new_account_r['organization'] = [$this_organization];
+    $new_account_r['userRole'] = [$this_user_role];
+    $new_account = ldap_new_account($ldap_connection, $new_account_r);
+  }
 
   if ($new_account) {
 
@@ -239,6 +285,14 @@ if (isset($_POST['create_account'])) {
      $USER_ID="tmp_admin";
      ldap_delete_member_from_group($ldap_connection, $LDAP['admins_group'], "");
      if (isset($DEFAULT_USER_GROUP)) { ldap_delete_member_from_group($ldap_connection, $DEFAULT_USER_GROUP, ""); }
+    } else {
+      // Add user to organization admin role if selected
+      if ($this_user_role === 'org_admin') {
+        $org_admin_add = addUserToOrgManagers($this_organization, $new_account);
+        if (!$org_admin_add) {
+          $creation_message .= " Warning: Failed to add user to organization admin role.";
+        }
+      }
     }
 
    ?>
@@ -287,6 +341,8 @@ if ($invalid_password) { $errors.="<li>The password contained invalid characters
 if ($invalid_email) { $errors.="<li>The email address is invalid</li>\n"; }
 if ($mismatched_passwords) { $errors.="<li>The passwords are mismatched</li>\n"; }
 if ($invalid_username) { $errors.="<li>The username is invalid</li>\n"; }
+if ($invalid_organization) { $errors.="<li>Please select a valid organization</li>\n"; }
+if ($invalid_user_role) { $errors.="<li>Please select a valid user role</li>\n"; }
 
 if ($errors != "") { ?>
 <div class="alert alert-warning">
@@ -390,7 +446,36 @@ $tabindex=1;
          if (isset($attr_r['required']) and $attr_r['required'] == TRUE) { $label = "<strong>$label</strong><sup>&ast;</sup>"; }
          if (isset($$attribute)) { $these_values=$$attribute; } else { $these_values = array(); }
          if (isset($attr_r['inputtype'])) { $inputtype = $attr_r['inputtype']; } else { $inputtype = ""; }
-         render_attribute_fields($attribute,$label,$these_values,"",$onkeyup,$inputtype,$tabindex);
+         
+         // Special handling for organization and userRole fields
+         if ($attribute === 'organization' && !$admin_setup) {
+           echo '<div class="form-group" id="organization_div">';
+           echo '<label for="organization" class="col-sm-3 control-label"><strong>Organization</strong><sup>&ast;</sup></label>';
+           echo '<div class="col-sm-6">';
+           echo '<select class="form-control" name="organization" id="organization" required>';
+           echo '<option value="">Select an organization...</option>';
+           foreach ($available_organizations as $org) {
+             $selected = (isset($these_values[0]) && $these_values[0] === $org['name']) ? 'selected' : '';
+             echo '<option value="' . htmlspecialchars($org['name']) . '" ' . $selected . '>' . htmlspecialchars($org['name']) . '</option>';
+           }
+           echo '</select>';
+           echo '</div>';
+           echo '</div>';
+         } elseif ($attribute === 'userRole' && !$admin_setup) {
+           echo '<div class="form-group" id="userRole_div">';
+           echo '<label for="userRole" class="col-sm-3 control-label">User Role</label>';
+           echo '<div class="col-sm-6">';
+           echo '<select class="form-control" name="userRole" id="userRole">';
+           foreach ($available_user_roles as $role) {
+             $selected = (isset($these_values[0]) && $these_values[0] === $role) ? 'selected' : '';
+             echo '<option value="' . htmlspecialchars($role) . '" ' . $selected . '>' . htmlspecialchars(ucfirst(str_replace('_', ' ', $role))) . '</option>';
+           }
+           echo '</select>';
+           echo '</div>';
+           echo '</div>';
+         } else {
+           render_attribute_fields($attribute,$label,$these_values,"",$onkeyup,$inputtype,$tabindex);
+         }
          $tabindex++;
        }
      ?>

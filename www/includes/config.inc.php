@@ -19,8 +19,8 @@
 
  #Default attributes and objectclasses
 
- $LDAP['account_attribute'] = (getenv('LDAP_ACCOUNT_ATTRIBUTE') ? getenv('LDAP_ACCOUNT_ATTRIBUTE') : 'uid');
- $LDAP['account_objectclasses'] = array( 'person', 'inetOrgPerson', 'posixAccount' );
+ $LDAP['account_attribute'] = (getenv('LDAP_ACCOUNT_ATTRIBUTE') ? getenv('LDAP_ACCOUNT_ATTRIBUTE') : 'mail');
+ $LDAP['account_objectclasses'] = array( 'person', 'inetOrgPerson' );
  $LDAP['default_attribute_map'] = array(
     "givenname" => array(
         "label" => "First name",
@@ -32,17 +32,25 @@
         "onkeyup" => "update_username(); update_email(); update_cn(); update_homedir(); check_email_validity(document.getElementById('mail').value);",
         "required" => TRUE,
     ),
-    "uid" => array(
-        "label" => "System username",
-        "onkeyup" => "check_entity_name_validity(document.getElementById('uid').value,'uid_div'); update_email(); update_homedir(); check_email_validity(document.getElementById('mail').value);",
+    "mail" => array(
+        "label" => "Email",
+        "onkeyup" => "auto_email_update = false; check_email_validity(document.getElementById('mail').value);",
+        "required" => TRUE,
     ),
     "cn" => array(
         "label" => "Common name",
         "onkeyup" => "auto_cn_update = false;",
     ),
-    "mail" => array(
-        "label" => "Email",
-        "onkeyup" => "auto_email_update = false; check_email_validity(document.getElementById('mail').value);",
+    "organization" => array(
+        "label" => "Organization",
+        "required" => TRUE,
+    ),
+    "userRole" => array(
+        "label" => "User Role",
+        "default" => "user",
+    ),
+    "passcode" => array(
+        "label" => "Passcode (optional)",
     )
  );
 
@@ -54,12 +62,11 @@
  $SHOW_POSIX_ATTRIBUTES = ((strcasecmp(getenv('SHOW_POSIX_ATTRIBUTES'),'TRUE') == 0) ? TRUE : FALSE);
 
  if ($SHOW_POSIX_ATTRIBUTES != TRUE) {
-   if ($LDAP['account_attribute'] == "uid") {
-     unset($LDAP['default_attribute_map']['cn']);
-   }
-   else {
-     unset($LDAP['default_attribute_map']['uid']);
-   }
+   # Remove POSIX-specific attributes when not needed
+   unset($LDAP['default_attribute_map']['uidnumber']);
+   unset($LDAP['default_attribute_map']['gidnumber']);
+   unset($LDAP['default_attribute_map']['homedirectory']);
+   unset($LDAP['default_attribute_map']['loginshell']);
  }
  else {
    $LDAP['default_attribute_map']["uidnumber"]  = array("label" => "UID");
@@ -84,8 +91,8 @@
 
  # Various advanced LDAP settings
 
- $LDAP['admins_group'] = getenv('LDAP_ADMINS_GROUP') ?: 'admins';
- $LDAP['maintainers_group'] = getenv('LDAP_MAINTAINERS_GROUP') ?: 'maintainers';
+ $LDAP['admins_group'] = getenv('LDAP_ADMINS_GROUP') ?: 'administrator';
+ $LDAP['maintainers_group'] = getenv('LDAP_MAINTAINERS_GROUP') ?: 'maintainer';
  $LDAP['group_ou'] = (getenv('LDAP_GROUP_OU') ? getenv('LDAP_GROUP_OU') : 'groups');
  $LDAP['user_ou'] = (getenv('LDAP_USER_OU') ? getenv('LDAP_USER_OU') : 'people');
  $LDAP['org_ou'] = (getenv('LDAP_ORG_OU') ? getenv('LDAP_ORG_OU') : 'organizations');
@@ -103,24 +110,21 @@
    if (strtoupper(getenv('LDAP_GROUP_MEMBERSHIP_USES_UID')) == 'FALSE' )  { $LDAP['group_membership_uses_uid']  = FALSE; }
  }
 
- $LDAP['org_dn'] = "ou={$LDAP['org_ou']},{$LDAP['base_dn']}";
- $LDAP['group_dn'] = "ou={$LDAP['group_ou']},{$LDAP['base_dn']}";
- $LDAP['user_dn'] = "ou={$LDAP['user_ou']},{$LDAP['base_dn']}";
+ # Updated LDAP structure for new organization-based approach
+$LDAP['org_dn'] = "ou={$LDAP['org_ou']},{$LDAP['base_dn']}";
+$LDAP['group_dn'] = "ou={$LDAP['group_ou']},{$LDAP['base_dn']}";
+$LDAP['user_dn'] = "ou={$LDAP['user_ou']},{$LDAP['base_dn']}";
+$LDAP['system_users_dn'] = "ou=system_users,{$LDAP['base_dn']}";
+$LDAP['roles_dn'] = "ou=roles,ou={$LDAP['org_ou']},{$LDAP['base_dn']}";
 
- if (isset($account_additional_objectclasses) and $account_additional_objectclasses != "") {
-   $LDAP['account_objectclasses'] = array_merge($LDAP['account_objectclasses'], explode(",", $account_additional_objectclasses));
- }
- if (isset($group_additional_objectclasses) and $group_additional_objectclasses != "") {
-   $LDAP['group_objectclasses'] = array_merge($LDAP['group_objectclasses'], explode(",", $group_additional_objectclasses));
- }
 
  # Interface customisation
 
  $ORGANISATION_NAME = (getenv('ORGANISATION_NAME') ? getenv('ORGANISATION_NAME') : 'LDAP');
  $SITE_NAME = (getenv('SITE_NAME') ? getenv('SITE_NAME') : "$ORGANISATION_NAME user manager");
 
- $SITE_LOGIN_LDAP_ATTRIBUTE = (getenv('SITE_LOGIN_LDAP_ATTRIBUTE') ? getenv('SITE_LOGIN_LDAP_ATTRIBUTE') : $LDAP['account_attribute'] );
- $SITE_LOGIN_FIELD_LABEL = (getenv('SITE_LOGIN_FIELD_LABEL') ? getenv('SITE_LOGIN_FIELD_LABEL') : "Username" );
+ $SITE_LOGIN_LDAP_ATTRIBUTE = (getenv('SITE_LOGIN_LDAP_ATTRIBUTE') ? getenv('SITE_LOGIN_LDAP_ATTRIBUTE') : 'mail' );
+ $SITE_LOGIN_FIELD_LABEL = (getenv('SITE_LOGIN_FIELD_LABEL') ? getenv('SITE_LOGIN_FIELD_LABEL') : "Email" );
  
  $SERVER_HOSTNAME = (getenv('SERVER_HOSTNAME') ? getenv('SERVER_HOSTNAME') : "ldapusermanager.org");
  $SERVER_PATH = (getenv('SERVER_PATH') ? getenv('SERVER_PATH') : "/");

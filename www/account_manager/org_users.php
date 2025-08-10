@@ -200,8 +200,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
         'userPassword' => password_hash($password, PASSWORD_DEFAULT), // For demo; use LDAP hash in production
     ];
     if ($passcode !== '') {
-        $entry['loginPasscode'] = password_hash($passcode, PASSWORD_DEFAULT); // Store passcode as hash
-    }
+  $entry['passcode'] = ldap_hashed_passcode($passcode); // Store passcode using LDAP hashing
+}
     error_log('DEBUG: org_users.php - About to call ldap_add. userDn=' . print_r($userDn, true) . ', entry=' . print_r($entry, true));
     $add_result = @ldap_add($ldap, $userDn, $entry);
     if ($add_result) {
@@ -272,8 +272,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
         $entry['userPassword'] = password_hash($password, PASSWORD_DEFAULT); // For demo; use LDAP hash in production
     }
     if ($passcode !== '') {
-        $entry['loginPasscode'] = password_hash($passcode, PASSWORD_DEFAULT);
-    }
+  $entry['passcode'] = ldap_hashed_passcode($passcode);
+}
     try {
         ldap_modify($ldap, $userDn, $entry);
         $message = 'User updated successfully.';
@@ -301,8 +301,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
         $entry['userPassword'] = password_hash($new_password, PASSWORD_DEFAULT);
     }
     if ($new_passcode !== '') {
-        $entry['loginPasscode'] = password_hash($new_passcode, PASSWORD_DEFAULT);
-    }
+  $entry['passcode'] = ldap_hashed_passcode($new_passcode);
+}
     if (!empty($entry)) {
         try {
             ldap_modify($ldap, $userDn, $entry);
