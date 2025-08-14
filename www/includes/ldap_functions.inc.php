@@ -6,6 +6,13 @@ function open_ldap_connection($ldap_bind=TRUE) {
 
  global $log_prefix, $LDAP, $SENT_HEADERS, $LDAP_DEBUG, $LDAP_VERBOSE_CONNECTION_LOGS;
 
+ // Enforce TLS in production environments
+ if (getenv('ENVIRONMENT') !== 'development' && getenv('ENVIRONMENT') !== 'test') {
+     if ($LDAP['ignore_cert_errors'] == TRUE) { 
+         error_log("$log_prefix WARNING: Certificate errors are being ignored in production environment", 0);
+     }
+ }
+
  if ($LDAP['ignore_cert_errors'] == TRUE) { putenv('LDAPTLS_REQCERT=never'); }
  $ldap_connection = @ ldap_connect($LDAP['uri']);
 
@@ -18,15 +25,21 @@ function open_ldap_connection($ldap_bind=TRUE) {
  ldap_set_option($ldap_connection, LDAP_OPT_PROTOCOL_VERSION, 3);
  if ($LDAP_VERBOSE_CONNECTION_LOGS == TRUE) { ldap_set_option(NULL, LDAP_OPT_DEBUG_LEVEL, 7); }
 
+ // Enforce TLS for non-localhost connections in production
+ $is_localhost = preg_match('/^ldap:\/\/127\.0\.0\.([0-9]+)(:[0-9]+)$/', $LDAP['uri']) || 
+                 preg_match('/^ldap:\/\/localhost(:[0-9]+)?$/', $LDAP['uri']);
+ 
  if (!preg_match("/^ldaps:/", $LDAP['uri'])) {
 
   $tls_result = @ ldap_start_tls($ldap_connection);
 
   if ($tls_result != TRUE) {
 
-   if (!preg_match('/^ldap:\/\/127\.0\.0\.([0-9]+)(:[0-9]+)$/', $LDAP['uri'])) { error_log("$log_prefix Failed to start STARTTLS connection to {$LDAP['uri']}: " . ldap_error($ldap_connection),0); }
+   if (!preg_match('/^ldap:\/\/127\.0\.0\.([0-9]+)(:[0-9]+)$/', $LDAP['uri'])) { 
+     error_log("$log_prefix Failed to start STARTTLS connection to {$LDAP['uri']}: " . ldap_error($ldap_connection),0); 
+   }
 
-   if ($LDAP["require_starttls"] == TRUE) {
+   if ($LDAP["require_starttls"] == TRUE || (!$is_localhost && getenv('ENVIRONMENT') !== 'development')) {
     print "<div style='position: fixed;bottom: 0;width: 100%;' class='alert alert-danger'>Fatal:  Couldn't create a secure connection to {$LDAP['uri']} and LDAP_REQUIRE_STARTTLS is TRUE.</div>";
     exit(0);
    }
@@ -41,7 +54,7 @@ function open_ldap_connection($ldap_bind=TRUE) {
   }
   else {
    if ($LDAP_DEBUG == TRUE) {
-    error_log("$log_prefix Start STARTTLS connection to {$LDAP['uri']}",0);
+     error_log("$log_prefix Start STARTTLS connection to {$LDAP['uri']}",0);
    }
    $LDAP['connection_type'] = "StartTLS";
   }
@@ -219,194 +232,65 @@ function verify_ldap_passcode($passcode, $stored_hash) {
   }
 }
 
-function ldap_hashed_passcode($passcode) {
-
- global $PASSWORD_HASH, $log_prefix;
-
- // For passcodes, we'll use a simpler but still secure hashing approach
- // Strongest to weakest
- $preferred_algos = [
-     'ARGON2',
-     'SSHA',
-     'SHA512CRYPT',
-     'SHA256CRYPT',
-     'MD5CRYPT',
-     'SMD5',
-     'SHA',
-     'MD5',
-     'CRYPT',
-     'CLEAR'
- ];
- $check_algos = array(
-     "SHA512CRYPT" => "CRYPT_SHA512",
-     "SHA256CRYPT" => "CRYPT_SHA256",
-     "MD5CRYPT"    => "CRYPT_MD5"
- );
- $available_algos = array();
- foreach ($check_algos as $algo_name => $algo_function) {
-     if (defined($algo_function) and constant($algo_function) != 0) {
-         array_push($available_algos, $algo_name);
-     }
- }
- // Always allow ARGON2 and SSHA
- $available_algos = array_merge(['ARGON2', 'SSHA'], $available_algos, ['SMD5', 'SHA', 'MD5', 'CRYPT']);
-
- // Select the best available algorithm
- $hash_algo = null;
- if (isset($PASSWORD_HASH)) {
-     $PASSWORD_HASH = strtoupper($PASSWORD_HASH);
-     if (!in_array($PASSWORD_HASH, $preferred_algos)) {
-         error_log("$log_prefix LDAP passcode: unknown hash method ($PASSWORD_HASH), falling back to secure default", 0);
-     } elseif ($PASSWORD_HASH === 'CLEAR') {
-         error_log("$log_prefix passcode hashing - FATAL - CLEAR selected, refusing to store passcode in cleartext.", 0);
-         die("FATAL: Refusing to store passcode in cleartext. Set PASSWORD_HASH to a secure value (ARGON2 or SSHA recommended).");
-     } elseif (in_array($PASSWORD_HASH, ['MD5', 'SMD5', 'SHA', 'CRYPT'])) {
-         error_log("$log_prefix passcode hashing - WARNING - Weak hash method ($PASSWORD_HASH) selected. Use ARGON2 or SSHA.", 0);
-         $hash_algo = $PASSWORD_HASH;
-     } elseif (in_array($PASSWORD_HASH, $available_algos)) {
-         $hash_algo = $PASSWORD_HASH;
-     }
- }
- if (!$hash_algo) {
-     // Default to strongest available
-     foreach ($preferred_algos as $algo) {
-         if ($algo === 'CLEAR') continue;
-         if ($algo === 'ARGON2' && defined('PASSWORD_ARGON2ID')) {
-             $hash_algo = 'ARGON2';
-             break;
-         }
-         if (in_array($algo, $available_algos)) {
-             $hash_algo = $algo;
-             break;
-         }
-     }
- }
- if (!$hash_algo) {
-     die("FATAL: No secure passcode hash available. Check your PHP and system configuration.");
- }
- error_log("$log_prefix LDAP passcode: using '{$hash_algo}' as the hashing method",0);
-
- switch ($hash_algo) {
-
-  case 'ARGON2':
-    $hashed_passcode = '{ARGON2}' . password_hash($passcode, PASSWORD_ARGON2ID, ['memory_cost' => 2048, 'time_cost' => 4, 'threads' => 3]);
-    break;
-
-  case 'SSHA':
-    $salt = generate_salt(8);
-    $hashed_passcode = '{SSHA}' . base64_encode(sha1($passcode . $salt, TRUE) . $salt);
-    break;
-
-  case 'SHA512CRYPT':
-    $hashed_passcode = '{CRYPT}' . crypt($passcode, '$6$' . generate_salt(8));
-    break;
-
-  case 'SHA256CRYPT':
-    $hashed_passcode = '{CRYPT}' . crypt($passcode, '$5$' . generate_salt(8));
-    break;
-
-  case 'MD5CRYPT':
-    $hashed_passcode = '{CRYPT}' . crypt($passcode, '$1$' . generate_salt(9));
-    break;
-
-  case 'SMD5':
-    $salt = generate_salt(8);
-    $hashed_passcode = '{SMD5}' . base64_encode(md5($passcode . $salt, TRUE) . $salt);
-    break;
-
-  case 'MD5':
-    $hashed_passcode = '{MD5}' . base64_encode(md5($passcode, TRUE));
-    break;
-
-  case 'SHA':
-    $hashed_passcode = '{SHA}' . base64_encode(sha1($passcode, TRUE));
-    break;
-
-  case 'CRYPT':
-    $salt = generate_salt(2);
-    $hashed_passcode = '{CRYPT}' . crypt($passcode, $salt);
-    break;
-
-  case 'CLEAR':
-    error_log("$log_prefix passcode hashing - WARNING - Saving passcode in cleartext. This is extremely bad practice and should never ever be done in a production environment.",0);
-    $hashed_passcode = $passcode;
-    break;
-
- }
-
- error_log("$log_prefix passcode update - algo $hash_algo | passcode $hashed_passcode",0);
-
- return $hashed_passcode;
-
-}
-
-
-##################################
-
 function ldap_hashed_password($password) {
 
- global $PASSWORD_HASH, $log_prefix;
+ global $PASSWORD_HASH, $log_prefix, $SECURITY_CONFIG;
 
- // Strongest to weakest
- $preferred_algos = [
-     'ARGON2',
-     'SSHA',
-     'SHA512CRYPT',
-     'SHA256CRYPT',
-     'MD5CRYPT',
-     'SMD5',
-     'SHA',
-     'MD5',
-     'CRYPT',
-     'CLEAR'
- ];
+ $secure_algos = $SECURITY_CONFIG['password']['allowed_algorithms'];
+ $default_algo = $SECURITY_CONFIG['password']['default_algorithm'];
+ 
  $check_algos = array(
      "SHA512CRYPT" => "CRYPT_SHA512",
-     "SHA256CRYPT" => "CRYPT_SHA256",
-     "MD5CRYPT"    => "CRYPT_MD5"
+     "SHA256CRYPT" => "CRYPT_SHA256"
  );
+ 
  $available_algos = array();
  foreach ($check_algos as $algo_name => $algo_function) {
      if (defined($algo_function) and constant($algo_function) != 0) {
          array_push($available_algos, $algo_name);
      }
  }
+ 
  // Always allow ARGON2 and SSHA
- $available_algos = array_merge(['ARGON2', 'SSHA'], $available_algos, ['SMD5', 'SHA', 'MD5', 'CRYPT']);
+ $available_algos = array_merge(['ARGON2', 'SSHA'], $available_algos);
 
  // Select the best available algorithm
  $hash_algo = null;
  if (isset($PASSWORD_HASH)) {
      $PASSWORD_HASH = strtoupper($PASSWORD_HASH);
-     if (!in_array($PASSWORD_HASH, $preferred_algos)) {
-         error_log("$log_prefix LDAP password: unknown hash method ($PASSWORD_HASH), falling back to secure default", 0);
+     if (!in_array($PASSWORD_HASH, $secure_algos)) {
+         error_log("$log_prefix LDAP password: unknown or weak hash method ($PASSWORD_HASH), falling back to secure default", 0);
      } elseif ($PASSWORD_HASH === 'CLEAR') {
          error_log("$log_prefix password hashing - FATAL - CLEAR selected, refusing to store password in cleartext.", 0);
          die("FATAL: Refusing to store password in cleartext. Set PASSWORD_HASH to a secure value (ARGON2 or SSHA recommended).");
-     } elseif (in_array($PASSWORD_HASH, ['MD5', 'SMD5', 'SHA', 'CRYPT'])) {
-         error_log("$log_prefix password hashing - WARNING - Weak hash method ($PASSWORD_HASH) selected. Use ARGON2 or SSHA.", 0);
-         $hash_algo = $PASSWORD_HASH;
      } elseif (in_array($PASSWORD_HASH, $available_algos)) {
          $hash_algo = $PASSWORD_HASH;
      }
  }
+ 
  if (!$hash_algo) {
-     // Default to strongest available
-     foreach ($preferred_algos as $algo) {
-         if ($algo === 'CLEAR') continue;
-         if ($algo === 'ARGON2' && defined('PASSWORD_ARGON2ID')) {
-             $hash_algo = 'ARGON2';
-             break;
-         }
-         if (in_array($algo, $available_algos)) {
-             $hash_algo = $algo;
-             break;
+     // Use default from config if available
+     if (in_array($default_algo, $available_algos)) {
+         $hash_algo = $default_algo;
+     } else {
+         // Fallback to strongest available
+         foreach ($secure_algos as $algo) {
+             if ($algo === 'ARGON2' && defined('PASSWORD_ARGON2ID')) {
+                 $hash_algo = 'ARGON2';
+                 break;
+             }
+             if (in_array($algo, $available_algos)) {
+                 $hash_algo = $algo;
+                 break;
+             }
          }
      }
  }
+ 
  if (!$hash_algo) {
      die("FATAL: No secure password hash available. Check your PHP and system configuration.");
  }
+ 
  error_log("$log_prefix LDAP password: using '{$hash_algo}' as the hashing method",0);
 
  switch ($hash_algo) {
@@ -428,63 +312,118 @@ function ldap_hashed_password($password) {
     $hashed_pwd = '{CRYPT}' . crypt($password, '$5$' . generate_salt(8));
     break;
 
-    # Blowfish & EXT_DES didn't work
-    #  case 'BLOWFISH':
-    #    $hashed_pwd = '{CRYPT}' . crypt($password, '$2a$12$' . generate_salt(13));
-    #    break;
-
-    #  case 'EXT_DES':
-    #    $hashed_pwd = '{CRYPT}' . crypt($password, '_' . generate_salt(8));
-    #    break;
-
-  case 'MD5CRYPT':
-    $hashed_pwd = '{CRYPT}' . crypt($password, '$1$' . generate_salt(9));
+  default:
+    // Fallback to ARGON2 if available, otherwise SSHA
+    if (defined('PASSWORD_ARGON2ID')) {
+        $hashed_pwd = '{ARGON2}' . password_hash($password, PASSWORD_ARGON2ID, ['memory_cost' => 2048, 'time_cost' => 4, 'threads' => 3]);
+    } else {
+        $salt = generate_salt(8);
+        $hashed_pwd = '{SSHA}' . base64_encode(sha1($password . $salt, TRUE) . $salt);
+    }
     break;
-
-  case 'SMD5':
-    $salt = generate_salt(8);
-    $hashed_pwd = '{SMD5}' . base64_encode(md5($password . $salt, TRUE) . $salt);
-    break;
-
-  case 'MD5':
-    $hashed_pwd = '{MD5}' . base64_encode(md5($password, TRUE));
-    break;
-
-  case 'SHA':
-    $hashed_pwd = '{SHA}' . base64_encode(sha1($password, TRUE));
-    break;
-
-  case 'SSHA':
-    $salt = generate_salt(8);
-    $hashed_pwd = '{SSHA}' . base64_encode(sha1($password . $salt, TRUE) . $salt);
-    break;
-
-  case 'ARGON2':
-    $hashed_pwd = '{ARGON2}' . password_hash($password, PASSWORD_ARGON2ID, ['memory_cost' => 2048, 'time_cost' => 4, 'threads' => 3]);
-    break;
-
-  case 'CRYPT':
-    $salt = generate_salt(2);
-    $hashed_pwd = '{CRYPT}' . crypt($password, $salt);
-    break;
-
-  case 'CLEAR':
-    error_log("$log_prefix password hashing - WARNING - Saving password in cleartext. This is extremely bad practice and should never ever be done in a production environment.",0);
-    $hashed_pwd = $password;
-    break;
-
-
  }
-
- error_log("$log_prefix password update - algo $hash_algo | pwd $hashed_pwd",0);
 
  return $hashed_pwd;
 
 }
 
+function ldap_hashed_passcode($passcode) {
+
+ global $PASSWORD_HASH, $log_prefix, $SECURITY_CONFIG;
+
+ $secure_algos = $SECURITY_CONFIG['passcode']['allowed_algorithms'];
+ $default_algo = $SECURITY_CONFIG['passcode']['default_algorithm'];
+ 
+ $check_algos = array(
+     "SHA512CRYPT" => "CRYPT_SHA512",
+     "SHA256CRYPT" => "CRYPT_SHA256"
+ );
+ 
+ $available_algos = array();
+ foreach ($check_algos as $algo_name => $algo_function) {
+     if (defined($algo_function) and constant($algo_function) != 0) {
+         array_push($available_algos, $algo_name);
+     }
+ }
+ 
+ // Always allow ARGON2 and SSHA
+ $available_algos = array_merge(['ARGON2', 'SSHA'], $available_algos);
+
+ // Select the best available algorithm
+ $hash_algo = null;
+ if (isset($PASSWORD_HASH)) {
+     $PASSWORD_HASH = strtoupper($PASSWORD_HASH);
+     if (!in_array($PASSWORD_HASH, $secure_algos)) {
+         error_log("$log_prefix LDAP passcode: unknown or weak hash method ($PASSWORD_HASH), falling back to secure default", 0);
+     } elseif ($PASSWORD_HASH === 'CLEAR') {
+         error_log("$log_prefix passcode hashing - FATAL - CLEAR selected, refusing to store passcode in cleartext.", 0);
+         die("FATAL: Refusing to store passcode in cleartext. Set PASSWORD_HASH to a secure value (ARGON2 or SSHA recommended).");
+     } elseif (in_array($PASSWORD_HASH, $available_algos)) {
+         $hash_algo = $PASSWORD_HASH;
+     }
+ }
+ 
+ if (!$hash_algo) {
+     // Use default from config if available
+     if (in_array($default_algo, $available_algos)) {
+         $hash_algo = $default_algo;
+     } else {
+         // Fallback to strongest available
+         foreach ($secure_algos as $algo) {
+             if ($algo === 'ARGON2' && defined('PASSWORD_ARGON2ID')) {
+                 $hash_algo = 'ARGON2';
+                 break;
+             }
+             if (in_array($algo, $available_algos)) {
+                 $hash_algo = $algo;
+                 break;
+             }
+         }
+     }
+ }
+ 
+ if (!$hash_algo) {
+     die("FATAL: No secure passcode hash available. Check your PHP and system configuration.");
+ }
+ 
+ error_log("$log_prefix LDAP passcode: using '{$hash_algo}' as the hashing method",0);
+
+ switch ($hash_algo) {
+
+  case 'ARGON2':
+    $hashed_passcode = '{ARGON2}' . password_hash($passcode, PASSWORD_ARGON2ID, ['memory_cost' => 2048, 'time_cost' => 4, 'threads' => 3]);
+    break;
+
+  case 'SSHA':
+    $salt = generate_salt(8);
+    $hashed_passcode = '{SSHA}' . base64_encode(sha1($passcode . $salt, TRUE) . $salt);
+    break;
+
+  case 'SHA512CRYPT':
+    $hashed_passcode = '{CRYPT}' . crypt($passcode, '$6$' . generate_salt(8));
+    break;
+
+  case 'SHA256CRYPT':
+    $hashed_passcode = '{CRYPT}' . crypt($passcode, '$5$' . generate_salt(8));
+    break;
+
+  default:
+    // Fallback to ARGON2 if available, otherwise SSHA
+    if (defined('PASSWORD_ARGON2ID')) {
+        $hashed_passcode = '{ARGON2}' . password_hash($passcode, PASSWORD_ARGON2ID, ['memory_cost' => 2048, 'time_cost' => 4, 'threads' => 3]);
+    } else {
+        $salt = generate_salt(8);
+        $hashed_passcode = '{SSHA}' . base64_encode(sha1($passcode . $salt, TRUE) . $salt);
+    }
+    break;
+ }
+
+ return $hashed_passcode;
+
+}
+
 
 ##################################
-
 
 function ldap_get_user_list($ldap_connection,$start=0,$entries=NULL,$sort="asc",$sort_key=NULL,$filters=NULL,$fields=NULL) {
 

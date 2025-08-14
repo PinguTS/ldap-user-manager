@@ -1,5 +1,8 @@
 <?php
 
+// Include security configuration
+include_once __DIR__ . '/security_config.inc.php';
+
  $log_prefix="";
 
  # User account defaults

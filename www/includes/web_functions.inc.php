@@ -85,12 +85,20 @@ function set_passkey_cookie($user_id,$is_admin) {
   $admin_val = 1;
   $IS_ADMIN = TRUE;
  }
+ 
+ // Clean up any existing session files for this user
  $filename = preg_replace('/[^a-zA-Z0-9]/','_', $user_id ?? '');
+ $old_session_file = "/tmp/$filename";
+ if (file_exists($old_session_file)) {
+     unlink($old_session_file);
+ }
+ 
  @ file_put_contents("/tmp/$filename","$passkey:$admin_val:$this_time");
  setcookie('orf_cookie', "$user_id:$passkey", $DEFAULT_COOKIE_OPTIONS);
  $sessto_cookie_opts = $DEFAULT_COOKIE_OPTIONS;
  $sessto_cookie_opts['expires'] = $this_time+7200;
  setcookie('sessto_cookie', $this_time+(60 * $SESSION_TIMEOUT), $sessto_cookie_opts);
+ 
  if ( $SESSION_DEBUG == TRUE) {  error_log("$log_prefix Session: user $user_id validated (IS_ADMIN={$IS_ADMIN}), sent orf_cookie to the browser.",0); }
  $VALIDATED = TRUE;
 
@@ -98,6 +106,12 @@ function set_passkey_cookie($user_id,$is_admin) {
  if (session_status() === PHP_SESSION_ACTIVE) {
      session_regenerate_id(true);
  }
+ 
+ // Store user info in session for additional security
+ $_SESSION['user_id'] = $user_id;
+ $_SESSION['is_admin'] = $is_admin;
+ $_SESSION['login_time'] = $this_time;
+ $_SESSION['last_activity'] = $this_time;
 
 }
 
@@ -133,6 +147,13 @@ function validate_passkey_cookie() {
   if (isset($_COOKIE['orf_cookie'])) {
 
     list($user_id,$c_passkey) = explode(":",$_COOKIE['orf_cookie']);
+    
+    // Validate user_id format
+    if (!preg_match('/^[a-zA-Z0-9@._-]+$/', $user_id)) {
+      if ($SESSION_DEBUG == TRUE) { error_log("$log_prefix Session: Invalid user_id format in cookie",0); }
+      return;
+    }
+    
     $filename = preg_replace('/[^a-zA-Z0-9]/','_', $user_id ?? '');
     $session_file = @ file_get_contents("/tmp/$filename");
     if (!$session_file) {
@@ -140,10 +161,33 @@ function validate_passkey_cookie() {
     }
     else {
       list($f_passkey,$f_is_admin,$f_time) = explode(":",$session_file);
-      if (!empty($c_passkey) and $f_passkey == $c_passkey and $this_time < $f_time+(60 * $SESSION_TIMEOUT)) {
+      
+      // Validate session data format
+      if (count(explode(":",$session_file)) !== 3 || !is_numeric($f_time) || !is_numeric($f_is_admin)) {
+        if ($SESSION_DEBUG == TRUE) { error_log("$log_prefix Session: Invalid session file format for user $user_id",0); }
+        // Clean up corrupted session file
+        @unlink("/tmp/$filename");
+        return;
+      }
+      
+      // Check if session has expired
+      if ($this_time >= $f_time+(60 * $SESSION_TIMEOUT)) {
+        if ($SESSION_DEBUG == TRUE) { error_log("$log_prefix Session: Session expired for user $user_id",0); }
+        @unlink("/tmp/$filename");
+        $SESSION_TIMED_OUT = TRUE;
+        return;
+      }
+      
+      // Validate passkey
+      if (!empty($c_passkey) and $f_passkey == $c_passkey) {
         if ($f_is_admin == 1) { $IS_ADMIN = TRUE; }
         $VALIDATED = TRUE;
         $USER_ID=$user_id;
+        
+        // Update last activity time
+        $new_session_data = "$f_passkey:$f_is_admin:$f_time";
+        @ file_put_contents("/tmp/$filename", $new_session_data);
+        
         if ($SESSION_DEBUG == TRUE) {  error_log("$log_prefix Setup session: Cookie and session file values match for user {$user_id} - VALIDATED (ADMIN = {$IS_ADMIN})",0); }
         set_passkey_cookie($USER_ID,$IS_ADMIN);
         // Populate currentUserGroups from LDAP
@@ -275,6 +319,9 @@ function render_header($title="",$menu=TRUE) {
 
  if (empty($title)) { $title = $SITE_NAME; }
 
+ # Set security headers
+ set_security_headers();
+
  #Initialise the HTML output for the page.
 
  ?>
@@ -310,6 +357,36 @@ function render_header($title="",$menu=TRUE) {
  }
  $SENT_HEADERS = TRUE;
 
+}
+
+/**
+ * Set security headers to prevent common web attacks
+ */
+function set_security_headers() {
+    global $SECURITY_CONFIG;
+    
+    // Set security headers from configuration
+    $headers = $SECURITY_CONFIG['security_headers'];
+    
+    // Prevent clickjacking
+    header('X-Frame-Options: ' . $headers['x_frame_options']);
+    
+    // Prevent MIME type sniffing
+    header('X-Content-Type-Options: ' . $headers['x_content_type_options']);
+    
+    // Enable XSS protection
+    header('X-XSS-Protection: ' . $headers['x_xss_protection']);
+    
+    // Referrer policy
+    header('Referrer-Policy: ' . $headers['referrer_policy']);
+    
+    // Content Security Policy
+    header('Content-Security-Policy: ' . $headers['content_security_policy']);
+    
+    // HSTS (only if HTTPS and enabled)
+    if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' && $headers['strict_transport_security']) {
+        header('Strict-Transport-Security: ' . $headers['strict_transport_security']);
+    }
 }
 
 
@@ -772,9 +849,140 @@ function csrf_token_field() {
     return '<input type="hidden" name="csrf_token" value="' . htmlspecialchars($token) . '">';
 }
 function validate_csrf_token() {
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        if (!isset($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
-            die('<div class="alert alert-danger">Invalid CSRF token. Please reload the page and try again.</div>');
+    if (!isset($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+        die('<div class="alert alert-danger">Invalid CSRF token. Please reload the page and try again.</div>');
+    }
+}
+
+/**
+ * Secure redirect validation to prevent HTTP response splitting attacks
+ * @param string $redirect_url The base64 encoded redirect URL
+ * @param string $base_path The base server path
+ * @return string|false Validated redirect URL or false if invalid
+ */
+function validate_redirect_url($redirect_url, $base_path = '/') {
+    // Decode the base64 URL
+    $decoded = base64_decode($redirect_url, true);
+    if ($decoded === false) {
+        return false;
+    }
+    
+    // Ensure the decoded URL is a string
+    if (!is_string($decoded)) {
+        return false;
+    }
+    
+    // Remove any null bytes or control characters
+    $decoded = preg_replace('/[\x00-\x1F\x7F]/', '', $decoded);
+    
+    // Check if it's a relative path (starts with /)
+    if (strpos($decoded, '/') === 0) {
+        // Ensure it doesn't contain directory traversal attempts
+        if (strpos($decoded, '..') !== false || strpos($decoded, '//') !== false) {
+            return false;
+        }
+        
+        // Ensure it doesn't contain any potentially dangerous characters
+        if (preg_match('/[<>"\']/', $decoded)) {
+            return false;
+        }
+        
+        // Limit the length to prevent excessive redirects
+        if (strlen($decoded) > 200) {
+            return false;
+        }
+        
+        return $decoded;
+    }
+    
+    // Check if it's a relative path without leading slash
+    if (strpos($decoded, 'http') !== 0 && strpos($decoded, '//') !== 0) {
+        // Add leading slash if missing
+        $decoded = '/' . ltrim($decoded, '/');
+        
+        // Apply the same validation as above
+        if (strpos($decoded, '..') !== false || strpos($decoded, '//') !== false) {
+            return false;
+        }
+        
+        if (preg_match('/[<>"\']/', $decoded)) {
+            return false;
+        }
+        
+        if (strlen($decoded) > 200) {
+            return false;
+        }
+        
+        return $decoded;
+    }
+    
+    // Reject absolute URLs for security
+    return false;
+}
+
+/**
+ * Rate limiting functions to prevent brute force attacks
+ */
+
+/**
+ * Check if user is rate limited for login attempts
+ * @param string $identifier User identifier (email/username)
+ * @param int $max_attempts Maximum attempts allowed
+ * @param int $time_window Time window in seconds
+ * @return bool True if rate limited, false otherwise
+ */
+function is_rate_limited($identifier, $max_attempts = 5, $time_window = 300) {
+    $rate_limit_file = "/tmp/rate_limit_" . md5($identifier);
+    
+    if (file_exists($rate_limit_file)) {
+        $data = file_get_contents($rate_limit_file);
+        $attempts = json_decode($data, true);
+        
+        if ($attempts && is_array($attempts)) {
+            // Remove attempts outside the time window
+            $current_time = time();
+            $attempts = array_filter($attempts, function($timestamp) use ($current_time, $time_window) {
+                return ($current_time - $timestamp) < $time_window;
+            });
+            
+            // Check if too many attempts
+            if (count($attempts) >= $max_attempts) {
+                return true;
+            }
         }
     }
+    
+    return false;
+}
+
+/**
+ * Record a login attempt for rate limiting
+ * @param string $identifier User identifier
+ * @param bool $success Whether the attempt was successful
+ */
+function record_login_attempt($identifier, $success = false) {
+    $rate_limit_file = "/tmp/rate_limit_" . md5($identifier);
+    
+    if ($success) {
+        // Clear rate limiting on successful login
+        if (file_exists($rate_limit_file)) {
+            unlink($rate_limit_file);
+        }
+        return;
+    }
+    
+    $attempts = [];
+    if (file_exists($rate_limit_file)) {
+        $data = file_get_contents($rate_limit_file);
+        $attempts = json_decode($data, true) ?: [];
+    }
+    
+    $attempts[] = time();
+    
+    // Keep only last 10 attempts to prevent file bloat
+    if (count($attempts) > 10) {
+        $attempts = array_slice($attempts, -10);
+    }
+    
+    file_put_contents($rate_limit_file, json_encode($attempts));
 }

@@ -8,6 +8,13 @@ include_once "ldap_functions.inc.php";
 // Handle login POST before any output
 if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["passcode"]))) {
 
+ // Check rate limiting before attempting authentication
+ if (is_rate_limited($_POST["user_id"])) {
+   http_response_code(429); // Too Many Requests
+   header("Location: //{$_SERVER['HTTP_HOST']}{$THIS_MODULE_PATH}/index.php?rate_limited");
+   exit;
+ }
+
  $ldap_connection = open_ldap_connection();
  $account_id = ldap_auth_username($ldap_connection,$_POST["user_id"],$_POST["password"]);
  $is_admin = ldap_is_group_member($ldap_connection,$LDAP['admins_group'],$account_id);
@@ -37,9 +44,19 @@ if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["pas
  ldap_close($ldap_connection);
 
  if ($account_id != FALSE) {
+  // Record successful login attempt
+  record_login_attempt($_POST["user_id"], true);
+  
   set_passkey_cookie($account_id,$is_admin);
   if (isset($_POST["redirect_to"])) {
-   header("Location: //{$_SERVER['HTTP_HOST']}" . base64_decode($_POST['redirect_to']));
+   $validated_redirect = validate_redirect_url($_POST['redirect_to']);
+   if ($validated_redirect !== false) {
+     header("Location: //{$_SERVER['HTTP_HOST']}" . $validated_redirect);
+   } else {
+     // Fallback to default location if redirect is invalid
+     if ($IS_ADMIN) { $default_module = "account_manager"; } else { $default_module = "change_password"; }
+     header("Location: //{$_SERVER['HTTP_HOST']}{$SERVER_PATH}$default_module?logged_in");
+   }
    exit;
   }
   else {
@@ -49,6 +66,9 @@ if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["pas
   }
  }
  else {
+  // Record failed login attempt
+  record_login_attempt($_POST["user_id"], false);
+  
   header("Location: //{$_SERVER['HTTP_HOST']}{$THIS_MODULE_PATH}/index.php?invalid");
   exit;
  }
@@ -92,6 +112,12 @@ render_header("$ORGANISATION_NAME account manager - log in");
    <?php if (isset($_GET["invalid"])) { ?>
    <div class="alert alert-warning">
     The username and/or password are unrecognised.
+   </div>
+   <?php } ?>
+
+   <?php if (isset($_GET["rate_limited"])) { ?>
+   <div class="alert alert-danger">
+    Too many login attempts. Please wait 5 minutes before trying again.
    </div>
    <?php } ?>
 
