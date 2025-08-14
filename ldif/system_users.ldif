@@ -2,6 +2,7 @@
 dn: uid=admin@example.com,ou=system_users,dc=example,dc=com
 objectClass: inetOrgPerson
 objectClass: top
+objectClass: ldapUserManager
 uid: admin@example.com
 cn: System Administrator
 sn: Administrator
@@ -14,6 +15,7 @@ userRole: administrator
 dn: uid=maintainer@example.com,ou=system_users,dc=example,dc=com
 objectClass: inetOrgPerson
 objectClass: top
+objectClass: ldapUserManager
 uid: maintainer@example.com
 cn: System Maintainer
 sn: Maintainer

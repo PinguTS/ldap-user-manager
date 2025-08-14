@@ -16,20 +16,4 @@ ou: system_users
 
 dn: ou=roles,ou=organizations,dc=example,dc=com
 objectClass: organizationalUnit
-ou: roles
-
-# Administrator role
-dn: cn=administrator,ou=roles,ou=organizations,dc=example,dc=com
-objectClass: groupOfNames
-objectClass: top
-cn: administrator
-description: Full system administrator with all privileges
-member: uid=admin@example.com,ou=system_users,dc=example,dc=com
-
-# Maintainer role
-dn: cn=maintainer,ou=roles,ou=organizations,dc=example,dc=com
-objectClass: groupOfNames
-objectClass: top
-cn: maintainer
-description: System maintainer with limited privileges
-member: uid=maintainer@example.com,ou=system_users,dc=example,dc=com 
+ou: roles 

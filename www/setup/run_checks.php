@@ -259,25 +259,35 @@ else {
  }
 }
 
- # Check if admin user is in administrator role
- if (isset($admin_role_result) && isset($admin_user_result) && $admin_role_result['count'] == 1 && $admin_user_result['count'] == 1) {
-  $admin_role_dn = $admin_role_result[0]['dn'];
-  $admin_user_dn = $admin_user_result[0]['dn'];
-  
-  $admin_members = ldap_get_role_members($ldap_connection, 'administrator');
-  if (!in_array($admin_user_dn, $admin_members)) {
-   print "$li_fail The system administrator user is not a member of the administrator role. ";
-   print "<a href='#' data-toggle='popover' title='Role Membership' data-content='";
-   print "The administrator user must be a member of the administrator role to have proper privileges.";
-   print "'>What's this?</a>";
-   print "<label class='pull-right'><input type='checkbox' name='setup_admin_role_membership' class='pull-right' checked>Fix?&nbsp;</label>";
-   print "</li>\n";
-   $show_finish_button = FALSE;
-  }
-  else {
-   print "$li_good The system administrator user is properly assigned to the administrator role.</li>";
-  }
+# Check for system maintainer user
+$maintainer_user_filter = "(&(objectclass=inetOrgPerson)(uid=maintainer@example.com))";
+$ldap_maintainer_user_search = ldap_search($ldap_connection, "ou=system_users,{$LDAP['base_dn']}", $maintainer_user_filter);
+
+if ($ldap_maintainer_user_search === false) {
+ print "$li_fail Unable to search for system maintainer user. The system_users OU may not exist yet. ";
+ print "<a href='#' data-toggle='popover' title='System Maintainer' data-content='";
+ print "This is the initial system maintainer account that will have limited privileges.";
+ print "'>What's this?</a>";
+ print "<label class='pull-right'><input type='checkbox' name='setup_maintainer_user' class='pull-right' checked>Create?&nbsp;</label>";
+ print "</li>\n";
+ $show_finish_button = FALSE;
+}
+else {
+ $maintainer_user_result = ldap_get_entries($ldap_connection, $ldap_maintainer_user_search);
+
+ if ($maintainer_user_result['count'] != 1) {
+  print "$li_fail The system maintainer user (<strong>uid=maintainer@example.com,ou=system_users,{$LDAP['base_dn']}</strong>) doesn't exist. ";
+  print "<a href='#' data-toggle='popover' title='System Maintainer' data-content='";
+  print "This is the initial system maintainer account that will have limited privileges.";
+  print "'>What's this?</a>";
+  print "<label class='pull-right'><input type='checkbox' name='setup_maintainer_user' class='pull-right' checked>Create?&nbsp;</label>";
+ print "</li>\n";
+  $show_finish_button = FALSE;
  }
+ else {
+  print "$li_good The system maintainer user (<strong>uid=maintainer@example.com,ou=system_users,{$LDAP['base_dn']}</strong>) is present.</li>";
+ }
+}
 
 ?>
        </ul>

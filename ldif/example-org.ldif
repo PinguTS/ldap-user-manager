@@ -30,6 +30,7 @@ member: uid=admin@examplecompany.com,ou=users,o=Example Company,ou=organizations
 dn: uid=admin@examplecompany.com,ou=users,o=Example Company,ou=organizations,dc=example,dc=com
 objectClass: inetOrgPerson
 objectClass: top
+objectClass: ldapUserManager
 uid: admin@examplecompany.com
 cn: Company Admin
 sn: Admin
@@ -42,6 +43,7 @@ organization: Example Company
 dn: uid=user1@examplecompany.com,ou=users,o=Example Company,ou=organizations,dc=example,dc=com
 objectClass: inetOrgPerson
 objectClass: top
+objectClass: ldapUserManager
 uid: user1@examplecompany.com
 cn: John Doe
 sn: Doe

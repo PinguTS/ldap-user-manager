@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  ldap-user-manager:
+    image: your-ldap-user-manager:latest  # Replace with your actual image
+    container_name: ldap-user-manager
+    hostname: ldap-user-manager
+    ports:
+      - "8080:80"
+    environment:
+      # LDAP Connection Settings
+      LDAP_URI: "ldap://ldap-server:389"
+      LDAP_BASE_DN: "dc=example,dc=com"
+      LDAP_ADMIN_BIND_DN: "cn=admin,dc=example,dc=com"
+      LDAP_ADMIN_BIND_PWD: "admin123"
+      
+      # Application Settings
+      ORGANISATION_NAME: "LDAP User Manager"
+      SITE_NAME: "LDAP User Manager"
+      SERVER_HOSTNAME: "ldap-user-manager.example.com"
+      SERVER_PATH: "/"
+      
+      # Optional: Email Configuration
+      # SMTP_HOSTNAME: "smtp.example.com"
+      # SMTP_USERNAME: "noreply@example.com"
+      # SMTP_PASSWORD: "your-smtp-password"
+      # SMTP_USE_TLS: "TRUE"
+      
+      # Optional: Security Settings
+      LDAP_REQUIRE_STARTTLS: "FALSE"
+      LDAP_IGNORE_CERT_ERRORS: "TRUE"
+      
+      # Optional: User Management Settings
+      DEFAULT_USER_GROUP: "everybody"
+      USERNAME_FORMAT: "{first_name}-{last_name}"
+      PASSWORD_HASH: "SSHA"
+      ACCEPT_WEAK_PASSWORDS: "FALSE"
+      
+      # Optional: Account Requests
+      ACCOUNT_REQUESTS_ENABLED: "TRUE"
+      
+      # Optional: Debug Settings
+      LDAP_DEBUG: "FALSE"
+      SESSION_DEBUG: "FALSE"
+    depends_on:
+      ldap-server:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - ldap-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/setup/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  ldap-network:
+    external: true
+    name: ldap-user-manager_ldap-network

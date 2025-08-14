@@ -77,6 +77,37 @@ Change the variable values to suit your environment.  Now go to https://lum.exam
 
 ***
 
+## Docker Compose Setup (Recommended)
+
+For production deployments with separate containers, use the provided Docker Compose files:
+
+### Quick Setup with Docker Compose
+
+1. **Start the LDAP server:**
+   ```bash
+   docker-compose -f docker-compose.ldap.yml up -d
+   ```
+
+2. **Load the required schema and data:**
+   ```bash
+   docker exec -it ldap-server /setup-ldap.sh
+   ```
+
+3. **Start the user manager application:**
+   ```bash
+   docker-compose -f docker-compose.app.yml up -d
+   ```
+
+4. **Complete the web-based setup at `http://localhost:8080/setup/`**
+
+### Detailed Docker Setup
+
+For comprehensive Docker setup instructions, including Portainer stack configuration, see:
+- [DOCKER-SETUP.md](DOCKER-SETUP.md) - Complete Docker setup guide
+- [LDAP-CONFIGURATION.md](LDAP-CONFIGURATION.md) - LDAP configuration details
+
+***
+
 ## LDAP Schema and Configuration Requirements
 
 LDAP User Manager requires certain standard and custom LDAP schemas to function fully (e.g., for organization country, user passcodes, etc.).

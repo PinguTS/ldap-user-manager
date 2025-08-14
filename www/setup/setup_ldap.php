@@ -71,47 +71,9 @@ if (isset($_POST['fix_problems'])) {
   }
  }
 
- if (isset($_POST['setup_admin_role'])) {
-  $admin_role = array(
-   'objectClass' => array('top', 'groupOfNames'),
-   'cn' => 'administrator',
-   'description' => 'Full system administrator with all privileges',
-   'member' => array()
-  );
-  
-  $role_add = @ ldap_add($ldap_connection, "cn=administrator,ou=roles,ou=organizations,{$LDAP['base_dn']}", $admin_role);
-  if ($role_add == TRUE) {
-   print "$li_good Created administrator role <strong>cn=administrator,ou=roles,ou=organizations,{$LDAP['base_dn']}</strong></li>\n";
-  }
-  else {
-   $error = ldap_error($ldap_connection);
-   print "$li_fail Couldn't create administrator role: <pre>$error</pre></li>\n";
-   $no_errors = FALSE;
-  }
- }
-
- if (isset($_POST['setup_maintainer_role'])) {
-  $maintainer_role = array(
-   'objectClass' => array('top', 'groupOfNames'),
-   'cn' => 'maintainer',
-   'description' => 'System maintainer with limited privileges',
-   'member' => array()
-  );
-  
-  $role_add = @ ldap_add($ldap_connection, "cn=maintainer,ou=roles,ou=organizations,{$LDAP['base_dn']}", $maintainer_role);
-  if ($role_add == TRUE) {
-   print "$li_good Created maintainer role <strong>cn=maintainer,ou=roles,ou=organizations,{$LDAP['base_dn']}</strong></li>\n";
-  }
-  else {
-   $error = ldap_error($ldap_connection);
-   print "$li_fail Couldn't create maintainer role: <pre>$error</pre></li>\n";
-   $no_errors = FALSE;
-  }
- }
-
  if (isset($_POST['setup_admin_user'])) {
   $admin_user = array(
-   'objectClass' => array('top', 'inetOrgPerson'),
+   'objectClass' => array('top', 'inetOrgPerson', 'ldapUserManager'),
    'uid' => 'admin@example.com',
    'cn' => 'System Administrator',
    'sn' => 'Administrator',
@@ -133,21 +95,64 @@ if (isset($_POST['fix_problems'])) {
   }
  }
 
- if (isset($_POST['setup_admin_role_membership'])) {
-  $admin_user_dn = "uid=admin@example.com,ou=system_users,{$LDAP['base_dn']}";
-  $admin_role_dn = "cn=administrator,ou=roles,ou=organizations,{$LDAP['base_dn']}";
-  
-  $modify = array(
-   'member' => array($admin_user_dn)
+ if (isset($_POST['setup_maintainer_user'])) {
+  $maintainer_user = array(
+   'objectClass' => array('top', 'inetOrgPerson', 'ldapUserManager'),
+   'uid' => 'maintainer@example.com',
+   'cn' => 'System Maintainer',
+   'sn' => 'Maintainer',
+   'givenName' => 'System',
+   'mail' => 'maintainer@example.com',
+   'userPassword' => ldap_hashed_password('maintainer123'), // Default password - should be changed
+   'userRole' => 'maintainer'
   );
   
-  $role_modify = @ ldap_modify($ldap_connection, $admin_role_dn, $modify);
-  if ($role_modify == TRUE) {
-   print "$li_good Added system administrator user to administrator role</li>\n";
+  $user_add = @ ldap_add($ldap_connection, "uid=maintainer@example.com,ou=system_users,{$LDAP['base_dn']}", $maintainer_user);
+  if ($user_add == TRUE) {
+   print "$li_good Created system maintainer user <strong>uid=maintainer@example.com,ou=system_users,{$LDAP['base_dn']}</strong></li>\n";
+   print "$li_warn <strong>Default password is 'maintainer123' - please change this immediately!</strong></li>\n";
   }
   else {
    $error = ldap_error($ldap_connection);
-   print "$li_fail Couldn't add user to administrator role: <pre>$error</pre></li>\n";
+   print "$li_fail Couldn't create system maintainer user: <pre>$error</pre></li>\n";
+   $no_errors = FALSE;
+  }
+ }
+
+ if (isset($_POST['setup_admin_role'])) {
+  $admin_role = array(
+   'objectClass' => array('top', 'groupOfNames'),
+   'cn' => 'administrator',
+   'description' => 'Full system administrator with all privileges',
+   'member' => array("uid=admin@example.com,ou=system_users,{$LDAP['base_dn']}")
+  );
+  
+  $role_add = @ ldap_add($ldap_connection, "cn=administrator,ou=roles,ou=organizations,{$LDAP['base_dn']}", $admin_role);
+  if ($role_add == TRUE) {
+   print "$li_good Created administrator role <strong>cn=administrator,ou=roles,ou=organizations,{$LDAP['base_dn']}</strong></li>\n";
+  }
+  else {
+   $error = ldap_error($ldap_connection);
+   print "$li_fail Couldn't create administrator role: <pre>$error</pre></li>\n";
+   $no_errors = FALSE;
+  }
+ }
+
+ if (isset($_POST['setup_maintainer_role'])) {
+  $maintainer_role = array(
+   'objectClass' => array('top', 'groupOfNames'),
+   'cn' => 'maintainer',
+   'description' => 'System maintainer with limited privileges',
+   'member' => array("uid=maintainer@example.com,ou=system_users,{$LDAP['base_dn']}")
+  );
+  
+  $role_add = @ ldap_add($ldap_connection, "cn=maintainer,ou=roles,ou=organizations,{$LDAP['base_dn']}", $maintainer_role);
+  if ($role_add == TRUE) {
+   print "$li_good Created maintainer role <strong>cn=maintainer,ou=roles,ou=organizations,{$LDAP['base_dn']}</strong></li>\n";
+  }
+  else {
+   $error = ldap_error($ldap_connection);
+   print "$li_fail Couldn't create maintainer role: <pre>$error</pre></li>\n";
    $no_errors = FALSE;
   }
  }

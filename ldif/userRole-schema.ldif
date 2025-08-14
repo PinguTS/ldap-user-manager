@@ -1,0 +1,23 @@
+# Schema definition for userRole attribute
+# This should be loaded into the LDAP server's schema configuration
+
+# Define the userRole attribute type
+dn: cn=userRole,cn=schema,cn=configuration
+objectClass: olcAttributeType
+olcAttributeTypes: ( 1.3.6.1.4.1.99999.1.1 
+  NAME 'userRole' 
+  DESC 'User role within the system' 
+  EQUALITY caseIgnoreMatch 
+  SUBSTR caseIgnoreSubstringsMatch 
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 
+  SINGLE-VALUE )
+
+# Define an auxiliary object class that includes userRole
+dn: cn=ldapUserManager,cn=schema,cn=configuration
+objectClass: olcObjectClass
+olcObjectClasses: ( 1.3.6.1.4.1.99999.2.1 
+  NAME 'ldapUserManager' 
+  DESC 'LDAP User Manager specific attributes' 
+  SUP top 
+  AUXILIARY 
+  MAY ( userRole ) )
