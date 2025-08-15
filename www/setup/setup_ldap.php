@@ -47,46 +47,53 @@ if (isset($_POST['fix_problems'])) {
   }
  }
 
- if (isset($_POST['setup_system_users_ou'])) {
-  $ou_add = @ ldap_add($ldap_connection, "ou=system_users,{$LDAP['base_dn']}", array( 'objectClass' => 'organizationalUnit', 'ou' => 'system_users' ));
-  if ($ou_add == TRUE) {
-   print "$li_good Created OU <strong>ou=system_users,{$LDAP['base_dn']}</strong></li>\n";
-  }
-  else {
-   $error = ldap_error($ldap_connection);
-   print "$li_fail Couldn't create ou=system_users,{$LDAP['base_dn']}: <pre>$error</pre></li>\n";
-   $no_errors = FALSE;
-  }
- }
+ if (isset($_POST['setup_people_ou'])) {
+	$ou_add = @ ldap_add($ldap_connection, "ou=people,{$LDAP['base_dn']}", array( 'objectClass' => 'organizationalUnit', 'ou' => 'people' ));
+	if ($ou_add) {
+		print "$li_good Created OU <strong>ou=people,{$LDAP['base_dn']}</strong></li>\n";
+	} else {
+		$error = ldap_error($ldap_connection);
+		print "$li_fail Couldn't create ou=people,{$LDAP['base_dn']}: <pre>$error</pre></li>\n";
+	}
+}
 
  if (isset($_POST['setup_global_roles_ou'])) {
-  $ou_add = @ ldap_add($ldap_connection, "ou=roles,ou=organizations,{$LDAP['base_dn']}", array( 'objectClass' => 'organizationalUnit', 'ou' => 'roles' ));
+  $ou_add = @ ldap_add($ldap_connection, "ou=roles,{$LDAP['base_dn']}", array( 'objectClass' => 'organizationalUnit', 'ou' => 'roles' ));
   if ($ou_add == TRUE) {
-   print "$li_good Created OU <strong>ou=roles,ou=organizations,{$LDAP['base_dn']}</strong></li>\n";
+   print "$li_good Created OU <strong>ou=roles,{$LDAP['base_dn']}</strong></li>\n";
   }
   else {
    $error = ldap_error($ldap_connection);
-   print "$li_fail Couldn't create ou=roles,ou=organizations,{$LDAP['base_dn']}: <pre>$error</pre></li>\n";
+   print "$li_fail Couldn't create ou=roles,{$LDAP['base_dn']}: <pre>$error</pre></li>\n";
    $no_errors = FALSE;
   }
  }
 
  if (isset($_POST['setup_admin_user'])) {
+  $admin_email = (!empty($_POST['admin_email'])) ? $_POST['admin_email'] : 'admin@example.com';
+  $admin_password = (!empty($_POST['admin_password'])) ? $_POST['admin_password'] : 'admin123';
   $admin_user = array(
    'objectClass' => array('top', 'inetOrgPerson'),
-   'uid' => 'admin@example.com',
+   'uid' => $admin_email,
    'cn' => 'System Administrator',
    'sn' => 'Administrator',
    'givenName' => 'System',
-   'mail' => 'admin@example.com',
-   'userPassword' => ldap_hashed_password('admin123'), // Default password - should be changed
+   'mail' => $admin_email,
+   'userPassword' => ldap_hashed_password($admin_password),
    'description' => 'administrator'
   );
   
-  $user_add = @ ldap_add($ldap_connection, "uid=admin@example.com,ou=system_users,{$LDAP['base_dn']}", $admin_user);
+  $user_add = @ ldap_add($ldap_connection, "uid={$admin_email},ou=people,{$LDAP['base_dn']}", $admin_user);
   if ($user_add == TRUE) {
-   print "$li_good Created system administrator user <strong>uid=admin@example.com,ou=system_users,{$LDAP['base_dn']}</strong></li>\n";
-   print "$li_warn <strong>Default password is 'admin123' - please change this immediately!</strong></li>\n";
+   print "$li_good Created system administrator user <strong>uid={$admin_email},ou=people,{$LDAP['base_dn']}</strong></li>\n";
+   if ($admin_password == 'admin123') {
+    print "$li_warn <strong>Default password is 'admin123' - please change this immediately!</strong></li>\n";
+   } else {
+    print "$li_good <strong>Custom password set successfully!</strong></li>\n";
+   }
+   if ($admin_email != 'admin@example.com') {
+    print "$li_good <strong>Custom email address set: {$admin_email}</strong></li>\n";
+   }
   }
   else {
    $error = ldap_error($ldap_connection);
@@ -96,21 +103,30 @@ if (isset($_POST['fix_problems'])) {
  }
 
  if (isset($_POST['setup_maintainer_user'])) {
+  $maintainer_email = (!empty($_POST['maintainer_email'])) ? $_POST['maintainer_email'] : 'maintainer@example.com';
+  $maintainer_password = (!empty($_POST['maintainer_password'])) ? $_POST['maintainer_password'] : 'maintainer123';
   $maintainer_user = array(
    'objectClass' => array('top', 'inetOrgPerson'),
-   'uid' => 'maintainer@example.com',
+   'uid' => $maintainer_email,
    'cn' => 'System Maintainer',
    'sn' => 'Maintainer',
    'givenName' => 'System',
-   'mail' => 'maintainer@example.com',
-   'userPassword' => ldap_hashed_password('maintainer123'), // Default password - should be changed
+   'mail' => $maintainer_email,
+   'userPassword' => ldap_hashed_password($maintainer_password),
    'description' => 'maintainer'
   );
   
-  $user_add = @ ldap_add($ldap_connection, "uid=maintainer@example.com,ou=system_users,{$LDAP['base_dn']}", $maintainer_user);
+  $user_add = @ ldap_add($ldap_connection, "uid={$maintainer_email},ou=people,{$LDAP['base_dn']}", $maintainer_user);
   if ($user_add == TRUE) {
-   print "$li_good Created system maintainer user <strong>uid=maintainer@example.com,ou=system_users,{$LDAP['base_dn']}</strong></li>\n";
-   print "$li_warn <strong>Default password is 'maintainer123' - please change this immediately!</strong></li>\n";
+   print "$li_good Created system maintainer user <strong>uid={$maintainer_email},ou=people,{$LDAP['base_dn']}</strong></li>\n";
+   if ($maintainer_password == 'maintainer123') {
+    print "$li_warn <strong>Default password is 'maintainer123' - please change this immediately!</strong></li>\n";
+   } else {
+    print "$li_good <strong>Custom password set successfully!</strong></li>\n";
+   }
+   if ($maintainer_email != 'maintainer@example.com') {
+    print "$li_good <strong>Custom email address set: {$maintainer_email}</strong></li>\n";
+   }
   }
   else {
    $error = ldap_error($ldap_connection);
@@ -120,16 +136,17 @@ if (isset($_POST['fix_problems'])) {
  }
 
  if (isset($_POST['setup_admin_role'])) {
+  $admin_email = (!empty($_POST['admin_email'])) ? $_POST['admin_email'] : 'admin@example.com';
   $admin_role = array(
    'objectClass' => array('top', 'groupOfNames'),
    'cn' => 'administrator',
    'description' => 'Full system administrator with all privileges',
-   'member' => array("uid=admin@example.com,ou=system_users,{$LDAP['base_dn']}")
+   'member' => array("uid={$admin_email},ou=people,{$LDAP['base_dn']}")
   );
   
-  $role_add = @ ldap_add($ldap_connection, "cn=administrator,ou=roles,ou=organizations,{$LDAP['base_dn']}", $admin_role);
+  $role_add = @ ldap_add($ldap_connection, "cn=administrator,ou=roles,{$LDAP['base_dn']}", $admin_role);
   if ($role_add == TRUE) {
-   print "$li_good Created administrator role <strong>cn=administrator,ou=roles,ou=organizations,{$LDAP['base_dn']}</strong></li>\n";
+   print "$li_good Created administrator role <strong>cn=administrator,ou=roles,{$LDAP['base_dn']}</strong></li>\n";
   }
   else {
    $error = ldap_error($ldap_connection);
@@ -139,16 +156,17 @@ if (isset($_POST['fix_problems'])) {
  }
 
  if (isset($_POST['setup_maintainer_role'])) {
+  $maintainer_email = (!empty($_POST['maintainer_email'])) ? $_POST['maintainer_email'] : 'maintainer@example.com';
   $maintainer_role = array(
    'objectClass' => array('top', 'groupOfNames'),
    'cn' => 'maintainer',
    'description' => 'System maintainer with limited privileges',
-   'member' => array("uid=maintainer@example.com,ou=system_users,{$LDAP['base_dn']}")
+   'member' => array("uid={$maintainer_email},ou=people,{$LDAP['base_dn']}")
   );
   
-  $role_add = @ ldap_add($ldap_connection, "cn=maintainer,ou=roles,ou=organizations,{$LDAP['base_dn']}", $maintainer_role);
+  $role_add = @ ldap_add($ldap_connection, "cn=maintainer,ou=roles,{$LDAP['base_dn']}", $maintainer_role);
   if ($role_add == TRUE) {
-   print "$li_good Created maintainer role <strong>cn=maintainer,ou=roles,ou=organizations,{$LDAP['base_dn']}</strong></li>\n";
+   print "$li_good Created maintainer role <strong>cn=maintainer,ou=roles,{$LDAP['base_dn']}</strong></li>\n";
   }
   else {
    $error = ldap_error($ldap_connection);
@@ -158,6 +176,7 @@ if (isset($_POST['fix_problems'])) {
  }
 
  if (isset($_POST['setup_example_org'])) {
+  $admin_email = (!empty($_POST['admin_email'])) ? $_POST['admin_email'] : 'admin@example.com';
   $example_org_data = array(
    'o' => 'Example Company',
    'street' => '123 Business Street',
@@ -168,7 +187,7 @@ if (isset($_POST['fix_problems'])) {
    'telephoneNumber' => '+1-555-0123',
    'labeledURI' => 'https://examplecompany.com',
    'mail' => 'info@examplecompany.com',
-   'creatorDN' => "uid=admin@example.com,ou=system_users,{$LDAP['base_dn']}"
+   'creatorDN' => "uid={$admin_email},ou=people,{$LDAP['base_dn']}"
   );
   
   $org_result = createOrganization($example_org_data);

@@ -77,8 +77,8 @@ $org_users = getOrganizationUsers($org_name);
 // Get organization roles
 $org_roles = [];
 $ldap_connection = open_ldap_connection();
-$roles_dn = "ou=roles,o=" . ldap_escape($org_name, "", LDAP_ESCAPE_DN) . ",ou=organizations," . $LDAP['base_dn'];
-$roles_search = ldap_search($ldap_connection, $roles_dn, "(objectClass=groupOfNames)");
+$org_dn = "o=" . ldap_escape($org_name, "", LDAP_ESCAPE_DN) . ",ou=organizations," . $LDAP['base_dn'];
+$roles_search = ldap_search($ldap_connection, $org_dn, "(objectClass=groupOfNames)");
 if ($roles_search) {
     $roles_entries = ldap_get_entries($ldap_connection, $roles_search);
     if ($roles_entries && isset($roles_entries['count'])) {

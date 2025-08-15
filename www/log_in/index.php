@@ -27,8 +27,8 @@ if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["pas
    
    // If not found in organizations, search in system users
    if ($user_entries["count"] == 0) {
-     $user_search = ldap_search($ldap_connection, $LDAP['system_users_dn'], "({$LDAP['account_attribute']}=" . ldap_escape($_POST["user_id"], "", LDAP_ESCAPE_FILTER) . ")", ["dn", "userPassword"]);
-     $user_entries = ldap_get_entries($ldap_connection, $LDAP['system_users_dn'], "({$LDAP['account_attribute']}=" . ldap_escape($_POST["user_id"], "", LDAP_ESCAPE_FILTER) . ")", ["dn", "userPassword"]);
+     $user_search = ldap_search($ldap_connection, $LDAP['people_dn'], "({$LDAP['account_attribute']}=" . ldap_escape($_POST["user_id"], "", LDAP_ESCAPE_FILTER) . ")", ["dn", "userPassword"]);
+     $user_entries = ldap_get_entries($ldap_connection, $LDAP['people_dn'], "({$LDAP['account_attribute']}=" . ldap_escape($_POST["user_id"], "", LDAP_ESCAPE_FILTER) . ")", ["dn", "userPassword"]);
    }
    
    if ($user_entries["count"] > 0 && isset($user_entries[0]["userpassword"])) {

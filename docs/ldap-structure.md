@@ -18,7 +18,7 @@ mail: info@orga.com
 
 ### Example User LDIF (with passcode)
 ```ldif
-dn: uid=jane.doe,ou=users,o=OrgA,ou=organizations,dc=example,dc=com
+dn: uid=jane.doe,ou=people,o=OrgA,ou=organizations,dc=example,dc=com
 objectClass: inetOrgPerson
 objectClass: top
 uid: jane.doe
@@ -34,7 +34,7 @@ loginPasscode: {bcrypt}$2y$10$examplehash
 dn: cn=orgManagers,o=OrgA,ou=organizations,dc=example,dc=com
 objectClass: groupOfNames
 cn: orgManagers
-member: uid=jane.doe,ou=users,o=OrgA,ou=organizations,dc=example,dc=com
+member: uid=jane.doe,ou=people,o=OrgA,ou=organizations,dc=example,dc=com
 ```
 
 ### Example Global Admin Group LDIF
@@ -42,7 +42,7 @@ member: uid=jane.doe,ou=users,o=OrgA,ou=organizations,dc=example,dc=com
 dn: cn=administrators,ou=roles,dc=example,dc=com
 objectClass: groupOfNames
 cn: administrators
-member: uid=admin,ou=users,o=OrgA,ou=organizations,dc=example,dc=com
+member: uid=admin,ou=people,dc=example,dc=com
 ```
 
 ### Example OpenLDAP ACLs
@@ -52,19 +52,19 @@ access to *
   by group.exact="cn=administrators,ou=roles,dc=example,dc=com" manage
 
 # 2. Maintainers: Full access except admin users/groups
-access to dn.regex="^uid=.+,ou=users,o=.*,ou=organizations,dc=example,dc=com$"
+access to dn.regex="^uid=.+,ou=people,o=.*,ou=organizations,dc=example,dc=com$"
   by group.exact="cn=maintainers,ou=roles,dc=example,dc=com" write
 
 # Prevent maintainers from modifying admin users
-access to dn.regex="^uid=admin.*,ou=users,o=.*,ou=organizations,dc=example,dc=com$"
+access to dn.regex="^uid=admin.*,ou=people,o=.*,ou=organizations,dc=example,dc=com$"
   by group.exact="cn=maintainers,ou=roles,dc=example,dc=com" none
 
 # 3. Org Managers: Manage users in their own org
-access to dn.regex="^uid=.+,ou=users,o=([^,]+),ou=organizations,dc=example,dc=com$"
+access to dn.regex="^uid=.+,ou=people,o=([^,]+),ou=organizations,dc=example,dc=com$"
   by group.exact="cn=OrgAdmins,o=$1,ou=organizations,dc=example,dc=com" write
 
 # 4. Users: Self-management (e.g., change their own password)
-access to dn.regex="^uid=([^,]+),ou=users,o=.*,ou=organizations,dc=example,dc=com$"
+access to dn.regex="^uid=([^,]+),ou=people,o=.*,ou=organizations,dc=example,dc=com$"
   by self write
 
 # 5. Read access for all authenticated users
@@ -80,26 +80,32 @@ access to *
 ```
 dc=example,dc=com
 |
+|-- ou=people
+|    |-- uid=admin@example.com          # System administrator (email customizable)
+|    |-- uid=maintainer@example.com     # System maintainer (email customizable)
+|
 |-- ou=organizations
 |    |-- o=OrgA
-|    |    |-- ou=users
+|    |    |-- ou=people                 # Organization users
 |    |    |    |-- uid=user1
 |    |    |    |-- uid=user2
-|    |    |-- cn=orgManagers
+|    |    |-- cn=orgManagers            # Organization managers (direct group)
 |    |-- o=OrgB
-|         |-- ou=users
+|         |-- ou=people                 # Organization users
 |         |    |-- uid=user3
-|         |-- cn=orgManagers
+|         |-- cn=orgManagers            # Organization managers (direct group)
 |
-|-- ou=roles
+|-- ou=roles                            # Global system roles only
 |    |-- cn=administrators
 |    |-- cn=maintainers
 ```
 
-- **Organizations**: Each as an `organization` entry under `ou=organizations`.
-- **Users**: Under `ou=users` within their org.
-- **Org Managers**: Group entry per org.
-- **Global Roles**: Under `ou=roles`.
+- **System Users**: Stored under `ou=people,dc=example,dc=com` (administrators, maintainers)
+- **Email Customization**: Admin and maintainer email addresses can be customized during setup
+- **Organizations**: Each as an `organization` entry under `ou=organizations`
+- **Organization Users**: Under `ou=people` within their org (consistent naming)
+- **Organization Managers**: Direct group entries under each organization (`cn=orgManagers`)
+- **Global Roles**: Under `ou=roles,dc=example,dc=com` (system-wide roles only)
 
 ---
 
@@ -127,7 +133,7 @@ mail: info@orga.com
 
 ### User
 ```ldif
-dn: uid=jane.doe,ou=users,o=OrgA,ou=organizations,dc=example,dc=com
+dn: uid=jane.doe,ou=people,o=OrgA,ou=organizations,dc=example,dc=com
 objectClass: inetOrgPerson
 objectClass: top
 uid: jane.doe
@@ -142,7 +148,7 @@ userPassword: {SSHA}...
 dn: cn=orgManagers,o=OrgA,ou=organizations,dc=example,dc=com
 objectClass: groupOfNames
 cn: orgManagers
-member: uid=jane.doe,ou=users,o=OrgA,ou=organizations,dc=example,dc=com
+member: uid=jane.doe,ou=people,o=OrgA,ou=organizations,dc=example,dc=com
 ```
 
 ### Global Admin Group
@@ -150,13 +156,14 @@ member: uid=jane.doe,ou=users,o=OrgA,ou=organizations,dc=example,dc=com
 dn: cn=administrators,ou=roles,dc=example,dc=com
 objectClass: groupOfNames
 cn: administrators
-member: uid=admin,ou=users,o=OrgA,ou=organizations,dc=example,dc=com
+member: uid=admin@example.com,ou=people,dc=example,dc=com
 ```
 
 ---
 
 ## 4. Notes
 - Use the same structure for each organization.
+- All user containers use the consistent `ou=people` naming convention.
 - Add users to the appropriate group for role-based access.
 - Extend with additional attributes as needed (e.g., for organization address, website, etc.). 
 
@@ -174,19 +181,19 @@ access to *
   by group.exact="cn=administrators,ou=roles,dc=example,dc=com" manage
 
 # 2. Maintainers: Full access except admin users/groups
-access to dn.regex="^uid=.+,ou=users,o=.*,ou=organizations,dc=example,dc=com$"
+access to dn.regex="^uid=.+,ou=people,o=.*,ou=organizations,dc=example,dc=com$"
   by group.exact="cn=maintainers,ou=roles,dc=example,dc=com" write
 
 # Prevent maintainers from modifying admin users
-access to dn.regex="^uid=admin.*,ou=users,o=.*,ou=organizations,dc=example,dc=com$"
+access to dn.regex="^uid=admin.*,ou=people,o=.*,ou=organizations,dc=example,dc=com$"
   by group.exact="cn=maintainers,ou=roles,dc=example,dc=com" none
 
 # 3. Org Managers: Manage users in their own org
-access to dn.regex="^uid=.+,ou=users,o=([^,]+),ou=organizations,dc=example,dc=com$"
+access to dn.regex="^uid=.+,ou=people,o=([^,]+),ou=organizations,dc=example,dc=com$"
   by group.exact="cn=OrgAdmins,o=$1,ou=organizations,dc=example,dc=com" write
 
 # 4. Users: Self-management (e.g., change their own password)
-access to dn.regex="^uid=([^,]+),ou=users,o=.*,ou=organizations,dc=example,dc=com$"
+access to dn.regex="^uid=([^,]+),ou=people,o=.*,ou=organizations,dc=example,dc=com$"
   by self write
 
 # 5. Read access for all authenticated users
@@ -215,7 +222,7 @@ To add a user to the administrators group:
 dn: cn=administrators,ou=roles,dc=example,dc=com
 changetype: modify
 add: member
-member: uid=admin,ou=users,o=OrgA,ou=organizations,dc=example,dc=com
+member: uid=admin@example.com,ou=people,dc=example,dc=com
 ```
 
 --- 
@@ -235,7 +242,7 @@ member: uid=admin,ou=users,o=OrgA,ou=organizations,dc=example,dc=com
 
 ### Example LDIF (with passcode)
 ```ldif
-dn: uid=jane.doe,ou=users,o=OrgA,ou=organizations,dc=example,dc=com
+dn: uid=jane.doe,ou=people,o=OrgA,ou=organizations,dc=example,dc=com
 objectClass: inetOrgPerson
 objectClass: top
 uid: jane.doe
@@ -249,6 +256,4 @@ loginPasscode: {bcrypt}$2y$10$examplehash
 ### Notes
 - The `loginPasscode` attribute is not a standard LDAP attribute; you may need to extend your schema or use an existing extensible attribute (e.g., `description`) if schema extension is not possible.
 - Passcodes should be managed and stored securely, just like passwords.
-- The login form and backend now support authentication with either password or passcode.
-
---- 
+- The login form and backend now support authentication with either password or passcode. 

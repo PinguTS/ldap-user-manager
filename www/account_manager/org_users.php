@@ -52,7 +52,7 @@ function getUsersInOrg($orgName) {
     global $LDAP;
     $ldap = open_ldap_connection();
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
-    $usersDn = "ou=Users,o={$orgRDN}," . $LDAP['org_dn'];
+    $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
     $filter = '(objectClass=inetOrgPerson)';
     $attributes = ['uid', 'cn', 'sn', 'mail'];
     $result = @ldap_search($ldap, $usersDn, $filter, $attributes);
@@ -69,7 +69,7 @@ function getUsersInOrg($orgName) {
 function getUserDn($orgName, $uid) {
     global $LDAP;
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
-    $usersDn = "ou=Users,o={$orgRDN}," . $LDAP['org_dn'];
+    $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
     return "uid=$uid,$usersDn";
 }
 
@@ -177,7 +177,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
     // Duplicate user check
     error_log('DEBUG: org_users.php - Checking for duplicate user');
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
-    $usersDn = "ou=Users,o={$orgRDN}," . $LDAP['org_dn'];
+    $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
     $userDn = "uid=" . ldap_escape($uid, '', LDAP_ESCAPE_DN) . "," . $usersDn;
     $ldap = open_ldap_connection();
     $search = @ldap_search($ldap, $usersDn, "(uid=" . ldap_escape($uid, '', LDAP_ESCAPE_FILTER) . ")");
@@ -225,7 +225,7 @@ after_add_user:
 if (isset($_GET['delete_user'])) {
     $uidToDelete = $_GET['delete_user'];
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
-    $usersDn = "ou=Users,o={$orgRDN}," . $LDAP['org_dn'];
+    $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
     $userDn = "uid=" . ldap_escape($uidToDelete, '', LDAP_ESCAPE_DN) . ",$usersDn";
     $ldap = open_ldap_connection();
     try {
@@ -264,7 +264,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
     $password = $_POST['edit_password'];
     $passcode = $_POST['edit_passcode'];
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
-    $usersDn = "ou=Users,o={$orgRDN}," . $LDAP['org_dn'];
+    $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
     $userDn = "uid=" . ldap_escape($uid, '', LDAP_ESCAPE_DN) . ",$usersDn";
     $ldap = open_ldap_connection();
     $entry = [
@@ -301,7 +301,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
     $new_password = $_POST['reset_password'];
     $new_passcode = $_POST['reset_passcode'];
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
-    $usersDn = "ou=Users,o={$orgRDN}," . $LDAP['org_dn'];
+    $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
     $userDn = "uid=" . ldap_escape($uid, '', LDAP_ESCAPE_DN) . ",$usersDn";
     $ldap = open_ldap_connection();
     $entry = [];

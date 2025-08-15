@@ -94,64 +94,24 @@ else {
  }
 }
 
-# Check for system_users OU
-$sys_users_filter = "(&(objectclass=organizationalUnit)(ou=system_users))";
-$ldap_sys_users_search = ldap_search($ldap_connection, "{$LDAP['base_dn']}", $sys_users_filter);
-
-if ($ldap_sys_users_search === false) {
- print "$li_fail Unable to search for system users OU. LDAP search failed. ";
- print "<a href='#' data-toggle='popover' title='System Users OU' data-content='";
- print "This is the Organizational Unit (OU) that system-level users (administrators, maintainers) are stored under.";
- print "'>What's this?</a>";
- print "<label class='pull-right'><input type='checkbox' name='setup_system_users_ou' class='pull-right' checked>Create?&nbsp;</label>";
- print "</li>\n";
- $show_finish_button = FALSE;
-}
-else {
- $sys_users_result = ldap_get_entries($ldap_connection, $ldap_sys_users_search);
-
- if ($sys_users_result['count'] != 1) {
-  print "$li_fail The system users OU (<strong>ou=system_users,{$LDAP['base_dn']}</strong>) doesn't exist. ";
-  print "<a href='#' data-toggle='popover' title='System Users OU' data-content='";
-  print "This is the Organizational Unit (OU) that system-level users (administrators, maintainers) are stored under.";
-  print "'>What's this?</a>";
-  print "<label class='pull-right'><input type='checkbox' name='setup_system_users_ou' class='pull-right' checked>Create?&nbsp;</label>";
-  print "</li>\n";
-  $show_finish_button = FALSE;
- }
- else {
-  print "$li_good The system users OU (<strong>ou=system_users,{$LDAP['base_dn']}</strong>) is present.</li>";
- }
+# Check for people OU
+$people_filter = "(&(objectclass=organizationalUnit)(ou=people))";
+$people_search = ldap_search($ldap_connection, $LDAP['base_dn'], $people_filter);
+if (ldap_count_entries($ldap_connection, $people_search) == 0) {
+	print "$li_fail The people OU (<strong>ou=people,{$LDAP['base_dn']}</strong>) doesn't exist. ";
+	print "<label class='pull-right'><input type='checkbox' name='setup_people_ou' class='pull-right' checked>Create?&nbsp;</label>";
+} else {
+	print "$li_good The people OU (<strong>ou=people,{$LDAP['base_dn']}</strong>) is present.</li>";
 }
 
 # Check for global roles OU
 $global_roles_filter = "(&(objectclass=organizationalUnit)(ou=roles))";
-$ldap_global_roles_search = ldap_search($ldap_connection, "ou=organizations,{$LDAP['base_dn']}", $global_roles_filter);
-
-if ($ldap_global_roles_search === false) {
- print "$li_fail Unable to search for global roles OU. The organizations OU may not exist yet. ";
- print "<a href='#' data-toggle='popover' title='Global Roles OU' data-content='";
- print "This is the Organizational Unit (OU) that global system roles (administrator, maintainer) are stored under.";
- print "'>What's this?</a>";
- print "<label class='pull-right'><input type='checkbox' name='setup_global_roles_ou' class='pull-right' checked>Create?&nbsp;</label>";
- print "</li>\n";
- $show_finish_button = FALSE;
-}
-else {
- $global_roles_result = ldap_get_entries($ldap_connection, $ldap_global_roles_search);
-
- if ($global_roles_result['count'] != 1) {
-  print "$li_fail The global roles OU (<strong>ou=roles,ou=organizations,{$LDAP['base_dn']}</strong>) doesn't exist. ";
-  print "<a href='#' data-toggle='popover' title='Global Roles OU' data-content='";
-  print "This is the Organizational Unit (OU) that global system roles (administrator, maintainer) are stored under.";
-  print "'>What's this?</a>";
-  print "<label class='pull-right'><input type='checkbox' name='setup_global_roles_ou' class='pull-right' checked>Create?&nbsp;</label>";
-  print "</li>\n";
-  $show_finish_button = FALSE;
- }
- else {
-  print "$li_good The global roles OU (<strong>ou=roles,ou=organizations,{$LDAP['base_dn']}</strong>) is present.</li>";
- }
+$global_roles_search = ldap_search($ldap_connection, $LDAP['base_dn'], $global_roles_filter);
+if (ldap_count_entries($ldap_connection, $global_roles_search) == 0) {
+	print "$li_fail The global roles OU (<strong>ou=roles,{$LDAP['base_dn']}</strong>) doesn't exist. ";
+	print "<label class='pull-right'><input type='checkbox' name='setup_global_roles_ou' class='pull-right' checked>Create?&nbsp;</label>";
+} else {
+	print "$li_good The global roles OU (<strong>ou=roles,{$LDAP['base_dn']}</strong>) is present.</li>";
 }
 
 ?>
@@ -160,133 +120,81 @@ else {
      </div>
 
      <div class="panel panel-default">
-      <div class="panel-heading">LDAP role and user checks</div>
+      <div class="panel-heading">System users setup</div>
       <div class="panel-body">
        <ul class="list-group">
 <?php
 
-# Check for administrator role
-$admin_role_result = array('count' => 0);
-$maintainer_role_result = array('count' => 0);
-$admin_user_result = array('count' => 0);
+# Check for system administrator user
+$admin_user_filter = "(&(objectclass=inetOrgPerson)(description=administrator))";
+$ldap_admin_user_search = ldap_search($ldap_connection, "ou=people,{$LDAP['base_dn']}", $admin_user_filter);
 
-$admin_role_filter = "(&(objectclass=groupOfNames)(cn=administrator))";
-$ldap_admin_role_search = ldap_search($ldap_connection, "ou=roles,ou=organizations,{$LDAP['base_dn']}", $admin_role_filter);
-
-if ($ldap_admin_role_search === false) {
- print "$li_fail Unable to search for administrator role. The roles OU may not exist yet. ";
- print "<a href='#' data-toggle='popover' title='Administrator Role' data-content='";
- print "This role defines users with full system administrator privileges.";
- print "'>What's this?</a>";
- print "<label class='pull-right'><input type='checkbox' name='setup_admin_role' class='pull-right' checked>Create?&nbsp;</label>";
- print "</li>\n";
- $show_finish_button = FALSE;
+if (!$ldap_admin_user_search) {
+	print "$li_fail Unable to search for system administrator user. The people OU may not exist yet. ";
+	print "<label class='pull-right'><input type='checkbox' name='setup_people_ou' class='pull-right' checked>Create?&nbsp;</label>";
+} else {
+	if (ldap_count_entries($ldap_connection, $ldap_admin_user_search) == 0) {
+		print "$li_fail The system administrator user doesn't exist. ";
+		print "<label class='pull-right'><input type='checkbox' name='setup_admin_user' class='pull-right' checked>Create?&nbsp;</label>";
+		print "<br><small>Email: <input type='email' name='admin_email' placeholder='admin@example.com' value='admin@example.com' class='form-control input-sm' style='width: 250px; display: inline-block;'></small>";
+		print "<br><small>Password: <input type='password' name='admin_password' placeholder='Enter admin password' class='form-control input-sm' style='width: 200px; display: inline-block;'></small>";
+	} else {
+		$admin_entries = ldap_get_entries($ldap_connection, $ldap_admin_user_search);
+		$admin_email = $admin_entries[0]['mail'][0];
+		print "$li_good The system administrator user (<strong>uid={$admin_email},ou=people,{$LDAP['base_dn']}</strong>) is present.</li>";
+	}
 }
-else {
- $admin_role_result = ldap_get_entries($ldap_connection, $ldap_admin_role_search);
 
- if ($admin_role_result['count'] != 1) {
-  print "$li_fail The administrator role (<strong>cn=administrator,ou=roles,ou=organizations,{$LDAP['base_dn']}</strong>) doesn't exist. ";
-  print "<a href='#' data-toggle='popover' title='Administrator Role' data-content='";
-  print "This role defines users with full system administrator privileges.";
-  print "'>What's this?</a>";
-  print "<label class='pull-right'><input type='checkbox' name='setup_admin_role' class='pull-right' checked>Create?&nbsp;</label>";
-  print "</li>\n";
-  $show_finish_button = FALSE;
- }
- else {
-  print "$li_good The administrator role (<strong>cn=administrator,ou=roles,ou=organizations,{$LDAP['base_dn']}</strong>) is present.</li>";
- }
+# Check for system maintainer user
+$maintainer_user_filter = "(&(objectclass=inetOrgPerson)(description=maintainer))";
+$ldap_maintainer_user_search = ldap_search($ldap_connection, "ou=people,{$LDAP['base_dn']}", $maintainer_user_filter);
+
+if (!$ldap_maintainer_user_search) {
+	print "$li_fail Unable to search for system maintainer user. The people OU may not exist yet. ";
+	print "<label class='pull-right'><input type='checkbox' name='setup_people_ou' class='pull-right' checked>Create?&nbsp;</label>";
+} else {
+	if (ldap_count_entries($ldap_connection, $ldap_maintainer_user_search) == 0) {
+		print "$li_fail The system maintainer user doesn't exist. ";
+		print "<label class='pull-right'><input type='checkbox' name='setup_maintainer_user' class='pull-right' checked>Create?&nbsp;</label>";
+		print "<br><small>Email: <input type='email' name='maintainer_email' placeholder='maintainer@example.com' value='maintainer@example.com' class='form-control input-sm' style='width: 250px; display: inline-block;'></small>";
+		print "<br><small>Password: <input type='password' name='maintainer_password' placeholder='Enter maintainer password' class='form-control input-sm' style='width: 200px; display: inline-block;'></small>";
+	} else {
+		$maintainer_entries = ldap_get_entries($ldap_connection, $ldap_maintainer_user_search);
+		$maintainer_email = $maintainer_entries[0]['mail'][0];
+		print "$li_good The system maintainer user (<strong>uid={$maintainer_email},ou=people,{$LDAP['base_dn']}</strong>) is present.</li>";
+	}
+}
+
+# Check for administrator role
+$admin_role_filter = "(&(objectclass=groupOfNames)(cn=administrator))";
+$ldap_admin_role_search = ldap_search($ldap_connection, "ou=roles,{$LDAP['base_dn']}", $admin_role_filter);
+
+if (!$ldap_admin_role_search) {
+	print "$li_fail Unable to search for administrator role. The global roles OU may not exist yet. ";
+	print "<label class='pull-right'><input type='checkbox' name='setup_global_roles_ou' class='pull-right' checked>Create?&nbsp;</label>";
+} else {
+	if (ldap_count_entries($ldap_connection, $ldap_admin_role_search) == 0) {
+		print "$li_fail The administrator role (<strong>cn=administrator,ou=roles,{$LDAP['base_dn']}</strong>) doesn't exist. ";
+		print "<label class='pull-right'><input type='checkbox' name='setup_admin_role' class='pull-right' checked>Create?&nbsp;</label>";
+	} else {
+		print "$li_good The administrator role (<strong>cn=administrator,ou=roles,{$LDAP['base_dn']}</strong>) is present.</li>";
+	}
 }
 
 # Check for maintainer role
 $maintainer_role_filter = "(&(objectclass=groupOfNames)(cn=maintainer))";
-$ldap_maintainer_role_search = ldap_search($ldap_connection, "ou=roles,ou=organizations,{$LDAP['base_dn']}", $maintainer_role_filter);
+$ldap_maintainer_role_search = ldap_search($ldap_connection, "ou=roles,{$LDAP['base_dn']}", $maintainer_role_filter);
 
-if ($ldap_maintainer_role_search === false) {
- print "$li_fail Unable to search for maintainer role. The roles OU may not exist yet. ";
- print "<a href='#' data-toggle='popover' title='Maintainer Role' data-content='";
- print "This role defines users with system maintainer privileges (cannot modify administrators).";
- print "'>What's this?</a>";
- print "<label class='pull-right'><input type='checkbox' name='setup_maintainer_role' class='pull-right' checked>Create?&nbsp;</label>";
- print "</li>\n";
- $show_finish_button = FALSE;
-}
-else {
- $maintainer_role_result = ldap_get_entries($ldap_connection, $ldap_maintainer_role_search);
-
- if ($maintainer_role_result['count'] != 1) {
-  print "$li_fail The maintainer role (<strong>cn=maintainer,ou=roles,ou=organizations,{$LDAP['base_dn']}</strong>) doesn't exist. ";
-  print "<a href='#' data-toggle='popover' title='Maintainer Role' data-content='";
-  print "This role defines users with system maintainer privileges (cannot modify administrators).";
-  print "'>What's this?</a>";
-  print "<label class='pull-right'><input type='checkbox' name='setup_maintainer_role' class='pull-right' checked>Create?&nbsp;</label>";
-  print "</li>\n";
-  $show_finish_button = FALSE;
- }
- else {
-  print "$li_good The maintainer role (<strong>cn=maintainer,ou=roles,ou=organizations,{$LDAP['base_dn']}</strong>) is present.</li>";
- }
-}
-
-# Check for system administrator user
-$admin_user_filter = "(&(objectclass=inetOrgPerson)(uid=admin@example.com))";
-$ldap_admin_user_search = ldap_search($ldap_connection, "ou=system_users,{$LDAP['base_dn']}", $admin_user_filter);
-
-if ($ldap_admin_user_search === false) {
- print "$li_fail Unable to search for system administrator user. The system_users OU may not exist yet. ";
- print "<a href='#' data-toggle='popover' title='System Administrator' data-content='";
- print "This is the initial system administrator account that will have full privileges.";
- print "'>What's this?</a>";
- print "<label class='pull-right'><input type='checkbox' name='setup_admin_user' class='pull-right' checked>Create?&nbsp;</label>";
- print "</li>\n";
- $show_finish_button = FALSE;
-}
-else {
- $admin_user_result = ldap_get_entries($ldap_connection, $ldap_admin_user_search);
-
- if ($admin_user_result['count'] != 1) {
-  print "$li_fail The system administrator user (<strong>uid=admin@example.com,ou=system_users,{$LDAP['base_dn']}</strong>) doesn't exist. ";
-  print "<a href='#' data-toggle='popover' title='System Administrator' data-content='";
-  print "This is the initial system administrator account that will have full privileges.";
-  print "'>What's this?</a>";
-  print "<label class='pull-right'><input type='checkbox' name='setup_admin_user' class='pull-right' checked>Create?&nbsp;</label>";
-  print "</li>\n";
-  $show_finish_button = FALSE;
- }
- else {
-  print "$li_good The system administrator user (<strong>uid=admin@example.com,ou=system_users,{$LDAP['base_dn']}</strong>) is present.</li>";
- }
-}
-
-# Check for system maintainer user
-$maintainer_user_filter = "(&(objectclass=inetOrgPerson)(uid=maintainer@example.com))";
-$ldap_maintainer_user_search = ldap_search($ldap_connection, "ou=system_users,{$LDAP['base_dn']}", $maintainer_user_filter);
-
-if ($ldap_maintainer_user_search === false) {
- print "$li_fail Unable to search for system maintainer user. The system_users OU may not exist yet. ";
- print "<a href='#' data-toggle='popover' title='System Maintainer' data-content='";
- print "This is the initial system maintainer account that will have limited privileges.";
- print "'>What's this?</a>";
- print "<label class='pull-right'><input type='checkbox' name='setup_maintainer_user' class='pull-right' checked>Create?&nbsp;</label>";
- print "</li>\n";
- $show_finish_button = FALSE;
-}
-else {
- $maintainer_user_result = ldap_get_entries($ldap_connection, $ldap_maintainer_user_search);
-
- if ($maintainer_user_result['count'] != 1) {
-  print "$li_fail The system maintainer user (<strong>uid=maintainer@example.com,ou=system_users,{$LDAP['base_dn']}</strong>) doesn't exist. ";
-  print "<a href='#' data-toggle='popover' title='System Maintainer' data-content='";
-  print "This is the initial system maintainer account that will have limited privileges.";
-  print "'>What's this?</a>";
-  print "<label class='pull-right'><input type='checkbox' name='setup_maintainer_user' class='pull-right' checked>Create?&nbsp;</label>";
- print "</li>\n";
-  $show_finish_button = FALSE;
- }
- else {
-  print "$li_good The system maintainer user (<strong>uid=maintainer@example.com,ou=system_users,{$LDAP['base_dn']}</strong>) is present.</li>";
- }
+if (!$ldap_maintainer_role_search) {
+	print "$li_fail Unable to search for maintainer role. The global roles OU may not exist yet. ";
+	print "<label class='pull-right'><input type='checkbox' name='setup_global_roles_ou' class='pull-right' checked>Create?&nbsp;</label>";
+} else {
+	if (ldap_count_entries($ldap_connection, $ldap_maintainer_role_search) == 0) {
+		print "$li_fail The maintainer role (<strong>cn=maintainer,ou=roles,{$LDAP['base_dn']}</strong>) doesn't exist. ";
+		print "<label class='pull-right'><input type='checkbox' name='setup_maintainer_role' class='pull-right' checked>Create?&nbsp;</label>";
+	} else {
+		print "$li_good The maintainer role (<strong>cn=maintainer,ou=roles,{$LDAP['base_dn']}</strong>) is present.</li>";
+	}
 }
 
 ?>

@@ -14,6 +14,7 @@ A PHP-based web interface for managing LDAP user accounts, organizations, and ro
 - **Self-service**: Users can manage their own accounts and change passwords
 - **Email Integration**: Optional email notifications for new accounts and credential updates
 - **Passcode Support**: Optional passcode attributes for additional authentication
+- **Unified User Structure**: Consistent `ou=people` naming convention across the entire LDAP tree
 
 ***
 
@@ -39,7 +40,37 @@ The web-based setup wizard will automatically create all necessary LDAP structur
 
 - **[DOCKER-SETUP.md](DOCKER-SETUP.md)** - Complete Docker setup guide with Portainer instructions and troubleshooting
 - **[LDAP-CONFIGURATION.md](LDAP-CONFIGURATION.md)** - LDAP schema requirements and configuration details
+- **[docs/ldap-structure.md](docs/ldap-structure.md)** - Complete LDAP structure documentation with examples
 - **[ldif/README.md](ldif/README.md)** - LDIF file documentation and setup process
+
+***
+
+## LDAP Structure
+
+LDAP User Manager uses a unified and intuitive structure:
+
+```
+dc=example,dc=com
+├── ou=people                           # System-level users (admins, maintainers)
+│   ├── uid=admin@example.com
+│   └── uid=maintainer@example.com
+├── ou=organizations
+│   └── o=Example Company
+│       ├── ou=people                   # Organization users (same naming!)
+│       │   ├── uid=admin@examplecompany.com
+│       │   └── uid=user1@examplecompany.com
+│       └── cn=orgManagers              # Organization managers (direct group)
+├── ou=roles                            # Global system roles only
+│   ├── cn=administrators
+│   └── cn=maintainers
+```
+
+### Benefits of Unified Structure
+- **Consistent Naming**: `ou=people` everywhere means the same thing
+- **Intuitive Structure**: Users are always under `ou=people`, regardless of context
+- **Easier to Understand**: LDAP administrators will immediately know where to find users
+- **Follows Standards**: `ou=people` is the de facto standard for user containers
+- **Clean Organization Structure**: Direct group placement under organizations, no redundant OUs
 
 ***
 
@@ -83,7 +114,7 @@ For detailed LDAP setup instructions, see [LDAP-CONFIGURATION.md](LDAP-CONFIGURA
 After setup, verify these items:
 
 - [ ] LDAP server is running and accessible
-- [ ] Base structure (OUs) exists
+- [ ] Base structure (OUs) exists with unified `ou=people` naming
 - [ ] Web interface is accessible at `http://localhost:8080`
 - [ ] Setup wizard completes without errors at `/setup/`
 - [ ] Users can be created and managed

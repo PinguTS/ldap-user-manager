@@ -11,6 +11,7 @@ This document outlines the plan to modify the existing LDAP User Manager to meet
 3. **Access Control**: Maintainers cannot modify administrator accounts
 4. **Organization Structure**: Organizations contain users and have proper address information
 5. **User Management**: Users are organized within organizations with email-based login
+6. **Unified User Structure**: Implemented consistent `ou=people` naming convention across the entire LDAP tree
 
 ### 🔄 **IN PROGRESS REQUIREMENTS**
 1. **User Creation**: Need to update user creation functions to work within organizations
@@ -26,18 +27,44 @@ This document outlines the plan to modify the existing LDAP User Manager to meet
 
 ### 1. LDAP Schema Updates
 - **Removed**: `orgWithCountry.ldif` (custom schema no longer needed)
-- **Updated**: `base.ldif` with proper role hierarchy and system users
-- **Updated**: `example-org.ldif` to use `postalAddress` and new structure
-- **Added**: `system_users.ldif` for administrator and maintainer accounts
+- **Updated**: `base.ldif` with proper role hierarchy and unified `ou=people` structure
+- **Updated**: `example-org.ldif` to use `postalAddress` and new `ou=people` structure
+- **Updated**: `system_users.ldif` to use `ou=people` instead of `ou=system_users`
 
 ### 2. PHP Code Updates
 - **Updated**: `organization_functions.inc.php` to use new LDAP structure
 - **Updated**: `access_functions.inc.php` with comprehensive role-based access control
-- **Updated**: `config.inc.php` to remove custom schema dependencies
+- **Updated**: `config.inc.php` to use unified `ou=people` structure
+- **Updated**: All PHP files to reference new `people_dn` instead of `system_users_dn`
 
 ### 3. Documentation Updates
 - **Updated**: `LDAP-CONFIGURATION.md` to reflect new standard schema approach
+- **Updated**: `ldap-structure.md` to reflect unified `ou=people` structure
 - **Added**: This implementation plan document
+
+## New Unified LDAP Structure
+
+```
+dc=example,dc=com
+├── ou=people                           # System-level users (admins, maintainers)
+│   ├── uid=admin@example.com
+│   └── uid=maintainer@example.com
+├── ou=organizations
+│   └── o=Example Company
+│       └── ou=people                   # Organization users (same naming!)
+│           ├── uid=admin@examplecompany.com
+│           └── uid=user1@examplecompany.com
+└── ou=roles
+    ├── cn=administrators
+    └── cn=maintainers
+```
+
+### Benefits of Unified Structure
+- **Consistent Naming**: `ou=people` everywhere means the same thing
+- **Intuitive Structure**: Users are always under `ou=people`, regardless of context
+- **Easier to Understand**: LDAP administrators will immediately know where to find users
+- **Better Documentation**: Simpler to explain and maintain
+- **Follows Standards**: `ou=people` is the de facto standard for user containers
 
 ## Next Steps
 
@@ -91,83 +118,27 @@ This document outlines the plan to modify the existing LDAP User Manager to meet
 
 ## Technical Implementation Details
 
-### LDAP Structure
-```
-dc=example,dc=com
-├── ou=organizations
-│   ├── o=Company Name
-│   │   ├── ou=users
-│   │   │   ├── uid=admin@company.com
-│   │   │   └── uid=user1@company.com
-│   │   └── ou=roles
-│   │       └── cn=org_admin
-│   └── o=University Name
-│       ├── ou=users
-│       └── ou=roles
-├── ou=system_users
-│   ├── uid=admin@example.com
-│   └── uid=maintainer@example.com
-└── ou=roles
-    ├── cn=administrator
-    └── cn=maintainer
+### Configuration Variables
+```php
+// New unified approach
+$LDAP['people_dn'] = "ou=people,{$LDAP['base_dn']}";
+$LDAP['org_people_dn'] = "ou=people,o={$LDAP['org_ou']},{$LDAP['base_dn']}";
 ```
 
-### Role Hierarchy
-1. **Administrator**: Full access to everything
-2. **Maintainer**: Access to everything except administrator accounts
-3. **Organization Manager**: Access to users within their organization
-4. **Regular User**: Access to own account only
-
-### Access Control Rules
-- Administrators can modify anyone
-- Maintainers can modify anyone except administrators
-- Organization managers can only modify users in their organization
-- Users can modify their own account
-- Only administrators can delete organizations
-
-## Configuration Changes
-
-### Environment Variables
-- `LDAP_ADMINS_GROUP`: administrator (default)
-- `LDAP_MAINTAINERS_GROUP`: maintainer (default)
-- `LDAP_ORG_OU`: organizations (default)
-
-### LDAP Base DN
-Ensure `LDAP_BASE_DN` matches the structure in the LDIF files.
+### LDAP Search Patterns
+- **System Users**: Search in `ou=people,dc=example,dc=com`
+- **Organization Users**: Search in `ou=people,o=Organization,ou=organizations,dc=example,dc=com`
+- **Unified Search**: Can search both locations with consistent naming
 
 ## Migration Notes
 
-### From Old Structure
-- Organizations using old locality-based structure need to be migrated
-- User DNs will change to be organization-based
-- Role assignments need to be updated
+### For Existing Installations
+1. **Backup**: Always backup existing LDAP data before migration
+2. **Gradual Migration**: Consider migrating one organization at a time
+3. **Testing**: Test thoroughly in a development environment first
+4. **Rollback Plan**: Have a plan to revert changes if issues arise
 
-### Data Migration
-- Export existing data
-- Transform to new structure
-- Import with new LDIF files
-- Verify all relationships are maintained
-
-## Success Criteria
-
-1. **LDAP Compliance**: System uses only standard LDAP schemas
-2. **Role-Based Access**: Proper access control for all user types
-3. **Organization Management**: Full CRUD operations for organizations
-4. **User Management**: Users properly organized within organizations
-5. **Security**: Maintainers cannot access administrator accounts
-6. **Usability**: Intuitive interface for all user types
-
-## Timeline Estimate
-
-- **Phase 1**: 2-3 weeks (core functionality)
-- **Phase 2**: 2-3 weeks (UI updates)
-- **Phase 3**: 1-2 weeks (testing and validation)
-- **Total**: 5-8 weeks for complete implementation
-
-## Risk Mitigation
-
-1. **Backup Strategy**: Always backup LDAP data before changes
-2. **Testing Environment**: Use separate environment for development
-3. **Rollback Plan**: Maintain ability to revert to previous structure
-4. **Documentation**: Keep all changes well-documented
-5. **Incremental Updates**: Implement changes in small, testable increments 
+### Schema Changes
+- No schema changes required (using standard LDAP attributes)
+- Existing user data can be migrated to new structure
+- Group memberships need to be updated to reflect new DNs 

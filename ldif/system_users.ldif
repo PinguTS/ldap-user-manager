@@ -1,5 +1,6 @@
 # System Administrator
-dn: uid=admin@example.com,ou=system_users,dc=example,dc=com
+# Note: Email address can be customized during setup
+dn: uid=admin@example.com,ou=people,dc=example,dc=com
 objectClass: inetOrgPerson
 objectClass: top
 uid: admin@example.com
@@ -11,7 +12,8 @@ userPassword: {SSHA}encrypted_password_here
 description: administrator
 
 # System Maintainer
-dn: uid=maintainer@example.com,ou=system_users,dc=example,dc=com
+# Note: Email address can be customized during setup
+dn: uid=maintainer@example.com,ou=people,dc=example,dc=com
 objectClass: inetOrgPerson
 objectClass: top
 uid: maintainer@example.com

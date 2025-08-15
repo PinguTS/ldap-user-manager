@@ -178,7 +178,19 @@ function addUserToOrgManagers($orgName, $userDn) {
     $ldap = open_ldap_connection();
     
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
-    $groupDN = "cn=org_admin,ou=roles,o={$orgRDN},ou=organizations," . $LDAP['base_dn'];
+    $groupDN = "cn=orgManagers,o={$orgRDN},ou=organizations," . $LDAP['base_dn'];
+    
+    // First, check if the group exists, if not create it
+    $search = ldap_search($ldap, $groupDN, '(objectClass=*)', ['dn']);
+    if (!$search || ldap_count_entries($ldap, $search) == 0) {
+        // Create the orgManagers group
+        $groupData = [
+            'objectClass' => ['top', 'groupOfNames'],
+            'cn' => 'orgManagers',
+            'description' => "Organization managers for {$orgName}"
+        ];
+        ldap_add($ldap, $groupDN, $groupData);
+    }
     
     $modifications = ['member' => $userDn];
     $result = ldap_mod_add($ldap, $groupDN, $modifications);
@@ -192,7 +204,7 @@ function removeUserFromOrgManagers($orgName, $userDn) {
     $ldap = open_ldap_connection();
     
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
-    $groupDN = "cn=org_admin,ou=roles,o={$orgRDN},ou=organizations," . $LDAP['base_dn'];
+    $groupDN = "cn=orgManagers,o={$orgRDN},ou=organizations," . $LDAP['base_dn'];
     
     $modifications = ['member' => $userDn];
     $result = ldap_mod_del($ldap, $groupDN, $modifications);
@@ -206,7 +218,7 @@ function getOrganizationUsers($orgName) {
     $ldap = open_ldap_connection();
     
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
-    $usersDN = "ou=users,o={$orgRDN},ou=organizations," . $LDAP['base_dn'];
+    $usersDN = "ou=people,o={$orgRDN},ou=organizations," . $LDAP['base_dn'];
     
     $search = ldap_search($ldap, $usersDN, '(objectClass=inetOrgPerson)', 
         ['uid', 'cn', 'sn', 'givenName', 'mail', 'description', 'organization']);

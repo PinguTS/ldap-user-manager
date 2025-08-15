@@ -65,7 +65,7 @@ if ($ldap_search) {
 
 // If not found in organizations, try system users
 if (!$user || $user["count"] == 0) {
- $ldap_search = ldap_search( $ldap_connection, $LDAP['system_users_dn'], $ldap_search_query);
+ $ldap_search = ldap_search( $ldap_connection, $LDAP['people_dn'], $ldap_search_query);
  if ($ldap_search) {
    $user = ldap_get_entries($ldap_connection, $ldap_search);
    if ($user && isset($user["count"]) && $user["count"] > 0) {

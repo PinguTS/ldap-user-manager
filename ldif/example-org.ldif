@@ -9,25 +9,20 @@ labeledURI: https://examplecompany.com
 mail: info@examplecompany.com
 
 # Users organizational unit for this company
-dn: ou=users,o=Example Company,ou=organizations,dc=example,dc=com
+dn: ou=people,o=Example Company,ou=organizations,dc=example,dc=com
 objectClass: organizationalUnit
-ou: users
+ou: people
 
-# Roles organizational unit for this company
-dn: ou=roles,o=Example Company,ou=organizations,dc=example,dc=com
-objectClass: organizationalUnit
-ou: roles
-
-# Organization admin role
-dn: cn=org_admin,ou=roles,o=Example Company,ou=organizations,dc=example,dc=com
+# Organization admin role (direct group under organization)
+dn: cn=orgManagers,o=Example Company,ou=organizations,dc=example,dc=com
 objectClass: groupOfNames
 objectClass: top
-cn: org_admin
-description: Organization administrator for Example Company
-member: uid=admin@examplecompany.com,ou=users,o=Example Company,ou=organizations,dc=example,dc=com
+cn: orgManagers
+description: Organization managers for Example Company
+member: uid=admin@examplecompany.com,ou=people,o=Example Company,ou=organizations,dc=example,dc=com
 
 # Example user accounts
-dn: uid=admin@examplecompany.com,ou=users,o=Example Company,ou=organizations,dc=example,dc=com
+dn: uid=admin@examplecompany.com,ou=people,o=Example Company,ou=organizations,dc=example,dc=com
 objectClass: inetOrgPerson
 objectClass: top
 uid: admin@examplecompany.com
@@ -39,7 +34,7 @@ userPassword: {SSHA}encrypted_password_here
 description: org_admin
 organization: Example Company
 
-dn: uid=user1@examplecompany.com,ou=users,o=Example Company,ou=organizations,dc=example,dc=com
+dn: uid=user1@examplecompany.com,ou=people,o=Example Company,ou=organizations,dc=example,dc=com
 objectClass: inetOrgPerson
 objectClass: top
 uid: user1@examplecompany.com

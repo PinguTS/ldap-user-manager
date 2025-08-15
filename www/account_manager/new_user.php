@@ -242,7 +242,7 @@ if (isset($_POST['create_account'])) {
 
   $ldap_connection = open_ldap_connection();
   
-  // For admin setup, create in system_users, otherwise in organization
+  // For admin setup, create in people, otherwise in organization
   if ($admin_setup) {
     $new_account = ldap_new_account($ldap_connection, $new_account_r);
   } else {

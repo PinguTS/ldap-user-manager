@@ -458,7 +458,7 @@ function ldap_get_user_list($ldap_connection,$start=0,$entries=NULL,$sort="asc",
  }
  
  # Search in system users
- $ldap_search = @ ldap_search($ldap_connection, $LDAP['system_users_dn'], $this_filter, $fields);
+ $ldap_search = @ ldap_search($ldap_connection, $LDAP['people_dn'], $this_filter, $fields);
  if ($ldap_search) {
    $result = @ ldap_get_entries($ldap_connection, $ldap_search);
    if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix LDAP returned {$result['count']} system users when using this filter: $this_filter",0); }
@@ -750,7 +750,7 @@ function ldap_user_group_membership($ldap_connection,$username) {
  
  # If not found in organizations, search in system users
  if (!$user_dn) {
-   $ldap_search = @ ldap_search($ldap_connection, $LDAP['system_users_dn'], $user_filter, array('dn'));
+   $ldap_search = @ ldap_search($ldap_connection, $LDAP['people_dn'], $user_filter, array('dn'));
    if ($ldap_search) {
      $result = @ ldap_get_entries($ldap_connection, $ldap_search);
      if ($result['count'] > 0) {
@@ -1056,7 +1056,7 @@ function ldap_new_account($ldap_connection,$account_r) {
    }
    
    # Check if user already exists in this organization
-   $user_dn = "ou=users,o=" . ldap_escape($organization, "", LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
+   $user_dn = "ou=people,o=" . ldap_escape($organization, "", LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
    $ldap_search_query = "({$LDAP['account_attribute']}=" . ldap_escape(($account_identifier === null ? '' : $account_identifier), "", LDAP_ESCAPE_FILTER) . ")";
    $ldap_search = @ ldap_search($ldap_connection, $user_dn, $ldap_search_query);
    $result = @ ldap_get_entries($ldap_connection, $ldap_search);
@@ -1154,7 +1154,7 @@ function ldap_delete_account($ldap_connection,$username) {
   
   # If not found in organizations, search in system users
   if (!$user_dn) {
-    $ldap_search = @ ldap_search($ldap_connection, $LDAP['system_users_dn'], $ldap_search_query);
+    $ldap_search = @ ldap_search($ldap_connection, $LDAP['people_dn'], $ldap_search_query);
     if ($ldap_search) {
       $result = @ ldap_get_entries($ldap_connection, $ldap_search);
       if ($result['count'] > 0) {
@@ -1207,7 +1207,7 @@ function ldap_add_member_to_group($ldap_connection,$group_name,$username) {
   
   # If not found in organizations, search in system users
   if (!$user_dn) {
-    $ldap_search = @ ldap_search($ldap_connection, $LDAP['system_users_dn'], $user_filter, array('dn'));
+    $ldap_search = @ ldap_search($ldap_connection, $LDAP['people_dn'], $user_filter, array('dn'));
     if ($ldap_search) {
       $result = @ ldap_get_entries($ldap_connection, $ldap_search);
       if ($result['count'] > 0) {
@@ -1279,7 +1279,7 @@ function ldap_delete_member_from_group($ldap_connection,$group_name,$username) {
   
   # If not found in organizations, search in system users
   if (!$user_dn) {
-    $ldap_search = @ ldap_search($ldap_connection, $LDAP['system_users_dn'], $user_filter, array('dn'));
+    $ldap_search = @ ldap_search($ldap_connection, $LDAP['people_dn'], $user_filter, array('dn'));
     if ($ldap_search) {
       $result = @ ldap_get_entries($ldap_connection, $ldap_search);
       if ($result['count'] > 0) {
@@ -1351,7 +1351,7 @@ function ldap_change_password($ldap_connection,$username,$new_password) {
  
  # If not found in organizations, search in system users
  if (!$user_dn) {
-   $ldap_search = @ ldap_search($ldap_connection, $LDAP['system_users_dn'], $ldap_search_query);
+   $ldap_search = @ ldap_search($ldap_connection, $LDAP['people_dn'], $ldap_search_query);
    if ($ldap_search) {
      $result = @ ldap_get_entries($ldap_connection, $ldap_search);
      if ($result["count"] == 1) {
@@ -1401,7 +1401,7 @@ function ldap_change_passcode($ldap_connection,$username,$new_passcode) {
  
  # If not found in organizations, search in system users
  if (!$user_dn) {
-   $ldap_search = @ ldap_search($ldap_connection, $LDAP['system_users_dn'], $ldap_search_query);
+   $ldap_search = @ ldap_search($ldap_connection, $LDAP['people_dn'], $ldap_search_query);
    if ($ldap_search) {
      $result = @ ldap_get_entries($ldap_connection, $ldap_search);
      if ($result["count"] == 1) {
@@ -1486,7 +1486,7 @@ function ldap_get_user_info($ldap_connection, $username, $fields = NULL) {
  }
  
  # If not found in organizations, search in system users
- $ldap_search = @ ldap_search($ldap_connection, $LDAP['system_users_dn'], $ldap_search_query, $fields);
+ $ldap_search = @ ldap_search($ldap_connection, $LDAP['people_dn'], $ldap_search_query, $fields);
  if ($ldap_search) {
    $result = @ ldap_get_entries($ldap_connection, $ldap_search);
    if ($result['count'] > 0) {
@@ -1533,7 +1533,7 @@ function ldap_update_user_attributes($ldap_connection, $username, $attributes) {
  
  # If not found in organizations, search in system users
  if (!$user_dn) {
-   $ldap_search = @ ldap_search($ldap_connection, $LDAP['system_users_dn'], $ldap_search_query);
+   $ldap_search = @ ldap_search($ldap_connection, $LDAP['people_dn'], $ldap_search_query);
    if ($ldap_search) {
      $result = @ ldap_get_entries($ldap_connection, $ldap_search);
      if ($result['count'] > 0) {

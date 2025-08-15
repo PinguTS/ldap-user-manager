@@ -10,10 +10,10 @@ dn: ou=organizations,dc=example,dc=com
 objectClass: organizationalUnit
 ou: organizations
 
-dn: ou=system_users,dc=example,dc=com
+dn: ou=people,dc=example,dc=com
 objectClass: organizationalUnit
-ou: system_users
+ou: people
 
-dn: ou=roles,ou=organizations,dc=example,dc=com
+dn: ou=roles,dc=example,dc=com
 objectClass: organizationalUnit
 ou: roles 
