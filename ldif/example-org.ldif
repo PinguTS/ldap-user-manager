@@ -30,25 +30,23 @@ member: uid=admin@examplecompany.com,ou=users,o=Example Company,ou=organizations
 dn: uid=admin@examplecompany.com,ou=users,o=Example Company,ou=organizations,dc=example,dc=com
 objectClass: inetOrgPerson
 objectClass: top
-objectClass: ldapUserManager
 uid: admin@examplecompany.com
 cn: Company Admin
 sn: Admin
 givenName: Company
 mail: admin@examplecompany.com
 userPassword: {SSHA}encrypted_password_here
-userRole: org_admin
+description: org_admin
 organization: Example Company
 
 dn: uid=user1@examplecompany.com,ou=users,o=Example Company,ou=organizations,dc=example,dc=com
 objectClass: inetOrgPerson
 objectClass: top
-objectClass: ldapUserManager
 uid: user1@examplecompany.com
 cn: John Doe
 sn: Doe
 givenName: John
 mail: user1@examplecompany.com
 userPassword: {SSHA}encrypted_password_here
-userRole: user
+description: user
 organization: Example Company 

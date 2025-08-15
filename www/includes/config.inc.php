@@ -48,12 +48,12 @@ include_once __DIR__ . '/security_config.inc.php';
         "label" => "Organization",
         "required" => TRUE,
     ),
-    "userRole" => array(
+    "description" => array(
         "label" => "User Role",
         "default" => "user",
     ),
-    "passcode" => array(
-        "label" => "Passcode (optional)",
+     "userPassword" => array(
+     "label" => "Password/Passcode",
     )
  );
 

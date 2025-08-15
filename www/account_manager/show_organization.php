@@ -225,7 +225,7 @@ if ($roles_search) {
            <tr>
             <td><?php print htmlspecialchars($user['cn'] ?? $user['givenName'] . ' ' . $user['sn']); ?></td>
             <td><?php print htmlspecialchars($user['mail']); ?></td>
-            <td><?php print htmlspecialchars(ucfirst(str_replace('_', ' ', $user['userRole'] ?? 'user'))); ?></td>
+            <td><?php print htmlspecialchars(ucfirst(str_replace('_', ' ', $user['role'] ?? 'user'))); ?></td>
             <td>
              <a href="<?php print $THIS_MODULE_PATH; ?>/show_user.php?account_identifier=<?php print urlencode($user['mail']); ?>" class="btn btn-xs btn-primary">View</a>
             </td>

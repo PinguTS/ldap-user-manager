@@ -209,7 +209,7 @@ function getOrganizationUsers($orgName) {
     $usersDN = "ou=users,o={$orgRDN},ou=organizations," . $LDAP['base_dn'];
     
     $search = ldap_search($ldap, $usersDN, '(objectClass=inetOrgPerson)', 
-        ['uid', 'cn', 'sn', 'givenName', 'mail', 'userRole', 'organization']);
+        ['uid', 'cn', 'sn', 'givenName', 'mail', 'description', 'organization']);
     
     if (!$search) {
         ldap_close($ldap);
@@ -229,7 +229,7 @@ function getOrganizationUsers($orgName) {
             'sn' => isset($user['sn'][0]) ? $user['sn'][0] : '',
             'givenName' => isset($user['givenname'][0]) ? $user['givenname'][0] : '',
             'mail' => isset($user['mail'][0]) ? $user['mail'][0] : '',
-            'userRole' => isset($user['userrole'][0]) ? $user['userrole'][0] : 'user',
+            'role' => isset($user['description'][0]) ? $user['description'][0] : 'user',
             'organization' => isset($user['organization'][0]) ? $user['organization'][0] : $orgName
         ];
     }

@@ -16,18 +16,19 @@ LDAP User Manager requires the following standard OpenLDAP schemas:
 
 These are typically included by default in most OpenLDAP installations.
 
-**IMPORTANT**: LDAP User Manager also requires a custom schema that defines the `userRole` attribute. This schema is provided in `ldif/userRole-schema.ldif` and must be loaded before any data that uses the `userRole` attribute.
+**IMPORTANT**: LDAP User Manager uses existing LDAP attributes to ensure maximum compatibility with any LDAP server.
 
-### 1.1 Loading the Custom Schema
+### 1.1 Current Implementation
 
-The custom schema must be loaded first, before any other LDIF files:
+**The Approach**: Use existing LDAP attributes that are available in all standard LDAP schemas.
 
-```bash
-# Load the custom schema that defines the userRole attribute
-ldapadd -Y EXTERNAL -H ldapi:/// -f ldif/userRole-schema.ldif
-```
+**What This Means**: The application stores role information in the `description` attribute and passcodes in the `userPassword` attribute.
 
-If you cannot load custom schemas, you will need to modify the system to use standard attributes instead of `userRole`.
+**Benefits**:
+- Works with any LDAP server
+- No schema modifications required
+- Standard LDAP compliance
+- Reliable and tested
 
 ---
 
@@ -44,7 +45,7 @@ dc=example,dc=com
 │   │   │   ├── uid=admin@company.com
 │   │   │   └── uid=user1@company.com
 │   │   └── ou=roles
-│   │       └── cn=org_admin
+│   │       └── cn=org_admin (groupOfNames with member attributes)
 │   └── o=University Name
 │       ├── ou=users
 │       └── ou=roles
@@ -52,8 +53,8 @@ dc=example,dc=com
 │   ├── uid=admin@example.com
 │   └── uid=maintainer@example.com
 └── ou=roles
-    ├── cn=administrator
-    └── cn=maintainer
+    ├── cn=administrator (groupOfNames with member attributes)
+    └── cn=maintainer (groupOfNames with member attributes)
 ```
 
 ### 2.2 Organization Attributes
@@ -62,23 +63,57 @@ Organizations use the standard `postalAddress` attribute in the format:
 postalAddress: Street$City$State$ZIP$Country
 ```
 
-### 2.3 User Attributes
-Users are stored with email addresses as their `uid` and include:
-- `userRole`: administrator, maintainer, org_admin, or user
-- `organization`: the organization they belong to
+### 2.3 Role Group Structure
+Role groups use the `groupOfNames` object class and contain:
 
-**Note**: All users with the `userRole` attribute must include the `ldapUserManager` object class in addition to `inetOrgPerson`.
+**Global Roles** (`ou=roles,ou=organizations,dc=example,dc=com`):
+```
+dn: cn=administrator,ou=roles,ou=organizations,dc=example,dc=com
+objectClass: groupOfNames
+cn: administrator
+member: uid=admin@example.com,ou=system_users,dc=example,dc=com
+```
+
+**Organization Roles** (`ou=roles,o=OrgName,ou=organizations,dc=example,dc=com`):
+```
+dn: cn=org_admin,ou=roles,o=Company Name,ou=organizations,dc=example,dc=com
+objectClass: groupOfNames
+cn: org_admin
+member: uid=admin@company.com,ou=users,o=Company Name,ou=organizations,dc=example,dc=com
+```
+
+### 2.4 User Attributes
+Users are stored with email addresses as their `uid` and include:
+- `organization`: the organization they belong to
+- `userPassword`: stores both regular passwords and app-managed passcodes
+
+**Note**: The application uses existing LDAP attributes for maximum compatibility. Passcodes are stored alongside regular passwords in the `userPassword` attribute.
 
 ---
 
 ## 3. Role-Based Access Control
 
-### 3.1 System Roles
+### 3.1 How Roles Work
+
+**Roles are managed via LDAP groups, not user attributes:**
+
+1. **Global roles** are stored in `ou=roles,ou=organizations,dc=example,dc=com`
+   - `cn=administrator` - System administrators
+   - `cn=maintainer` - System maintainers
+
+2. **Organization roles** are stored in `ou=roles,o=OrgName,ou=organizations,dc=example,dc=com`
+   - `cn=org_admin` - Organization administrators
+
+3. **Users are added as members** to these role groups via the `member` attribute
+
+4. **Role checking** is done by verifying group membership, not by reading user attributes
+
+### 3.2 System Roles
 - **Administrators**: Full access to all organizations, users, and settings
 - **Maintainers**: Can manage all organizations and users, but cannot modify administrator accounts
 - **Organization Managers**: Can manage users within their assigned organization(s)
 
-### 3.2 Access Control Rules
+### 3.3 Access Control Rules
 - Administrators can modify anyone
 - Maintainers can modify anyone except administrators
 - Organization managers can only modify users in their organization
@@ -86,47 +121,79 @@ Users are stored with email addresses as their `uid` and include:
 
 ---
 
+## 3. Passcode Implementation
+
+### 3.1 Implementation Approach
+
+Passcode functionality is implemented using existing LDAP attributes for maximum compatibility:
+
+**`userPassword` for App-Managed Passcodes:**
+- Stores application-managed passcodes alongside regular passwords
+- No schema changes required
+- Application handles all passcode verification logic
+- Can store multiple passcodes if needed
+- Uses standard LDAP hashing (SSHA, etc.)
+- Regular passwords and passcodes coexist in the same attribute
+
+**Example Implementation:**
+```
+userPassword: {SSHA}hashed_regular_password
+userPassword: {SSHA}hashed_passcode_123456
+userPassword: {SSHA}hashed_passcode_789012
+```
+
+**Benefits:**
+- ✅ No custom schema required
+- ✅ Works with any LDAP server
+- ✅ Semantically correct attribute usage
+- ✅ Standard LDAP compliance
+- ✅ Flexible storage for multiple passcodes
+- ✅ Preserves existing password functionality
+
+### 3.2 Application Logic
+
+The application:
+1. **Stores passcodes** in the `userPassword` attribute alongside passwords
+2. **Distinguishes between** regular passwords and passcodes by hash format
+3. **Handles verification** logic for both authentication methods
+4. **Manages passcode lifecycle** (creation, expiration, rotation)
+5. **Uses existing LDAP attributes** for maximum compatibility
+
+---
+
 ## 4. Setup Process
 
-### 4.1 Automated Setup (Recommended)
+### 4.1 Web-Based Setup (Recommended)
 
-Use the provided setup script for easy installation:
+The LDAP User Manager includes a comprehensive web-based setup wizard that automatically creates all necessary LDAP structure:
 
-```bash
-# Make the script executable and run as root
-chmod +x setup-ldap.sh
-sudo ./setup-ldap.sh
-```
+1. **Access the setup wizard** at `/setup/` in your web browser
+2. **The wizard will check** your LDAP directory and identify what needs to be created
+3. **Automatically create** missing organizational units, users, and roles
+4. **Set up initial administrator** account with proper permissions
 
-### 4.2 Manual Setup
+**Benefits of web-based setup:**
+- No external scripts required
+- No root access needed
+- Conditional creation (only creates what's missing)
+- Better error handling and user feedback
+- Integrated with the application workflow
 
-**Step 1: Load the Custom Schema (Required First)**
-```sh
-ldapadd -Y EXTERNAL -H ldapi:/// -f ldif/userRole-schema.ldif
-```
+**What the wizard creates automatically:**
+- Base organizational units (organizations, system_users, roles)
+- System administrator and maintainer users
+- Administrator and maintainer roles with proper memberships
+- Example organization (optional)
 
-**Step 2: Load the Base Structure**
-```sh
-ldapadd -Y EXTERNAL -H ldapi:/// -f ldif/base.ldif
-```
+### 4.2 LDIF Files (Reference Only)
 
-**Step 3: Load System Users**
-```sh
-ldapadd -Y EXTERNAL -H ldapi:/// -f ldif/system_users.ldif
-```
+The LDIF files in the `ldif/` directory are provided for reference and advanced users who want to understand the LDAP structure. They are **not required** for normal operation since the web-based setup wizard handles everything automatically.
 
-**Step 4: Load Example Organization (Optional)**
-```sh
-ldapadd -Y EXTERNAL -H ldapi:/// -f ldif/example-org.ldif
-```
-
-**Step 5: Run Web-Based Setup**
-After loading the LDIF files, use the web interface at `/setup/` to:
-- Create the administrator and maintainer roles
-- Set up role memberships
-- Create example organization (if desired)
-
-**Note**: The schema must be loaded first, otherwise you will get "attribute type undefined" errors when trying to create users with the `userRole` attribute.
+**Available LDIF files:**
+- `ldif/base.ldif` - Base directory structure
+- `ldif/system_users.ldif` - System user definitions
+- `ldif/example-org.ldif` - Example organization structure
+- `userPassword` - Stores both regular passwords and app-managed passcodes
 
 ---
 
@@ -144,16 +211,13 @@ Ensure your `LDAP_BASE_DN` matches the structure in the LDIF files.
 
 ## 6. LDIF Files
 
-### 6.1 Schema Files
-- `ldif/userRole-schema.ldif` - Custom schema defining the userRole attribute and ldapUserManager object class
-
-### 6.2 Structure Files
+### 6.1 Structure Files
 - `ldif/base.ldif` - Base directory structure (organizations, system_users, roles OUs)
 - `ldif/system_users.ldif` - System user accounts (administrator, maintainer)
 - `ldif/example-org.ldif` - Example organization with users (optional)
 
-### 6.3 Additional Schemas
-- `ldif/loginPasscode.ldif` - Schema for optional user passcodes
+### 6.2 Additional Schemas
+- No custom schema files are needed. The system uses existing LDAP attributes like `description` for role information and `userPassword` for passcodes.
 
 ---
 
@@ -182,14 +246,14 @@ ldapsearch -x -b ou=system_users,dc=example,dc=com -D cn=admin,dc=example,dc=com
 
 ## 8. Docker Setup
 
-### 8.1 Using the Setup Script
+### 8.1 Docker Setup Overview
 
-The easiest way to set up LDAP in Docker is to use the provided setup script:
+The easiest way to set up LDAP in Docker is to use the web-based setup wizard:
 
-```bash
-# Run the script inside the LDAP container
-sudo ./setup-ldap.sh
-```
+1. **Start your LDAP container**
+2. **Start the LDAP User Manager container**
+3. **Access the setup wizard** at `/setup/` in your web browser
+4. **The wizard will automatically** create all necessary LDAP structure
 
 ### 8.2 Manual Docker Setup
 
@@ -205,177 +269,39 @@ docker run --name ldap -d \
   osixia/openldap:latest
 ```
 
-**Step 2: Load Schema and Data**
-```bash
-# Wait for container to start, then load schema
-docker exec ldap ldapadd -Y EXTERNAL -H ldapi:/// -f /ldif/userRole-schema.ldif
-
-# Load base structure
-docker exec ldap ldapadd -x -D cn=admin,dc=example,dc=com -w admin -f /ldif/base.ldif
-
-# Load system users
-docker exec ldap ldapadd -x -D cn=admin,dc=example,dc=com -w admin -f /ldif/system_users.ldif
-```
-
-### 8.3 Docker Compose / Portainer Stack Setup
-
-For production deployments with separate containers, here's a complete setup:
-
-#### **docker-compose.yml for LDAP Server**
-
-```yaml
-version: '3.8'
-
-services:
-  ldap:
-    image: osixia/openldap:latest
-    container_name: ldap-server
-    hostname: ldap-server
-    ports:
-      - "389:389"
-      - "636:636"
-    environment:
-      LDAP_ORGANISATION: "Example Organization"
-      LDAP_DOMAIN: "example.com"
-      LDAP_ADMIN_PASSWORD: "admin123"
-      LDAP_CONFIG_PASSWORD: "config123"
-      LDAP_READONLY_USER: "false"
-      LDAP_RFC2307BIS_SCHEMA: "false"
-      LDAP_BACKEND: "mdb"
-      LDAP_TLS: "false"
-    volumes:
-      - ldap_data:/var/lib/ldap
-      - ldap_config:/etc/ldap/slapd.d
-      - ./ldif:/ldif:ro
-    command: ["--copy-service"]
-    restart: unless-stopped
-    networks:
-      - ldap-network
-
-volumes:
-  ldap_data:
-  ldap_config:
-
-networks:
-  ldap-network:
-    driver: bridge
-```
-
-#### **docker-compose.yml for LDAP User Manager**
-
-```yaml
-version: '3.8'
-
-services:
-  ldap-user-manager:
-    image: your-ldap-user-manager:latest  # or build from source
-    container_name: ldap-user-manager
-    hostname: ldap-user-manager
-    ports:
-      - "8080:80"
-    environment:
-      # LDAP Connection Settings
-      LDAP_URI: "ldap://ldap-server:389"
-      LDAP_BASE_DN: "dc=example,dc=com"
-      LDAP_ADMIN_BIND_DN: "cn=admin,dc=example,dc=com"
-      LDAP_ADMIN_BIND_PWD: "admin123"
-      
-      # Application Settings
-      ORGANISATION_NAME: "LDAP User Manager"
-      SITE_NAME: "LDAP User Manager"
-      SERVER_HOSTNAME: "ldap-user-manager.example.com"
-      SERVER_PATH: "/"
-      
-      # Optional: Email Configuration
-      SMTP_HOSTNAME: "smtp.example.com"
-      SMTP_USERNAME: "noreply@example.com"
-      SMTP_PASSWORD: "your-smtp-password"
-      SMTP_USE_TLS: "TRUE"
-      
-      # Optional: Security Settings
-      LDAP_REQUIRE_STARTTLS: "FALSE"
-      LDAP_IGNORE_CERT_ERRORS: "TRUE"
-    depends_on:
-      - ldap-server
-    restart: unless-stopped
-    networks:
-      - ldap-network
-
-networks:
-  ldap-network:
-    external: true
-```
-
-#### **Complete Stack Setup Process**
-
-**Step 1: Create LDAP Server Stack**
-
-1. In Portainer, create a new stack called `ldap-server`
-2. Copy the LDAP docker-compose.yml content
-3. Deploy the stack
-4. Wait for the container to be healthy
-
-**Step 2: Load Schema and Initial Data**
-
+**Step 2: Complete Setup**
 ```bash
 # Connect to the LDAP container
 docker exec -it ldap-server bash
 
-# Load the custom schema (this must be done first)
-ldapadd -Y EXTERNAL -H ldapi:/// -f /ldif/userRole-schema.ldif
-
-# Load the base structure
-ldapadd -x -D cn=admin,dc=example,dc=com -w admin123 -f /ldif/base.ldif
-
-# Load system users
-ldapadd -x -D cn=admin,dc=example,dc=com -w admin123 -f /ldif/system_users.ldif
-
-# Load example organization (optional)
-ldapadd -x -D cn=admin,dc=example,dc=com -w admin123 -f /ldif/example-org.ldif
-
-# Verify the setup
-ldapsearch -x -b dc=example,dc=com -D cn=admin,dc=example,dc=com -w admin123
+# The LDAP server is now ready for the web-based setup wizard
+# No manual LDIF loading is required
 ```
 
-**Step 3: Create LDAP User Manager Stack**
+**Step 3: Complete Web-Based Setup**
+Access the web interface at `/setup/` to:
+- Verify LDAP connection
+- Automatically create all necessary LDAP structure
+- Set up initial administrator account and roles
 
-1. In Portainer, create a new stack called `ldap-user-manager`
-2. Copy the LDAP User Manager docker-compose.yml content
-3. Make sure to use the same network name (`ldap-network`)
-4. Deploy the stack
+**Note**: The web-based setup wizard handles everything automatically. No manual LDIF loading is required.
 
-**Step 4: Complete Web-Based Setup**
+#### **Alternative: Custom LDAP Image (Not Recommended)**
 
-1. Access the web interface at `http://your-server:8080/setup/`
-2. Follow the setup wizard to:
-   - Verify LDAP connection
-   - Create administrator and maintainer roles
-   - Set up initial users and permissions
-
-#### **Alternative: Automated Schema Loading**
-
-You can also create a custom LDAP image that includes the schema:
+**Note**: This approach is not recommended since the web-based setup wizard handles everything automatically. However, if you need a custom LDAP image for other reasons:
 
 **Dockerfile for Custom LDAP Image**
 
 ```dockerfile
 FROM osixia/openldap:latest
 
-# Copy LDIF files
+# Copy LDIF files for reference only
 COPY ldif/ /ldif/
 
 # Create startup script
 RUN echo '#!/bin/bash\n\
 # Wait for slapd to start\n\
 sleep 10\n\
-\n\
-# Load schema first\n\
-ldapadd -Y EXTERNAL -H ldapi:/// -f /ldif/userRole-schema.ldif\n\
-\n\
-# Load data\n\
-ldapadd -x -D cn=admin,dc=example,dc=com -w $LDAP_ADMIN_PASSWORD -f /ldif/base.ldif\n\
-ldapadd -x -D cn=admin,dc=example,dc=com -w $LDAP_ADMIN_PASSWORD -f /ldif/system_users.ldif\n\
-ldapadd -x -D cn=admin,dc=example,dc=com -w $LDAP_ADMIN_PASSWORD -f /ldif/example-org.ldif\n\
 \n\
 # Keep container running\n\
 exec "$@"' > /startup.sh && chmod +x /startup.sh
@@ -385,46 +311,14 @@ ENTRYPOINT ["/startup.sh"]
 CMD ["/container/tool/run"]
 ```
 
-**Updated docker-compose.yml with Custom Image**
-
-```yaml
-version: '3.8'
-
-services:
-  ldap:
-    build: ./ldap-custom  # Build from the Dockerfile above
-    container_name: ldap-server
-    hostname: ldap-server
-    ports:
-      - "389:389"
-      - "636:636"
-    environment:
-      LDAP_ORGANISATION: "Example Organization"
-      LDAP_DOMAIN: "example.com"
-      LDAP_ADMIN_PASSWORD: "admin123"
-      LDAP_CONFIG_PASSWORD: "config123"
-    volumes:
-      - ldap_data:/var/lib/ldap
-      - ldap_config:/etc/ldap/slapd.d
-    restart: unless-stopped
-    networks:
-      - ldap-network
-
-volumes:
-  ldap_data:
-  ldap_config:
-
-networks:
-  ldap-network:
-    driver: bridge
-```
+**Note**: The LDIF files are copied for reference only. The web-based setup wizard will create all necessary LDAP structure automatically.
 
 #### **Portainer-Specific Notes**
 
 - **Networks**: Make sure both stacks use the same external network
 - **Volumes**: Use named volumes for persistent data
 - **Environment Variables**: Set sensitive values through Portainer's environment variable interface
-- **Health Checks**: Monitor container health before proceeding with schema loading
+- **Health Checks**: Monitor container health before proceeding with setup
 - **Logs**: Check container logs for any errors during startup
 
 #### **Verification Commands**
@@ -433,7 +327,7 @@ networks:
 # Test LDAP connection from user manager container
 docker exec -it ldap-user-manager ldapsearch -x -H ldap://ldap-server:389 -b dc=example,dc=com -D cn=admin,dc=example,dc=com -w admin123
 
-# Check if schema was loaded
+# Check LDAP server accessibility
 docker exec -it ldap-server ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=schema,cn=configuration -s base
 
 # Verify users exist
@@ -442,9 +336,46 @@ docker exec -it ldap-server ldapsearch -x -b ou=system_users,dc=example,dc=com -
 
 ---
 
-## 9. See Also
+## 9. Basic Diagnostics
+
+### Diagnostic Commands
+
+If you encounter issues, these commands can help diagnose the problem:
+
+```bash
+# Check LDAP server status
+sudo systemctl status slapd
+
+# Check slapd version
+slapd -V
+
+# Test basic connection
+ldapsearch -x -H ldap://localhost:389 -b dc=example,dc=com
+
+# Verify setup
+ldapsearch -x -b dc=example,dc=com -D cn=admin,dc=example,dc=com -w your_admin_password
+
+# Check system users
+ldapsearch -x -b ou=system_users,dc=example,dc=com -D cn=admin,dc=example,dc=com -w your_admin_password
+```
+
+### Common Issues
+
+1. **"Connection refused"** - LDAP server not running or wrong port
+2. **"Invalid credentials"** - Check admin DN and password
+3. **"No such object"** - Base structure not created, run the web-based setup wizard
+4. **"attribute type undefined"** - Should not occur with current approach using existing attributes
+
+### Getting Help
+
+- **Check logs**: `sudo journalctl -u slapd -f`
+- **Enable debug mode**: Add `loglevel 256` to slapd configuration
+- **Community resources**: [OpenLDAP Documentation](https://www.openldap.org/doc/)
+
+---
+
+## 10. See Also
 
 - [ldif/README.md](ldif/README.md) - Detailed LDIF loading instructions
-- [setup-ldap.sh](setup-ldap.sh) - Automated setup script
 - Main [README.md](README.md) for general setup and environment variables
 - [docs/ldap-structure.md](docs/ldap-structure.md) for detailed LDAP structure examples 

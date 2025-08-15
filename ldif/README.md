@@ -1,55 +1,65 @@
 # LDIF Files for LDAP User Manager
 
-This directory contains LDIF files for setting up the LDAP directory structure and schema.
+This directory contains LDIF files for setting up the LDAP directory structure.
 
 ## Files
 
 - `base.ldif` - Base directory structure and organizational units
 - `system_users.ldif` - System users (administrators, maintainers)
 - `example-org.ldif` - Example organization with users
-- `loginPasscode.ldif` - Additional user attributes
-- `userRole-schema.ldif` - Custom schema for userRole attribute
 
-## Loading Order
+## 🎯 Solution: Use Web-Based Setup
 
-**IMPORTANT**: The schema must be loaded before any data that uses it.
+The LDAP User Manager includes a comprehensive web-based setup wizard that automatically creates all necessary LDAP structure. No manual LDIF loading is required.
 
-### 1. Load the Custom Schema (Required First)
+## 🚀 Setup Process
+
+### Web-Based Setup (Recommended)
+
+The LDAP User Manager includes a comprehensive web-based setup wizard that automatically creates all necessary LDAP structure:
+
+1. **Access the setup wizard** at `/setup/` in your web browser
+2. **The wizard will check** your LDAP directory and identify what needs to be created
+3. **Automatically create** missing organizational units, users, and roles
+4. **Set up initial administrator** account with proper permissions
+
+**Benefits:**
+- No external scripts required
+- No root access needed
+- Conditional creation (only creates what's missing)
+- Better error handling and user feedback
+- Integrated with the application workflow
+
+### LDIF Files (Reference Only)
+
+These LDIF files are provided for reference and advanced users who want to understand the LDAP structure. They are **not required** for normal operation since the web-based setup wizard handles everything automatically.
+
+**Available files:**
+- `base.ldif` - Base directory structure (organizations, system_users, roles OUs)
+- `system_users.ldif` - System user definitions (admin, maintainer)
+- `example-org.ldif` - Example organization structure
+
+**Note**: Passcodes are stored in the `userPassword` attribute alongside regular passwords, eliminating the need for custom schema files.
+
+## 🔍 Verification
+
+After using the web-based setup wizard, verify the structure exists:
 
 ```bash
-# Load the custom schema that defines the userRole attribute
-ldapadd -Y EXTERNAL -H ldapi:/// -f userRole-schema.ldif
+# Check base structure
+ldapsearch -x -b dc=example,dc=com -D cn=admin,dc=example,dc=com -w your_admin_password
+
+# Check system users
+ldapsearch -x -b ou=system_users,dc=example,dc=com -D cn=admin,dc=example,dc=com -w your_admin_password
 ```
 
-### 2. Load the Base Structure
+## 📚 Next Steps
 
-```bash
-# Load the base directory structure
-ldapadd -Y EXTERNAL -H ldapi:/// -f base.ldif
-```
+1. **Use the web-based setup wizard** at `/setup/` in your web browser
+2. **The wizard will automatically** create all necessary LDAP structure
+3. **Test the system** to ensure everything works
+4. **No manual LDIF loading** or external scripts required
 
-### 3. Load System Users
+## 🆘 Need Help?
 
-```bash
-# Load system users (requires schema to be loaded first)
-ldapadd -Y EXTERNAL -H ldapi:/// -f system_users.ldif
-```
-
-### 4. Load Example Organization (Optional)
-
-```bash
-# Load example organization and users
-ldapadd -Y EXTERNAL -H ldapi:/// -f example-org.ldif
-```
-
-## Troubleshooting
-
-If you get "attribute type undefined" errors:
-
-1. Make sure the schema was loaded first
-2. Check that the LDAP server supports dynamic schema loading
-3. Verify the schema was loaded correctly: `ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=schema,cn=configuration -s base`
-
-## Alternative: Use Standard Attributes
-
-If you cannot load custom schemas, you can modify the system to use standard attributes like `description` or `title` to store role information, but this requires code changes.
+See [TROUBLESHOOTING.md](../TROUBLESHOOTING.md) for detailed troubleshooting information.

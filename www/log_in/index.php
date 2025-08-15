@@ -22,19 +22,34 @@ if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["pas
  // If password failed, try passcode
  if ($account_id == FALSE && isset($_POST["passcode"]) && $_POST["passcode"] !== "") {
    // Search for user DN across all organizations and system users
-   $user_search = ldap_search($ldap_connection, $LDAP['org_dn'], "({$LDAP['account_attribute']}=" . ldap_escape($_POST["user_id"], "", LDAP_ESCAPE_FILTER) . ")", ["dn", "passcode"]);
+   $user_search = ldap_search($ldap_connection, $LDAP['org_dn'], "({$LDAP['account_attribute']}=" . ldap_escape($_POST["user_id"], "", LDAP_ESCAPE_FILTER) . ")", ["dn", "userPassword"]);
    $user_entries = ldap_get_entries($ldap_connection, $user_search);
    
    // If not found in organizations, search in system users
    if ($user_entries["count"] == 0) {
-     $user_search = ldap_search($ldap_connection, $LDAP['system_users_dn'], "({$LDAP['account_attribute']}=" . ldap_escape($_POST["user_id"], "", LDAP_ESCAPE_FILTER) . ")", ["dn", "passcode"]);
-     $user_entries = ldap_get_entries($ldap_connection, $user_search);
+     $user_search = ldap_search($ldap_connection, $LDAP['system_users_dn'], "({$LDAP['account_attribute']}=" . ldap_escape($_POST["user_id"], "", LDAP_ESCAPE_FILTER) . ")", ["dn", "userPassword"]);
+     $user_entries = ldap_get_entries($ldap_connection, $LDAP['system_users_dn'], "({$LDAP['account_attribute']}=" . ldap_escape($_POST["user_id"], "", LDAP_ESCAPE_FILTER) . ")", ["dn", "userPassword"]);
    }
    
-   if ($user_entries["count"] > 0 && isset($user_entries[0]["passcode"][0])) {
-     $stored_hash = $user_entries[0]["passcode"][0];
-     // Verify passcode using LDAP-compatible hashing
-     if (verify_ldap_passcode($_POST["passcode"], $stored_hash)) {
+   if ($user_entries["count"] > 0 && isset($user_entries[0]["userpassword"])) {
+     // Check all userPassword values for passcode match
+     $passcode_found = false;
+     foreach ($user_entries[0]["userpassword"] as $index => $stored_hash) {
+       if ($index === "count") continue; // Skip the count field
+       
+       // Skip if this looks like a regular password (not a passcode format)
+       if (strpos($stored_hash, '{') === 0 && !preg_match('/^\{ARGON2\}|\{SSHA\}|\{CRYPT\}|\{SMD5\}|\{MD5\}|\{SHA\}/', $stored_hash)) {
+         continue; // Skip non-passcode hash formats
+       }
+       
+       // Verify passcode using LDAP-compatible hashing
+       if (verify_ldap_passcode($_POST["passcode"], $stored_hash)) {
+         $passcode_found = true;
+         break;
+       }
+     }
+     
+     if ($passcode_found) {
        $account_id = $_POST["user_id"];
        // Optionally, set $is_admin = false; (passcode logins are not admin)
      }

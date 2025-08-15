@@ -73,14 +73,14 @@ if (isset($_POST['fix_problems'])) {
 
  if (isset($_POST['setup_admin_user'])) {
   $admin_user = array(
-   'objectClass' => array('top', 'inetOrgPerson', 'ldapUserManager'),
+   'objectClass' => array('top', 'inetOrgPerson'),
    'uid' => 'admin@example.com',
    'cn' => 'System Administrator',
    'sn' => 'Administrator',
    'givenName' => 'System',
    'mail' => 'admin@example.com',
    'userPassword' => ldap_hashed_password('admin123'), // Default password - should be changed
-   'userRole' => 'administrator'
+   'description' => 'administrator'
   );
   
   $user_add = @ ldap_add($ldap_connection, "uid=admin@example.com,ou=system_users,{$LDAP['base_dn']}", $admin_user);
@@ -97,14 +97,14 @@ if (isset($_POST['fix_problems'])) {
 
  if (isset($_POST['setup_maintainer_user'])) {
   $maintainer_user = array(
-   'objectClass' => array('top', 'inetOrgPerson', 'ldapUserManager'),
+   'objectClass' => array('top', 'inetOrgPerson'),
    'uid' => 'maintainer@example.com',
    'cn' => 'System Maintainer',
    'sn' => 'Maintainer',
    'givenName' => 'System',
    'mail' => 'maintainer@example.com',
    'userPassword' => ldap_hashed_password('maintainer123'), // Default password - should be changed
-   'userRole' => 'maintainer'
+   'description' => 'maintainer'
   );
   
   $user_add = @ ldap_add($ldap_connection, "uid=maintainer@example.com,ou=system_users,{$LDAP['base_dn']}", $maintainer_user);

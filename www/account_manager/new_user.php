@@ -190,7 +190,7 @@ if (isset($_POST['create_account'])) {
  $this_sn=$sn[0];
  $this_password=$password[0];
  $this_organization = isset($organization[0]) ? $organization[0] : '';
- $this_user_role = isset($userRole[0]) ? $userRole[0] : 'user';
+ $this_user_role = isset($description[0]) ? $description[0] : 'user';
 
  if (!isset($this_cn) or $this_cn == "") { $invalid_cn = TRUE; }
  if ((!isset($account_identifier) or $account_identifier == "") and $invalid_cn != TRUE) { $invalid_account_identifier = TRUE; }
@@ -248,7 +248,7 @@ if (isset($_POST['create_account'])) {
   } else {
     // Add organization to the account data
     $new_account_r['organization'] = [$this_organization];
-    $new_account_r['userRole'] = [$this_user_role];
+    $new_account_r['description'] = [$this_user_role];
     $new_account = ldap_new_account($ldap_connection, $new_account_r);
   }
 
@@ -447,7 +447,7 @@ $tabindex=1;
          if (isset($$attribute)) { $these_values=$$attribute; } else { $these_values = array(); }
          if (isset($attr_r['inputtype'])) { $inputtype = $attr_r['inputtype']; } else { $inputtype = ""; }
          
-         // Special handling for organization and userRole fields
+         // Special handling for organization and description fields
          if ($attribute === 'organization' && !$admin_setup) {
            echo '<div class="form-group" id="organization_div">';
            echo '<label for="organization" class="col-sm-3 control-label"><strong>Organization</strong><sup>&ast;</sup></label>';
@@ -461,11 +461,11 @@ $tabindex=1;
            echo '</select>';
            echo '</div>';
            echo '</div>';
-         } elseif ($attribute === 'userRole' && !$admin_setup) {
-           echo '<div class="form-group" id="userRole_div">';
-           echo '<label for="userRole" class="col-sm-3 control-label">User Role</label>';
+         } elseif ($attribute === 'description' && !$admin_setup) {
+           echo '<div class="form-group" id="description_div">';
+           echo '<label for="description" class="col-sm-3 control-label">User Role</label>';
            echo '<div class="col-sm-6">';
-           echo '<select class="form-control" name="userRole" id="userRole">';
+           echo '<select class="form-control" name="description" id="description">';
            foreach ($available_user_roles as $role) {
              $selected = (isset($these_values[0]) && $these_values[0] === $role) ? 'selected' : '';
              echo '<option value="' . htmlspecialchars($role) . '" ' . $selected . '>' . htmlspecialchars(ucfirst(str_replace('_', ' ', $role))) . '</option>';

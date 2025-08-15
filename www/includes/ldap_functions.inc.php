@@ -429,7 +429,7 @@ function ldap_get_user_list($ldap_connection,$start=0,$entries=NULL,$sort="asc",
 
  global $log_prefix, $LDAP, $LDAP_DEBUG;
 
- if (!isset($fields)) { $fields = array_unique( array("{$LDAP['account_attribute']}", "givenname", "sn", "cn", "mail", "userRole", "organization")); }
+ if (!isset($fields)) { $fields = array_unique( array("{$LDAP['account_attribute']}", "givenname", "sn", "cn", "mail", "description", "organization")); }
 
  if (!isset($sort_key)) { $sort_key = $LDAP['account_attribute']; }
 
@@ -1075,15 +1075,19 @@ function ldap_new_account($ldap_connection,$account_r) {
      # Handle passcode if provided
      if (isset($account_r['passcode'][0]) && !empty($account_r['passcode'][0])) {
        $hashed_passcode = ldap_hashed_passcode($account_r['passcode'][0]);
-       $account_attributes['passcode'] = $hashed_passcode;
+       # Add passcode to userPassword (multiple values supported)
+       if (!isset($account_attributes['userpassword'])) {
+         $account_attributes['userpassword'] = array();
+       }
+       $account_attributes['userpassword'][] = $hashed_passcode;
        unset($account_r['passcode']);
      }
 
      $account_attributes = array_merge($account_r, $account_attributes);
 
-     # Set default userRole if not specified
-     if (!isset($account_attributes['userRole'][0])) {
-       $account_attributes['userRole'][0] = 'user';
+     # Set default description (role) if not specified
+     if (!isset($account_attributes['description'][0])) {
+       $account_attributes['description'][0] = 'user';
      }
 
      # Ensure uid is set to email for email-based login
@@ -1100,7 +1104,7 @@ function ldap_new_account($ldap_connection,$account_r) {
        error_log("$log_prefix Created new account: $account_identifier in organization: $organization",0);
        
        # Add user to organization if they have org_admin role
-       if (isset($account_attributes['userRole'][0]) && $account_attributes['userRole'][0] === 'org_admin') {
+       if (isset($account_attributes['description'][0]) && $account_attributes['description'][0] === 'org_admin') {
          addUserToOrgManagers($organization, "{$LDAP['account_attribute']}=$account_identifier,{$user_dn}");
        }
        
@@ -1411,7 +1415,33 @@ function ldap_change_passcode($ldap_connection,$username,$new_passcode) {
    return FALSE;
  }
 
- $entries["passcode"] = ldap_hashed_passcode($new_passcode);
+ # Get current user attributes to preserve existing userPassword values
+ $current_attrs = @ ldap_read($ldap_connection, $user_dn, "(objectClass=*)", ["userPassword"]);
+ if ($current_attrs) {
+   $current_entries = @ ldap_get_entries($ldap_connection, $current_attrs);
+   if ($current_entries['count'] > 0 && isset($current_entries[0]['userpassword'])) {
+     # Remove old passcode values (keep regular passwords)
+     $new_userpassword = array();
+     foreach ($current_entries[0]['userpassword'] as $index => $pwd) {
+       if ($index === "count") continue;
+       # Keep only non-passcode hashes (regular passwords)
+       if (strpos($pwd, '{') === 0 && !preg_match('/^\{ARGON2\}|\{SSHA\}|\{CRYPT\}|\{SMD5\}|\{MD5\}|\{SHA\}/', $pwd)) {
+         $new_userpassword[] = $pwd;
+       }
+     }
+     # Add new passcode
+     $new_userpassword[] = ldap_hashed_passcode($new_passcode);
+     
+     $entries["userPassword"] = $new_userpassword;
+   } else {
+     # No existing userPassword, just add new passcode
+     $entries["userPassword"] = ldap_hashed_passcode($new_passcode);
+   }
+ } else {
+   # No existing attributes, just add new passcode
+   $entries["userPassword"] = ldap_hashed_passcode($new_passcode);
+ }
+
  $update = @ ldap_mod_replace($ldap_connection, $user_dn, $entries);
 
  if ($update) {
@@ -1433,7 +1463,7 @@ function ldap_get_user_info($ldap_connection, $username, $fields = NULL) {
  global $log_prefix, $LDAP, $LDAP_DEBUG;
 
  if (!isset($fields)) { 
-   $fields = array_unique( array("{$LDAP['account_attribute']}", "givenname", "sn", "cn", "mail", "userRole", "organization", "passcode")); 
+   $fields = array_unique( array("{$LDAP['account_attribute']}", "givenname", "sn", "cn", "mail", "description", "organization", "userPassword")); 
  }
 
  $ldap_search_query = "{$LDAP['account_attribute']}=" . ldap_escape(($username === null ? '' : $username), "", LDAP_ESCAPE_FILTER);
@@ -1524,7 +1554,12 @@ function ldap_update_user_attributes($ldap_connection, $username, $attributes) {
  
  # Handle passcode hashing if passcode is being updated
  if (isset($attributes['passcode'])) {
-  $attributes['passcode'] = ldap_hashed_passcode($attributes['passcode']);
+  # Add passcode to userPassword (multiple values supported)
+  if (!isset($attributes['userPassword'])) {
+    $attributes['userPassword'] = array();
+  }
+  $attributes['userPassword'][] = ldap_hashed_passcode($attributes['passcode']);
+  unset($attributes['passcode']); // Remove the passcode key
  }
 
  $update = @ ldap_mod_replace($ldap_connection, $user_dn, $attributes);

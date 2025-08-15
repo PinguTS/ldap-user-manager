@@ -195,11 +195,11 @@ function currentUserCanDeleteUser($targetUserDN) {
     // Maintainers can delete anyone except administrators
     if (currentUserIsMaintainer()) {
         $ldap = open_ldap_connection();
-        $search = ldap_read($ldap, $targetUserDN, '(objectClass=*)', ['userRole']);
+        $search = ldap_read($ldap, $targetUserDN, '(objectClass=*)', ['description']);
         if ($search) {
             $entries = ldap_get_entries($ldap, $search);
-            if ($entries['count'] > 0 && isset($entries[0]['userrole'][0])) {
-                $targetUserRole = $entries[0]['userrole'][0];
+            if ($entries['count'] > 0 && isset($entries[0]['description'][0])) {
+                $targetUserRole = $entries[0]['description'][0];
                 ldap_close($ldap);
                 return ($targetUserRole !== 'administrator');
             }

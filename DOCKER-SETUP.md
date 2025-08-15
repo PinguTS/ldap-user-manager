@@ -51,19 +51,14 @@ This guide provides step-by-step instructions for setting up LDAP User Manager u
    docker-compose -f docker-compose.ldap.yml up -d
    ```
 
-3. **Wait for LDAP to be ready, then load schema**
-   ```bash
-   docker exec -it ldap-server /setup-ldap.sh
-   ```
-
-4. **Create the user manager stack**
+3. **Wait for LDAP to be ready, then start user manager**
    ```bash
    docker-compose -f docker-compose.app.yml up -d
    ```
 
-5. **Complete web setup**
+4. **Complete web setup**
    - Navigate to `http://localhost:8080/setup/`
-   - Follow the setup wizard
+   - Follow the setup wizard to automatically create LDAP structure
 
 ### Option 2: Manual Portainer Setup
 
@@ -119,42 +114,21 @@ networks:
 
 3. **Deploy the stack and wait for it to be healthy**
 
-### Step 2: Load Schema and Initial Data
+### Step 2: Load LDAP Structure
 
-1. **Connect to the LDAP container:**
-   ```bash
-   docker exec -it ldap-server bash
-   ```
+The LDAP User Manager includes a web-based setup wizard that automatically creates all necessary LDAP structure. Simply:
 
-2. **Load the custom schema (required first):**
-   ```bash
-   ldapadd -Y EXTERNAL -H ldapi:/// -f /ldif/userRole-schema.ldif
-   ```
+1. **Access the setup wizard** at `http://localhost:8080/setup/`
+2. **The wizard will automatically** create missing OUs, users, and roles
+3. **No external scripts** or manual LDIF loading required
 
-3. **Load the base structure:**
-   ```bash
-   ldapadd -x -D cn=admin,dc=example,dc=com -w admin123 -f /ldif/base.ldif
-   ```
+**What the wizard creates automatically:**
+- Base organizational units (organizations, system_users, roles)
+- System administrator and maintainer users
+- Administrator and maintainer roles with proper memberships
+- Example organization (optional)
 
-4. **Load system users:**
-   ```bash
-   ldapadd -x -D cn=admin,dc=example,dc=com -w admin123 -f /ldif/system_users.ldif
-   ```
-
-5. **Load example organization (optional):**
-   ```bash
-   ldapadd -x -D cn=admin,dc=example,dc=com -w admin123 -f /ldif/example-org.ldif
-   ```
-
-6. **Verify the setup:**
-   ```bash
-   ldapsearch -x -b dc=example,dc=com -D cn=admin,dc=example,dc=com -w admin123
-   ```
-
-7. **Exit the container:**
-   ```bash
-   exit
-   ```
+**Note**: The web-based setup wizard is the recommended approach as it's easier, more robust, and handles all the complexity automatically.
 
 ### Step 3: Create LDAP User Manager Stack
 
@@ -222,28 +196,20 @@ networks:
 
 ### Option 1: Custom LDAP Image
 
-Create a custom LDAP image that automatically loads the schema:
+**Note**: This approach is not recommended since the web-based setup wizard handles everything automatically. However, if you need a custom LDAP image for other reasons:
 
-**Dockerfile (save as `ldap-custom/Dockerfile`):**
+**Dockerfile for Custom LDAP Image**
 
 ```dockerfile
 FROM osixia/openldap:latest
 
-# Copy LDIF files
+# Copy LDIF files for reference
 COPY ldif/ /ldif/
 
 # Create startup script
 RUN echo '#!/bin/bash\n\
 # Wait for slapd to start\n\
 sleep 10\n\
-\n\
-# Load schema first\n\
-ldapadd -Y EXTERNAL -H ldapi:/// -f /ldif/userRole-schema.ldif\n\
-\n\
-# Load data\n\
-ldapadd -x -D cn=admin,dc=example,dc=com -w $LDAP_ADMIN_PASSWORD -f /ldif/base.ldif\n\
-ldapadd -x -D cn=admin,dc=example,dc=com -w $LDAP_ADMIN_PASSWORD -f /ldif/system_users.ldif\n\
-ldapadd -x -D cn=admin,dc=example,dc=com -w $LDAP_ADMIN_PASSWORD -f /ldif/example-org.ldif\n\
 \n\
 # Keep container running\n\
 exec "$@"' > /startup.sh && chmod +x /startup.sh
@@ -253,43 +219,11 @@ ENTRYPOINT ["/startup.sh"]
 CMD ["/container/tool/run"]
 ```
 
-**Updated docker-compose.yml:**
-
-```yaml
-version: '3.8'
-
-services:
-  ldap:
-    build: ./ldap-custom
-    container_name: ldap-server
-    hostname: ldap-server
-    ports:
-      - "389:389"
-      - "636:636"
-    environment:
-      LDAP_ORGANISATION: "Example Organization"
-      LDAP_DOMAIN: "example.com"
-      LDAP_ADMIN_PASSWORD: "admin123"
-      LDAP_CONFIG_PASSWORD: "config123"
-    volumes:
-      - ldap_data:/var/lib/ldap
-      - ldap_config:/etc/ldap/slapd.d
-    restart: unless-stopped
-    networks:
-      - ldap-network
-
-volumes:
-  ldap_data:
-  ldap_config:
-
-networks:
-  ldap-network:
-    driver: bridge
-```
+**Note**: The LDIF files are copied for reference only. The web-based setup wizard will create all necessary LDAP structure automatically.
 
 ### Option 2: Init Container Pattern
 
-Use an init container to load the schema:
+**Note**: This approach is not recommended since the web-based setup wizard handles everything automatically. However, if you need an init container for other reasons:
 
 ```yaml
 version: '3.8'
@@ -307,10 +241,7 @@ services:
     command: >
       sh -c "
         sleep 10 &&
-        ldapadd -Y EXTERNAL -H ldapi:/// -f /ldif/userRole-schema.ldif &&
-        ldapadd -x -D cn=admin,dc=example,dc=com -w admin123 -f /ldif/base.ldif &&
-        ldapadd -x -D cn=admin,dc=example,dc=com -w admin123 -f /ldif/system_users.ldif &&
-        echo 'Schema loaded successfully'
+        echo 'LDAP server ready for web-based setup'
       "
     depends_on:
       - ldap-server
@@ -333,11 +264,6 @@ services:
 
 volumes:
   ldap_data:
-  ldap_config:
-
-networks:
-  ldap-network:
-    driver: bridge
 ```
 
 ---
@@ -357,11 +283,10 @@ docker exec -it ldap-user-manager ldapsearch -x -H ldap://ldap-server:389 -b dc=
 ### Check Schema
 
 ```bash
-# Verify schema was loaded
+# Verify LDAP server is accessible
 docker exec -it ldap-server ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=schema,cn=configuration -s base
 
-# Check for userRole attribute
-docker exec -it ldap-server ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=schema,cn=configuration "(objectClass=olcAttributeType)" | grep userRole
+# Note: The system uses existing LDAP attributes - no custom schema required
 ```
 
 ### Verify Users
@@ -380,21 +305,21 @@ docker exec -it ldap-server ldapsearch -x -b ou=roles,ou=organizations,dc=exampl
 
 ### Common Issues
 
-1. **"attribute type undefined"**
-   - Schema not loaded: Run the schema loading commands
-   - Check container logs: `docker logs ldap-server`
-
-2. **"Connection refused"**
+1. **"Connection refused"**
    - LDAP container not ready: Wait for health check
    - Network issues: Verify both containers are on same network
 
-3. **"Invalid credentials"**
+2. **"Invalid credentials"**
    - Check admin password in environment variables
    - Verify LDAP_BASE_DN matches your setup
 
-4. **"No such object"**
+3. **"No such object"**
    - Base structure not loaded: Run the LDIF loading commands
    - Check if OUs exist: `ldapsearch -x -b dc=example,dc=com -D cn=admin,dc=example,dc=com -w admin123`
+
+4. **"attribute type undefined"**
+   - This error should not occur since we're using existing LDAP attributes
+   - Check if the web-based setup wizard completed successfully
 
 ### Debug Commands
 
@@ -412,13 +337,25 @@ docker network inspect ldap-network
 
 # Test LDAP from inside container
 docker exec -it ldap-server ldapsearch -x -b dc=example,dc=com -D cn=admin,dc=example,dc=com -w admin123
+
+# Container Permission Issues
+docker run --user root -it ldap-server bash
+ls -la /var/run/slapd/ldapi
+
+# LDAP Server Status
+docker exec -it ldap-server systemctl status slapd
+docker exec -it ldap-server slapd -V
+
+# Enable Debug Mode
+docker exec -it ldap-server bash -c 'echo "loglevel 256" >> /etc/ldap/slapd.conf'
+docker exec -it ldap-server systemctl restart slapd
 ```
 
 ---
 
 ## 📚 Additional Resources
 
-- [LDAP Configuration Guide](LDAP-CONFIGURATION.md) - Detailed LDAP setup
+- [LDAP Configuration Guide](LDAP-CONFIGURATION.md) - Detailed LDAP setup and diagnostics
 - [Main README](README.md) - General project information
 - [LDIF Files](ldif/README.md) - LDIF file documentation
 - [Portainer Documentation](https://docs.portainer.io/) - Portainer usage guide

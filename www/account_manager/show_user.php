@@ -514,8 +514,8 @@ $not_member_of = array_diff($all_roles, $currently_member_of);
       <?php if ($user_location === 'organization' && isset($organization[0])) { ?>
         <li class="list-group-item"><strong>Organization:</strong> <?php print htmlspecialchars($organization[0]); ?></li>
       <?php } ?>
-      <?php if (isset($userRole[0])) { ?>
-        <li class="list-group-item"><strong>User Role:</strong> <?php print htmlspecialchars(ucfirst(str_replace('_', ' ', $userRole[0]))); ?></li>
+      <?php if (isset($description[0])) { ?>
+        <li class="list-group-item"><strong>User Role:</strong> <?php print htmlspecialchars(ucfirst(str_replace('_', ' ', $description[0]))); ?></li>
       <?php } ?>
     </ul>
     <div class="panel-body">
@@ -533,7 +533,7 @@ $not_member_of = array_diff($all_roles, $currently_member_of);
           if ($attribute == $LDAP['account_attribute']) { $label = "<strong>$label</strong><sup>&ast;</sup>"; }
           if (isset($$attribute)) { $these_values=$$attribute; } else { $these_values = array(); }
           
-          // Special handling for organization and userRole fields
+          // Special handling for organization and description fields
           if ($attribute === 'organization' && $user_location === 'organization') {
             echo '<div class="form-group" id="organization_div">';
             echo '<label for="organization" class="col-sm-3 control-label"><strong>Organization</strong></label>';
@@ -547,11 +547,11 @@ $not_member_of = array_diff($all_roles, $currently_member_of);
             echo '<small class="form-text text-muted">Organization cannot be changed after account creation</small>';
             echo '</div>';
             echo '</div>';
-          } elseif ($attribute === 'userRole' && $user_location === 'organization') {
-            echo '<div class="form-group" id="userRole_div">';
-            echo '<label for="userRole" class="col-sm-3 control-label">User Role</label>';
+          } elseif ($attribute === 'description' && $user_location === 'organization') {
+            echo '<div class="form-group" id="description_div">';
+            echo '<label for="description" class="col-sm-3 control-label">User Role</label>';
             echo '<div class="col-sm-6">';
-            echo '<select class="form-control" name="userRole" id="userRole">';
+            echo '<select class="form-control" name="description" id="description">';
             foreach ($available_user_roles as $role) {
               $selected = (isset($these_values[0]) && $these_values[0] === $role) ? 'selected' : '';
               echo '<option value="' . htmlspecialchars($role) . '" ' . $selected . '>' . htmlspecialchars(ucfirst(str_replace('_', ' ', $role))) . '</option>';
@@ -734,7 +734,34 @@ if (isset($_POST['change_passcode'])) {
         render_alert_banner("The passcodes didn't match.", "warning");
     } else {
         $ldap_connection = open_ldap_connection();
-        $entry = ['passcode' => ldap_hashed_passcode($new_passcode)];
+        
+        # Get current user attributes to preserve existing userPassword values
+        $current_attrs = @ ldap_read($ldap_connection, $dn, "(objectClass=*)", ["userPassword"]);
+        if ($current_attrs) {
+          $current_entries = @ ldap_get_entries($ldap_connection, $current_attrs);
+          if ($current_entries['count'] > 0 && isset($current_entries[0]['userpassword'])) {
+            # Remove old passcode values (keep regular passwords)
+            $new_userpassword = array();
+            foreach ($current_entries[0]['userpassword'] as $index => $pwd) {
+              if ($index === "count") continue;
+              # Keep only non-passcode hashes (regular passwords)
+              if (strpos($pwd, '{') === 0 && !preg_match('/^\{ARGON2\}|\{SSHA\}|\{CRYPT\}|\{SMD5\}|\{MD5\}|\{SHA\}/', $pwd)) {
+                $new_userpassword[] = $pwd;
+              }
+            }
+            # Add new passcode
+            $new_userpassword[] = ldap_hashed_passcode($new_passcode);
+            
+            $entry = ['userPassword' => $new_userpassword];
+          } else {
+            # No existing userPassword, just add new passcode
+            $entry = ['userPassword' => ldap_hashed_passcode($new_passcode)];
+          }
+        } else {
+          # No existing attributes, just add new passcode
+          $entry = ['userPassword' => ldap_hashed_passcode($new_passcode)];
+        }
+        
         $result = @ldap_modify($ldap_connection, $dn, $entry);
         if ($result) {
             render_alert_banner("Your passcode has been updated.", "success");
