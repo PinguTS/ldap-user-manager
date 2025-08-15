@@ -123,9 +123,9 @@ The LDAP User Manager includes a web-based setup wizard that automatically creat
 3. **No external scripts** or manual LDIF loading required
 
 **What the wizard creates automatically:**
-- Base organizational units (organizations, system_users, roles)
+- Base organizational units (organizations, people, roles)
 - System administrator and maintainer users
-- Administrator and maintainer roles with proper memberships
+- Administrator and maintainer role groups with proper memberships
 - Example organization (optional)
 
 **Note**: The web-based setup wizard is the recommended approach as it's easier, more robust, and handles all the complexity automatically.
@@ -293,10 +293,10 @@ docker exec -it ldap-server ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=schema,cn=
 
 ```bash
 # Check system users
-docker exec -it ldap-server ldapsearch -x -b ou=system_users,dc=example,dc=com -D cn=admin,dc=example,dc=com -w admin123
+docker exec -it ldap-server ldapsearch -x -b ou=people,dc=example,dc=com -D cn=admin,dc=example,dc=com -w admin123
 
 # Check roles
-docker exec -it ldap-server ldapsearch -x -b ou=roles,ou=organizations,dc=example,dc=com -D cn=admin,dc=example,dc=com -w admin123
+docker exec -it ldap-server ldapsearch -x -b ou=roles,dc=example,dc=com -D cn=admin,dc=example,dc=com -w admin123
 ```
 
 ---

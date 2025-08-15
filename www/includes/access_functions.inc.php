@@ -10,7 +10,7 @@ function currentUserIsGlobalAdmin() {
     $ldap = open_ldap_connection();
     
     # Check if user is in the administrator role
-    $admin_role_filter = "(&(objectclass=groupOfNames)(cn=administrator)(member=$USER_DN))";
+    $admin_role_filter = "(&(objectclass=groupOfNames)(cn=administrators)(member=$USER_DN))";
     $ldap_search = @ ldap_search($ldap, $LDAP['roles_dn'], $admin_role_filter, array('cn'));
     if ($ldap_search) {
         $result = ldap_get_entries($ldap, $ldap_search);
@@ -32,7 +32,7 @@ function currentUserIsMaintainer() {
     $ldap = open_ldap_connection();
     
     # Check if user is in the maintainer role
-    $maintainer_role_filter = "(&(objectclass=groupOfNames)(cn=maintainer)(member=$USER_DN))";
+    $maintainer_role_filter = "(&(objectclass=groupOfNames)(cn=maintainers)(member=$USER_DN))";
     $ldap_search = @ ldap_search($ldap, $LDAP['roles_dn'], $maintainer_role_filter, array('cn'));
     if ($ldap_search) {
         $result = ldap_get_entries($ldap, $ldap_search);
@@ -83,7 +83,7 @@ function currentUserCanModifyUser($targetUserDN) {
     # Maintainers can modify anyone except administrators
     if (currentUserIsMaintainer()) {
         $ldap = open_ldap_connection();
-        $admin_role_filter = "(&(objectclass=groupOfNames)(cn=administrator)(member=$targetUserDN))";
+        $admin_role_filter = "(&(objectclass=groupOfNames)(cn=administrators)(member=$targetUserDN))";
         $ldap_search = @ ldap_search($ldap, $LDAP['roles_dn'], $admin_role_filter, array('cn'));
         if ($ldap_search) {
             $result = ldap_get_entries($ldap, $ldap_search);

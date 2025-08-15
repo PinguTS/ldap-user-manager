@@ -49,12 +49,12 @@ dc=example,dc=com
 │   └── o=University Name
 │       ├── ou=users
 │       └── ou=roles
-├── ou=system_users
+├── ou=people
 │   ├── uid=admin@example.com
 │   └── uid=maintainer@example.com
 └── ou=roles
-    ├── cn=administrator (groupOfNames with member attributes)
-    └── cn=maintainer (groupOfNames with member attributes)
+    ├── cn=administrators (groupOfNames with member attributes)
+└── cn=maintainers (groupOfNames with member attributes)
 ```
 
 ### 2.2 Organization Attributes
@@ -66,12 +66,12 @@ postalAddress: Street$City$State$ZIP$Country
 ### 2.3 Role Group Structure
 Role groups use the `groupOfNames` object class and contain:
 
-**Global Roles** (`ou=roles,ou=organizations,dc=example,dc=com`):
+**Global Roles** (`ou=roles,dc=example,dc=com`):
 ```
-dn: cn=administrator,ou=roles,ou=organizations,dc=example,dc=com
+dn: cn=administrators,ou=roles,dc=example,dc=com
 objectClass: groupOfNames
-cn: administrator
-member: uid=admin@example.com,ou=system_users,dc=example,dc=com
+cn: administrators
+member: uid=admin@example.com,ou=people,dc=example,dc=com
 ```
 
 **Organization Roles** (`ou=roles,o=OrgName,ou=organizations,dc=example,dc=com`):
@@ -97,9 +97,9 @@ Users are stored with email addresses as their `uid` and include:
 
 **Roles are managed via LDAP groups, not user attributes:**
 
-1. **Global roles** are stored in `ou=roles,ou=organizations,dc=example,dc=com`
-   - `cn=administrator` - System administrators
-   - `cn=maintainer` - System maintainers
+1. **Global roles** are stored in `ou=roles,dc=example,dc=com`
+   - `cn=administrators` - System administrators
+- `cn=maintainers` - System maintainers
 
 2. **Organization roles** are stored in `ou=roles,o=OrgName,ou=organizations,dc=example,dc=com`
    - `cn=org_admin` - Organization administrators
@@ -239,7 +239,7 @@ ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=schema,cn=configuration -s base
 ldapsearch -x -b dc=example,dc=com -D cn=admin,dc=example,dc=com -w your_password
 
 # Check system users
-ldapsearch -x -b ou=system_users,dc=example,dc=com -D cn=admin,dc=example,dc=com -w your_password
+ldapsearch -x -b ou=people,dc=example,dc=com -D cn=admin,dc=example,dc=com -w your_password
 ```
 
 ---
@@ -331,7 +331,7 @@ docker exec -it ldap-user-manager ldapsearch -x -H ldap://ldap-server:389 -b dc=
 docker exec -it ldap-server ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=schema,cn=configuration -s base
 
 # Verify users exist
-docker exec -it ldap-server ldapsearch -x -b ou=system_users,dc=example,dc=com -D cn=admin,dc=example,dc=com -w admin123
+docker exec -it ldap-server ldapsearch -x -b ou=people,dc=example,dc=com -D cn=admin,dc=example,dc=com -w admin123
 ```
 
 ---
@@ -356,7 +356,7 @@ ldapsearch -x -H ldap://localhost:389 -b dc=example,dc=com
 ldapsearch -x -b dc=example,dc=com -D cn=admin,dc=example,dc=com -w your_admin_password
 
 # Check system users
-ldapsearch -x -b ou=system_users,dc=example,dc=com -D cn=admin,dc=example,dc=com -w your_admin_password
+ldapsearch -x -b ou=people,dc=example,dc=com -D cn=admin,dc=example,dc=com -w your_admin_password
 ```
 
 ### Common Issues

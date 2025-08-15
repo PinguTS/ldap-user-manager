@@ -50,7 +50,7 @@ After using the web-based setup wizard, verify the structure exists:
 ldapsearch -x -b dc=example,dc=com -D cn=admin,dc=example,dc=com -w your_admin_password
 
 # Check system users
-ldapsearch -x -b ou=system_users,dc=example,dc=com -D cn=admin,dc=example,dc=com -w your_admin_password
+ldapsearch -x -b ou=people,dc=example,dc=com -D cn=admin,dc=example,dc=com -w your_admin_password
 ```
 
 ## 📚 Next Steps

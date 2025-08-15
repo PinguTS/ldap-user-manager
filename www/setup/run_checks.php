@@ -22,7 +22,7 @@ $ldap_connection = open_ldap_connection();
     });
 </script>
 <div class="form-group">
-  <form action="<?php print $THIS_MODULE_PATH; ?>/setup_ldap.php" method="post">
+  <form action="<?php print $THIS_MODULE_PATH; ?>/ldap.php" method="post">
   <input type="hidden" name="fix_problems">
 
 
@@ -166,7 +166,7 @@ if (!$ldap_maintainer_user_search) {
 }
 
 # Check for administrator role
-$admin_role_filter = "(&(objectclass=groupOfNames)(cn=administrator))";
+$admin_role_filter = "(&(objectclass=groupOfNames)(cn=administrators))";
 $ldap_admin_role_search = ldap_search($ldap_connection, "ou=roles,{$LDAP['base_dn']}", $admin_role_filter);
 
 if (!$ldap_admin_role_search) {
@@ -174,15 +174,15 @@ if (!$ldap_admin_role_search) {
 	print "<label class='pull-right'><input type='checkbox' name='setup_global_roles_ou' class='pull-right' checked>Create?&nbsp;</label>";
 } else {
 	if (ldap_count_entries($ldap_connection, $ldap_admin_role_search) == 0) {
-		print "$li_fail The administrator role (<strong>cn=administrator,ou=roles,{$LDAP['base_dn']}</strong>) doesn't exist. ";
+		print "$li_fail The administrator role (<strong>cn=administrators,ou=roles,{$LDAP['base_dn']}</strong>) doesn't exist. ";
 		print "<label class='pull-right'><input type='checkbox' name='setup_admin_role' class='pull-right' checked>Create?&nbsp;</label>";
 	} else {
-		print "$li_good The administrator role (<strong>cn=administrator,ou=roles,{$LDAP['base_dn']}</strong>) is present.</li>";
+		print "$li_good The administrator role (<strong>cn=administrators,ou=roles,{$LDAP['base_dn']}</strong>) is present.</li>";
 	}
 }
 
 # Check for maintainer role
-$maintainer_role_filter = "(&(objectclass=groupOfNames)(cn=maintainer))";
+$maintainer_role_filter = "(&(objectclass=groupOfNames)(cn=maintainers))";
 $ldap_maintainer_role_search = ldap_search($ldap_connection, "ou=roles,{$LDAP['base_dn']}", $maintainer_role_filter);
 
 if (!$ldap_maintainer_role_search) {
@@ -190,12 +190,14 @@ if (!$ldap_maintainer_role_search) {
 	print "<label class='pull-right'><input type='checkbox' name='setup_global_roles_ou' class='pull-right' checked>Create?&nbsp;</label>";
 } else {
 	if (ldap_count_entries($ldap_connection, $ldap_maintainer_role_search) == 0) {
-		print "$li_fail The maintainer role (<strong>cn=maintainer,ou=roles,{$LDAP['base_dn']}</strong>) doesn't exist. ";
+		print "$li_fail The maintainer role (<strong>cn=maintainers,ou=roles,{$LDAP['base_dn']}</strong>) doesn't exist. ";
 		print "<label class='pull-right'><input type='checkbox' name='setup_maintainer_role' class='pull-right' checked>Create?&nbsp;</label>";
 	} else {
-		print "$li_good The maintainer role (<strong>cn=maintainer,ou=roles,{$LDAP['base_dn']}</strong>) is present.</li>";
+		print "$li_good The maintainer role (<strong>cn=maintainers,ou=roles,{$LDAP['base_dn']}</strong>) is present.</li>";
 	}
 }
+
+# Note: Role membership verification now happens automatically during setup
 
 ?>
        </ul>
@@ -248,9 +250,18 @@ if ($show_finish_button == TRUE) {
 ?>
      </form>
      <div class='well'>
-      <form action="<?php print "{$SERVER_PATH}log_in"; ?>">
-       <input type='submit' class="btn btn-success center-block" value='Done'>
-      </form>
+      <div class="row">
+       <div class="col-md-6">
+        <form action="<?php print "{$SERVER_PATH}log_in"; ?>">
+         <input type='submit' class="btn btn-success center-block" value='Done'>
+        </form>
+       </div>
+       <div class="col-md-6">
+        <form action="<?php print $THIS_MODULE_PATH; ?>/verify.php">
+         <input type='submit' class="btn btn-info center-block" value='Verify Setup'>
+        </form>
+       </div>
+      </div>
      </div>
 <?php
 }

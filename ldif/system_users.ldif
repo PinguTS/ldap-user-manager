@@ -22,4 +22,20 @@ sn: Maintainer
 givenName: System
 mail: maintainer@example.com
 userPassword: {SSHA}encrypted_password_here
-description: maintainer 
+description: maintainer
+
+# Administrator Role Group
+dn: cn=administrators,ou=roles,dc=example,dc=com
+objectClass: groupOfNames
+objectClass: top
+cn: administrators
+description: Full system administrator with all privileges
+member: uid=admin@example.com,ou=people,dc=example,dc=com
+
+# Maintainer Role Group
+dn: cn=maintainers,ou=roles,dc=example,dc=com
+objectClass: groupOfNames
+objectClass: top
+cn: maintainers
+description: System maintainer with limited privileges
+member: uid=maintainer@example.com,ou=people,dc=example,dc=com 

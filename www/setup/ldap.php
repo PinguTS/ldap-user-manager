@@ -139,18 +139,18 @@ if (isset($_POST['fix_problems'])) {
   $admin_email = (!empty($_POST['admin_email'])) ? $_POST['admin_email'] : 'admin@example.com';
   $admin_role = array(
    'objectClass' => array('top', 'groupOfNames'),
-   'cn' => 'administrator',
+   'cn' => 'administrators',
    'description' => 'Full system administrator with all privileges',
    'member' => array("uid={$admin_email},ou=people,{$LDAP['base_dn']}")
   );
   
-  $role_add = @ ldap_add($ldap_connection, "cn=administrator,ou=roles,{$LDAP['base_dn']}", $admin_role);
+  $role_add = @ ldap_add($ldap_connection, "cn=administrators,ou=roles,{$LDAP['base_dn']}", $admin_role);
   if ($role_add == TRUE) {
-   print "$li_good Created administrator role <strong>cn=administrator,ou=roles,{$LDAP['base_dn']}</strong></li>\n";
+   print "$li_good Created administrators role <strong>cn=administrators,ou=roles,{$LDAP['base_dn']}</strong></li>\n";
   }
   else {
    $error = ldap_error($ldap_connection);
-   print "$li_fail Couldn't create administrator role: <pre>$error</pre></li>\n";
+   print "$li_fail Couldn't create administrators role: <pre>$error</pre></li>\n";
    $no_errors = FALSE;
   }
  }
@@ -159,21 +159,23 @@ if (isset($_POST['fix_problems'])) {
   $maintainer_email = (!empty($_POST['maintainer_email'])) ? $_POST['maintainer_email'] : 'maintainer@example.com';
   $maintainer_role = array(
    'objectClass' => array('top', 'groupOfNames'),
-   'cn' => 'maintainer',
+   'cn' => 'maintainers',
    'description' => 'System maintainer with limited privileges',
    'member' => array("uid={$maintainer_email},ou=people,{$LDAP['base_dn']}")
   );
   
-  $role_add = @ ldap_add($ldap_connection, "cn=maintainer,ou=roles,{$LDAP['base_dn']}", $maintainer_role);
+  $role_add = @ ldap_add($ldap_connection, "cn=maintainers,ou=roles,{$LDAP['base_dn']}", $maintainer_role);
   if ($role_add == TRUE) {
-   print "$li_good Created maintainer role <strong>cn=maintainer,ou=roles,{$LDAP['base_dn']}</strong></li>\n";
+   print "$li_good Created maintainers role <strong>cn=maintainers,ou=roles,{$LDAP['base_dn']}</strong></li>\n";
   }
   else {
    $error = ldap_error($ldap_connection);
-   print "$li_fail Couldn't create maintainer role: <pre>$error</pre></li>\n";
+   print "$li_fail Couldn't create maintainers role: <pre>$error</pre></li>\n";
    $no_errors = FALSE;
   }
  }
+
+ # Note: Role membership verification is now automatic and runs after setup completion
 
  if (isset($_POST['setup_example_org'])) {
   $admin_email = (!empty($_POST['admin_email'])) ? $_POST['admin_email'] : 'admin@example.com';
@@ -197,6 +199,70 @@ if (isset($_POST['fix_problems'])) {
   else {
    print "$li_fail Couldn't create example organization: <pre>{$org_result[1]}</pre></li>\n";
    $no_errors = FALSE;
+  }
+ }
+
+ # Automatically verify the complete setup
+ if ($no_errors == TRUE) {
+  print "$li_good <strong>Running automatic verification...</strong></li>\n";
+  
+  $admin_email = (!empty($_POST['admin_email'])) ? $_POST['admin_email'] : 'admin@example.com';
+  $maintainer_email = (!empty($_POST['maintainer_email'])) ? $_POST['maintainer_email'] : 'maintainer@example.com';
+  
+  # Verify admin user is in administrators group
+  $admin_group_filter = "(&(objectclass=groupOfNames)(cn=administrators))";
+  $admin_group_search = ldap_search($ldap_connection, "ou=roles,{$LDAP['base_dn']}", $admin_group_filter);
+  if ($admin_group_search) {
+   $admin_group_entries = ldap_get_entries($ldap_connection, $admin_group_search);
+   if ($admin_group_entries['count'] > 0) {
+    $admin_group_dn = $admin_group_entries[0]['dn'];
+    $admin_member_dn = "uid={$admin_email},ou=people,{$LDAP['base_dn']}";
+    
+    if (in_array($admin_member_dn, $admin_group_entries[0]['member'])) {
+     print "$li_good ✓ Admin user <strong>{$admin_email}</strong> is properly member of administrators group</li>\n";
+    } else {
+     print "$li_warn ⚠ Admin user <strong>{$admin_email}</strong> is not in administrators group - adding now</li>\n";
+     $add_member = ldap_mod_add($ldap_connection, $admin_group_dn, array('member' => $admin_member_dn));
+     if ($add_member) {
+      print "$li_good ✓ Successfully added admin user to administrators group</li>\n";
+     } else {
+      print "$li_fail ✗ Failed to add admin user to administrators group: <pre>" . ldap_error($ldap_connection) . "</pre></li>\n";
+      $no_errors = FALSE;
+     }
+    }
+   }
+  }
+  
+  # Verify maintainer user is in maintainers group
+  $maintainer_group_filter = "(&(objectclass=groupOfNames)(cn=maintainers))";
+  $maintainer_group_search = ldap_search($ldap_connection, "ou=roles,{$LDAP['base_dn']}", $maintainer_group_filter);
+  if ($maintainer_group_search) {
+   $maintainer_group_entries = ldap_get_entries($ldap_connection, $maintainer_group_search);
+   if ($maintainer_group_entries['count'] > 0) {
+    $maintainer_group_dn = $maintainer_group_entries[0]['dn'];
+    $maintainer_member_dn = "uid={$maintainer_email},ou=people,{$LDAP['base_dn']}";
+    
+    if (in_array($maintainer_member_dn, $maintainer_group_entries[0]['member'])) {
+     print "$li_good ✓ Maintainer user <strong>{$maintainer_email}</strong> is properly member of maintainers group</li>\n";
+    } else {
+     print "$li_warn ⚠ Maintainer user <strong>{$maintainer_email}</strong> is not in maintainers group - adding now</li>\n";
+     $add_member = ldap_mod_add($ldap_connection, $maintainer_group_dn, array('member' => $maintainer_member_dn));
+     if ($add_member) {
+      print "$li_good ✓ Successfully added maintainer user to maintainers group</li>\n";
+     } else {
+      print "$li_fail ✗ Failed to add maintainer user to maintainers group: <pre>" . ldap_error($ldap_connection) . "</pre></li>\n";
+      $no_errors = FALSE;
+     }
+    }
+   }
+  }
+  
+  # Final verification summary
+  if ($no_errors == TRUE) {
+   print "$li_good <strong>✓ Setup verification completed successfully!</strong></li>\n";
+   print "$li_good <strong>✓ Admin user: {$admin_email}</strong></li>\n";
+   print "$li_good <strong>✓ Maintainer user: {$maintainer_email}</strong></li>\n";
+   print "$li_good <strong>✓ Both users are properly assigned to their roles</strong></li>\n";
   }
  }
 

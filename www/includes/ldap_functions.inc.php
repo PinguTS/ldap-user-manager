@@ -661,7 +661,7 @@ function ldap_get_role_members($ldap_connection, $role_name, $start=0, $entries=
 
  // Search for the role in the global roles OU
  $ldap_search_query = "(cn=" . ldap_escape($role_name, "", LDAP_ESCAPE_FILTER) . ")";
- $ldap_search = @ ldap_search($ldap_connection, "ou=roles,ou=organizations,{$LDAP['base_dn']}", $ldap_search_query, array('member'));
+ $ldap_search = @ ldap_search($ldap_connection, "ou=roles,{$LDAP['base_dn']}", $ldap_search_query, array('member'));
 
  $result = @ ldap_get_entries($ldap_connection, $ldap_search);
  if ($result) { $result_count = $result['count']; } else { $result_count = 0; }

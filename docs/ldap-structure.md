@@ -42,7 +42,15 @@ member: uid=jane.doe,ou=people,o=OrgA,ou=organizations,dc=example,dc=com
 dn: cn=administrators,ou=roles,dc=example,dc=com
 objectClass: groupOfNames
 cn: administrators
-member: uid=admin,ou=people,dc=example,dc=com
+member: uid=admin@example.com,ou=people,dc=example,dc=com
+```
+
+### Example Global Maintainer Group LDIF
+```ldif
+dn: cn=maintainers,ou=roles,dc=example,dc=com
+objectClass: groupOfNames
+cn: maintainers
+member: uid=maintainer@example.com,ou=people,dc=example,dc=com
 ```
 
 ### Example OpenLDAP ACLs
