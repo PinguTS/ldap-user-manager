@@ -42,6 +42,7 @@ services:
       # Optional: Debug Settings
       LDAP_DEBUG: "FALSE"
       SESSION_DEBUG: "FALSE"
+      SETUP_DEBUG: "FALSE"
     depends_on:
       ldap-server:
         condition: service_healthy

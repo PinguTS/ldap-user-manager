@@ -168,6 +168,11 @@ services:
       # Optional: Security Settings
       LDAP_REQUIRE_STARTTLS: "FALSE"
       LDAP_IGNORE_CERT_ERRORS: "TRUE"
+      
+      # Optional: Debug Settings
+      LDAP_DEBUG: "FALSE"
+      SESSION_DEBUG: "FALSE"
+      SETUP_DEBUG: "FALSE"
     depends_on:
       - ldap-server
     restart: unless-stopped
@@ -326,6 +331,32 @@ docker exec -it ldap-server ldapsearch -x -b ou=roles,dc=example,dc=com -D cn=ad
 ```bash
 # Check container status
 docker ps -a
+```
+
+### Debug Environment Variables
+
+For troubleshooting setup issues, you can enable debug logging:
+
+```yaml
+environment:
+  # Debug Settings
+  LDAP_DEBUG: "TRUE"           # Log LDAP operations
+  SESSION_DEBUG: "TRUE"         # Log session management
+  SETUP_DEBUG: "TRUE"           # Log setup process details
+```
+
+**SETUP_DEBUG** will log detailed information about:
+- POST data received during setup
+- LDAP connection status
+- Each LDAP operation (create OU, user, role)
+- Success/failure of each operation
+- LDAP error codes and messages
+- Session summary of what was created
+
+Debug logs are written to the container's error log, which you can view with:
+```bash
+docker logs ldap-user-manager
+```
 
 # Check container logs
 docker logs ldap-server
