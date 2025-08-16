@@ -100,6 +100,7 @@ $people_search = ldap_search($ldap_connection, $LDAP['base_dn'], $people_filter)
 if (ldap_count_entries($ldap_connection, $people_search) == 0) {
 	print "$li_fail The people OU (<strong>ou=people,{$LDAP['base_dn']}</strong>) doesn't exist. ";
 	print "<label class='pull-right'><input type='checkbox' name='setup_people_ou' class='pull-right' checked>Create?&nbsp;</label>";
+	$show_finish_button = FALSE;
 } else {
 	print "$li_good The people OU (<strong>ou=people,{$LDAP['base_dn']}</strong>) is present.</li>";
 }
@@ -110,6 +111,7 @@ $global_roles_search = ldap_search($ldap_connection, $LDAP['base_dn'], $global_r
 if (ldap_count_entries($ldap_connection, $global_roles_search) == 0) {
 	print "$li_fail The global roles OU (<strong>ou=roles,{$LDAP['base_dn']}</strong>) doesn't exist. ";
 	print "<label class='pull-right'><input type='checkbox' name='setup_global_roles_ou' class='pull-right' checked>Create?&nbsp;</label>";
+	$show_finish_button = FALSE;
 } else {
 	print "$li_good The global roles OU (<strong>ou=roles,{$LDAP['base_dn']}</strong>) is present.</li>";
 }
@@ -138,6 +140,7 @@ if (!$ldap_admin_user_search) {
 		print "<label class='pull-right'><input type='checkbox' name='setup_admin_user' class='pull-right' checked>Create?&nbsp;</label>";
 		print "<br><small>Email: <input type='email' name='admin_email' placeholder='admin@example.com' value='admin@example.com' class='form-control input-sm' style='width: 250px; display: inline-block;'></small>";
 		print "<br><small>Password: <input type='password' name='admin_password' placeholder='Enter admin password' class='form-control input-sm' style='width: 200px; display: inline-block;'></small>";
+		$show_finish_button = FALSE;
 	} else {
 		$admin_entries = ldap_get_entries($ldap_connection, $ldap_admin_user_search);
 		$admin_email = $admin_entries[0]['mail'][0];
@@ -158,6 +161,7 @@ if (!$ldap_maintainer_user_search) {
 		print "<label class='pull-right'><input type='checkbox' name='setup_maintainer_user' class='pull-right' checked>Create?&nbsp;</label>";
 		print "<br><small>Email: <input type='email' name='maintainer_email' placeholder='maintainer@example.com' value='maintainer@example.com' class='form-control input-sm' style='width: 250px; display: inline-block;'></small>";
 		print "<br><small>Password: <input type='password' name='maintainer_password' placeholder='Enter maintainer password' class='form-control input-sm' style='width: 200px; display: inline-block;'></small>";
+		$show_finish_button = FALSE;
 	} else {
 		$maintainer_entries = ldap_get_entries($ldap_connection, $ldap_maintainer_user_search);
 		$maintainer_email = $maintainer_entries[0]['mail'][0];
@@ -176,6 +180,7 @@ if (!$ldap_admin_role_search) {
 	if (ldap_count_entries($ldap_connection, $ldap_admin_role_search) == 0) {
 		print "$li_fail The administrator role (<strong>cn=administrators,ou=roles,{$LDAP['base_dn']}</strong>) doesn't exist. ";
 		print "<label class='pull-right'><input type='checkbox' name='setup_admin_role' class='pull-right' checked>Create?&nbsp;</label>";
+		$show_finish_button = FALSE;
 	} else {
 		print "$li_good The administrator role (<strong>cn=administrators,ou=roles,{$LDAP['base_dn']}</strong>) is present.</li>";
 	}
@@ -192,6 +197,7 @@ if (!$ldap_maintainer_role_search) {
 	if (ldap_count_entries($ldap_connection, $ldap_maintainer_role_search) == 0) {
 		print "$li_fail The maintainer role (<strong>cn=maintainers,ou=roles,{$LDAP['base_dn']}</strong>) doesn't exist. ";
 		print "<label class='pull-right'><input type='checkbox' name='setup_maintainer_role' class='pull-right' checked>Create?&nbsp;</label>";
+		$show_finish_button = FALSE;
 	} else {
 		print "$li_good The maintainer role (<strong>cn=maintainers,ou=roles,{$LDAP['base_dn']}</strong>) is present.</li>";
 	}
@@ -245,6 +251,11 @@ else {
 <?php
 
 ##############
+
+# Setup debug logging
+if ($SETUP_DEBUG == TRUE) {
+ error_log("$log_prefix SETUP_DEBUG: show_finish_button = " . ($show_finish_button ? 'TRUE' : 'FALSE'), 0);
+}
 
 if ($show_finish_button == TRUE) {
 ?>
