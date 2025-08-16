@@ -96,13 +96,13 @@ if (isset($_POST['fix_problems'])) {
 }
 
  if (isset($_POST['setup_global_roles_ou'])) {
-  $ou_add = @ ldap_add($ldap_connection, "ou=roles,{$LDAP['base_dn']}", array( 'objectClass' => 'organizationalUnit', 'ou' => 'roles' ));
+      $ou_add = @ ldap_add($ldap_connection, $LDAP['roles_dn'], array( 'objectClass' => 'organizationalUnit', 'ou' => 'roles' ));
   if ($ou_add == TRUE) {
-   print "$li_good Created OU <strong>ou=roles,{$LDAP['base_dn']}</strong></li>\n";
+        print "$li_good Created OU <strong>{$LDAP['roles_dn']}</strong></li>\n";
   }
   else {
    $error = ldap_error($ldap_connection);
-   print "$li_fail Couldn't create ou=roles,{$LDAP['base_dn']}: <pre>$error</pre></li>\n";
+        print "$li_fail Couldn't create {$LDAP['roles_dn']}: <pre>$error</pre></li>\n";
    $no_errors = FALSE;
   }
  }
@@ -230,12 +230,12 @@ if (isset($_POST['fix_problems'])) {
    error_log("$log_prefix SETUP_DEBUG: Admin role data prepared, attempting LDAP add", 0);
   }
   
-  $role_add = @ ldap_add($ldap_connection, "cn=administrators,ou=roles,{$LDAP['base_dn']}", $admin_role);
+       $role_add = @ ldap_add($ldap_connection, "cn=administrators,{$LDAP['roles_dn']}", $admin_role);
   if ($role_add == TRUE) {
    if ($SETUP_DEBUG == TRUE) {
     error_log("$log_prefix SETUP_DEBUG: SUCCESS - Administrators role created", 0);
    }
-   print "$li_good Created administrators role <strong>cn=administrators,ou=roles,{$LDAP['base_dn']}</strong></li>\n";
+        print "$li_good Created administrators role <strong>cn=administrators,{$LDAP['roles_dn']}</strong></li>\n";
   }
   else {
    $error = ldap_error($ldap_connection);
@@ -265,12 +265,12 @@ if (isset($_POST['fix_problems'])) {
    error_log("$log_prefix SETUP_DEBUG: Maintainer role data prepared, attempting LDAP add", 0);
   }
   
-  $role_add = @ ldap_add($ldap_connection, "cn=maintainers,ou=roles,{$LDAP['base_dn']}", $maintainer_role);
+       $role_add = @ ldap_add($ldap_connection, "cn=maintainers,{$LDAP['roles_dn']}", $maintainer_role);
   if ($role_add == TRUE) {
    if ($SETUP_DEBUG == TRUE) {
     error_log("$log_prefix SETUP_DEBUG: SUCCESS - Maintainers role created", 0);
    }
-   print "$li_good Created maintainers role <strong>cn=maintainers,ou=roles,{$LDAP['base_dn']}</strong></li>\n";
+        print "$li_good Created maintainers role <strong>cn=maintainers,{$LDAP['roles_dn']}</strong></li>\n";
   }
   else {
    $error = ldap_error($ldap_connection);
@@ -326,7 +326,7 @@ if (isset($_POST['fix_problems'])) {
    
    # Verify admin user is in administrators group
    $admin_group_filter = "(&(objectclass=groupOfNames)(cn=administrators))";
-   $admin_group_search = ldap_search($ldap_connection, "ou=roles,{$LDAP['base_dn']}", $admin_group_filter);
+        $admin_group_search = ldap_search($ldap_connection, $LDAP['roles_dn'], $admin_group_filter);
    if ($admin_group_search) {
     $admin_group_entries = ldap_get_entries($ldap_connection, $admin_group_search);
     if ($admin_group_entries['count'] > 0) {
@@ -355,7 +355,7 @@ if (isset($_POST['fix_problems'])) {
    
    # Verify maintainer user is in maintainers group
    $maintainer_group_filter = "(&(objectclass=groupOfNames)(cn=maintainers))";
-   $maintainer_group_search = ldap_search($ldap_connection, "ou=roles,{$LDAP['base_dn']}", $maintainer_group_search);
+        $maintainer_group_search = ldap_search($ldap_connection, $LDAP['roles_dn'], $maintainer_group_search);
    if ($maintainer_group_search) {
     $maintainer_group_entries = ldap_get_entries($ldap_connection, $maintainer_group_search);
     if ($maintainer_group_entries['count'] > 0) {

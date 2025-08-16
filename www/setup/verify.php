@@ -35,7 +35,7 @@ print "<li class='list-group-item'><strong>Test 1: Organizational Units</strong>
 $ou_tests = array(
     "ou=organizations,{$LDAP['base_dn']}" => "Organizations OU",
     "ou=people,{$LDAP['base_dn']}" => "People OU", 
-    "ou=roles,{$LDAP['base_dn']}" => "Roles OU"
+    $LDAP['roles_dn'] => "Roles OU"
 );
 
 foreach ($ou_tests as $ou_dn => $ou_name) {
@@ -77,7 +77,7 @@ $role_tests = array(
 );
 
 foreach ($role_tests as $filter => $role_name) {
-    $role_search = ldap_search($ldap_connection, "ou=roles,{$LDAP['base_dn']}", $filter);
+    $role_search = ldap_search($ldap_connection, $LDAP['roles_dn'], $filter);
     if ($role_search && ldap_count_entries($ldap_connection, $role_search) > 0) {
         print "<li class='list-group-item list-group-item-success'>✓ {$role_name} exists</li>\n";
     } else {
@@ -90,7 +90,7 @@ foreach ($role_tests as $filter => $role_name) {
 print "<li class='list-group-item'><strong>Test 4: Role Memberships</strong></li>\n";
 
 # Check administrators group membership
-$admin_group_search = ldap_search($ldap_connection, "ou=roles,{$LDAP['base_dn']}", "(&(objectclass=groupOfNames)(cn=administrators))");
+$admin_group_search = ldap_search($ldap_connection, $LDAP['roles_dn'], "(&(objectclass=groupOfNames)(cn=administrators))");
 if ($admin_group_search && ldap_count_entries($ldap_connection, $admin_group_search) > 0) {
     $admin_group_entries = ldap_get_entries($ldap_connection, $admin_group_search);
     $admin_group = $admin_group_entries[0];
@@ -111,7 +111,7 @@ if ($admin_group_search && ldap_count_entries($ldap_connection, $admin_group_sea
 }
 
 # Check maintainers group membership
-$maintainer_group_search = ldap_search($ldap_connection, "ou=roles,{$LDAP['base_dn']}", "(&(objectclass=groupOfNames)(cn=maintainers))");
+$maintainer_group_search = ldap_search($ldap_connection, $LDAP['roles_dn'], "(&(objectclass=groupOfNames)(cn=maintainers))");
 if ($maintainer_group_search && ldap_count_entries($ldap_connection, $maintainer_group_search) > 0) {
     $maintainer_group_entries = ldap_get_entries($ldap_connection, $maintainer_group_search);
     $maintainer_group = $maintainer_group_entries[0];

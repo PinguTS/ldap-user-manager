@@ -109,11 +109,11 @@ if (ldap_count_entries($ldap_connection, $people_search) == 0) {
 $global_roles_filter = "(&(objectclass=organizationalUnit)(ou=roles))";
 $global_roles_search = ldap_search($ldap_connection, $LDAP['base_dn'], $global_roles_filter);
 if (ldap_count_entries($ldap_connection, $global_roles_search) == 0) {
-	print "$li_fail The global roles OU (<strong>ou=roles,{$LDAP['base_dn']}</strong>) doesn't exist. ";
+	    print "$li_fail The global roles OU (<strong>{$LDAP['roles_dn']}</strong>) doesn't exist. ";
 	print "<label class='pull-right'><input type='checkbox' name='setup_global_roles_ou' class='pull-right' checked>Create?&nbsp;</label>";
 	$show_finish_button = FALSE;
 } else {
-	print "$li_good The global roles OU (<strong>ou=roles,{$LDAP['base_dn']}</strong>) is present.</li>";
+	    print "$li_good The global roles OU (<strong>{$LDAP['roles_dn']}</strong>) is present.</li>";
 }
 
 ?>
@@ -171,35 +171,35 @@ if (!$ldap_maintainer_user_search) {
 
 # Check for administrator role
 $admin_role_filter = "(&(objectclass=groupOfNames)(cn=administrators))";
-$ldap_admin_role_search = ldap_search($ldap_connection, "ou=roles,{$LDAP['base_dn']}", $admin_role_filter);
+    $ldap_admin_role_search = ldap_search($ldap_connection, $LDAP['roles_dn'], $admin_role_filter);
 
 if (!$ldap_admin_role_search) {
 	print "$li_fail Unable to search for administrator role. The global roles OU may not exist yet. ";
 	print "<label class='pull-right'><input type='checkbox' name='setup_global_roles_ou' class='pull-right' checked>Create?&nbsp;</label>";
 } else {
 	if (ldap_count_entries($ldap_connection, $ldap_admin_role_search) == 0) {
-		print "$li_fail The administrator role (<strong>cn=administrators,ou=roles,{$LDAP['base_dn']}</strong>) doesn't exist. ";
+		    print "$li_fail The administrator role (<strong>cn=administrators,{$LDAP['roles_dn']}</strong>) doesn't exist. ";
 		print "<label class='pull-right'><input type='checkbox' name='setup_admin_role' class='pull-right' checked>Create?&nbsp;</label>";
 		$show_finish_button = FALSE;
 	} else {
-		print "$li_good The administrator role (<strong>cn=administrators,ou=roles,{$LDAP['base_dn']}</strong>) is present.</li>";
+		    print "$li_good The administrator role (<strong>cn=administrators,{$LDAP['roles_dn']}</strong>) is present.</li>";
 	}
 }
 
 # Check for maintainer role
 $maintainer_role_filter = "(&(objectclass=groupOfNames)(cn=maintainers))";
-$ldap_maintainer_role_search = ldap_search($ldap_connection, "ou=roles,{$LDAP['base_dn']}", $maintainer_role_filter);
+    $ldap_maintainer_role_search = ldap_search($ldap_connection, $LDAP['roles_dn'], $maintainer_role_filter);
 
 if (!$ldap_maintainer_role_search) {
 	print "$li_fail Unable to search for maintainer role. The global roles OU may not exist yet. ";
 	print "<label class='pull-right'><input type='checkbox' name='setup_global_roles_ou' class='pull-right' checked>Create?&nbsp;</label>";
 } else {
 	if (ldap_count_entries($ldap_connection, $ldap_maintainer_role_search) == 0) {
-		print "$li_fail The maintainer role (<strong>cn=maintainers,ou=roles,{$LDAP['base_dn']}</strong>) doesn't exist. ";
+		    print "$li_fail The maintainer role (<strong>cn=maintainers,{$LDAP['roles_dn']}</strong>) doesn't exist. ";
 		print "<label class='pull-right'><input type='checkbox' name='setup_maintainer_role' class='pull-right' checked>Create?&nbsp;</label>";
 		$show_finish_button = FALSE;
 	} else {
-		print "$li_good The maintainer role (<strong>cn=maintainers,ou=roles,{$LDAP['base_dn']}</strong>) is present.</li>";
+		    print "$li_good The maintainer role (<strong>cn=maintainers,{$LDAP['roles_dn']}</strong>) is present.</li>";
 	}
 }
 

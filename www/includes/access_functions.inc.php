@@ -56,7 +56,7 @@ function currentUserIsOrgManager($orgName) {
     $orgDN = "o={$orgRDN},ou=organizations," . $LDAP['base_dn'];
     
     # Check if user is in the org_admin role for this organization
-    $org_admin_filter = "(&(objectclass=groupOfNames)(cn=org_admin)(member=$USER_DN))";
+    $org_admin_filter = "(&(objectclass=groupOfNames)(cn=orgManagers)(member=$USER_DN))";
     $ldap_search = @ ldap_search($ldap, $orgDN, $org_admin_filter, array('cn'));
     if ($ldap_search) {
         $result = ldap_get_entries($ldap, $ldap_search);
