@@ -1,6 +1,6 @@
 <?php
 
-set_include_path( ".:" . __DIR__ . "/../includes/");
+set_include_path(".:" . __DIR__ . "/../includes/");
 
 include_once "web_functions.inc.php";
 include_once "ldap_functions.inc.php";
@@ -17,15 +17,15 @@ $missing_components = array();
 
 # Setup debug logging
 if ($SETUP_DEBUG == TRUE) {
- error_log("$log_prefix SETUP_DEBUG: Starting verification process", 0);
+  error_log("$log_prefix SETUP_DEBUG: Starting verification process", 0);
 }
 
 ?>
 <div class='container'>
- <div class="panel panel-default">
-  <div class="panel-heading">LDAP Setup Verification</div>
-   <div class="panel-body">
-    <ul class="list-group">
+  <div class="panel panel-default">
+    <div class="panel-heading">LDAP Setup Verification</div>
+    <div class="panel-body">
+      <ul class="list-group">
 
 <?php
 
@@ -163,81 +163,81 @@ if ($admin_search && ldap_count_entries($ldap_connection, $admin_search) > 0) {
 }
 
 ?>
-    </ul>
-   </div>
- </div>
+      </ul>
+    </div>
+  </div>
  
 <?php
 # Check if we have missing components and show appropriate options
 if (!empty($missing_components)) {
-    if ($SETUP_DEBUG == TRUE) {
-        error_log("$log_prefix SETUP_DEBUG: Missing components detected: " . implode(', ', array_unique($missing_components)), 0);
-    }
-    
-    print "<div class='panel panel-warning'>\n";
-    print " <div class='panel-heading'>Missing Components Detected</div>\n";
-    print " <div class='panel-body'>\n";
-    print "  <p>The verification found missing components that need to be created:</p>\n";
-    
-    if (in_array('ou', $missing_components)) {
-        print "  <p>• <strong>Organizational Units</strong> (people, organizations, or roles)</p>\n";
-    }
-    if (in_array('user', $missing_components)) {
-        print "  <p>• <strong>System Users</strong> (administrator and/or maintainer)</p>\n";
-    }
-    if (in_array('role', $missing_components)) {
-        print "  <p>• <strong>Role Groups</strong> (administrators and/or maintainers)</p>\n";
-    }
-    
-    print "  <p>You need to go back to the setup process to create these missing components.</p>\n";
-    print " </div>\n";
-    print "</div>\n";
-    
-    print "<div class='well'>\n";
-    print " <div class='row'>\n";
-    print "  <div class='col-md-6'>\n";
-    print "  <form action='{$THIS_MODULE_PATH}/run_checks.php'>\n";
-    print "    <input type='submit' class='btn btn-warning center-block' value='Go to Setup'>\n";
-    print "  </form>\n";
-    print "  </div>\n";
-    print "  <div class='col-md-6'>\n";
-    print "  <form action='{$THIS_MODULE_PATH}'>\n";
-    print "    <input type='submit' class='btn btn-default center-block' value='Back to Setup Menu'>\n";
-    print "  </form>\n";
-    print "  </div>\n";
-    print " </div>\n";
-    print "</div>\n";
+  if ($SETUP_DEBUG == TRUE) {
+    error_log("$log_prefix SETUP_DEBUG: Missing components detected: " . implode(', ', array_unique($missing_components)), 0);
+  }
+  
+  print "<div class='panel panel-warning'>\n";
+  print "  <div class='panel-heading'>Missing Components Detected</div>\n";
+  print "  <div class='panel-body'>\n";
+  print "    <p>The verification found missing components that need to be created:</p>\n";
+  
+  if (in_array('ou', $missing_components)) {
+    print "    <p>• <strong>Organizational Units</strong> (people, organizations, or roles)</p>\n";
+  }
+  if (in_array('user', $missing_components)) {
+    print "    <p>• <strong>System Users</strong> (administrator and/or maintainer)</p>\n";
+  }
+  if (in_array('role', $missing_components)) {
+    print "    <p>• <strong>Role Groups</strong> (administrators and/or maintainers)</p>\n";
+  }
+  
+  print "    <p>You need to go back to the setup process to create these missing components.</p>\n";
+  print "  </div>\n";
+  print "</div>\n";
+  
+  print "<div class='well'>\n";
+  print "  <div class='row'>\n";
+  print "    <div class='col-md-6'>\n";
+  print "      <form action='{$THIS_MODULE_PATH}/run_checks.php'>\n";
+  print "        <input type='submit' class='btn btn-warning center-block' value='Go to Setup'>\n";
+  print "      </form>\n";
+  print "    </div>\n";
+  print "    <div class='col-md-6'>\n";
+  print "      <form action='{$THIS_MODULE_PATH}'>\n";
+  print "        <input type='submit' class='btn btn-default center-block' value='Back to Setup Menu'>\n";
+  print "      </form>\n";
+  print "    </div>\n";
+  print "  </div>\n";
+  print "</div>\n";
 } else {
-    if ($SETUP_DEBUG == TRUE) {
-        error_log("$log_prefix SETUP_DEBUG: All components verified successfully", 0);
-    }
-    
-    # All components exist, show success message and completion options
-    print "<div class='panel panel-success'>\n";
-    print " <div class='panel-heading'>Setup Complete!</div>\n";
-    print " <div class='panel-body'>\n";
-    print "  <p>All LDAP components have been verified and are working correctly.</p>\n";
-    print "  <p>You can now proceed to use the system or log in with your administrator account.</p>\n";
-    print " </div>\n";
-    print "</div>\n";
-    
-    print "<div class='well'>\n";
-    print " <div class='row'>\n";
-    print "  <div class='col-md-6'>\n";
-    print "  <form action='{$SERVER_PATH}log_in'>\n";
-    print "    <input type='submit' class='btn btn-success center-block' value='Go to Login'>\n";
-    print "  </form>\n";
-    print "  </div>\n";
-    print "  <div class='col-md-6'>\n";
-    print "  <form action='{$THIS_MODULE_PATH}'>\n";
-    print "    <input type='submit' class='btn btn-default center-block' value='Back to Setup Menu'>\n";
-    print "  </form>\n";
-    print "  </div>\n";
-    print " </div>\n";
-    print "</div>\n";
+  if ($SETUP_DEBUG == TRUE) {
+    error_log("$log_prefix SETUP_DEBUG: All components verified successfully", 0);
+  }
+  
+  # All components exist, show success message and completion options
+  print "<div class='panel panel-success'>\n";
+  print "  <div class='panel-heading'>Setup Complete!</div>\n";
+  print "  <div class='panel-body'>\n";
+  print "    <p>All LDAP components have been verified and are working correctly.</p>\n";
+  print "    <p>You can now proceed to use the system or log in with your administrator account.</p>\n";
+  print "  </div>\n";
+  print "</div>\n";
+  
+  print "<div class='well'>\n";
+  print "  <div class='row'>\n";
+  print "    <div class='col-md-6'>\n";
+  print "      <form action='{$SERVER_PATH}log_in'>\n";
+  print "        <input type='submit' class='btn btn-success center-block' value='Go to Login'>\n";
+  print "      </form>\n";
+  print "    </div>\n";
+  print "    <div class='col-md-6'>\n";
+  print "      <form action='{$THIS_MODULE_PATH}'>\n";
+  print "        <input type='submit' class='btn btn-default center-block' value='Back to Setup Menu'>\n";
+  print "      </form>\n";
+  print "    </div>\n";
+  print "  </div>\n";
+  print "</div>\n";
 }
 ?>
-</div>
+  </div>
 
 <?php
 
