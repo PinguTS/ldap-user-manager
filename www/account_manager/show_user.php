@@ -4,8 +4,8 @@ set_include_path( ".:" . __DIR__ . "/../includes/");
 
 include_once "web_functions.inc.php";
 include_once "ldap_functions.inc.php";
-include_once "module_functions.inc.php";
 include_once "access_functions.inc.php";
+include_once "module_functions.inc.php";
 include_once "organization_functions.inc.php";
 set_page_access(["admin", "user"]); // Allow both admin and user roles
 
