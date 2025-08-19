@@ -1,21 +1,38 @@
 <?php
-require_once "../includes/config.inc.php";
-require_once "../includes/ldap_functions.inc.php";
-require_once "../includes/organization_functions.inc.php";
-require_once "../includes/access_functions.inc.php";
-require_once "../includes/web_functions.inc.php";
 
-// Check if user is logged in and has appropriate permissions
-if (!isset($_SESSION['user_dn'])) {
-    header("Location: ../log_in/");
-    exit;
-}
+set_include_path( ".:" . __DIR__ . "/../includes/");
 
-// Check if user is administrator or maintainer
-if (!currentUserIsAdministrator() && !currentUserIsMaintainer()) {
+include_once "web_functions.inc.php";
+include_once "ldap_functions.inc.php";
+include_once "access_functions.inc.php";
+include_once "module_functions.inc.php";
+include_once "organization_functions.inc.php";
+
+// Check if user has appropriate permissions
+if (!(currentUserIsGlobalAdmin() || currentUserIsMaintainer() || currentUserIsOrgManager(''))) {
+    // Redirect unauthorized users
     header("Location: ../index.php");
     exit;
 }
+
+// Determine user's access level
+$is_global_admin = currentUserIsGlobalAdmin();
+$is_maintainer = currentUserIsMaintainer();
+$user_organizations = [];
+
+// If user is an organization admin, get their organizations
+if (!$is_global_admin && !$is_maintainer) {
+    // For organization admins, we need to find which organizations they manage
+    // This is a bit complex since we need to search through all organizations
+    $all_orgs = listOrganizations();
+    foreach ($all_orgs as $org) {
+        if (currentUserIsOrgManager($org['o'])) {
+            $user_organizations[] = $org['o'];
+        }
+    }
+}
+
+
 
 $message = '';
 $message_type = '';
@@ -24,6 +41,9 @@ $message_type = '';
 if ($_POST['action'] == 'create_organization') {
     if (!validate_csrf_token()) {
         $message = 'Invalid CSRF token. Please try again.';
+        $message_type = 'danger';
+    } elseif (!currentUserCanCreateOrganization()) {
+        $message = 'You do not have permission to create organizations.';
         $message_type = 'danger';
     } else {
         // Build organization data using field mappings
@@ -34,9 +54,10 @@ if ($_POST['action'] == 'create_organization') {
             }
         }
         
-        // Add creator DN if user is administrator
-        if (currentUserIsAdministrator()) {
-            $org_data['creatorDN'] = $_SESSION['user_dn'];
+        // Add creator DN if user is administrator or maintainer
+        if (currentUserIsGlobalAdmin() || currentUserIsMaintainer()) {
+            global $USER_DN;
+            $org_data['creatorDN'] = $USER_DN;
         }
         
         $result = createOrganization($org_data);
@@ -54,6 +75,9 @@ if ($_POST['action'] == 'create_organization') {
 if ($_POST['action'] == 'delete_organization') {
     if (!validate_csrf_token()) {
         $message = 'Invalid CSRF token. Please try again.';
+        $message_type = 'danger';
+    } elseif (!currentUserCanDeleteOrganization($_POST['org_name'])) {
+        $message = 'You do not have permission to delete this organization.';
         $message_type = 'danger';
     } else {
         $org_name = $_POST['org_name'];
@@ -85,6 +109,7 @@ render_header("Organization Management");
     <?php endif; ?>
     
     <div class="row">
+        <?php if (currentUserCanCreateOrganization()): ?>
         <div class="col-md-6">
             <div class="panel panel-primary">
                 <div class="panel-heading">
@@ -141,8 +166,9 @@ render_header("Organization Management");
                 </div>
             </div>
         </div>
+        <?php endif; ?>
         
-        <div class="col-md-6">
+        <div class="<?php echo currentUserCanCreateOrganization() ? 'col-md-6' : 'col-md-12'; ?>">
             <div class="panel panel-info">
                 <div class="panel-heading">
                     <h3 class="panel-title">Existing Organizations</h3>
@@ -152,27 +178,43 @@ render_header("Organization Management");
                         <p class="text-muted">No organizations found.</p>
                     <?php else: ?>
                         <div class="list-group">
-                            <?php foreach ($organizations as $org): ?>
-                                <div class="list-group-item">
-                                    <h4 class="list-group-item-heading"><?php echo htmlspecialchars($org['o']); ?></h4>
-                                    <p class="list-group-item-text">
-                                        <?php if (isset($org['mail'])): ?>
-                                            <strong>Email:</strong> <?php echo htmlspecialchars($org['mail']); ?><br>
-                                        <?php endif; ?>
-                                        <?php if (isset($org['telephoneNumber'])): ?>
-                                            <strong>Phone:</strong> <?php echo htmlspecialchars($org['telephoneNumber']); ?><br>
-                                        <?php endif; ?>
-                                        <?php if (isset($org['description'])): ?>
-                                            <strong>Status:</strong> <?php echo htmlspecialchars($org['description']); ?>
-                                        <?php endif; ?>
-                                    </p>
-                                    <div class="btn-group btn-group-sm">
-                                        <a href="show_organization.php?org=<?php echo urlencode($org['o']); ?>" class="btn btn-info">View</a>
-                                        <a href="org_users.php?org=<?php echo urlencode($org['o']); ?>" class="btn btn-primary">Users</a>
-                                        <button type="button" class="btn btn-danger" onclick="confirmDelete('<?php echo htmlspecialchars($org['o']); ?>')">Delete</button>
+                            <?php 
+                            // Filter organizations based on user permissions
+                            $display_organizations = $organizations;
+                            if (!$is_global_admin && !$is_maintainer) {
+                                // Organization admins can only see their own organizations
+                                $display_organizations = array_filter($organizations, function($org) use ($user_organizations) {
+                                    return in_array($org['o'], $user_organizations);
+                                });
+                            }
+                            
+                            if (empty($display_organizations)): ?>
+                                <p class="text-muted">No organizations found or you don't have permission to view any organizations.</p>
+                            <?php else: ?>
+                                <?php foreach ($display_organizations as $org): ?>
+                                    <div class="list-group-item">
+                                        <h4 class="list-group-item-heading"><?php echo htmlspecialchars($org['o']); ?></h4>
+                                        <p class="list-group-item-text">
+                                            <?php if (isset($org['mail'])): ?>
+                                                <strong>Email:</strong> <?php echo htmlspecialchars($org['mail']); ?><br>
+                                            <?php endif; ?>
+                                            <?php if (isset($org['telephoneNumber'])): ?>
+                                                <strong>Phone:</strong> <?php echo htmlspecialchars($org['telephoneNumber']); ?><br>
+                                            <?php endif; ?>
+                                            <?php if (isset($org['description'])): ?>
+                                                <strong>Status:</strong> <?php echo htmlspecialchars($org['description']); ?>
+                                            <?php endif; ?>
+                                        </p>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="show_organization.php?org=<?php echo urlencode($org['o']); ?>" class="btn btn-info">View</a>
+                                            <a href="org_users.php?org=<?php echo urlencode($org['o']); ?>" class="btn btn-primary">Users</a>
+                                            <?php if (currentUserCanDeleteOrganization($org['o'])): ?>
+                                                <button type="button" class="btn btn-danger" onclick="confirmDelete('<?php echo htmlspecialchars($org['o']); ?>')">Delete</button>
+                                            <?php endif; ?>
+                                        </div>
                                     </div>
-                                </div>
-                            <?php endforeach; ?>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                         </div>
                     <?php endif; ?>
                 </div>

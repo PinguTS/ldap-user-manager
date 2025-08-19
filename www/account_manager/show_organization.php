@@ -10,7 +10,15 @@ include_once "organization_functions.inc.php";
 
 
 
-set_page_access("admin");
+// Check if user has appropriate permissions
+if (!(currentUserIsGlobalAdmin() || currentUserIsMaintainer() || currentUserIsOrgManager($org_name))) {
+    // Redirect unauthorized users
+    header("Location: ../index.php");
+    exit;
+}
+
+// Check if user can modify this organization
+$can_modify_org = currentUserCanModifyOrganization($org_name);
 
 render_header("$ORGANISATION_NAME account manager");
 render_submenu();
@@ -25,34 +33,38 @@ $org_name = $_GET['org'];
 
 // Handle organization updates
 if (isset($_POST['update_organization'])) {
-    validate_csrf_token();
-    
-    $org_description = trim($_POST['org_description']);
-    $org_address = trim($_POST['org_address']);
-    $org_city = trim($_POST['org_city']);
-    $org_state = trim($_POST['org_state']);
-    $org_zip = trim($_POST['org_zip']);
-    $org_country = trim($_POST['org_country']);
-    $org_phone = trim($_POST['org_phone']);
-    $org_website = trim($_POST['org_website']);
-    $org_email = trim($_POST['org_email']);
-    
-    // Build postalAddress in the format: Street$City$State$ZIP$Country
-    $postal_address = $org_address . '$' . $org_city . '$' . $org_state . '$' . $org_zip . '$' . $org_country;
-    
-    $org_data = [
-        'description' => $org_description,
-        'postalAddress' => $postal_address,
-        'telephoneNumber' => $org_phone,
-        'labeledURI' => $org_website,
-        'mail' => $org_email
-    ];
-    
-    $result = updateOrganization($org_name, $org_data);
-    if ($result) {
-        render_alert_banner("Organization '$org_name' updated successfully.", "success");
+    if (!validate_csrf_token()) {
+        render_alert_banner("Invalid CSRF token. Please try again.", "danger");
+    } elseif (!$can_modify_org) {
+        render_alert_banner("You do not have permission to modify this organization.", "danger");
     } else {
-        render_alert_banner("Failed to update organization. Check the logs for more information.", "danger");
+        $org_description = trim($_POST['org_description']);
+        $org_address = trim($_POST['org_address']);
+        $org_city = trim($_POST['org_city']);
+        $org_state = trim($_POST['org_state']);
+        $org_zip = trim($_POST['org_zip']);
+        $org_country = trim($_POST['org_country']);
+        $org_phone = trim($_POST['org_phone']);
+        $org_website = trim($_POST['org_website']);
+        $org_email = trim($_POST['org_email']);
+        
+        // Build postalAddress in the format: Street$City$State$ZIP$Country
+        $postal_address = $org_address . '$' . $org_city . '$' . $org_state . '$' . $org_zip . '$' . $org_country;
+        
+        $org_data = [
+            'description' => $org_description,
+            'postalAddress' => $postal_address,
+            'telephoneNumber' => $org_phone,
+            'labeledURI' => $org_website,
+            'mail' => $org_email
+        ];
+        
+        $result = updateOrganization($org_name, $org_data);
+        if ($result) {
+            render_alert_banner("Organization '$org_name' updated successfully.", "success");
+        } else {
+            render_alert_banner("Failed to update organization. Check the logs for more information.", "danger");
+        }
     }
 }
 
@@ -196,7 +208,9 @@ if ($roles_search) {
       <div class="btn-group-vertical" style="width: 100%;">
        <a href="<?php print $THIS_MODULE_PATH; ?>/org_users.php?org=<?php print urlencode($org_name); ?>" class="btn btn-info">View All Users</a>
        <a href="<?php print $THIS_MODULE_PATH; ?>/new_user.php?org=<?php print urlencode($org_name); ?>" class="btn btn-success">Add New User</a>
+       <?php if ($can_modify_org): ?>
        <button class="btn btn-primary" onclick="showEditForm()">Edit Organization</button>
+       <?php endif; ?>
       </div>
      </div>
     </div>
@@ -275,6 +289,7 @@ if ($roles_search) {
   </div>
 
   <!-- Edit Organization Form (Hidden by default) -->
+  <?php if ($can_modify_org): ?>
   <div class="panel panel-default" id="editForm" style="display: none;">
    <div class="panel-heading text-center">Edit Organization</div>
    <div class="panel-body text-center">
@@ -368,6 +383,7 @@ if ($roles_search) {
     </form>
    </div>
   </div>
+  <?php endif; ?>
 
  </div>
 </div>
