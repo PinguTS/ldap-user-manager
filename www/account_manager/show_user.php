@@ -285,7 +285,7 @@ $currently_member_of = ldap_user_group_membership($ldap_connection, $account_ide
 $all_roles = [];
 
 // Global roles
-$global_roles = ['administrator', 'maintainer'];
+$global_roles = [$LDAP['admins_group'], $LDAP['maintainers_group']];
 foreach ($global_roles as $role) {
     $all_roles[] = $role;
 }

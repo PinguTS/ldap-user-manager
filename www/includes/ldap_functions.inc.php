@@ -679,7 +679,7 @@ function ldap_is_group_member($ldap_connection, $group_name, $username) {
     }
 
     # Check if this is a global role (administrator, maintainer)
-    if (in_array($group_name, array('administrator', 'maintainer', 'administrators', 'maintainers'))) {
+    if (in_array($group_name, array($LDAP['admins_group'], $LDAP['maintainers_group']))) {
         # Search in global roles
         $ldap_search_query = "(&(objectclass=groupOfNames)(cn=$group_name)(member=$user_dn))";
         $ldap_search = @ldap_search($ldap_connection, $LDAP['roles_dn'], $ldap_search_query);

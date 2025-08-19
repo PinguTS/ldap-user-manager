@@ -1,46 +1,119 @@
 <?php
 
 function currentUserIsGlobalAdmin() {
-    global $LDAP, $USER_DN;
+    global $LDAP, $USER_DN, $USER_ID;
+    
+    // If USER_DN is not set, try to construct it from USER_ID
+    if (!$USER_DN && $USER_ID) {
+        $ldap = open_ldap_connection();
+        
+        // Search for the user across all locations
+        $user_filter = "(&(objectclass=inetOrgPerson)({$LDAP['account_attribute']}=$USER_ID))";
+        
+        // Search in organizations first
+        $ldap_search = @ ldap_search($ldap, $LDAP['org_dn'], $user_filter, array('dn'));
+        if ($ldap_search) {
+            $result = @ ldap_get_entries($ldap, $ldap_search);
+            if ($result['count'] > 0) {
+                $USER_DN = $result[0]['dn'];
+            }
+        }
+        
+        // If not found in organizations, search in system users
+        if (!$USER_DN) {
+            $ldap_search = @ ldap_search($ldap, $LDAP['people_dn'], $user_filter, array('dn'));
+            if ($ldap_search) {
+                $result = @ ldap_get_entries($ldap, $ldap_search);
+                if ($result['count'] > 0) {
+                    $USER_DN = $result[0]['dn'];
+                }
+            }
+        }
+        
+        ldap_close($ldap);
+    }
     
     if (!$USER_DN) {
+        error_log("currentUserIsGlobalAdmin: USER_DN not set for user $USER_ID");
         return false;
     }
     
+    // Debug: Log what roles the user actually has
+    debugUserRoles($USER_ID);
+    
     $ldap = open_ldap_connection();
     
-    # Check if user is in the administrator role
-    $admin_role_filter = "(&(objectclass=groupOfNames)(cn=administrators)(member=$USER_DN))";
+    # Check if user is in the administrator role using config variable
+    $admin_role_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['admins_group']})(member=$USER_DN))";
     $ldap_search = @ ldap_search($ldap, $LDAP['roles_dn'], $admin_role_filter, array('cn'));
     if ($ldap_search) {
         $result = ldap_get_entries($ldap, $ldap_search);
-        ldap_close($ldap);
-        return ($result['count'] > 0);
+        if ($result['count'] > 0) {
+            error_log("currentUserIsGlobalAdmin: User $USER_ID is admin via role: " . $result[0]['cn'][0]);
+            ldap_close($ldap);
+            return true;
+        }
     }
     
     ldap_close($ldap);
+    error_log("currentUserIsGlobalAdmin: User $USER_ID is NOT admin");
     return false;
 }
 
 function currentUserIsMaintainer() {
-    global $LDAP, $USER_DN;
+    global $LDAP, $USER_DN, $USER_ID;
+    
+    // If USER_DN is not set, try to construct it from USER_ID
+    if (!$USER_DN && $USER_ID) {
+        $ldap = open_ldap_connection();
+        
+        // Search for the user across all locations
+        $user_filter = "(&(objectclass=inetOrgPerson)({$LDAP['account_attribute']}=$USER_ID))";
+        
+        // Search in organizations first
+        $ldap_search = @ ldap_search($ldap, $LDAP['org_dn'], $user_filter, array('dn'));
+        if ($ldap_search) {
+            $result = @ ldap_get_entries($ldap, $ldap_search);
+            if ($result['count'] > 0) {
+                $USER_DN = $result[0]['dn'];
+            }
+        }
+        
+        // If not found in organizations, search in system users
+        if (!$USER_DN) {
+            $ldap_search = @ ldap_search($ldap, $LDAP['people_dn'], $user_filter, array('dn'));
+            if ($ldap_search) {
+                $result = @ ldap_get_entries($ldap, $ldap_search);
+                if ($result['count'] > 0) {
+                    $USER_DN = $result[0]['dn'];
+                }
+            }
+        }
+        
+        ldap_close($ldap);
+    }
     
     if (!$USER_DN) {
+        error_log("currentUserIsMaintainer: USER_DN not set for user $USER_ID");
         return false;
     }
     
     $ldap = open_ldap_connection();
     
-    # Check if user is in the maintainer role
-    $maintainer_role_filter = "(&(objectclass=groupOfNames)(cn=maintainers)(member=$USER_DN))";
+    # Check if user is in the maintainer role using config variable
+    $maintainer_role_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['maintainers_group']})(member=$USER_DN))";
     $ldap_search = @ ldap_search($ldap, $LDAP['roles_dn'], $maintainer_role_filter, array('cn'));
     if ($ldap_search) {
         $result = ldap_get_entries($ldap, $ldap_search);
-        ldap_close($ldap);
-        return ($result['count'] > 0);
+        if ($result['count'] > 0) {
+            error_log("currentUserIsMaintainer: User $USER_ID is maintainer via role: " . $result[0]['cn'][0]);
+            ldap_close($ldap);
+            return true;
+        }
     }
     
     ldap_close($ldap);
+    error_log("currentUserIsMaintainer: User $USER_ID is NOT maintainer");
     return false;
 }
 
@@ -83,7 +156,7 @@ function currentUserCanModifyUser($targetUserDN) {
     # Maintainers can modify anyone except administrators
     if (currentUserIsMaintainer()) {
         $ldap = open_ldap_connection();
-        $admin_role_filter = "(&(objectclass=groupOfNames)(cn=administrators)(member=$targetUserDN))";
+        $admin_role_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['admins_group']})(member=$targetUserDN))";
         $ldap_search = @ ldap_search($ldap, $LDAP['roles_dn'], $admin_role_filter, array('cn'));
         if ($ldap_search) {
             $result = ldap_get_entries($ldap, $ldap_search);
@@ -216,4 +289,84 @@ function currentUserCanDeleteUser($targetUserDN) {
     
     // Users cannot delete themselves (safety measure)
     return false;
+}
+
+function debugUserRoles($username = null) {
+    global $LDAP, $USER_DN, $USER_ID;
+    
+    if (!$username) {
+        $username = $USER_ID;
+    }
+    
+    if (!$username) {
+        error_log("debugUserRoles: No username provided");
+        return false;
+    }
+    
+    $ldap = open_ldap_connection();
+    
+    // Get user DN
+    $user_dn = null;
+    $user_filter = "(&(objectclass=inetOrgPerson)({$LDAP['account_attribute']}=$username))";
+    
+    // Search in organizations first
+    $ldap_search = @ ldap_search($ldap, $LDAP['org_dn'], $user_filter, array('dn'));
+    if ($ldap_search) {
+        $result = @ ldap_get_entries($ldap, $ldap_search);
+        if ($result['count'] > 0) {
+            $user_dn = $result[0]['dn'];
+        }
+    }
+    
+    // If not found in organizations, search in system users
+    if (!$user_dn) {
+        $ldap_search = @ ldap_search($ldap, $LDAP['people_dn'], $user_filter, array('dn'));
+        if ($ldap_search) {
+            $result = @ ldap_get_entries($ldap, $ldap_search);
+            if ($result['count'] > 0) {
+                $user_dn = $result[0]['dn'];
+            }
+        }
+    }
+    
+    if (!$user_dn) {
+        error_log("debugUserRoles: User $username not found");
+        ldap_close($ldap);
+        return false;
+    }
+    
+    error_log("debugUserRoles: User $username has DN: $user_dn");
+    
+    // Check global roles
+    $global_roles_filter = "(&(objectclass=groupOfNames)(member=$user_dn))";
+    $ldap_search = @ ldap_search($ldap, $LDAP['roles_dn'], $global_roles_filter, array('cn'));
+    if ($ldap_search) {
+        $result = @ ldap_get_entries($ldap, $ldap_search);
+        if ($result['count'] > 0) {
+            error_log("debugUserRoles: User $username has global roles:");
+            for ($i = 0; $i < $result['count']; $i++) {
+                error_log("  - " . $result[$i]['cn'][0]);
+            }
+        } else {
+            error_log("debugUserRoles: User $username has no global roles");
+        }
+    }
+    
+    // Check organization-specific roles
+    $org_roles_filter = "(&(objectclass=groupOfNames)(member=$user_dn))";
+    $ldap_search = @ ldap_search($ldap, $LDAP['org_roles_dn'], $org_roles_filter, array('cn'));
+    if ($ldap_search) {
+        $result = @ ldap_get_entries($ldap, $ldap_search);
+        if ($result['count'] > 0) {
+            error_log("debugUserRoles: User $username has organization roles:");
+            for ($i = 0; $i < $result['count']; $i++) {
+                error_log("  - " . $result[$i]['cn'][0]);
+            }
+        } else {
+            error_log("debugUserRoles: User $username has no organization roles");
+        }
+    }
+    
+    ldap_close($ldap);
+    return true;
 }
