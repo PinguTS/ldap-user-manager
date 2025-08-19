@@ -158,16 +158,6 @@ if ($ldap_search && $user && isset($user["count"]) && $user["count"] > 0) {
    render_footer();
    exit(0);
  }
-}
-else {
-  ?>
-  <div class="alert alert-danger">
-   <p class="text-center">There was a problem searching for this account.</p>
-  </div>
-  <?php
-  render_footer();
-  exit(0);
-}
 
  ### Update values
 
@@ -722,7 +712,6 @@ $not_member_of = array_diff($all_roles, $currently_member_of);
 
 <?php
 
-}
 
 // Handle self-service passcode change
 if (isset($_POST['change_passcode'])) {

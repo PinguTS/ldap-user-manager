@@ -115,7 +115,7 @@ include_once __DIR__ . '/security_config.inc.php';
 
  # Updated LDAP structure for new organization-based approach
 $LDAP['org_dn'] = "ou={$LDAP['org_ou']},{$LDAP['base_dn']}";
-$LDAP['group_dn'] = "ou={$LDAP['group_ou']},{$LDAP['base_dn']}";
+
 $LDAP['people_dn'] = "ou=people,{$LDAP['base_dn']}";
 $LDAP['org_people_dn'] = "ou=people,o={$LDAP['org_ou']},{$LDAP['base_dn']}";
 $LDAP['roles_dn'] = "ou=roles,{$LDAP['base_dn']}";

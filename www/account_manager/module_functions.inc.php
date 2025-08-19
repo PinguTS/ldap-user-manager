@@ -8,8 +8,7 @@ function render_submenu() {
 
   global $THIS_MODULE_PATH;
 
-  $submodules = array( 'users' => 'index.php',
-                       'groups' => 'groups.php'
+  $submodules = array( 'users' => 'index.php'
                      );
   ?>
    <nav class="navbar navbar-default">
