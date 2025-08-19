@@ -31,11 +31,11 @@ userPassword: {SSHA}dummyhash
 loginPasscode: {bcrypt}$2y$10$examplehash
 ```
 
-### Org Manager Group
+### Organization Admin Group
 ```ldif
-dn: cn=orgManagers,o=OrgA,ou=organizations,dc=example,dc=com
+dn: cn=org_admin,o=OrgA,ou=organizations,dc=example,dc=com
 objectClass: groupOfNames
-cn: orgManagers
+cn: org_admin
 member: uid=jane.doe,ou=users,o=OrgA,ou=organizations,dc=example,dc=com
 ```
 
@@ -64,9 +64,9 @@ access to dn.regex="^uid=.+,ou=users,o=.*,ou=organizations,dc=example,dc=com$"
 access to dn.regex="^uid=admin.*,ou=users,o=.*,ou=organizations,dc=example,dc=com$"
   by group.exact="cn=maintainers,ou=roles,dc=example,dc=com" none
 
-# 3. Org Managers: Manage users in their own org
+# 3. Organization Admins: Manage users in their own org
 access to dn.regex="^uid=.+,ou=users,o=([^,]+),ou=organizations,dc=example,dc=com$"
-  by group.exact="cn=OrgAdmins,o=$1,ou=organizations,dc=example,dc=com" write
+  by group.exact="cn=org_admin,o=$1,ou=organizations,dc=example,dc=com" write
 
 # 4. Users: Self-management (e.g., change their own password)
 access to dn.regex="^uid=([^,]+),ou=users,o=.*,ou=organizations,dc=example,dc=com$"

@@ -59,7 +59,7 @@ dc=example,dc=com
 │       ├── ou=people                   # Organization users (same naming!)
 │       │   ├── uid=admin@examplecompany.com
 │       │   └── uid=user1@examplecompany.com
-│       └── cn=orgManagers              # Organization managers (direct group)
+│       └── cn=org_admin                # Organization administrators (direct group)
 ├── ou=roles                            # Global system roles only
 │   ├── cn=administrators
 │   └── cn=maintainers

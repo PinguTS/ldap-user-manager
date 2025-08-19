@@ -285,7 +285,7 @@ $currently_member_of = ldap_user_group_membership($ldap_connection, $account_ide
 $all_roles = [];
 
 // Global roles
-$global_roles = [$LDAP['admins_group'], $LDAP['maintainers_group']];
+$global_roles = [$LDAP['admin_role'], $LDAP['maintainer_role']];
 foreach ($global_roles as $role) {
     $all_roles[] = $role;
 }
@@ -313,8 +313,8 @@ $not_member_of = array_diff($all_roles, $currently_member_of);
   }
 
   // Ensure admin users can't remove themselves from admin role
-  if ($USER_ID == $account_identifier and !array_search($LDAP["admins_group"], $updated_role_membership)){
-    array_push($updated_role_membership,$LDAP["admins_group"]);
+          if ($USER_ID == $account_identifier and !array_search($LDAP["admin_role"], $updated_role_membership)){
+            array_push($updated_role_membership,$LDAP["admin_role"]);
   }
 
   $roles_to_add = array_diff($updated_role_membership,$currently_member_of);
@@ -630,7 +630,7 @@ $not_member_of = array_diff($all_roles, $currently_member_of);
            <ul class="list-group" id="member_of_list">
             <?php
             foreach ($member_of as $role) {
-              if ($role == $LDAP["admins_group"] and $USER_ID == $account_identifier) {
+              if ($role == $LDAP["admin_role"] and $USER_ID == $account_identifier) {
                 print "<div class='list-group-item' style='opacity: 0.5; pointer-events:none;'>" . htmlspecialchars($role) . "</div>\n";
               }
               else {

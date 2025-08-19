@@ -94,8 +94,79 @@ include_once __DIR__ . '/security_config.inc.php';
 
  # Various advanced LDAP settings
 
- $LDAP['admins_group'] = getenv('LDAP_ADMINS_GROUP') ?: 'administrator';
- $LDAP['maintainers_group'] = getenv('LDAP_MAINTAINERS_GROUP') ?: 'maintainer';
+ # Role names used throughout the system (groups, user descriptions, etc.)
+ $LDAP['admin_role'] = getenv('LDAP_ADMIN_ROLE') ?: 'administrator';
+ $LDAP['maintainer_role'] = getenv('LDAP_MAINTAINER_ROLE') ?: 'maintainer';
+ $LDAP['org_admin_role'] = getenv('LDAP_ORG_ADMIN_ROLE') ?: 'org_admin';
+
+ # Organization field configuration
+# Required fields for organization creation (must be present)
+# Note: The 'o' (organization name) field is always required as it's used as the RDN
+$LDAP['org_required_fields'] = getenv('LDAP_ORG_REQUIRED_FIELDS') ? 
+    explode(',', getenv('LDAP_ORG_REQUIRED_FIELDS')) : 
+    ['o', 'street', 'city', 'state', 'postalCode', 'country', 'telephoneNumber', 'labeledURI', 'mail'];
+
+# Ensure 'o' field is always included in required fields
+if (!in_array('o', $LDAP['org_required_fields'])) {
+    $LDAP['org_required_fields'][] = 'o';
+}
+
+ # Optional fields for organization creation (can be present but not required)
+ $LDAP['org_optional_fields'] = getenv('LDAP_ORG_OPTIONAL_FIELDS') ? 
+    explode(',', getenv('LDAP_ORG_OPTIONAL_FIELDS')) : 
+    ['description', 'businessCategory', 'postalAddress', 'facsimileTelephoneNumber'];
+
+ # Field mappings from form names to LDAP attributes
+ $LDAP['org_field_mappings'] = [
+    'org_name' => 'o',
+    'org_address' => 'street',
+    'org_city' => 'city',
+    'org_state' => 'state',
+    'org_zip' => 'postalCode',
+    'org_country' => 'country',
+    'org_phone' => 'telephoneNumber',
+    'org_website' => 'labeledURI',
+    'org_email' => 'mail',
+    'org_description' => 'description',
+    'org_category' => 'businessCategory',
+    'org_postal_address' => 'postalAddress',
+    'org_fax' => 'facsimileTelephoneNumber'
+];
+
+ # Field labels for the UI (human-readable names)
+ $LDAP['org_field_labels'] = [
+    'org_name' => 'Organization Name',
+    'org_address' => 'Street Address',
+    'org_city' => 'City',
+    'org_state' => 'State/Province',
+    'org_zip' => 'Postal Code',
+    'org_country' => 'Country',
+    'org_phone' => 'Phone Number',
+    'org_website' => 'Website',
+    'org_email' => 'Email',
+    'org_description' => 'Description',
+    'org_category' => 'Business Category',
+    'org_postal_address' => 'Postal Address',
+    'org_fax' => 'Fax Number'
+];
+
+ # Field types for form rendering
+ $LDAP['org_field_types'] = [
+    'org_name' => 'text',
+    'org_address' => 'text',
+    'org_city' => 'text',
+    'org_state' => 'text',
+    'org_zip' => 'text',
+    'org_country' => 'text',
+    'org_phone' => 'tel',
+    'org_website' => 'url',
+    'org_email' => 'email',
+    'org_description' => 'textarea',
+    'org_category' => 'text',
+    'org_postal_address' => 'textarea',
+    'org_fax' => 'tel'
+];
+
  $LDAP['group_ou'] = (getenv('LDAP_GROUP_OU') ? getenv('LDAP_GROUP_OU') : 'groups');
  $LDAP['user_ou'] = (getenv('LDAP_USER_OU') ? getenv('LDAP_USER_OU') : 'people');
  $LDAP['org_ou'] = (getenv('LDAP_ORG_OU') ? getenv('LDAP_ORG_OU') : 'organizations');
@@ -200,9 +271,9 @@ $PHPMailer_PATH = (getenv('PHPMailer_PATH') ? getenv('PHPMailer_PATH') : '/opt/P
  if (empty($LDAP['admin_bind_pwd'])) {
   $errors .= "<div class='alert alert-warning'><p class='text-center'>LDAP_ADMIN_BIND_PWD isn't set</p></div>\n";
  }
- if (empty($LDAP['admins_group'])) {
-  $errors .= "<div class='alert alert-warning'><p class='text-center'>LDAP_ADMINS_GROUP isn't set</p></div>\n";
- }
+ if (empty($LDAP['admin_role'])) {
+    $errors .= "<div class='alert alert-warning'><p class='text-center'>LDAP_ADMIN_ROLE isn't set</p></div>\n";
+}
 
  if ($errors != "") {
   render_header("Fatal errors",false);

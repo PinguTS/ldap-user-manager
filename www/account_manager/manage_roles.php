@@ -39,7 +39,7 @@ if (isset($_POST['remove_user_from_role'])) {
 $users = ldap_get_user_list($ldap_connection);
 
 # Get global roles
-$global_roles = array($LDAP['admins_group'], $LDAP['maintainers_group']);
+$global_roles = array($LDAP['admin_role'], $LDAP['maintainer_role']);
 
 # Get organization-specific roles
 $org_roles = array();

@@ -29,11 +29,11 @@ userPassword: {SSHA}dummyhash
 loginPasscode: {bcrypt}$2y$10$examplehash
 ```
 
-### Example Org Manager Group LDIF
+### Example Organization Admin Group LDIF
 ```ldif
-dn: cn=orgManagers,o=OrgA,ou=organizations,dc=example,dc=com
+dn: cn=org_admin,o=OrgA,ou=organizations,dc=example,dc=com
 objectClass: groupOfNames
-cn: orgManagers
+cn: org_admin
 member: uid=jane.doe,ou=people,o=OrgA,ou=organizations,dc=example,dc=com
 ```
 
@@ -97,11 +97,11 @@ dc=example,dc=com
 |    |    |-- ou=people                 # Organization users
 |    |    |    |-- uid=user1
 |    |    |    |-- uid=user2
-|    |    |-- cn=orgManagers            # Organization managers (direct group)
+|    |    |-- cn=org_admin              # Organization administrators (direct group)
 |    |-- o=OrgB
 |         |-- ou=people                 # Organization users
 |         |    |-- uid=user3
-|         |-- cn=orgManagers            # Organization managers (direct group)
+|         |-- cn=org_admin              # Organization administrators (direct group)
 |
 |-- ou=roles                            # Global system roles only
 |    |-- cn=administrators
@@ -112,7 +112,7 @@ dc=example,dc=com
 - **Email Customization**: Admin and maintainer email addresses can be customized during setup
 - **Organizations**: Each as an `organization` entry under `ou=organizations`
 - **Organization Users**: Under `ou=people` within their org (consistent naming)
-- **Organization Managers**: Direct group entries under each organization (`cn=orgManagers`)
+- **Organization Administrators**: Direct group entries under each organization (`cn=org_admin`)
 - **Global Roles**: Under `ou=roles,dc=example,dc=com` (system-wide roles only)
 
 ---

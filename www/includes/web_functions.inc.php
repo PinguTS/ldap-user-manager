@@ -125,7 +125,7 @@ function login_via_headers() {
   //['admins_group'];
   $USER_ID = $_SERVER['HTTP_REMOTE_USER'];
   $remote_groups = explode(',',$_SERVER['HTTP_REMOTE_GROUPS']);
-  $IS_ADMIN = in_array($LDAP['admins_group'],$remote_groups);
+          $IS_ADMIN = in_array($LDAP['admin_role'],$remote_groups);
   // users are always validated as we assume, that the auth server does this
   $VALIDATED = true;
   // Populate currentUserGroups from LDAP

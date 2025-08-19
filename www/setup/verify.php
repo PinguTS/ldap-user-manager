@@ -33,7 +33,7 @@ if ($SETUP_DEBUG == TRUE) {
 print "<li class='list-group-item'><strong>Test 1: Organizational Units</strong></li>\n";
 
 $ou_tests = array(
-    "ou=organizations,{$LDAP['base_dn']}" => "Organizations OU",
+            $LDAP['org_dn'] => "Organizations OU",
     "ou=people,{$LDAP['base_dn']}" => "People OU", 
     $LDAP['roles_dn'] => "Roles OU"
 );
@@ -52,8 +52,8 @@ foreach ($ou_tests as $ou_dn => $ou_name) {
 print "<li class='list-group-item'><strong>Test 2: System Users</strong></li>\n";
 
 $user_tests = array(
-    "(&(objectclass=inetOrgPerson)(description=administrator))" => "Administrator User",
-    "(&(objectclass=inetOrgPerson)(description=maintainer))" => "Maintainer User"
+            "(&(objectclass=inetOrgPerson)(description={$LDAP['admin_role']}))" => "Administrator User",
+            "(&(objectclass=inetOrgPerson)(description={$LDAP['maintainer_role']}))" => "Maintainer User"
 );
 
 foreach ($user_tests as $filter => $user_name) {
@@ -134,7 +134,7 @@ if ($maintainer_group_search && ldap_count_entries($ldap_connection, $maintainer
 # Test 5: Test authentication
 print "<li class='list-group-item'><strong>Test 5: Authentication Test</strong></li>\n";
 
-$admin_search = ldap_search($ldap_connection, "ou=people,{$LDAP['base_dn']}", "(&(objectclass=inetOrgPerson)(description=administrator))");
+    $admin_search = ldap_search($ldap_connection, "ou=people,{$LDAP['base_dn']}", "(&(objectclass=inetOrgPerson)(description={$LDAP['admin_role']}))");
 if ($admin_search && ldap_count_entries($ldap_connection, $admin_search) > 0) {
     $admin_entries = ldap_get_entries($ldap_connection, $admin_search);
     $admin_dn = $admin_entries[0]['dn'];

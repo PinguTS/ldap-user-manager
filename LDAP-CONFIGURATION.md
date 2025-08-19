@@ -200,8 +200,9 @@ The LDIF files in the `ldif/` directory are provided for reference and advanced 
 ## 5. Configuration
 
 ### 5.1 Environment Variables
-- `LDAP_ADMINS_GROUP`: administrator (default)
-- `LDAP_MAINTAINERS_GROUP`: maintainer (default)
+- `LDAP_ADMIN_ROLE`: administrator (default) - Controls both group name and role name
+- `LDAP_MAINTAINER_ROLE`: maintainer (default) - Controls both group name and role name  
+- `LDAP_ORG_ADMIN_ROLE`: org_admin (default) - Controls both group name and role name
 - `LDAP_ORG_OU`: organizations (default)
 
 ### 5.2 LDAP Base DN
@@ -379,3 +380,130 @@ ldapsearch -x -b ou=people,dc=example,dc=com -D cn=admin,dc=example,dc=com -w yo
 - [ldif/README.md](ldif/README.md) - Detailed LDIF loading instructions
 - Main [README.md](README.md) for general setup and environment variables
 - [docs/ldap-structure.md](docs/ldap-structure.md) for detailed LDAP structure examples 
+
+## Organization Field Configuration
+
+The system now supports fully configurable organization fields through environment variables. This allows you to customize which fields are required, optional, or ignored when creating organizations.
+
+### Environment Variables
+
+```bash
+# Required fields for organization creation (comma-separated LDAP attributes)
+export LDAP_ORG_REQUIRED_FIELDS="o,street,city,state,postalCode,country,telephoneNumber,labeledURI,mail"
+
+# Optional fields for organization creation (comma-separated LDAP attributes)
+export LDAP_ORG_OPTIONAL_FIELDS="description,businessCategory,postalAddress,facsimileTelephoneNumber"
+
+# Customize the organizations OU name
+export LDAP_ORG_OU="organizations"
+```
+
+### Default Configuration
+
+If no environment variables are set, the system uses these defaults:
+
+**Required Fields:**
+- `o` - Organization name
+- `street` - Street address
+- `city` - City
+- `state` - State/Province
+- `postalCode` - Postal code
+- `country` - Country
+- `telephoneNumber` - Phone number
+- `labeledURI` - Website URL
+- `mail` - Email address
+
+**Optional Fields:**
+- `description` - Organization description/status
+- `businessCategory` - Business category
+- `postalAddress` - Alternative postal address format
+- `facsimileTelephoneNumber` - Fax number
+
+### Custom Field Configuration Examples
+
+#### Minimal Configuration (Name Only)
+```bash
+export LDAP_ORG_REQUIRED_FIELDS="o"
+export LDAP_ORG_OPTIONAL_FIELDS=""
+```
+
+#### Extended Configuration (Additional Fields)
+```bash
+export LDAP_ORG_REQUIRED_FIELDS="o,street,city,state,postalCode,country,telephoneNumber,mail"
+export LDAP_ORG_OPTIONAL_FIELDS="description,businessCategory,labeledURI,postalAddress,facsimileTelephoneNumber,seeAlso,st"
+```
+
+#### Custom Schema Configuration
+```bash
+export LDAP_ORG_REQUIRED_FIELDS="o,streetAddress,locality,st,postalCode,c,telephoneNumber,mail"
+export LDAP_ORG_OPTIONAL_FIELDS="description,businessCategory,url,postalAddress,facsimileTelephoneNumber,seeAlso,ou"
+```
+
+### Field Mapping
+
+The system automatically maps form field names to LDAP attributes:
+
+| Form Field | LDAP Attribute | Description |
+|------------|----------------|-------------|
+| `org_name` | `o` | Organization name |
+| `org_address` | `street` | Street address |
+| `org_city` | `city` | City |
+| `org_state` | `state` | State/Province |
+| `org_zip` | `postalCode` | Postal code |
+| `org_country` | `country` | Country |
+| `org_phone` | `telephoneNumber` | Phone number |
+| `org_website` | `labeledURI` | Website URL |
+| `org_email` | `mail` | Email address |
+| `org_description` | `description` | Description |
+| `org_category` | `businessCategory` | Business category |
+| `org_postal_address` | `postalAddress` | Alternative postal address |
+| `org_fax` | `facsimileTelephoneNumber` | Fax number |
+
+### Benefits
+
+1. **Flexible Schema Support**: Adapt to different LDAP schemas and organizational requirements
+2. **Customizable Requirements**: Set only the fields that are truly required for your use case
+3. **Extensible**: Add new fields without code changes
+4. **Environment-Specific**: Different configurations for development, staging, and production
+5. **Compliance**: Meet specific organizational or regulatory requirements
+
+### Notes
+
+- Fields not listed in either `LDAP_ORG_REQUIRED_FIELDS` or `LDAP_ORG_OPTIONAL_FIELDS` are completely ignored
+- The `o` (organization name) field is always required as it's used as the RDN
+- Field validation is performed on both client and server side
+- The web interface automatically adapts to show only the configured fields
+
+### Field Handling During Organization Creation
+
+When creating an organization, the system processes fields as follows:
+
+1. **Required Fields**: Must be present and non-empty, otherwise creation fails
+2. **Optional Fields**: Included in the LDAP entry if provided, ignored if empty
+3. **Unconfigured Fields**: Completely ignored regardless of whether they're provided
+4. **Special Fields**: Some fields like `postalAddress` are automatically generated from component fields
+
+**Example:**
+```bash
+# Configuration
+export LDAP_ORG_REQUIRED_FIELDS="o,street,city,state,postalCode,country,telephoneNumber,mail"
+export LDAP_ORG_OPTIONAL_FIELDS="description,businessCategory,labeledURI"
+
+# Input data (including unconfigured field 'unused_field')
+org_data = {
+    'o': 'Example Corp',
+    'street': '123 Main St',
+    'city': 'Anytown',
+    'state': 'CA',
+    'postalCode': '12345',
+    'country': 'USA',
+    'telephoneNumber': '+1-555-0123',
+    'mail': 'info@example.com',
+    'description': 'A great company',           # Optional field - included
+    'labeledURI': 'https://example.com',       # Optional field - included
+    'unused_field': 'ignored value'            # Unconfigured field - ignored
+}
+
+# Result: Only configured fields are included in the LDAP entry
+# Unconfigured fields are completely ignored
+``` 

@@ -65,7 +65,7 @@ $org_result = array('count' => 0);
 $sys_users_result = array('count' => 0);
 $global_roles_result = array('count' => 0);
 
-$org_filter = "(&(objectclass=organizationalUnit)(ou=organizations))";
+$org_filter = "(&(objectclass=organizationalUnit)(ou=" . $LDAP['org_ou'] . "))";
 $ldap_org_search = ldap_search($ldap_connection, "{$LDAP['base_dn']}", $org_filter);
 
 if ($ldap_org_search === false) {
@@ -81,7 +81,7 @@ else {
  $org_result = ldap_get_entries($ldap_connection, $ldap_org_search);
 
  if ($org_result['count'] != 1) {
-  print "$li_fail The organizations OU (<strong>ou=organizations,{$LDAP['base_dn']}</strong>) doesn't exist. ";
+  print "$li_fail The organizations OU (<strong>{$LDAP['org_dn']}</strong>) doesn't exist. ";
   print "<a href='#' data-toggle='popover' title='Organizations OU' data-content='";
   print "This is the Organizational Unit (OU) that organizations are stored under.";
   print "'>What's this?</a>";
@@ -90,7 +90,7 @@ else {
   $show_finish_button = FALSE;
  }
  else {
-  print "$li_good The organizations OU (<strong>ou=organizations,{$LDAP['base_dn']}</strong>) is present.</li>";
+  print "$li_good The organizations OU (<strong>{$LDAP['org_dn']}</strong>) is present.</li>";
  }
 }
 
@@ -215,7 +215,7 @@ if (!$ldap_maintainer_role_search) {
 
 # Check for example organization
 $example_org_filter = "(&(objectclass=organization)(o=Example Company))";
-$ldap_example_org_search = ldap_search($ldap_connection, "ou=organizations,{$LDAP['base_dn']}", $example_org_filter);
+$ldap_example_org_search = ldap_search($ldap_connection, $LDAP['org_dn'], $example_org_filter);
 
 if ($ldap_example_org_search === false) {
   print "$li_warn Unable to search for example organization. The organizations OU may not exist yet. ";
@@ -228,14 +228,14 @@ if ($ldap_example_org_search === false) {
   $example_org_result = ldap_get_entries($ldap_connection, $ldap_example_org_search);
 
   if ($example_org_result['count'] != 1) {
-    print "$li_warn The example organization (<strong>o=Example Company,ou=organizations,{$LDAP['base_dn']}</strong>) doesn't exist. ";
+    print "$li_warn The example organization (<strong>o=Example Company,{$LDAP['org_dn']}</strong>) doesn't exist. ";
     print "<a href='#' data-toggle='popover' title='Example Organization' data-content='";
     print "This is a sample organization to demonstrate the system structure. It's optional but recommended for testing.";
     print "'>What's this?</a>";
     print "<label class='pull-right'><input type='checkbox' name='setup_example_org' class='pull-right' checked>Create?&nbsp;</label>";
     print "</li>\n";
   } else {
-    print "$li_good The example organization (<strong>o=Example Company,ou=organizations,{$LDAP['base_dn']}</strong>) is present.</li>";
+    print "$li_good The example organization (<strong>o=Example Company,{$LDAP['org_dn']}</strong>) is present.</li>";
   }
 }
 

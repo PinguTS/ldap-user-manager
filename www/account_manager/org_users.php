@@ -78,7 +78,7 @@ function getOrgManagerDns($orgName) {
     global $LDAP;
     $ldap = open_ldap_connection();
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
-    $groupDn = "cn=OrgAdmins,o={$orgRDN}," . $LDAP['org_dn'];
+    $groupDn = "cn={$LDAP['org_admin_role']},o={$orgRDN}," . $LDAP['org_dn'];
     $result = @ldap_read($ldap, $groupDn, '(objectClass=groupOfNames)', ['member']);
     if (!$result) return [];
     $entries = ldap_get_entries($ldap, $result);
@@ -98,7 +98,7 @@ if (isset($_GET['toggle_manager']) && isset($_GET['uid'])) {
     $orgManagerDns = getOrgManagerDns($orgName);
     $ldap = open_ldap_connection();
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
-    $orgAdminsDn = "cn=OrgAdmins,o={$orgRDN}," . $LDAP['org_dn'];
+    $orgAdminsDn = "cn={$LDAP['org_admin_role']},o={$orgRDN}," . $LDAP['org_dn'];
     // Ensure OrgAdmins group exists
     $orgAdmins_search = @ldap_read($ldap, $orgAdminsDn, '(objectClass=groupOfNames)', ['cn']);
     $orgAdmins_exists = false;
@@ -112,7 +112,7 @@ if (isset($_GET['toggle_manager']) && isset($_GET['uid'])) {
         global $USER_DN;
         $orgAdminsGroup = [
             'objectClass' => ['top', 'groupOfNames'],
-            'cn' => 'OrgAdmins',
+            'cn' => $LDAP['org_admin_role'],
             'member' => [$USER_DN]
         ];
         $orgAdmins_create = @ldap_add($ldap, $orgAdminsDn, $orgAdminsGroup);
@@ -128,11 +128,11 @@ if (isset($_GET['toggle_manager']) && isset($_GET['uid'])) {
     }
     try {
         if (in_array($userDn, $orgManagerDns)) {
-            removeUserFromOrgManagers($orgName, $userDn);
+            removeUserFromOrgAdmin($orgName, $userDn);
             $message = 'User removed from Org Manager role.';
             $message_type = 'warning';
         } else {
-            addUserToOrgManagers($orgName, $userDn);
+            addUserToOrgAdmin($orgName, $userDn);
             $message = 'User assigned as Org Manager.';
             $message_type = 'success';
         }

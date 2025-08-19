@@ -17,7 +17,7 @@ if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["pas
 
  $ldap_connection = open_ldap_connection();
  $account_id = ldap_auth_username($ldap_connection,$_POST["user_id"],$_POST["password"]);
- $is_admin = ldap_is_group_member($ldap_connection,$LDAP['admins_group'],$account_id);
+ $is_admin = ldap_is_group_member($ldap_connection,$LDAP['admin_role'],$account_id);
 
  // If password failed, try passcode
  if ($account_id == FALSE && isset($_POST["passcode"]) && $_POST["passcode"] !== "") {

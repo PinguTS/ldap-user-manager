@@ -679,7 +679,7 @@ function ldap_is_group_member($ldap_connection, $group_name, $username) {
     }
 
     # Check if this is a global role (administrator, maintainer)
-    if (in_array($group_name, array($LDAP['admins_group'], $LDAP['maintainers_group']))) {
+            if (in_array($group_name, array($LDAP['admin_role'], $LDAP['maintainer_role']))) {
         # Search in global roles
         $ldap_search_query = "(&(objectclass=groupOfNames)(cn=$group_name)(member=$user_dn))";
         $ldap_search = @ldap_search($ldap_connection, $LDAP['roles_dn'], $ldap_search_query);
@@ -915,8 +915,8 @@ function ldap_new_account($ldap_connection,$account_r) {
        error_log("$log_prefix Created new account: $account_identifier in organization: $organization",0);
        
        # Add user to organization if they have org_admin role
-       if (isset($account_attributes['description'][0]) && $account_attributes['description'][0] === 'org_admin') {
-         addUserToOrgManagers($organization, "{$LDAP['account_attribute']}=$account_identifier,{$user_dn}");
+       if (isset($account_attributes['description'][0]) && $account_attributes['description'][0] === $LDAP['org_admin_role']) {
+         addUserToOrgAdmin($organization, "{$LDAP['account_attribute']}=$account_identifier,{$user_dn}");
        }
        
        return TRUE;

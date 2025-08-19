@@ -14,11 +14,11 @@ objectClass: organizationalUnit
 ou: people
 
 # Organization admin role (direct group under organization)
-dn: cn=orgManagers,o=Example Company,ou=organizations,dc=example,dc=com
+dn: cn=org_admin,o=Example Company,ou=organizations,dc=example,dc=com
 objectClass: groupOfNames
 objectClass: top
-cn: orgManagers
-description: Organization managers for Example Company
+cn: org_admin
+description: Organization administrators for Example Company
 member: uid=admin@examplecompany.com,ou=people,o=Example Company,ou=organizations,dc=example,dc=com
 
 # Example user accounts

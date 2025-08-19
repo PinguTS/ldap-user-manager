@@ -44,7 +44,7 @@ function currentUserIsGlobalAdmin() {
     $ldap = open_ldap_connection();
     
     # Check if user is in the administrator role using config variable
-    $admin_role_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['admins_group']})(member=$USER_DN))";
+            $admin_role_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['admin_role']})(member=$USER_DN))";
     $ldap_search = @ ldap_search($ldap, $LDAP['roles_dn'], $admin_role_filter, array('cn'));
     if ($ldap_search) {
         $result = ldap_get_entries($ldap, $ldap_search);
@@ -101,7 +101,7 @@ function currentUserIsMaintainer() {
     $ldap = open_ldap_connection();
     
     # Check if user is in the maintainer role using config variable
-    $maintainer_role_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['maintainers_group']})(member=$USER_DN))";
+            $maintainer_role_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['maintainer_role']})(member=$USER_DN))";
     $ldap_search = @ ldap_search($ldap, $LDAP['roles_dn'], $maintainer_role_filter, array('cn'));
     if ($ldap_search) {
         $result = ldap_get_entries($ldap, $ldap_search);
@@ -126,10 +126,10 @@ function currentUserIsOrgManager($orgName) {
     
     $ldap = open_ldap_connection();
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
-    $orgDN = "o={$orgRDN},ou=organizations," . $LDAP['base_dn'];
+            $orgDN = "o={$orgRDN}," . $LDAP['org_dn'];
     
     # Check if user is in the org_admin role for this organization
-    $org_admin_filter = "(&(objectclass=groupOfNames)(cn=orgManagers)(member=$USER_DN))";
+            $org_admin_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['org_admin_role']})(member=$USER_DN))";
     $ldap_search = @ ldap_search($ldap, $orgDN, $org_admin_filter, array('cn'));
     if ($ldap_search) {
         $result = ldap_get_entries($ldap, $ldap_search);
@@ -156,7 +156,7 @@ function currentUserCanModifyUser($targetUserDN) {
     # Maintainers can modify anyone except administrators
     if (currentUserIsMaintainer()) {
         $ldap = open_ldap_connection();
-        $admin_role_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['admins_group']})(member=$targetUserDN))";
+        $admin_role_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['admin_role']})(member=$targetUserDN))";
         $ldap_search = @ ldap_search($ldap, $LDAP['roles_dn'], $admin_role_filter, array('cn'));
         if ($ldap_search) {
             $result = ldap_get_entries($ldap, $ldap_search);
@@ -213,7 +213,7 @@ function getUserOrganization($userDN) {
     }
     
     // If no organization attribute, try to extract from DN
-    if (preg_match('/o=([^,]+),ou=organizations,/', $userDN, $matches)) {
+            if (preg_match('/o=([^,]+),' . preg_quote($LDAP['org_ou'], '/') . ',/', $userDN, $matches)) {
         return $matches[1];
     }
     

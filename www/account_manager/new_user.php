@@ -274,7 +274,7 @@ if (isset($_POST['create_account'])) {
     }
 
     if ($admin_setup == TRUE) {
-      $member_add = ldap_add_member_to_group($ldap_connection, $LDAP['admins_group'], $account_identifier);
+              $member_add = ldap_add_member_to_group($ldap_connection, $LDAP['admin_role'], $account_identifier);
       if (!$member_add) { ?>
        <div class="alert alert-warning">
         <p class="text-center"><?php print htmlspecialchars($creation_message); ?> Unfortunately adding it to the admin group failed.</p>
@@ -283,12 +283,12 @@ if (isset($_POST['create_account'])) {
       }
      #Tidy up empty uniquemember entries left over from the setup wizard
      $USER_ID="tmp_admin";
-     ldap_delete_member_from_group($ldap_connection, $LDAP['admins_group'], "");
+             ldap_delete_member_from_group($ldap_connection, $LDAP['admin_role'], "");
      if (isset($DEFAULT_USER_GROUP)) { ldap_delete_member_from_group($ldap_connection, $DEFAULT_USER_GROUP, ""); }
     } else {
       // Add user to organization admin role if selected
       if ($this_user_role === 'org_admin') {
-        $org_admin_add = addUserToOrgManagers($this_organization, $new_account);
+        $org_admin_add = addUserToOrgAdmin($this_organization, $new_account);
         if (!$org_admin_add) {
           $creation_message .= " Warning: Failed to add user to organization admin role.";
         }

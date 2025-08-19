@@ -62,12 +62,12 @@ if (isset($_POST['fix_problems'])) {
 }
 
 if (isset($_POST['setup_organizations_ou'])) {
-  $ou_add = @ldap_add($ldap_connection, "ou=organizations,{$LDAP['base_dn']}", array('objectClass' => 'organizationalUnit', 'ou' => 'organizations'));
+  $ou_add = @ldap_add($ldap_connection, $LDAP['org_dn'], array('objectClass' => 'organizationalUnit', 'ou' => $LDAP['org_ou']));
   if ($ou_add == TRUE) {
-    print "$li_good Created OU <strong>ou=organizations,{$LDAP['base_dn']}</strong></li>\n";
+    print "$li_good Created OU <strong>{$LDAP['org_dn']}</strong></li>\n";
   } else {
     $error = ldap_error($ldap_connection);
-    print "$li_fail Couldn't create ou=organizations,{$LDAP['base_dn']}: <pre>$error</pre></li>\n";
+    print "$li_fail Couldn't create {$LDAP['org_dn']}: <pre>$error</pre></li>\n";
     $no_errors = FALSE;
   }
 }
@@ -267,7 +267,7 @@ if ($no_errors == TRUE) {
       $admin_role = array(
         'objectClass' => array('top', 'groupOfNames'),
         'cn' => 'administrators',
-        'description' => 'Full system administrator with all privileges',
+                    'description' => $LDAP['admin_role'],
         'member' => $admin_member_dn
       );
       
