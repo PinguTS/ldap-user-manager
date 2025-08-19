@@ -137,9 +137,11 @@ if (!$ldap_admin_role_search) {
   $show_finish_button = FALSE;
 } else {
   if (ldap_count_entries($ldap_connection, $ldap_admin_role_search) == 0) {
-    print "$li_fail The administrator role (<strong>cn=administrators,{$LDAP['roles_dn']}</strong>) doesn't exist. ";
-    print "<label class='pull-right'><input type='checkbox' name='setup_admin_role' class='pull-right' checked>Create?&nbsp;</label>";
-    print "<br><small class='text-muted'>⚠️ <strong>Step 1:</strong> Create the administrator role first</small>";
+    print "$li_info The administrator role (<strong>cn=administrators,{$LDAP['roles_dn']}</strong>) doesn't exist yet. ";
+    print "<br><small class='text-muted'>ℹ️ <strong>Info:</strong> This will be created automatically when you create an admin user</small>";
+    print "<br><label class='pull-right'><input type='checkbox' name='setup_admin_user' class='pull-right' checked>Create admin user?&nbsp;</label>";
+    print "<br><small>Email: <input type='email' name='admin_email' placeholder='admin@example.com' value='admin@example.com' class='form-control input-sm' style='width: 250px; display: inline-block;'></small>";
+    print "<br><small>Password: <input type='password' name='admin_password' placeholder='Enter admin password' class='form-control input-sm' style='width: 200px; display: inline-block;'></small>";
     $show_finish_button = FALSE;
   } else {
     print "$li_good The administrator role (<strong>cn=administrators,{$LDAP['roles_dn']}</strong>) is present.</li>";
@@ -170,10 +172,11 @@ if (!$ldap_maintainer_role_search) {
   $show_finish_button = FALSE;
 } else {
   if (ldap_count_entries($ldap_connection, $ldap_maintainer_role_search) == 0) {
-    print "$li_fail The maintainer role (<strong>cn=maintainers,{$LDAP['roles_dn']}</strong>) doesn't exist. ";
-    print "<label class='pull-right'><input type='checkbox' name='setup_maintainer_role' class='pull-right' checked>Create?&nbsp;</label>";
-    print "<br><small class='text-muted'>⚠️ <strong>Step 1:</strong> Create the maintainer role first</small>";
-    $show_finish_button = FALSE;
+    print "$li_info The maintainer role (<strong>cn=maintainers,{$LDAP['roles_dn']}</strong>) doesn't exist yet. ";
+    print "<br><small class='text-muted'>ℹ️ <strong>Info:</strong> This will be created automatically when you create a maintainer user</small>";
+    print "<br><label class='pull-right'><input type='checkbox' name='setup_maintainer_user' class='pull-right'>Create maintainer user?&nbsp;</label>";
+    print "<br><small>Email: <input type='email' name='maintainer_email' placeholder='maintainer@example.com' value='maintainer@example.com' class='form-control input-sm' style='width: 250px; display: inline-block;'></small>";
+    print "<br><small>Password: <input type='password' name='maintainer_password' placeholder='Enter maintainer password' class='form-control input-sm' style='width: 200px; display: inline-block;'></small>";
   } else {
     print "$li_good The maintainer role (<strong>cn=maintainers,{$LDAP['roles_dn']}</strong>) is present.</li>";
     
