@@ -475,11 +475,59 @@ function ldap_hashed_passcode($passcode) {
 
 ##################################
 
+function ldap_get_system_users($ldap_connection, $start=0, $entries=NULL, $sort="asc", $sort_key=NULL, $filters=NULL, $fields=NULL) {
+    global $log_prefix, $LDAP, $LDAP_DEBUG;
+
+    if (!isset($fields)) { 
+        $fields = array_unique( array("{$LDAP['account_attribute']}", "givenname", "sn", "cn", "mail", "description"));
+        // Add UUID field if UUID identification is enabled
+        if ($LDAP['use_uuid_identification']) {
+            $fields[] = 'entryUUID';
+        }
+    }
+
+    if (!isset($sort_key)) { $sort_key = $LDAP['account_attribute']; }
+
+    $this_filter = "(&(objectclass=inetOrgPerson)({$LDAP['account_attribute']}=*)$filters)";
+
+    # Search only in system users (not organization users)
+    $users = array();
+    
+    # Search in system users only
+    $ldap_search = @ ldap_search($ldap_connection, $LDAP['people_dn'], $this_filter, $fields);
+    if ($ldap_search) {
+        $result = @ ldap_get_entries($ldap_connection, $ldap_search);
+        if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix LDAP returned {$result['count']} system users when using this filter: $this_filter",0); }
+        
+        foreach ($result as $record) {
+            if (isset($record[$sort_key][0])) {
+                $add_these = array();
+                foreach($fields as $this_attr) {
+                    if ($this_attr !== $sort_key and isset($record[$this_attr])) { 
+                        $add_these[$this_attr] = $record[$this_attr][0]; 
+                    }
+                }
+                $users[$record[$sort_key][0]] = $add_these;
+            }
+        }
+    }
+
+    if ($sort == "asc") { ksort($users); } else { krsort($users); }
+
+    return(array_slice($users,$start,$entries));
+}
+
 function ldap_get_user_list($ldap_connection,$start=0,$entries=NULL,$sort="asc",$sort_key=NULL,$filters=NULL,$fields=NULL) {
 
  global $log_prefix, $LDAP, $LDAP_DEBUG;
 
- if (!isset($fields)) { $fields = array_unique( array("{$LDAP['account_attribute']}", "givenname", "sn", "cn", "mail", "description", "organization")); }
+ if (!isset($fields)) { 
+     $fields = array_unique( array("{$LDAP['account_attribute']}", "givenname", "sn", "cn", "mail", "description", "organization"));
+     // Add UUID field if UUID identification is enabled
+     if ($LDAP['use_uuid_identification']) {
+         $fields[] = 'entryUUID';
+     }
+ }
 
  if (!isset($sort_key)) { $sort_key = $LDAP['account_attribute']; }
 
@@ -868,6 +916,24 @@ function ldap_new_account($ldap_connection,$account_r) {
    
    # Check if user already exists in this organization
    $user_dn = "ou=people,o=" . ldap_escape($organization, "", LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
+   
+   # Ensure the users directory exists before trying to add a user
+   $usersDirExists = @ldap_read($ldap_connection, $user_dn, '(objectClass=*)', ['dn']);
+   if (!$usersDirExists) {
+     // Create the ou=people directory under the organization
+     $usersDirEntry = [
+       'objectClass' => ['top', 'organizationalUnit'],
+       'ou' => 'people',
+       'description' => 'Users for organization ' . $organization
+     ];
+     
+     $createUsersDir = @ldap_add($ldap_connection, $user_dn, $usersDirEntry);
+     if (!$createUsersDir) {
+       error_log("$log_prefix Create account; Failed to create users directory at DN: $user_dn -- LDAP error: " . ldap_error($ldap_connection));
+       return FALSE;
+     }
+   }
+   
    $ldap_search_query = "({$LDAP['account_attribute']}=" . ldap_escape(($account_identifier === null ? '' : $account_identifier), "", LDAP_ESCAPE_FILTER) . ")";
    $ldap_search = @ ldap_search($ldap_connection, $user_dn, $ldap_search_query);
    $result = @ ldap_get_entries($ldap_connection, $ldap_search);
@@ -896,6 +962,16 @@ function ldap_new_account($ldap_connection,$account_r) {
 
      $account_attributes = array_merge($account_r, $account_attributes);
 
+     # Ensure all attributes are properly formatted as arrays with numeric keys
+     foreach ($account_attributes as $attr => $value) {
+         if (!is_array($value)) {
+             $account_attributes[$attr] = array(0 => $value);
+         } elseif (!isset($value[0])) {
+             // If it's an array but doesn't have numeric keys, fix it
+             $account_attributes[$attr] = array_values($value);
+         }
+     }
+
      # Set default description (role) if not specified
      if (!isset($account_attributes['description'][0])) {
        $account_attributes['description'][0] = 'user';
@@ -906,6 +982,11 @@ function ldap_new_account($ldap_connection,$account_r) {
        $account_attributes['uid'] = $account_identifier;
      }
 
+     # Debug: Log the attributes being sent to ldap_add
+     if ($LDAP_DEBUG) {
+         error_log("$log_prefix ldap_new_account: Attributes for ldap_add: " . print_r($account_attributes, true));
+     }
+
      $add_account = @ ldap_add($ldap_connection,
                                "{$LDAP['account_attribute']}=$account_identifier,{$user_dn}",
                                $account_attributes
@@ -914,8 +995,14 @@ function ldap_new_account($ldap_connection,$account_r) {
      if ($add_account) {
        error_log("$log_prefix Created new account: $account_identifier in organization: $organization",0);
        
-       # Add user to organization if they have org_admin role
-       if (isset($account_attributes['description'][0]) && $account_attributes['description'][0] === $LDAP['org_admin_role']) {
+       # Add user to organization admin role ONLY if they are organization users (not system users)
+       # System administrators/maintainers already have full access to all organizations
+       # Check: 1) User has org_admin role, 2) Organization is specified, 3) User DN is under org_dn (not people_dn)
+       if (isset($account_attributes['description'][0]) && 
+           $account_attributes['description'][0] === $LDAP['org_admin_role'] && 
+           $organization !== null && 
+           strpos($user_dn, $LDAP['org_dn']) !== false &&
+           strpos($user_dn, $LDAP['people_dn']) === false) {
          addUserToOrgAdmin($organization, "{$LDAP['account_attribute']}=$account_identifier,{$user_dn}");
        }
        
@@ -1247,6 +1334,134 @@ function ldap_update_user_attributes($ldap_connection, $username, $attributes) {
 
 }
 
+
+##################################
+
+# UUID-based identification helper functions
+
+/**
+ * Get entry by UUID
+ * @param resource $ldap_connection LDAP connection
+ * @param string $uuid Entry UUID
+ * @param string $base_dn Base DN to search in
+ * @param array $attributes Attributes to retrieve
+ * @return array|false Entry data or false if not found
+ */
+function ldap_get_entry_by_uuid($ldap_connection, $uuid, $base_dn, $attributes = ['*', '+']) {
+    global $LDAP;
+    
+    if (!$LDAP['use_uuid_identification']) {
+        return false;
+    }
+    
+    $uuid_attr = $LDAP['uuid_attribute'];
+    $filter = "($uuid_attr=$uuid)";
+    
+    $search = @ldap_search($ldap_connection, $base_dn, $filter, $attributes);
+    if (!$search) {
+        return false;
+    }
+    
+    $entries = @ldap_get_entries($ldap_connection, $search);
+    if (!$entries || $entries['count'] == 0) {
+        return false;
+    }
+    
+    return $entries[0];
+}
+
+/**
+ * Get organization by UUID
+ * @param resource $ldap_connection LDAP connection
+ * @param string $uuid Organization UUID
+ * @return array|false Organization data or false if not found
+ */
+function ldap_get_organization_by_uuid($ldap_connection, $uuid) {
+    global $LDAP;
+    return ldap_get_entry_by_uuid($ldap_connection, $uuid, $LDAP['org_dn']);
+}
+
+/**
+ * Get user by UUID
+ * @param resource $ldap_connection LDAP connection
+ * @param string $uuid User UUID
+ * @param string $org_dn Organization DN (optional, for org users)
+ * @return array|false User data or false if not found
+ */
+function ldap_get_user_by_uuid($ldap_connection, $uuid, $org_dn = null) {
+    global $LDAP;
+    
+    if ($org_dn) {
+        // Search in specific organization
+        return ldap_get_entry_by_uuid($ldap_connection, $uuid, $org_dn);
+    } else {
+        // Search in all organizations
+        $orgs = listOrganizations();
+        foreach ($orgs as $org) {
+            $org_people_dn = "ou=people,o=" . ldap_escape($org['name'], '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
+            $user = ldap_get_entry_by_uuid($ldap_connection, $uuid, $org_people_dn);
+            if ($user) {
+                return $user;
+            }
+        }
+        
+        // Also search in system users
+        $user = ldap_get_entry_by_uuid($ldap_connection, $uuid, $LDAP['people_dn']);
+        if ($user) {
+            return $user;
+        }
+    }
+    
+    return false;
+}
+
+/**
+ * Validate UUID format
+ * @param string $uuid UUID to validate
+ * @return bool True if valid UUID format
+ */
+function is_valid_uuid($uuid) {
+    return preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $uuid);
+}
+
+/**
+ * Complete attribute map by merging additional attributes
+ * @param array $base_map Base attribute map
+ * @param array $additional_attrs Additional attributes to add
+ * @return array Complete attribute map
+ */
+function ldap_complete_attribute_map($base_map, $additional_attrs) {
+    if (!is_array($additional_attrs)) {
+        return $base_map;
+    }
+    
+    foreach ($additional_attrs as $attr_name => $attr_config) {
+        if (is_array($attr_config) && !isset($base_map[$attr_name])) {
+            $base_map[$attr_name] = $attr_config;
+        }
+    }
+    
+    return $base_map;
+}
+
+/**
+ * Generate secure URL parameter from UUID
+ * @param string $uuid UUID to encode
+ * @return string URL-safe UUID
+ */
+function uuid_to_url_param($uuid) {
+    return urlencode($uuid);
+}
+
+/**
+ * Decode UUID from URL parameter
+ * @param string $url_param URL parameter
+ * @return string|false Decoded UUID or false if invalid
+ */
+function url_param_to_uuid($url_param) {
+    $uuid = urldecode($url_param);
+    return is_valid_uuid($uuid) ? $uuid : false;
+}
 
 ##################################
 

@@ -840,9 +840,26 @@ function render_alert_banner($message,$alert_class="success",$timeout=4000) {
 
 // CSRF protection helpers
 function get_csrf_token() {
-    if (empty($_SESSION['csrf_token'])) {
-        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    // Ensure session is started
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
     }
+    
+    // Refresh session timeout to prevent premature expiration
+    if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity']) > 300) {
+        // Regenerate session ID every 5 minutes for security
+        session_regenerate_id(true);
+    }
+    $_SESSION['last_activity'] = time();
+    
+    // Generate new token if none exists or if it's too old (regenerate every hour for security)
+    if (empty($_SESSION['csrf_token']) || 
+        !isset($_SESSION['csrf_token_time']) || 
+        (time() - $_SESSION['csrf_token_time']) > 3600) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        $_SESSION['csrf_token_time'] = time();
+    }
+    
     return $_SESSION['csrf_token'];
 }
 function csrf_token_field() {
@@ -850,9 +867,30 @@ function csrf_token_field() {
     return '<input type="hidden" name="csrf_token" value="' . htmlspecialchars($token) . '">';
 }
 function validate_csrf_token() {
-    if (!isset($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
-        die('<div class="alert alert-danger">Invalid CSRF token. Please reload the page and try again.</div>');
+    // Ensure session is started
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
     }
+    
+    // Check if CSRF token exists in session
+    if (empty($_SESSION['csrf_token'])) {
+        error_log("CSRF validation failed: No token in session");
+        return false;
+    }
+    
+    // Check if CSRF token was posted
+    if (!isset($_POST['csrf_token'])) {
+        error_log("CSRF validation failed: No token posted");
+        return false;
+    }
+    
+    // Validate the token
+    if (!hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
+        error_log("CSRF validation failed: Token mismatch. Session: " . substr($_SESSION['csrf_token'], 0, 8) . "... Posted: " . substr($_POST['csrf_token'], 0, 8) . "...");
+        return false;
+    }
+    
+    return true;
 }
 
 /**
@@ -919,6 +957,78 @@ function validate_redirect_url($redirect_url, $base_path = '/') {
     
     // Reject absolute URLs for security
     return false;
+}
+
+/**
+ * Safe name display functions to prevent PHP warnings
+ */
+
+/**
+ * Safely display a user's full name with fallbacks
+ * @param array $user User data array
+ * @param string $cn_key Key for common name (default: 'cn')
+ * @param string $givenname_key Key for given name (default: 'givenName')
+ * @param string $sn_key Key for surname (default: 'sn')
+ * @return string Safe display name
+ */
+function safe_display_name($user, $cn_key = 'cn', $givenname_key = 'givenName', $sn_key = 'sn') {
+    // Try to get the common name first
+    if (isset($user[$cn_key]) && !empty($user[$cn_key])) {
+        if (is_array($user[$cn_key])) {
+            return htmlspecialchars($user[$cn_key][0] ?? '');
+        }
+        return htmlspecialchars($user[$cn_key]);
+    }
+    
+    // Fallback: construct from given name and surname
+    $givenname = '';
+    $sn = '';
+    
+    if (isset($user[$givenname_key]) && !empty($user[$givenname_key])) {
+        if (is_array($user[$givenname_key])) {
+            $givenname = $user[$givenname_key][0] ?? '';
+        } else {
+            $givenname = $user[$givenname_key];
+        }
+    }
+    
+    if (isset($user[$sn_key]) && !empty($user[$sn_key])) {
+        if (is_array($user[$sn_key])) {
+            $sn = $user[$sn_key][0] ?? '';
+        } else {
+            $sn = $user[$sn_key];
+        }
+    }
+    
+    // Return constructed name or fallback
+    if ($givenname && $sn) {
+        return htmlspecialchars($givenname . ' ' . $sn);
+    } elseif ($givenname) {
+        return htmlspecialchars($givenname);
+    } elseif ($sn) {
+        return htmlspecialchars($sn);
+    } else {
+        return '<em>No name available</em>';
+    }
+}
+
+/**
+ * Safely get a single attribute value from user data
+ * @param array $user User data array
+ * @param string $key Attribute key
+ * @param string $default Default value if attribute is missing
+ * @return string Safe attribute value
+ */
+function safe_user_attribute($user, $key, $default = '') {
+    if (!isset($user[$key]) || empty($user[$key])) {
+        return $default;
+    }
+    
+    if (is_array($user[$key])) {
+        return htmlspecialchars($user[$key][0] ?? $default);
+    }
+    
+    return htmlspecialchars($user[$key]);
 }
 
 /**

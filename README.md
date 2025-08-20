@@ -41,25 +41,27 @@ The web-based setup wizard will automatically create all necessary LDAP structur
 - **[DOCKER-SETUP.md](DOCKER-SETUP.md)** - Complete Docker setup guide with Portainer instructions and troubleshooting
 - **[LDAP-CONFIGURATION.md](LDAP-CONFIGURATION.md)** - LDAP schema requirements and configuration details
 - **[docs/ldap-structure.md](docs/ldap-structure.md)** - Complete LDAP structure documentation with examples
+- **[docs/RECENT_CHANGES.md](docs/RECENT_CHANGES.md)** - Summary of recent improvements and changes
 - **[ldif/README.md](ldif/README.md)** - LDIF file documentation and setup process
 
 ***
 
 ## LDAP Structure
 
-LDAP User Manager uses a unified and intuitive structure:
+LDAP User Manager uses a unified and intuitive structure with UUID-based identification:
 
 ```
 dc=example,dc=com
 ├── ou=people                           # System-level users (admins, maintainers)
-│   ├── uid=admin@example.com
-│   └── uid=maintainer@example.com
+│   ├── uid=admin@example.com          # entryUUID: 550e8400-e29b-41d4-a716-446655440000
+│   └── uid=maintainer@example.com     # entryUUID: 550e8400-e29b-41d4-a716-446655440001
 ├── ou=organizations
-│   └── o=Example Company
+│   └── o=Example Company              # entryUUID: 550e8400-e29b-41d4-a716-446655440002
 │       ├── ou=people                   # Organization users (same naming!)
-│       │   ├── uid=admin@examplecompany.com
-│       │   └── uid=user1@examplecompany.com
-│       └── cn=org_admin                # Organization administrators (direct group)
+│       │   ├── uid=user1@examplecompany.com
+│       │   └── uid=user2@examplecompany.com
+│       └── ou=roles                    # Organization-specific roles
+│           └── cn=org_admin            # Organization administrators (groupOfNames)
 ├── ou=roles                            # Global system roles only
 │   ├── cn=administrators
 │   └── cn=maintainers
@@ -70,7 +72,8 @@ dc=example,dc=com
 - **Intuitive Structure**: Users are always under `ou=people`, regardless of context
 - **Easier to Understand**: LDAP administrators will immediately know where to find users
 - **Follows Standards**: `ou=people` is the de facto standard for user containers
-- **Clean Organization Structure**: Direct group placement under organizations, no redundant OUs
+- **Clean Organization Structure**: Roles properly organized under `ou=roles`
+- **UUID Security**: Uses `entryUUID` for secure, immutable identification
 
 ***
 
@@ -93,6 +96,22 @@ For detailed LDAP setup instructions, see [LDAP-CONFIGURATION.md](LDAP-CONFIGURA
 - **Maintainers**: Can manage organizations and users
 - **Organization Managers**: Manage users within their organization
 - **Regular Users**: Self-service account management
+
+## User Management
+
+### System Users (ou=people)
+System users are administrators and maintainers with simplified field requirements:
+- **Required**: First Name, Last Name, Email
+- **Auto-generated**: Common Name (from First + Last), UID (from email)
+- **Optional**: Phone, Website
+- **No address fields** - System users don't need location information
+
+### Organization Users (ou=people,o=OrgName)
+Organization users have additional fields for organizational context:
+- **Required**: First Name, Last Name, Email, Organization
+- **Auto-generated**: Common Name (from First + Last), UID (from email)
+- **Optional**: Phone, Website, User Role
+- **No address fields** - Address information is stored at organization level
 
 ***
 

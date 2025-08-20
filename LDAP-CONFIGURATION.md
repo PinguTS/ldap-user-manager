@@ -35,26 +35,26 @@ These are typically included by default in most OpenLDAP installations.
 ## 2. LDAP Structure
 
 ### 2.1 Base Structure
-The system uses a hierarchical structure with organizations containing users:
+The system uses a hierarchical structure with organizations containing users and UUID-based identification:
 
 ```
 dc=example,dc=com
 ├── ou=organizations
-│   ├── o=Company Name
-│   │   ├── ou=users
+│   ├── o=Company Name                    # entryUUID: 550e8400-e29b-41d4-a716-446655440000
+│   │   ├── ou=people                     # Organization users (same naming as system users)
 │   │   │   ├── uid=admin@company.com
 │   │   │   └── uid=user1@company.com
-│   │   └── ou=roles
+│   │   └── ou=roles                      # Organization-specific roles
 │   │       └── cn=org_admin (groupOfNames with member attributes)
-│   └── o=University Name
-│       ├── ou=users
+│   └── o=University Name                 # entryUUID: 550e8400-e29b-41d4-a716-446655440001
+│       ├── ou=people
 │       └── ou=roles
-├── ou=people
-│   ├── uid=admin@example.com
-│   └── uid=maintainer@example.com
-└── ou=roles
+├── ou=people                             # System-level users (admins, maintainers)
+│   ├── uid=admin@example.com            # entryUUID: 550e8400-e29b-41d4-a716-446655440002
+│   └── uid=maintainer@example.com       # entryUUID: 550e8400-e29b-41d4-a716-446655440003
+└── ou=roles                              # Global system roles only
     ├── cn=administrators (groupOfNames with member attributes)
-└── cn=maintainers (groupOfNames with member attributes)
+    └── cn=maintainers (groupOfNames with member attributes)
 ```
 
 ### 2.2 Organization Attributes
@@ -83,17 +83,58 @@ member: uid=admin@company.com,ou=users,o=Company Name,ou=organizations,dc=exampl
 ```
 
 ### 2.4 User Attributes
-Users are stored with email addresses as their `uid` and include:
-- `organization`: the organization they belong to
+
+#### System Users (ou=people)
+System users have simplified attributes for administrators and maintainers:
+- **Required**: `givenname`, `sn`, `mail`, `uid`
+- **Auto-generated**: `cn` (constructed from `givenname` + `sn`)
+- **Optional**: `telephoneNumber`, `labeledURI`
+- **No address fields** - System users don't need location information
+
+#### Organization Users (ou=people,o=OrgName)
+Organization users have additional organizational context:
+- **Required**: `givenname`, `sn`, `mail`, `uid`, `organization`, `description`
+- **Auto-generated**: `cn` (constructed from `givenname` + `sn`)
+- **Optional**: `telephoneNumber`, `labeledURI`
+- **No address fields** - Address information is stored at organization level
+
+#### Common Attributes
+All users include:
 - `userPassword`: stores both regular passwords and app-managed passcodes
+- `entryUUID`: OpenLDAP operational attribute for secure identification
 
 **Note**: The application uses existing LDAP attributes for maximum compatibility. Passcodes are stored alongside regular passwords in the `userPassword` attribute.
 
 ---
 
-## 3. Role-Based Access Control
+## 3. UUID-Based Identification
 
-### 3.1 How Roles Work
+### 3.1 Overview
+LDAP User Manager now uses OpenLDAP's `entryUUID` operational attribute for secure, immutable identification of entries. This provides several benefits:
+
+- **Security**: UUIDs cannot be guessed or enumerated
+- **Reliability**: UUIDs remain valid even if names change
+- **Performance**: UUID lookups are faster than DN-based searches
+- **Compatibility**: Works with any OpenLDAP server
+
+### 3.2 Implementation
+- **URL Parameters**: Use `uuid=` instead of name-based parameters when available
+- **Fallback Support**: Maintains backward compatibility with name-based lookups
+- **Automatic Generation**: OpenLDAP automatically generates `entryUUID` for all entries
+- **Lookup Functions**: `ldap_get_organization_by_uuid()` and `ldap_get_user_by_uuid()`
+
+### 3.3 Usage Examples
+```php
+// Modern UUID-based approach (preferred)
+show_organization.php?uuid=550e8400-e29b-41d4-a716-446655440000
+
+// Legacy name-based approach (fallback)
+show_organization.php?org=Company%20Name
+```
+
+## 4. Role-Based Access Control
+
+### 4.1 How Roles Work
 
 **Roles are managed via LDAP groups, not user attributes:**
 

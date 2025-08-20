@@ -1,12 +1,16 @@
 # Example organization
 dn: o=Example Company,ou=organizations,dc=example,dc=com
-objectClass: organization
 objectClass: top
+objectClass: organization
+objectClass: labeledURIObject
+objectClass: extensibleObject
 o: Example Company
-postalAddress: 123 Business Street$New York$NY$10001$USA
+postalAddress: 123 Business Street$10001$New York$NY$USA
 telephoneNumber: +1-555-0123
 labeledURI: https://examplecompany.com
 mail: info@examplecompany.com
+description: Active
+businessCategory: Technology
 
 # Users organizational unit for this company
 dn: ou=people,o=Example Company,ou=organizations,dc=example,dc=com
@@ -14,10 +18,10 @@ objectClass: organizationalUnit
 ou: people
 
 # Organization admin role (direct group under organization)
-dn: cn=org_admin,o=Example Company,ou=organizations,dc=example,dc=com
+dn: cn=orgManagers,o=Example Company,ou=organizations,dc=example,dc=com
 objectClass: groupOfNames
 objectClass: top
-cn: org_admin
+cn: orgManagers
 description: Organization administrators for Example Company
 member: uid=admin@examplecompany.com,ou=people,o=Example Company,ou=organizations,dc=example,dc=com
 

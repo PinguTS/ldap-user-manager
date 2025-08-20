@@ -8,6 +8,9 @@ include_once "access_functions.inc.php";
 include_once "module_functions.inc.php";
 include_once "organization_functions.inc.php";
 
+// Ensure CSRF token is generated early
+get_csrf_token();
+
 $attribute_map = $LDAP['default_attribute_map'];
 if (isset($LDAP['account_additional_attributes'])) { $attribute_map = ldap_complete_attribute_map($attribute_map,$LDAP['account_additional_attributes']); }
 
@@ -159,18 +162,25 @@ if (isset($_GET['account_request'])) {
 
 if (isset($_GET['account_request']) or isset($_POST['create_account'])) {
 
+  // Initialize variables to prevent undefined variable warnings
+  if (!isset($givenname)) $givenname = [];
+  if (!isset($sn)) $sn = [];
+  if (!isset($cn)) $cn = [];
+  if (!isset($uid)) $uid = [];
+  if (!isset($mail)) $mail = [];
+
   if (!isset($uid[0])) {
-    $uid[0] = generate_username($givenname[0],$sn[0]);
+    $uid[0] = generate_username($givenname[0] ?? '', $sn[0] ?? '');
     $new_account_r['uid'] = $uid;
     unset($new_account_r['uid']['count']);
   }
 
   if (!isset($cn[0])) {
     if ($ENFORCE_SAFE_SYSTEM_NAMES == TRUE) {
-      $cn[0] = $givenname[0] . $sn[0];
+      $cn[0] = ($givenname[0] ?? '') . ($sn[0] ?? '');
     }
     else {
-      $cn[0] = $givenname[0] . " " . $sn[0];
+      $cn[0] = ($givenname[0] ?? '') . " " . ($sn[0] ?? '');
     }
     $new_account_r['cn'] = $cn;
     unset($new_account_r['cn']['count']);
@@ -180,18 +190,58 @@ if (isset($_GET['account_request']) or isset($_POST['create_account'])) {
 
 
 if (isset($_POST['create_account'])) {
-
+   if (!validate_csrf_token()) {
+      render_alert_banner("Security validation failed. Please refresh the page and try again.", "danger");
+   } else {
  $password  = $_POST['password'];
  $new_account_r['password'][0] = $password;
  $account_identifier = $new_account_r[$account_attribute][0];
- $this_cn=$cn[0];
- $this_mail=$mail[0];
- $this_givenname=$givenname[0];
- $this_sn=$sn[0];
- $this_password=$password[0];
- $this_organization = isset($organization[0]) ? $organization[0] : '';
- $this_user_role = isset($description[0]) ? $description[0] : 'user';
+ 
+ // Process form data using configuration
+ $form_data = [];
+ foreach ($LDAP['user_field_mappings'] as $form_field => $ldap_attr) {
+     if (isset($_POST[$form_field]) && !empty(trim($_POST[$form_field]))) {
+         $form_data[$ldap_attr] = trim($_POST[$form_field]);
+     }
+ }
+ 
+ // Extract values for validation
+ $this_cn = $form_data['cn'] ?? '';
+ $this_mail = $form_data['mail'] ?? '';
+ $this_givenname = $form_data['givenname'] ?? '';
+ $this_sn = $form_data['sn'] ?? '';
+ $this_password = $password[0];
+ $this_organization = $form_data['organization'] ?? '';
+ $this_user_role = $form_data['description'] ?? 'user';
 
+ // Validate required fields using configuration
+ $missing_required_fields = [];
+ foreach ($LDAP['user_required_fields'] as $required_field) {
+     if ($required_field === 'uid') continue; // Skip uid as it's generated automatically
+     if (!isset($form_data[$required_field]) || empty($form_data[$required_field])) {
+         $missing_required_fields[] = $required_field;
+     }
+ }
+ 
+ // Initialize validation flags to prevent undefined variable warnings
+ $invalid_required_fields = false;
+ $invalid_cn = false;
+ $invalid_account_identifier = false;
+ $invalid_givenname = false;
+ $invalid_sn = false;
+ $weak_password = false;
+ $invalid_password = false;
+ $invalid_email = false;
+ $mismatched_passwords = false;
+ $invalid_username = false;
+ $invalid_organization = false;
+ $invalid_user_role = false;
+ 
+ if (!empty($missing_required_fields)) {
+     $invalid_required_fields = TRUE;
+ }
+ 
+ // Legacy validation for backward compatibility
  if (!isset($this_cn) or $this_cn == "") { $invalid_cn = TRUE; }
  if ((!isset($account_identifier) or $account_identifier == "") and $invalid_cn != TRUE) { $invalid_account_identifier = TRUE; }
  if (!isset($this_givenname) or $this_givenname == "") { $invalid_givenname = TRUE; }
@@ -228,8 +278,7 @@ if (isset($_POST['create_account'])) {
  
  if (isset($_POST['send_email']) and isset($mail) and $EMAIL_SENDING_ENABLED == TRUE) { $send_user_email = TRUE; }
 
- if (     isset($this_givenname)
-      and isset($this_sn)
+ if (     !$invalid_required_fields
       and isset($this_password)
       and !$mismatched_passwords
       and !$weak_password
@@ -242,14 +291,50 @@ if (isset($_POST['create_account'])) {
 
   $ldap_connection = open_ldap_connection();
   
+  // Build the user account data using configuration
+  $user_entry = [
+      'objectClass' => $LDAP['account_objectclasses']
+  ];
+  
+  // Add all required fields
+  foreach ($LDAP['user_required_fields'] as $required_field) {
+      if (isset($form_data[$required_field]) && !empty($form_data[$required_field])) {
+          $user_entry[$required_field] = $form_data[$required_field];
+      }
+  }
+  
+  // Add optional fields that have values
+  foreach ($LDAP['user_optional_fields'] as $optional_field) {
+      if (isset($form_data[$optional_field]) && !empty($form_data[$optional_field])) {
+          $user_entry[$optional_field] = $form_data[$optional_field];
+      }
+  }
+  
+  // Ensure cn is constructed from givenname and sn if not provided
+  if (!isset($user_entry['cn']) || empty($user_entry['cn'])) {
+      $givenname = $user_entry['givenname'] ?? '';
+      $sn = $user_entry['sn'] ?? '';
+      if ($givenname || $sn) {
+          $user_entry['cn'] = trim($givenname . ' ' . $sn);
+      }
+  }
+  
+  // Ensure uid is set to email for email-based login
+  if ($LDAP['account_attribute'] === 'mail' && isset($user_entry['mail'])) {
+      $user_entry['uid'] = $user_entry['mail'];
+  }
+  
+  // Add password
+  $user_entry['userPassword'] = $this_password;
+  
   // For admin setup, create in people, otherwise in organization
   if ($admin_setup) {
-    $new_account = ldap_new_account($ldap_connection, $new_account_r);
+    $new_account = ldap_new_account($ldap_connection, $user_entry);
   } else {
     // Add organization to the account data
-    $new_account_r['organization'] = [$this_organization];
-    $new_account_r['description'] = [$this_user_role];
-    $new_account = ldap_new_account($ldap_connection, $new_account_r);
+    $user_entry['organization'] = $this_organization;
+    $user_entry['description'] = $this_user_role;
+    $new_account = ldap_new_account($ldap_connection, $user_entry);
   }
 
   if ($new_account) {
@@ -327,11 +412,14 @@ if (isset($_POST['create_account'])) {
 
   }
 
+   }
+ }
  }
 
-}
-
 $errors="";
+if ($invalid_required_fields) { 
+    $errors.="<li>The following required fields are missing: " . implode(', ', $missing_required_fields) . "</li>\n"; 
+}
 if ($invalid_cn) { $errors.="<li>The Common Name is required</li>\n"; }
 if ($invalid_givenname) { $errors.="<li>First Name is required</li>\n"; }
 if ($invalid_sn) { $errors.="<li>Last Name is required</li>\n"; }
@@ -356,11 +444,8 @@ if ($errors != "") { ?>
 <?php
 }
 
+// JavaScript functions for form enhancement
 render_js_username_check();
-render_js_username_generator('givenname','sn','uid','uid_div');
-render_js_cn_generator('givenname','sn','cn','cn_div');
-render_js_email_generator('uid','mail');
-render_js_homedir_generator('uid','homedirectory');
 
 $tabindex=1;
 
@@ -370,6 +455,14 @@ $tabindex=1;
 <script type="text/javascript">
  $(document).ready(function(){
    $("#StrengthProgressBar").zxcvbnProgressBar({ passwordInput: "#password" });
+   
+   // Auto-populate fields on page load if they have values
+   if (document.getElementById('first_name').value || document.getElementById('last_name').value) {
+     updateCommonName();
+   }
+   if (document.getElementById('email').value) {
+     updateUid();
+   }
  });
 </script>
 <script type="text/javascript" src="<?php print $SERVER_PATH; ?>js/generate_passphrase.js"></script>
@@ -401,6 +494,26 @@ $tabindex=1;
 
  }
 
+ // Auto-generate Common Name from First Name and Last Name
+ function updateCommonName() {
+   var firstName = document.getElementById('first_name').value;
+   var lastName = document.getElementById('last_name').value;
+   var commonName = document.getElementById('common_name');
+   
+   if (firstName || lastName) {
+     commonName.value = (firstName + ' ' + lastName).trim();
+   }
+ }
+
+ // Auto-generate UID from email
+ function updateUid() {
+   var email = document.getElementById('email').value;
+   var uid = document.getElementById('uid');
+   
+   if (email) {
+     uid.value = email;
+   }
+ }
 
 </script>
 <script>
@@ -436,48 +549,126 @@ $tabindex=1;
      <?php if ($admin_setup == TRUE) { ?><input type="hidden" name="setup_admin_account" value="true"><?php } ?>
      <input type="hidden" name="create_account">
      <input type="hidden" id="pass_score" value="0" name="pass_score">
+     <input type="hidden" id="uid" name="uid" value="">
      <?= csrf_token_field() ?>
 
      <?php
-       foreach ($attribute_map as $attribute => $attr_r) {
-         $label = $attr_r['label'];
-         if (isset($attr_r['onkeyup'])) { $onkeyup = $attr_r['onkeyup']; } else { $onkeyup = ""; }
-         if ($attribute == $LDAP['account_attribute']) { $label = "<strong>$label</strong><sup>&ast;</sup>"; }
-         if (isset($attr_r['required']) and $attr_r['required'] == TRUE) { $label = "<strong>$label</strong><sup>&ast;</sup>"; }
-         if (isset($$attribute)) { $these_values=$$attribute; } else { $these_values = array(); }
-         if (isset($attr_r['inputtype'])) { $inputtype = $attr_r['inputtype']; } else { $inputtype = ""; }
+     // Generate required fields first
+     foreach ($LDAP['user_required_fields'] as $ldap_attr) {
+         // Skip 'uid' as it's generated automatically
+         if ($ldap_attr === 'uid') continue;
          
-         // Special handling for organization and description fields
-         if ($attribute === 'organization' && !$admin_setup) {
-           echo '<div class="form-group" id="organization_div">';
-           echo '<label for="organization" class="col-sm-3 control-label"><strong>Organization</strong><sup>&ast;</sup></label>';
-           echo '<div class="col-sm-6">';
-           echo '<select class="form-control" name="organization" id="organization" required>';
-           echo '<option value="">Select an organization...</option>';
-           foreach ($available_organizations as $org) {
-             $selected = (isset($these_values[0]) && $these_values[0] === $org['name']) ? 'selected' : '';
-             echo '<option value="' . htmlspecialchars($org['name']) . '" ' . $selected . '>' . htmlspecialchars($org['name']) . '</option>';
-           }
-           echo '</select>';
-           echo '</div>';
-           echo '</div>';
-         } elseif ($attribute === 'description' && !$admin_setup) {
-           echo '<div class="form-group" id="description_div">';
-           echo '<label for="description" class="col-sm-3 control-label">User Role</label>';
-           echo '<div class="col-sm-6">';
-           echo '<select class="form-control" name="description" id="description">';
-           foreach ($available_user_roles as $role) {
-             $selected = (isset($these_values[0]) && $these_values[0] === $role) ? 'selected' : '';
-             echo '<option value="' . htmlspecialchars($role) . '" ' . $selected . '>' . htmlspecialchars(ucfirst(str_replace('_', ' ', $role))) . '</option>';
-           }
-           echo '</select>';
-           echo '</div>';
-           echo '</div>';
-         } else {
-           render_attribute_fields($attribute,$label,$these_values,"",$onkeyup,$inputtype,$tabindex);
+         // Find the form field name for this LDAP attribute
+         $form_field = null;
+         foreach ($LDAP['user_field_mappings'] as $form_name => $ldap_name) {
+             if ($ldap_name === $ldap_attr) {
+                 $form_field = $form_name;
+                 break;
+             }
          }
-         $tabindex++;
-       }
+         
+         if ($form_field !== null && isset($LDAP['user_field_labels'][$form_field])) {
+             $label = $LDAP['user_field_labels'][$form_field];
+             $field_type = $LDAP['user_field_types'][$form_field] ?? 'text';
+             $required = 'required';
+             
+             // Special handling for organization and user_role fields
+             if ($form_field === 'organization' && !$admin_setup) {
+                 echo '<div class="form-group" id="organization_div">';
+                 echo '<label for="organization" class="col-sm-3 control-label"><strong>' . $label . '</strong><sup>&ast;</sup></label>';
+                 echo '<div class="col-sm-6">';
+                 echo '<select class="form-control" name="organization" id="organization" ' . $required . '>';
+                 echo '<option value="">Select an organization...</option>';
+                 foreach ($available_organizations as $org) {
+                     $selected = (isset($organization[0]) && $organization[0] === $org['name']) ? 'selected' : '';
+                     echo '<option value="' . htmlspecialchars($org['name']) . '" ' . $selected . '>' . htmlspecialchars($org['name']) . '</option>';
+                 }
+                 echo '</select>';
+                 echo '</div>';
+                 echo '</div>';
+             } elseif ($form_field === 'user_role' && !$admin_setup) {
+                 echo '<div class="form-group" id="description_div">';
+                 echo '<label for="description" class="col-sm-3 control-label">' . $label . '</label>';
+                 echo '<div class="col-sm-6">';
+                 echo '<select class="form-control" name="description" id="description">';
+                 foreach ($available_user_roles as $role) {
+                     $selected = (isset($description[0]) && $description[0] === $role) ? 'selected' : '';
+                     echo '<option value="' . htmlspecialchars($role) . '" ' . $selected . '>' . htmlspecialchars(ucfirst(str_replace('_', ' ', $role))) . '</option>';
+                 }
+                 echo '</select>';
+                 echo '</div>';
+                 echo '</div>';
+             } else {
+                 // Get current value
+                 $current_value = '';
+                 if (isset($$ldap_attr) && isset($$ldap_attr[0])) {
+                     $current_value = $$ldap_attr[0];
+                 }
+                 
+                 echo '<div class="form-group" id="' . $form_field . '_div">';
+                 echo '<label for="' . $form_field . '" class="col-sm-3 control-label"><strong>' . $label . '</strong><sup>&ast;</sup></label>';
+                 echo '<div class="col-sm-6">';
+                 
+                 // Special handling for auto-generation
+                 $onchange_attr = '';
+                 if ($form_field === 'first_name' || $form_field === 'last_name') {
+                     $onchange_attr = ' onchange="updateCommonName()"';
+                 } elseif ($form_field === 'email') {
+                     $onchange_attr = ' onchange="updateUid()"';
+                 }
+                 
+                 if ($field_type === 'textarea') {
+                     echo '<textarea class="form-control" id="' . $form_field . '" name="' . $form_field . '" ' . $required . ' rows="3"' . $onchange_attr . '>' . htmlspecialchars($current_value) . '</textarea>';
+                 } else {
+                     echo '<input type="' . $field_type . '" class="form-control" id="' . $form_field . '" name="' . $form_field . '" value="' . htmlspecialchars($current_value) . '"' . $onchange_attr . '>';
+                 }
+                 
+                 echo '</div>';
+                 echo '</div>';
+             }
+             $tabindex++;
+         }
+     }
+     
+     // Generate optional fields
+     foreach ($LDAP['user_optional_fields'] as $ldap_attr) {
+         // Skip fields that are already handled as required
+         if (in_array($ldap_attr, $LDAP['user_required_fields'])) continue;
+         
+         // Find the form field name for this LDAP attribute
+         $form_field = null;
+         foreach ($LDAP['user_field_mappings'] as $form_name => $ldap_name) {
+             if ($ldap_name === $ldap_attr) {
+                 $form_field = $form_name;
+                 break;
+             }
+         }
+         
+         if ($form_field !== null && isset($LDAP['user_field_labels'][$form_field])) {
+             $label = $LDAP['user_field_labels'][$form_field];
+             $field_type = $LDAP['user_field_types'][$form_field] ?? 'text';
+             
+             // Get current value
+             $current_value = '';
+             if (isset($$ldap_attr) && isset($$ldap_attr[0])) {
+                 $current_value = $$ldap_attr[0];
+             }
+             
+             echo '<div class="form-group" id="' . $form_field . '_div">';
+             echo '<label for="' . $form_field . '" class="col-sm-3 control-label">' . $label . '</label>';
+             echo '<div class="col-sm-6">';
+             
+             if ($field_type === 'textarea') {
+                 echo '<textarea class="form-control" id="' . $form_field . '" name="' . $form_field . '" rows="3">' . htmlspecialchars($current_value) . '</textarea>';
+             } else {
+                 echo '<input type="' . $field_type . '" class="form-control" id="' . $form_field . '" name="' . $form_field . '" value="' . htmlspecialchars($current_value) . '">';
+             }
+             
+             echo '</div>';
+             echo '</div>';
+             $tabindex++;
+         }
+     }
      ?>
 
      <div class="form-group" id="password_div">

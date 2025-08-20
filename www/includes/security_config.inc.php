@@ -15,7 +15,7 @@ $SECURITY_CONFIG = [
     
     // Session security
     'session' => [
-        'timeout' => 600, // 10 minutes
+        'timeout' => 3600, // 1 hour (more reasonable for form editing)
         'regenerate_id' => true,
         'secure_cookies' => true,
         'http_only' => true,

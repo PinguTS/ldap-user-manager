@@ -220,14 +220,17 @@ if (isset($_POST['setup_maintainer_user'])) {
   $admin_email = (!empty($_POST['admin_email'])) ? $_POST['admin_email'] : 'admin@example.com';
   $example_org_data = array(
     'o' => 'Example Company',
+    'telephoneNumber' => '+1-555-0123',
+    'labeledURI' => 'https://examplecompany.com',
+    'mail' => 'info@examplecompany.com',
+    'description' => 'Active',
+    'businessCategory' => 'Technology',
+    // Address fields that will be combined into postalAddress
     'street' => '123 Business Street',
     'city' => 'New York',
     'state' => 'NY',
     'postalCode' => '10001',
     'country' => 'USA',
-    'telephoneNumber' => '+1-555-0123',
-    'labeledURI' => 'https://examplecompany.com',
-    'mail' => 'info@examplecompany.com',
     'creatorDN' => "uid={$admin_email},ou=people,{$LDAP['base_dn']}"
   );
   

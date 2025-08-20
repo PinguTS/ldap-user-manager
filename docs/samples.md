@@ -6,21 +6,25 @@ This page collects the most important copy-paste samples for setting up your LDA
 
 ## 1. LDAP Directory: Example LDIFs
 
-### Organization
+### Organization (with extended attributes)
 ```ldif
 dn: o=OrgA,ou=organizations,dc=example,dc=com
-objectClass: organization
 objectClass: top
+objectClass: organization
+objectClass: labeledURIObject
+objectClass: extensibleObject
 o: OrgA
 postalAddress: 123 Main St$12345$City$Country
 telephoneNumber: +1 555 1234
 labeledURI: http://www.orga.com
 mail: info@orga.com
+description: Active
+businessCategory: Technology
 ```
 
 ### User (with passcode)
 ```ldif
-dn: uid=jane.doe,ou=users,o=OrgA,ou=organizations,dc=example,dc=com
+dn: uid=jane.doe,ou=people,o=OrgA,ou=organizations,dc=example,dc=com
 objectClass: inetOrgPerson
 objectClass: top
 uid: jane.doe
@@ -33,10 +37,10 @@ loginPasscode: {bcrypt}$2y$10$examplehash
 
 ### Organization Admin Group
 ```ldif
-dn: cn=org_admin,o=OrgA,ou=organizations,dc=example,dc=com
+dn: cn=orgManagers,o=OrgA,ou=organizations,dc=example,dc=com
 objectClass: groupOfNames
-cn: org_admin
-member: uid=jane.doe,ou=users,o=OrgA,ou=organizations,dc=example,dc=com
+cn: orgManagers
+member: uid=jane.doe,ou=people,o=OrgA,ou=organizations,dc=example,dc=com
 ```
 
 ### Global Admin Group
@@ -44,7 +48,7 @@ member: uid=jane.doe,ou=users,o=OrgA,ou=organizations,dc=example,dc=com
 dn: cn=administrators,ou=roles,dc=example,dc=com
 objectClass: groupOfNames
 cn: administrators
-member: uid=admin,ou=users,o=OrgA,ou=organizations,dc=example,dc=com
+member: uid=admin,ou=people,o=OrgA,ou=organizations,dc=example,dc=com
 ```
 
 ---
@@ -57,19 +61,19 @@ access to *
   by group.exact="cn=administrators,ou=roles,dc=example,dc=com" manage
 
 # 2. Maintainers: Full access except admin users/groups
-access to dn.regex="^uid=.+,ou=users,o=.*,ou=organizations,dc=example,dc=com$"
+access to dn.regex="^uid=.+,ou=people,o=.*,ou=organizations,dc=example,dc=com$"
   by group.exact="cn=maintainers,ou=roles,dc=example,dc=com" write
 
 # Prevent maintainers from modifying admin users
-access to dn.regex="^uid=admin.*,ou=users,o=.*,ou=organizations,dc=example,dc=com$"
+access to dn.regex="^uid=admin.*,ou=people,o=.*,ou=organizations,dc=example,dc=com$"
   by group.exact="cn=maintainers,ou=roles,dc=example,dc=com" none
 
 # 3. Organization Admins: Manage users in their own org
-access to dn.regex="^uid=.+,ou=users,o=([^,]+),ou=organizations,dc=example,dc=com$"
-  by group.exact="cn=org_admin,o=$1,ou=organizations,dc=example,dc=com" write
+access to dn.regex="^uid=.+,ou=people,o=([^,]+),ou=organizations,dc=example,dc=com$"
+  by group.exact="cn=orgManagers,o=$1,ou=organizations,dc=example,dc=com" write
 
 # 4. Users: Self-management (e.g., change their own password)
-access to dn.regex="^uid=([^,]+),ou=users,o=.*,ou=organizations,dc=example,dc=com$"
+access to dn.regex="^uid=([^,]+),ou=people,o=.*,ou=organizations,dc=example,dc=com$"
   by self write
 
 # 5. Read access for all authenticated users
@@ -110,7 +114,7 @@ access to *
                 'binddn' => 'cn=admin,dc=example,dc=com',
                 'password' => 'yourpassword',
                 'basedn' => 'ou=organizations,dc=example,dc=com',
-                'usersdn' => 'ou=users,o=OrgName,ou=organizations,dc=example,dc=com',
+                'usersdn' => 'ou=people,o=OrgName,ou=organizations,dc=example,dc=com',
                 'filter' => '(|(uid={USERNAME})(mail={USERNAME}))',
                 'mapping' => [
                     'username' => 'uid',
@@ -133,6 +137,29 @@ cn=administrators,ou=roles,dc=example,dc=com
 
 ---
 
-## 4. Useful References
+## 4. Organization Attribute Details
+
+### Extended Object Classes
+To support additional organization attributes:
+- **`labeledURIObject`**: Enables website URLs (`labeledURI`)
+- **`extensibleObject`**: Allows custom attributes like `mail`, `description`, `businessCategory`
+
+### Address Format
+- **Attribute**: `postalAddress`
+- **Format**: `Street$ZIP$City$Country`
+- **Example**: `123 Main St$12345$New York$USA`
+
+### Supported Attributes
+- `o`: Organization name (required)
+- `postalAddress`: Full address
+- `telephoneNumber`: Phone number
+- `labeledURI`: Website URL
+- `mail`: Email address
+- `description`: Organization status
+- `businessCategory`: Business category
+
+---
+
+## 5. Useful References
 - See `docs/ldap-structure.md` for full DIT, object class, and ACL documentation.
 - See `docs/typo3-ig_ldap_sso_auth-setup.md` for a step-by-step TYPO3 integration guide. 

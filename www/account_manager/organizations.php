@@ -38,9 +38,12 @@ $message = '';
 $message_type = '';
 
 // Handle organization creation
-if ($_POST['action'] == 'create_organization') {
-    if (!validate_csrf_token()) {
-        $message = 'Invalid CSRF token. Please try again.';
+if (isset($_POST['action']) && $_POST['action'] == 'create_organization') {
+    if (!isset($_POST['csrf_token']) || !isset($_SESSION['csrf_token'])) {
+        $message = 'Security validation failed. Please refresh the page and try again.';
+        $message_type = 'danger';
+    } elseif (!hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
+        $message = 'Security validation failed. Please refresh the page and try again.';
         $message_type = 'danger';
     } elseif (!currentUserCanCreateOrganization()) {
         $message = 'You do not have permission to create organizations.';
@@ -48,46 +51,103 @@ if ($_POST['action'] == 'create_organization') {
     } else {
         // Build organization data using field mappings
         $org_data = [];
-        foreach ($LDAP['org_field_mappings'] as $form_field => $ldap_attr) {
-            if (isset($_POST[$form_field]) && !empty($_POST[$form_field])) {
-                $org_data[$ldap_attr] = $_POST[$form_field];
-            }
-        }
         
-        // Add creator DN if user is administrator or maintainer
-        if (currentUserIsGlobalAdmin() || currentUserIsMaintainer()) {
-            global $USER_DN;
-            $org_data['creatorDN'] = $USER_DN;
-        }
-        
-        $result = createOrganization($org_data);
-        if ($result[0]) {
-            $message = 'Organization created successfully!';
-            $message_type = 'success';
-        } else {
-            $message = 'Error creating organization: ' . $result[1];
+        // Debug: Check LDAP configuration
+        if (!isset($LDAP['org_field_mappings'])) {
+            $message = 'Organization field mappings not configured. Please check LDAP configuration.';
             $message_type = 'danger';
+        } else {
+            // Map form fields to LDAP attributes using the configuration
+            foreach ($LDAP['org_field_mappings'] as $form_field => $ldap_attr) {
+                if (isset($_POST[$form_field]) && !empty(trim($_POST[$form_field]))) {
+                    $org_data[$ldap_attr] = trim($_POST[$form_field]);
+                }
+            }
+            
+
+            
+            // Ensure required field 'o' (organization name) is present
+            if (!isset($org_data['o']) || empty($org_data['o'])) {
+                $message = "Required field 'organization name' is missing.";
+                $message_type = 'danger';
+            }
+            
+            // Special handling for postalAddress from individual address fields
+            if (isset($_POST['org_address']) || isset($_POST['org_zip']) || isset($_POST['org_city']) || isset($_POST['org_state']) || isset($_POST['org_country'])) {
+                $postal_parts = [
+                    trim($_POST['org_address'] ?? ''),
+                    trim($_POST['org_zip'] ?? ''),
+                    trim($_POST['org_city'] ?? ''),
+                    trim($_POST['org_state'] ?? ''),
+                    trim($_POST['org_country'] ?? '')
+                ];
+                $postal_address = implode('$', $postal_parts);
+                if (!empty(trim($postal_address, '$'))) {
+                    $org_data['postalAddress'] = $postal_address;
+                }
+            }
+            
+            // Create organization using the createOrganization function
+            $result = createOrganization($org_data);
+            if ($result[0]) {
+                $message = 'Organization created successfully!';
+                $message_type = 'success';
+            } else {
+                $message = 'Error creating organization: ' . $result[1];
+                $message_type = 'danger';
+            }
         }
     }
 }
 
 // Handle organization deletion
-if ($_POST['action'] == 'delete_organization') {
+if (isset($_POST['action']) && $_POST['action'] == 'delete_organization') {
     if (!validate_csrf_token()) {
-        $message = 'Invalid CSRF token. Please try again.';
+        $message = 'Security validation failed. Please refresh the page and try again.';
         $message_type = 'danger';
-    } elseif (!currentUserCanDeleteOrganization($_POST['org_name'])) {
-        $message = 'You do not have permission to delete this organization.';
+    } elseif (!isset($_POST['org_name']) || empty($_POST['org_name'])) {
+        $message = 'Organization name is required for deletion.';
         $message_type = 'danger';
     } else {
         $org_name = $_POST['org_name'];
-        $result = deleteOrganization($org_name);
-        if ($result[0]) {
-            $message = 'Organization deleted successfully!';
-            $message_type = 'success';
+        
+        // If UUID is provided, use it for additional validation
+        if (isset($_POST['org_uuid']) && !empty($_POST['org_uuid']) && $LDAP['use_uuid_identification']) {
+            $ldap_connection = open_ldap_connection();
+            $org_by_uuid = ldap_get_organization_by_uuid($ldap_connection, $_POST['org_uuid']);
+            ldap_close($ldap_connection);
+            
+            if (!$org_by_uuid) {
+                $message = 'Invalid organization UUID provided.';
+                $message_type = 'danger';
+            } elseif (!currentUserCanDeleteOrganization($org_name)) {
+                $message = 'You do not have permission to delete this organization.';
+                $message_type = 'danger';
+            } else {
+                $result = deleteOrganization($org_name);
+                if ($result[0]) {
+                    $message = 'Organization deleted successfully!';
+                    $message_type = 'success';
+                } else {
+                    $message = 'Error deleting organization: ' . $result[1];
+                    $message_type = 'danger';
+                }
+            }
         } else {
-            $message = 'Error deleting organization: ' . $result[1];
-            $message_type = 'danger';
+            // Fallback to name-based deletion (legacy support)
+            if (!currentUserCanDeleteOrganization($org_name)) {
+                $message = 'You do not have permission to delete this organization.';
+                $message_type = 'danger';
+            } else {
+                $result = deleteOrganization($org_name);
+                if ($result[0]) {
+                    $message = 'Organization deleted successfully!';
+                    $message_type = 'success';
+                } else {
+                    $message = 'Error deleting organization: ' . $result[1];
+                    $message_type = 'danger';
+                }
+            }
         }
     }
 }
@@ -95,11 +155,20 @@ if ($_POST['action'] == 'delete_organization') {
 // Get list of organizations
 $organizations = listOrganizations();
 
+// Ensure CSRF token is generated early
+get_csrf_token();
+
+
+
 render_header("Organization Management");
+render_submenu();
+
 ?>
 
 <div class="container">
     <h1>Organization Management</h1>
+    
+
     
     <?php if ($message): ?>
         <div class="alert alert-<?php echo $message_type; ?> alert-dismissible" role="alert">
@@ -123,10 +192,18 @@ render_header("Organization Management");
                         <?php
                         // Generate required fields first
                         foreach ($LDAP['org_required_fields'] as $ldap_attr) {
-                            $form_field = array_search($ldap_attr, $LDAP['org_field_mappings']);
-                            if ($form_field !== false) {
+                            // Find the form field name for this LDAP attribute
+                            $form_field = null;
+                            foreach ($LDAP['org_field_mappings'] as $form_name => $ldap_name) {
+                                if ($ldap_name === $ldap_attr) {
+                                    $form_field = $form_name;
+                                    break;
+                                }
+                            }
+                            
+                            if ($form_field !== null && isset($LDAP['org_field_labels'][$form_field])) {
                                 $label = $LDAP['org_field_labels'][$form_field];
-                                $field_type = $LDAP['org_field_types'][$form_field];
+                                $field_type = $LDAP['org_field_types'][$form_field] ?? 'text';
                                 $required = 'required';
                                 
                                 echo "<div class='form-group'>";
@@ -143,10 +220,18 @@ render_header("Organization Management");
                         
                         // Generate optional fields
                         foreach ($LDAP['org_optional_fields'] as $ldap_attr) {
-                            $form_field = array_search($ldap_attr, $LDAP['org_field_mappings']);
-                            if ($form_field !== false) {
+                            // Find the form field name for this LDAP attribute
+                            $form_field = null;
+                            foreach ($LDAP['org_field_mappings'] as $form_name => $ldap_name) {
+                                if ($ldap_name === $ldap_attr) {
+                                    $form_field = $form_name;
+                                    break;
+                                }
+                            }
+                            
+                            if ($form_field !== null && isset($LDAP['org_field_labels'][$form_field])) {
                                 $label = $LDAP['org_field_labels'][$form_field];
-                                $field_type = $LDAP['org_field_types'][$form_field];
+                                $field_type = $LDAP['org_field_types'][$form_field] ?? 'text';
                                 
                                 echo "<div class='form-group'>";
                                 echo "<label for='{$form_field}'>{$label}</label>";
@@ -158,6 +243,28 @@ render_header("Organization Management");
                                 }
                                 echo "</div>";
                             }
+                        }
+                        ?>
+                        
+                        <!-- Address Fields (dynamically generated from configuration) -->
+                        <?php
+                        // Generate address fields dynamically using configuration
+                        foreach ($LDAP['org_address_fields'] as $field_name => $field_config) {
+                            echo "<div class='form-group'>";
+                            
+                            // Generate label with required indicator if needed
+                            $label = $field_config['label'];
+                            if ($field_config['required']) {
+                                $label .= ' <sup>*</sup>';
+                            }
+                            
+                            echo "<label for='{$field_name}'>{$label}</label>";
+                            
+                            // Generate input field
+                            $required_attr = $field_config['required'] ? ' required' : '';
+                            echo "<input type='{$field_config['type']}' class='form-control' id='{$field_name}' name='{$field_name}'{$required_attr}>";
+                            
+                            echo "</div>";
                         }
                         ?>
                         
@@ -184,7 +291,18 @@ render_header("Organization Management");
                             if (!$is_global_admin && !$is_maintainer) {
                                 // Organization admins can only see their own organizations
                                 $display_organizations = array_filter($organizations, function($org) use ($user_organizations) {
-                                    return in_array($org['o'], $user_organizations);
+                                    // Extract organization name from DN or use 'o' attribute
+                                    $org_name = '';
+                                    if (isset($org['o']) && !empty($org['o'])) {
+                                        if (strpos($org['o'], ',') !== false) {
+                                            $org_name = preg_replace('/^o=([^,]+).*$/', '$1', $org['o']);
+                                        } else {
+                                            $org_name = $org['o'];
+                                        }
+                                    } elseif (isset($org['dn']) && !empty($org['dn'])) {
+                                        $org_name = preg_replace('/^o=([^,]+).*$/', '$1', $org['dn']);
+                                    }
+                                    return in_array($org_name, $user_organizations);
                                 });
                             }
                             
@@ -192,24 +310,53 @@ render_header("Organization Management");
                                 <p class="text-muted">No organizations found or you don't have permission to view any organizations.</p>
                             <?php else: ?>
                                 <?php foreach ($display_organizations as $org): ?>
+                                    <?php 
+                                    // Extract organization name from DN or use 'o' attribute
+                                    $org_name = '';
+                                    if (isset($org['o']) && !empty($org['o'])) {
+                                        // If 'o' is a DN, extract just the organization name
+                                        if (strpos($org['o'], ',') !== false) {
+                                            // Extract the organization name from DN like "o=OrgName,ou=organizations,dc=pingu,dc=info"
+                                            $org_name = preg_replace('/^o=([^,]+).*$/', '$1', $org['o']);
+                                        } else {
+                                            $org_name = $org['o'];
+                                        }
+                                    } elseif (isset($org['dn']) && !empty($org['dn'])) {
+                                        // Extract from DN attribute
+                                        $org_name = preg_replace('/^o=([^,]+).*$/', '$1', $org['dn']);
+                                    } else {
+                                        $org_name = 'Unknown Organization';
+                                    }
+                                    
+                                    $org_name_safe = htmlspecialchars($org_name);
+                                    $org_name_url = urlencode($org_name);
+                                    ?>
                                     <div class="list-group-item">
-                                        <h4 class="list-group-item-heading"><?php echo htmlspecialchars($org['o']); ?></h4>
+                                        <h4 class="list-group-item-heading"><?php echo $org_name_safe; ?></h4>
                                         <p class="list-group-item-text">
-                                            <?php if (isset($org['mail'])): ?>
+                                            <?php if (isset($org['mail']) && !empty($org['mail'])): ?>
                                                 <strong>Email:</strong> <?php echo htmlspecialchars($org['mail']); ?><br>
                                             <?php endif; ?>
-                                            <?php if (isset($org['telephoneNumber'])): ?>
+                                            <?php if (isset($org['telephoneNumber']) && !empty($org['telephoneNumber'])): ?>
                                                 <strong>Phone:</strong> <?php echo htmlspecialchars($org['telephoneNumber']); ?><br>
                                             <?php endif; ?>
-                                            <?php if (isset($org['description'])): ?>
+                                            <?php if (isset($org['description']) && !empty($org['description'])): ?>
                                                 <strong>Status:</strong> <?php echo htmlspecialchars($org['description']); ?>
                                             <?php endif; ?>
                                         </p>
                                         <div class="btn-group btn-group-sm">
-                                            <a href="show_organization.php?org=<?php echo urlencode($org['o']); ?>" class="btn btn-info">View</a>
-                                            <a href="org_users.php?org=<?php echo urlencode($org['o']); ?>" class="btn btn-primary">Users</a>
-                                            <?php if (currentUserCanDeleteOrganization($org['o'])): ?>
-                                                <button type="button" class="btn btn-danger" onclick="confirmDelete('<?php echo htmlspecialchars($org['o']); ?>')">Delete</button>
+                                            <?php if ($LDAP['use_uuid_identification'] && isset($org['entryUUID'])): ?>
+                                                <a href="show_organization.php?uuid=<?php echo urlencode($org['entryUUID']); ?>" class="btn btn-info">View</a>
+                                                <a href="org_users.php?uuid=<?php echo urlencode($org['entryUUID']); ?>" class="btn btn-primary">Users</a>
+                                                <?php if (currentUserCanDeleteOrganization($org_name)): ?>
+                                                    <button type="button" class="btn btn-danger" onclick="confirmDelete('<?php echo $org_name_safe; ?>', '<?php echo $org['entryUUID']; ?>')">Delete</button>
+                                                <?php endif; ?>
+                                            <?php else: ?>
+                                                <a href="show_organization.php?org=<?php echo $org_name_url; ?>" class="btn btn-info">View</a>
+                                                <a href="org_users.php?org=<?php echo $org_name_url; ?>" class="btn btn-primary">Users</a>
+                                                <?php if (currentUserCanDeleteOrganization($org_name)): ?>
+                                                    <button type="button" class="btn btn-danger" onclick="confirmDelete('<?php echo $org_name_safe; ?>')">Delete</button>
+                                                <?php endif; ?>
                                             <?php endif; ?>
                                         </div>
                                     </div>
@@ -241,6 +388,7 @@ render_header("Organization Management");
                     <?php echo csrf_token_field(); ?>
                     <input type="hidden" name="action" value="delete_organization">
                     <input type="hidden" name="org_name" id="deleteOrgNameInput">
+                    <input type="hidden" name="org_uuid" id="deleteOrgUuidInput">
                     <button type="submit" class="btn btn-danger">Delete Organization</button>
                 </form>
             </div>
@@ -249,9 +397,12 @@ render_header("Organization Management");
 </div>
 
 <script>
-function confirmDelete(orgName) {
+function confirmDelete(orgName, orgUuid = null) {
     document.getElementById('deleteOrgName').textContent = orgName;
     document.getElementById('deleteOrgNameInput').value = orgName;
+    if (orgUuid) {
+        document.getElementById('deleteOrgUuidInput').value = orgUuid;
+    }
     $('#deleteModal').modal('show');
 }
 
@@ -276,4 +427,4 @@ document.getElementById('createOrgForm').addEventListener('submit', function(e) 
 });
 </script>
 
-<?php render_footer(); ?> 
+  <?php render_footer(); ?> 

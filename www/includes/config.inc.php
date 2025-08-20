@@ -20,6 +20,61 @@ include_once __DIR__ . '/security_config.inc.php';
  $min_gid = 2000;
 
 
+ # User field configuration
+ # Required fields for user creation (must be present)
+ # Note: The 'uid' field is always required as it's used as the RDN
+ $LDAP['user_required_fields'] = getenv('LDAP_USER_REQUIRED_FIELDS') ? 
+     explode(',', getenv('LDAP_USER_REQUIRED_FIELDS')) : 
+     ['uid', 'givenname', 'sn', 'mail'];
+
+ # Ensure 'uid' field is always included in required fields
+ if (!in_array('uid', $LDAP['user_required_fields'])) {
+     $LDAP['user_required_fields'][] = 'uid';
+ }
+
+ # Optional fields for user creation (can be present but not required)
+ # For system users, we only need basic fields - address fields are not needed
+ $LDAP['user_optional_fields'] = getenv('LDAP_USER_OPTIONAL_FIELDS') ? 
+     explode(',', getenv('LDAP_USER_OPTIONAL_FIELDS')) : 
+     ['cn', 'organization', 'description', 'telephoneNumber', 'labeledURI'];
+
+ # Field mappings from form names to LDAP attributes
+ # Simplified for system users - removed address-related fields
+ $LDAP['user_field_mappings'] = [
+     'first_name' => 'givenname',
+     'last_name' => 'sn',
+     'email' => 'mail',
+     'common_name' => 'cn',
+     'organization' => 'organization',
+     'user_role' => 'description',
+     'phone' => 'telephoneNumber',
+     'website' => 'labeledURI'
+ ];
+
+ # Field labels for the UI (human-readable names)
+ $LDAP['user_field_labels'] = [
+     'first_name' => 'First Name',
+     'last_name' => 'Last Name',
+     'email' => 'Email',
+     'common_name' => 'Common Name',
+     'organization' => 'Organization',
+     'user_role' => 'User Role',
+     'phone' => 'Phone Number',
+     'website' => 'Website'
+ ];
+
+ # Field types for form rendering
+ $LDAP['user_field_types'] = [
+     'first_name' => 'text',
+     'last_name' => 'text',
+     'email' => 'email',
+     'common_name' => 'text',
+     'organization' => 'text',
+     'user_role' => 'text',
+     'phone' => 'tel',
+     'website' => 'url'
+ ];
+
  #Default attributes and objectclasses
 
  $LDAP['account_attribute'] = (getenv('LDAP_ACCOUNT_ATTRIBUTE') ? getenv('LDAP_ACCOUNT_ATTRIBUTE') : 'mail');
@@ -104,7 +159,7 @@ include_once __DIR__ . '/security_config.inc.php';
 # Note: The 'o' (organization name) field is always required as it's used as the RDN
 $LDAP['org_required_fields'] = getenv('LDAP_ORG_REQUIRED_FIELDS') ? 
     explode(',', getenv('LDAP_ORG_REQUIRED_FIELDS')) : 
-    ['o', 'street', 'city', 'state', 'postalCode', 'country', 'telephoneNumber', 'labeledURI', 'mail'];
+    ['o'];
 
 # Ensure 'o' field is always included in required fields
 if (!in_array('o', $LDAP['org_required_fields'])) {
@@ -112,59 +167,54 @@ if (!in_array('o', $LDAP['org_required_fields'])) {
 }
 
  # Optional fields for organization creation (can be present but not required)
+ # Fields listed here are considered optional and won't have required validation
+ # Required fields are those NOT listed here (e.g., 'o' for organization name is always required)
  $LDAP['org_optional_fields'] = getenv('LDAP_ORG_OPTIONAL_FIELDS') ? 
     explode(',', getenv('LDAP_ORG_OPTIONAL_FIELDS')) : 
-    ['description', 'businessCategory', 'postalAddress', 'facsimileTelephoneNumber'];
+    ['telephoneNumber', 'labeledURI', 'mail', 'description', 'businessCategory', 'postalAddress'];
 
  # Field mappings from form names to LDAP attributes
+ # Note: Individual address fields (street, city, state, postalCode, country) are combined into postalAddress
+ # To make a field required, remove it from the org_optional_fields array above
  $LDAP['org_field_mappings'] = [
     'org_name' => 'o',
-    'org_address' => 'street',
-    'org_city' => 'city',
-    'org_state' => 'state',
-    'org_zip' => 'postalCode',
-    'org_country' => 'country',
     'org_phone' => 'telephoneNumber',
     'org_website' => 'labeledURI',
     'org_email' => 'mail',
     'org_description' => 'description',
-    'org_category' => 'businessCategory',
-    'org_postal_address' => 'postalAddress',
-    'org_fax' => 'facsimileTelephoneNumber'
+    'org_category' => 'businessCategory'
 ];
+
+ # Address field configuration (these are composite fields that combine into postalAddress)
+ # These fields are not stored directly in LDAP but are combined into the postalAddress attribute
+ # Set required => true for any address fields that should be mandatory
+ # The form will automatically add required validation and visual indicators
+ $LDAP['org_address_fields'] = [
+    'org_address' => ['label' => 'Street Address', 'type' => 'text', 'required' => false],
+    'org_zip' => ['label' => 'Postal Code', 'type' => 'text', 'required' => false],
+    'org_city' => ['label' => 'City', 'type' => 'text', 'required' => false],
+    'org_state' => ['label' => 'State/Province', 'type' => 'text', 'required' => false],
+    'org_country' => ['label' => 'Country', 'type' => 'text', 'required' => false]
+ ];
 
  # Field labels for the UI (human-readable names)
  $LDAP['org_field_labels'] = [
     'org_name' => 'Organization Name',
-    'org_address' => 'Street Address',
-    'org_city' => 'City',
-    'org_state' => 'State/Province',
-    'org_zip' => 'Postal Code',
-    'org_country' => 'Country',
     'org_phone' => 'Phone Number',
     'org_website' => 'Website',
     'org_email' => 'Email',
     'org_description' => 'Description',
-    'org_category' => 'Business Category',
-    'org_postal_address' => 'Postal Address',
-    'org_fax' => 'Fax Number'
+    'org_category' => 'Business Category'
 ];
 
  # Field types for form rendering
  $LDAP['org_field_types'] = [
     'org_name' => 'text',
-    'org_address' => 'text',
-    'org_city' => 'text',
-    'org_state' => 'text',
-    'org_zip' => 'text',
-    'org_country' => 'text',
     'org_phone' => 'tel',
     'org_website' => 'url',
     'org_email' => 'email',
     'org_description' => 'textarea',
-    'org_category' => 'text',
-    'org_postal_address' => 'textarea',
-    'org_fax' => 'tel'
+    'org_category' => 'text'
 ];
 
  $LDAP['group_ou'] = (getenv('LDAP_GROUP_OU') ? getenv('LDAP_GROUP_OU') : 'groups');
@@ -192,6 +242,14 @@ $LDAP['org_people_dn'] = "ou=people,o={$LDAP['org_ou']},{$LDAP['base_dn']}";
 $LDAP['roles_dn'] = "ou=roles,{$LDAP['base_dn']}";
 $LDAP['org_roles_dn'] = "ou=roles,ou={$LDAP['org_ou']},{$LDAP['base_dn']}";
 
+# UUID-based identification configuration
+$LDAP['use_uuid_identification'] = getenv('LDAP_USE_UUID_IDENTIFICATION') ? 
+    (strtolower(getenv('LDAP_USE_UUID_IDENTIFICATION')) === 'true') : 
+    true; // Default to true for security
+
+# UUID attribute name (OpenLDAP operational attribute)
+$LDAP['uuid_attribute'] = 'entryUUID';
+
 
  # Interface customisation
 
@@ -204,7 +262,7 @@ $LDAP['org_roles_dn'] = "ou=roles,ou={$LDAP['org_ou']},{$LDAP['base_dn']}";
  $SERVER_HOSTNAME = (getenv('SERVER_HOSTNAME') ? getenv('SERVER_HOSTNAME') : "ldapusermanager.org");
  $SERVER_PATH = (getenv('SERVER_PATH') ? getenv('SERVER_PATH') : "/");
 
- $SESSION_TIMEOUT = (getenv('SESSION_TIMEOUT') ? getenv('SESSION_TIMEOUT') : 10);
+ $SESSION_TIMEOUT = (getenv('SESSION_TIMEOUT') ? getenv('SESSION_TIMEOUT') : 60); // 60 minutes (1 hour)
 
  $NO_HTTPS = ((strcasecmp(getenv('NO_HTTPS'),'TRUE') == 0) ? TRUE : FALSE);
 

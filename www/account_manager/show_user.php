@@ -7,6 +7,10 @@ include_once "ldap_functions.inc.php";
 include_once "access_functions.inc.php";
 include_once "module_functions.inc.php";
 include_once "organization_functions.inc.php";
+
+// Ensure CSRF token is generated early
+get_csrf_token();
+
 set_page_access(["admin", "user"]); // Allow both admin and user roles
 
 render_header("$ORGANISATION_NAME account manager");
@@ -28,18 +32,42 @@ if (! array_key_exists($LDAP['account_attribute'], $attribute_map)) {
   $attribute_r = array_merge($attribute_map, array($LDAP['account_attribute'] => array("label" => "Account UID")));
 }
 
-if (!isset($_POST['account_identifier']) and !isset($_GET['account_identifier'])) {
-?>
- <div class="alert alert-danger">
-  <p class="text-center">The account identifier is missing.</p>
- </div>
-<?php
-render_footer();
-exit(0);
-}
-else {
- $account_identifier = (isset($_POST['account_identifier']) ? $_POST['account_identifier'] : $_GET['account_identifier']);
- $account_identifier = urldecode($account_identifier);
+// Check if user parameter is provided (support both UUID and legacy account_identifier)
+$account_identifier = null;
+$user_uuid = null;
+
+if (isset($_GET['uuid']) && !empty($_GET['uuid'])) {
+    // UUID-based lookup
+    $user_uuid = $_GET['uuid'];
+    if (!is_valid_uuid($user_uuid)) {
+        render_alert_banner("Invalid user UUID provided.", "warning");
+        render_footer();
+        exit(0);
+    }
+    
+    // Get user by UUID
+    $ldap_connection = open_ldap_connection();
+    $user_by_uuid = ldap_get_user_by_uuid($ldap_connection, $user_uuid);
+    ldap_close($ldap_connection);
+    
+    if (!$user_by_uuid) {
+        render_alert_banner("User with UUID '$user_uuid' not found.", "warning");
+        error_log("show_user.php: UUID lookup failed for UUID: $user_uuid");
+        render_footer();
+        exit(0);
+    }
+    
+    // Use the primary identifier from the user entry
+    $account_identifier = $user_by_uuid[$LDAP['account_attribute']][0] ?? $user_by_uuid['mail'][0] ?? $user_by_uuid['uid'][0];
+    
+} elseif (isset($_POST['account_identifier']) || isset($_GET['account_identifier'])) {
+    // Legacy account_identifier lookup
+    $account_identifier = (isset($_POST['account_identifier']) ? $_POST['account_identifier'] : $_GET['account_identifier']);
+    $account_identifier = urldecode($account_identifier);
+} else {
+    render_alert_banner("User identifier (UUID or account identifier) is required.", "warning");
+    render_footer();
+    exit(0);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -49,32 +77,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $ldap_connection = open_ldap_connection();
 
 // Search for user across both organizations and system users
-$ldap_search_query="({$LDAP['account_attribute']}=". ldap_escape($account_identifier, "", LDAP_ESCAPE_FILTER) . ")";
+if ($user_uuid) {
+    // UUID-based lookup - we already have the user data
+    $user = [];
+    $user[0] = $user_by_uuid;
+    $user['count'] = 1;
+    
+    // Determine user location based on DN
+    if (strpos($user_by_uuid['dn'], $LDAP['org_dn']) !== false) {
+        $user_location = 'organization';
+    } else {
+        $user_location = 'system';
+    }
+} else {
+    // Legacy account_identifier-based lookup
+    $ldap_search_query="({$LDAP['account_attribute']}=". ldap_escape($account_identifier, "", LDAP_ESCAPE_FILTER) . ")";
 
-// First try to find in organizations
-$ldap_search = ldap_search( $ldap_connection, $LDAP['org_dn'], $ldap_search_query);
-$user = null;
-$user_location = '';
+    // First try to find in organizations
+    $ldap_search = ldap_search( $ldap_connection, $LDAP['org_dn'], $ldap_search_query);
+    $user = null;
+    $user_location = '';
 
-if ($ldap_search) {
- $user = ldap_get_entries($ldap_connection, $ldap_search);
- if ($user && isset($user["count"]) && $user["count"] > 0) {
-   $user_location = 'organization';
- }
+    if ($ldap_search) {
+     $user = ldap_get_entries($ldap_connection, $ldap_search);
+     if ($user && isset($user["count"]) && $user["count"] > 0) {
+       $user_location = 'organization';
+     }
+    }
+
+    // If not found in organizations, try system users
+    if (!$user || $user["count"] == 0) {
+     $ldap_search = ldap_search( $ldap_connection, $LDAP['people_dn'], $ldap_search_query);
+     if ($ldap_search) {
+       $user = ldap_get_entries($ldap_connection, $ldap_search);
+       if ($user && isset($user["count"]) && $user["count"] > 0) {
+         $user_location = 'system';
+       }
+     }
+    }
 }
 
-// If not found in organizations, try system users
-if (!$user || $user["count"] == 0) {
- $ldap_search = ldap_search( $ldap_connection, $LDAP['people_dn'], $ldap_search_query);
- if ($ldap_search) {
-   $user = ldap_get_entries($ldap_connection, $ldap_search);
-   if ($user && isset($user["count"]) && $user["count"] > 0) {
-     $user_location = 'system';
-   }
- }
-}
-
-if ($ldap_search && $user && isset($user["count"]) && $user["count"] > 0) {
+if ($user && isset($user["count"]) && $user["count"] > 0) {
 
   foreach ($attribute_map as $attribute => $attr_r) {
 
