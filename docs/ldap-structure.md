@@ -74,7 +74,7 @@ access to dn.regex="^uid=admin.*,ou=people,o=.*,ou=organizations,dc=example,dc=c
 
 # 3. Org Managers: Manage users in their own org
 access to dn.regex="^uid=.+,ou=people,o=([^,]+),ou=organizations,dc=example,dc=com$"
-  by group.exact="cn=orgManagers,o=$1,ou=organizations,dc=example,dc=com" write
+  by group.exact="cn=orgManagers,ou=roles,o=$1,ou=organizations,dc=example,dc=com" write
 
 # 4. Users: Self-management (e.g., change their own password)
 access to dn.regex="^uid=([^,]+),ou=people,o=.*,ou=organizations,dc=example,dc=com$"
@@ -104,11 +104,13 @@ dc=example,dc=com
 |    |    |-- ou=people                 # Organization users
 |    |    |    |-- uid=user1
 |    |    |    |-- uid=user2
-|    |    |-- cn=orgManagers            # Organization administrators (direct group)
+|    |    |-- ou=roles
+|    |    |    |-- cn=orgManagers            # Organization administrators (direct group)
 |    |-- o=OrgB
-|         |-- ou=people                 # Organization users
-|         |    |-- uid=user3
-|         |-- cn=orgManagers            # Organization administrators (direct group)
+|    |    |-- ou=people                 # Organization users
+|    |    |    |-- uid=user3
+|    |    |-- ou=roles
+|    |    |    |-- cn=orgManagers            # Organization administrators (direct group)
 |
 |-- ou=roles                            # Global system roles only
 |    |-- cn=administrators
@@ -119,7 +121,7 @@ dc=example,dc=com
 - **Email Customization**: Admin and maintainer email addresses can be customized during setup
 - **Organizations**: Each as an `organization` entry under `ou=organizations`
 - **Organization Users**: Under `ou=people` within their org (consistent naming)
-- **Organization Administrators**: Direct group entries under each organization (`cn=orgManagers`)
+- **Organization Administrators**: Group entries under `ou=roles` within their org  (`cn=orgManagers`)
 - **Global Roles**: Under `ou=roles,dc=example,dc=com` (system-wide roles only)
 
 ---
@@ -238,7 +240,7 @@ entryUUID: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
 
 ### Org Manager Group
 ```ldif
-dn: cn=orgManagers,o=OrgA,ou=organizations,dc=example,dc=com
+dn: cn=orgManagers,ou=roles,o=OrgA,ou=organizations,dc=example,dc=com
 objectClass: groupOfNames
 cn: orgManagers
 member: uid=jane.doe,ou=people,o=OrgA,ou=organizations,dc=example,dc=com
@@ -355,7 +357,7 @@ access to dn.regex="^uid=admin.*,ou=people,o=.*,ou=organizations,dc=example,dc=c
 
 # 3. Org Managers: Manage users in their own org
 access to dn.regex="^uid=.+,ou=people,o=([^,]+),ou=organizations,dc=example,dc=com$"
-  by group.exact="cn=orgManagers,o=$1,ou=organizations,dc=example,dc=com" write
+  by group.exact="cn=orgManagers,ou=roles,o=$1,ou=organizations,dc=example,dc=com" write
 
 # 4. Users: Self-management (e.g., change their own password)
 access to dn.regex="^uid=([^,]+),ou=people,o=.*,ou=organizations,dc=example,dc=com$"

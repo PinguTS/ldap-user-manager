@@ -7,6 +7,7 @@ include_once 'ldap_functions.inc.php';
 
 $VALIDATED = FALSE;
 $IS_ADMIN = FALSE;
+$IS_MAINTAINER = FALSE;
 $IS_SETUP_ADMIN = FALSE;
 $ACCESS_LEVEL_NAME = array('account','admin');
 unset($USER_ID);
@@ -71,20 +72,26 @@ function generate_passkey() {
 
 ######################################################
 
-function set_passkey_cookie($user_id,$is_admin) {
+function set_passkey_cookie($user_id,$is_admin,$is_maintainer = false) {
 
  # Create a random value, store it locally and set it in a cookie.
 
- global $SESSION_TIMEOUT, $VALIDATED, $USER_ID, $IS_ADMIN, $log_prefix, $SESSION_DEBUG, $DEFAULT_COOKIE_OPTIONS;
+ global $SESSION_TIMEOUT, $VALIDATED, $USER_ID, $IS_ADMIN, $IS_MAINTAINER, $log_prefix, $SESSION_DEBUG, $DEFAULT_COOKIE_OPTIONS;
 
 
  $passkey = generate_passkey();
  $this_time=time();
  $admin_val = 0;
+ $maintainer_val = 0;
 
  if ($is_admin == TRUE ) {
   $admin_val = 1;
   $IS_ADMIN = TRUE;
+ }
+ 
+ if ($is_maintainer == TRUE ) {
+  $maintainer_val = 1;
+  $IS_MAINTAINER = TRUE;
  }
  
  // Clean up any existing session files for this user
@@ -94,13 +101,13 @@ function set_passkey_cookie($user_id,$is_admin) {
      unlink($old_session_file);
  }
  
- @ file_put_contents("/tmp/$filename","$passkey:$admin_val:$this_time");
+ @ file_put_contents("/tmp/$filename","$passkey:$admin_val:$maintainer_val:$this_time");
  setcookie('orf_cookie', "$user_id:$passkey", $DEFAULT_COOKIE_OPTIONS);
  $sessto_cookie_opts = $DEFAULT_COOKIE_OPTIONS;
  $sessto_cookie_opts['expires'] = $this_time+7200;
  setcookie('sessto_cookie', $this_time+(60 * $SESSION_TIMEOUT), $sessto_cookie_opts);
  
- if ( $SESSION_DEBUG == TRUE) {  error_log("$log_prefix Session: user $user_id validated (IS_ADMIN={$IS_ADMIN}), sent orf_cookie to the browser.",0); }
+ if ( $SESSION_DEBUG == TRUE) {  error_log("$log_prefix Session: user $user_id validated (IS_ADMIN={$IS_ADMIN}, IS_MAINTAINER={$IS_MAINTAINER}), sent orf_cookie to the browser.",0); }
  $VALIDATED = TRUE;
 
  // Regenerate session ID on login to prevent session fixation
@@ -111,6 +118,7 @@ function set_passkey_cookie($user_id,$is_admin) {
  // Store user info in session for additional security
  $_SESSION['user_id'] = $user_id;
  $_SESSION['is_admin'] = $is_admin;
+ $_SESSION['is_maintainer'] = $is_maintainer;
  $_SESSION['login_time'] = $this_time;
  $_SESSION['last_activity'] = $this_time;
 
@@ -139,11 +147,12 @@ function login_via_headers() {
 
 function validate_passkey_cookie() {
 
-  global $SESSION_TIMEOUT, $IS_ADMIN, $USER_ID, $VALIDATED, $log_prefix, $SESSION_TIMED_OUT, $SESSION_DEBUG, $LDAP, $currentUserGroups;
+  global $SESSION_TIMEOUT, $IS_ADMIN, $IS_MAINTAINER, $USER_ID, $VALIDATED, $log_prefix, $SESSION_TIMED_OUT, $SESSION_DEBUG, $LDAP, $currentUserGroups;
 
   $this_time=time();
   $VALIDATED = FALSE;
   $IS_ADMIN = FALSE;
+  $IS_MAINTAINER = FALSE;
 
   if (isset($_COOKIE['orf_cookie'])) {
 
@@ -161,11 +170,27 @@ function validate_passkey_cookie() {
       if ($SESSION_DEBUG == TRUE) {  error_log("$log_prefix Session: orf_cookie was sent by the client but the session file wasn't found at /tmp/$filename",0); }
     }
     else {
-      list($f_passkey,$f_is_admin,$f_time) = explode(":",$session_file);
+      $session_fields = explode(":",$session_file);
+      $field_count = count($session_fields);
+      
+      // Handle backward compatibility for old session format (3 fields) vs new format (4 fields)
+      if ($field_count === 3) {
+        // Old format: passkey:admin:time
+        list($f_passkey,$f_is_admin,$f_time) = $session_fields;
+        $f_is_maintainer = 0; // Default to not maintainer for old sessions
+      } elseif ($field_count === 4) {
+        // New format: passkey:admin:maintainer:time
+        list($f_passkey,$f_is_admin,$f_is_maintainer,$f_time) = $session_fields;
+      } else {
+        // Invalid format
+        if ($SESSION_DEBUG == TRUE) { error_log("$log_prefix Session: Invalid session file format for user $user_id - expected 3 or 4 fields, got $field_count",0); }
+        @unlink("/tmp/$filename");
+        return;
+      }
       
       // Validate session data format
-      if (count(explode(":",$session_file)) !== 3 || !is_numeric($f_time) || !is_numeric($f_is_admin)) {
-        if ($SESSION_DEBUG == TRUE) { error_log("$log_prefix Session: Invalid session file format for user $user_id",0); }
+      if (!is_numeric($f_time) || !is_numeric($f_is_admin) || !is_numeric($f_is_maintainer)) {
+        if ($SESSION_DEBUG == TRUE) { error_log("$log_prefix Session: Invalid session file data types for user $user_id",0); }
         // Clean up corrupted session file
         @unlink("/tmp/$filename");
         return;
@@ -182,15 +207,16 @@ function validate_passkey_cookie() {
       // Validate passkey
       if (!empty($c_passkey) and $f_passkey == $c_passkey) {
         if ($f_is_admin == 1) { $IS_ADMIN = TRUE; }
+        if ($f_is_maintainer == 1) { $IS_MAINTAINER = TRUE; }
         $VALIDATED = TRUE;
         $USER_ID=$user_id;
         
         // Update last activity time
-        $new_session_data = "$f_passkey:$f_is_admin:$f_time";
+        $new_session_data = "$f_passkey:$f_is_admin:$f_is_maintainer:$f_time";
         @ file_put_contents("/tmp/$filename", $new_session_data);
         
-        if ($SESSION_DEBUG == TRUE) {  error_log("$log_prefix Setup session: Cookie and session file values match for user {$user_id} - VALIDATED (ADMIN = {$IS_ADMIN})",0); }
-        set_passkey_cookie($USER_ID,$IS_ADMIN);
+        if ($SESSION_DEBUG == TRUE) {  error_log("$log_prefix Setup session: Cookie and session file values match for user {$user_id} - VALIDATED (ADMIN = {$IS_ADMIN}, MAINTAINER = {$IS_MAINTAINER})",0); }
+        set_passkey_cookie($USER_ID,$IS_ADMIN,$IS_MAINTAINER);
         // Populate currentUserGroups from LDAP
         $ldap_connection = open_ldap_connection();
         $currentUserGroups = ldap_user_group_membership($ldap_connection, $USER_ID);
@@ -555,6 +581,11 @@ EoCheckJS;
 function generate_username($fn,$ln) {
 
   global $USERNAME_FORMAT;
+
+  // Handle empty or null parameters
+  if (empty($fn) || empty($ln)) {
+    return '';
+  }
 
   $username = $USERNAME_FORMAT;
   $username = str_replace('{first_name}',strtolower($fn), $username);

@@ -14,6 +14,12 @@ get_csrf_token();
 $attribute_map = $LDAP['default_attribute_map'];
 if (isset($LDAP['account_additional_attributes'])) { $attribute_map = ldap_complete_attribute_map($attribute_map,$LDAP['account_additional_attributes']); }
 
+// Ensure account_attribute is properly set
+$account_attribute = $LDAP['account_attribute'];
+if (! array_key_exists($account_attribute, $attribute_map)) {
+  $attribute_map[$account_attribute] = array("label" => "Account UID");
+}
+
 if (! array_key_exists($LDAP['account_attribute'], $attribute_map)) {
   $attribute_r = array_merge($attribute_map, array($LDAP['account_attribute'] => array("label" => "Account UID")));
 }
@@ -168,6 +174,8 @@ if (isset($_GET['account_request']) or isset($_POST['create_account'])) {
   if (!isset($cn)) $cn = [];
   if (!isset($uid)) $uid = [];
   if (!isset($mail)) $mail = [];
+  if (!isset($organization)) $organization = [];
+  if (!isset($description)) $description = [];
 
   if (!isset($uid[0])) {
     $uid[0] = generate_username($givenname[0] ?? '', $sn[0] ?? '');
@@ -195,7 +203,12 @@ if (isset($_POST['create_account'])) {
    } else {
  $password  = $_POST['password'];
  $new_account_r['password'][0] = $password;
- $account_identifier = $new_account_r[$account_attribute][0];
+ 
+ // Initialize account_identifier - for system users, this will be email
+ $account_identifier = '';
+ if (isset($new_account_r[$account_attribute][0])) {
+     $account_identifier = $new_account_r[$account_attribute][0];
+ }
  
  // Process form data using configuration
  $form_data = [];
@@ -205,19 +218,47 @@ if (isset($_POST['create_account'])) {
      }
  }
  
+ // For system users, ensure uid is set to email if not already set
+ if ($admin_setup && (!isset($form_data['uid']) || empty($form_data['uid']))) {
+     if (isset($form_data['mail']) && !empty($form_data['mail'])) {
+         $form_data['uid'] = $form_data['mail'];
+     }
+ }
+ 
+ // Also check if uid was submitted directly
+ if (isset($_POST['uid']) && !empty(trim($_POST['uid']))) {
+     $form_data['uid'] = trim($_POST['uid']);
+ }
+ 
  // Extract values for validation
  $this_cn = $form_data['cn'] ?? '';
  $this_mail = $form_data['mail'] ?? '';
  $this_givenname = $form_data['givenname'] ?? '';
  $this_sn = $form_data['sn'] ?? '';
  $this_password = $password[0];
- $this_organization = $form_data['organization'] ?? '';
- $this_user_role = $form_data['description'] ?? 'user';
-
+ $this_organization = $admin_setup ? '' : ($form_data['organization'] ?? '');
+ $this_user_role = $admin_setup ? 'administrator' : ($form_data['description'] ?? 'user');
+ 
+ // For system users, ensure uid is set to email and update form_data
+ if ($admin_setup && !empty($this_mail)) {
+     $form_data['uid'] = $this_mail;
+ }
+ 
  // Validate required fields using configuration
  $missing_required_fields = [];
  foreach ($LDAP['user_required_fields'] as $required_field) {
-     if ($required_field === 'uid') continue; // Skip uid as it's generated automatically
+     if ($required_field === 'uid') {
+         // Skip uid validation as it's auto-generated
+         continue;
+     }
+     if ($required_field === 'organization' && $admin_setup) {
+         // Skip organization validation for system users
+         continue;
+     }
+     if ($required_field === 'description' && $admin_setup) {
+         // Skip user role validation for system users
+         continue;
+     }
      if (!isset($form_data[$required_field]) || empty($form_data[$required_field])) {
          $missing_required_fields[] = $required_field;
      }
@@ -243,7 +284,26 @@ if (isset($_POST['create_account'])) {
  
  // Legacy validation for backward compatibility
  if (!isset($this_cn) or $this_cn == "") { $invalid_cn = TRUE; }
- if ((!isset($account_identifier) or $account_identifier == "") and $invalid_cn != TRUE) { $invalid_account_identifier = TRUE; }
+ 
+ // For system users, account identifier should be email; for regular users, validate the selected attribute
+ if ($admin_setup) {
+   // System users use email as account identifier
+   if (!isset($this_mail) or $this_mail == "") { 
+     $invalid_account_identifier = TRUE; 
+   } else {
+     $account_identifier = $this_mail;
+     // Also ensure uid is set to email for system users
+     if (!isset($form_data['uid']) || empty($form_data['uid'])) {
+         $form_data['uid'] = $this_mail;
+     }
+   }
+ } else {
+   // Regular users validate the selected account attribute
+   if ((!isset($account_identifier) or $account_identifier == "") and $invalid_cn != TRUE) { 
+     $invalid_account_identifier = TRUE; 
+   }
+ }
+ 
  if (!isset($this_givenname) or $this_givenname == "") { $invalid_givenname = TRUE; }
  if (!isset($this_sn) or $this_sn == "") { $invalid_sn = TRUE; }
  if ((!is_numeric($_POST['pass_score']) or $_POST['pass_score'] < 3) and $ACCEPT_WEAK_PASSWORDS != TRUE) { $weak_password = TRUE; }
@@ -269,11 +329,23 @@ if (isset($_POST['create_account'])) {
        $invalid_organization = TRUE;
      }
    }
+ } else {
+   // For system users (admin setup), no organization is required
+   $invalid_organization = FALSE;
+   // For system users, construct account identifier from email
+   if (isset($this_mail) && !empty($this_mail)) {
+     $account_identifier = $this_mail;
+   }
  }
  
- // Validate user role
- if (!in_array($this_user_role, $available_user_roles)) {
-   $invalid_user_role = TRUE;
+ // Validate user role (only for non-admin setup)
+ if (!$admin_setup) {
+   if (!in_array($this_user_role, $available_user_roles)) {
+     $invalid_user_role = TRUE;
+   }
+ } else {
+   // For system users (admin setup), user role is not required
+   $invalid_user_role = FALSE;
  }
  
  if (isset($_POST['send_email']) and isset($mail) and $EMAIL_SENDING_ENABLED == TRUE) { $send_user_email = TRUE; }
@@ -286,8 +358,8 @@ if (isset($_POST['create_account'])) {
       and !$invalid_account_identifier
       and !$invalid_cn
       and !$invalid_email
-      and !$invalid_organization
-      and !$invalid_user_role) {
+      and (!$invalid_organization or $admin_setup)
+      and (!$invalid_user_role or $admin_setup)) {
 
   $ldap_connection = open_ldap_connection();
   
@@ -324,11 +396,25 @@ if (isset($_POST['create_account'])) {
       $user_entry['uid'] = $user_entry['mail'];
   }
   
+  // For system users, ensure uid is set to email if not already set
+  if ($admin_setup && (!isset($user_entry['uid']) || empty($user_entry['uid']))) {
+      if (isset($user_entry['mail']) && !empty($user_entry['mail'])) {
+          $user_entry['uid'] = $user_entry['mail'];
+      }
+  }
+  
+  // Also ensure uid is included if it was provided in form_data
+  if (isset($form_data['uid']) && !empty($form_data['uid'])) {
+      $user_entry['uid'] = $form_data['uid'];
+  }
+  
   // Add password
   $user_entry['userPassword'] = $this_password;
   
   // For admin setup, create in people, otherwise in organization
   if ($admin_setup) {
+    // For system users, set default role and no organization
+    $user_entry['description'] = 'administrator';
     $new_account = ldap_new_account($ldap_connection, $user_entry);
   } else {
     // Add organization to the account data
@@ -423,13 +509,16 @@ if ($invalid_required_fields) {
 if ($invalid_cn) { $errors.="<li>The Common Name is required</li>\n"; }
 if ($invalid_givenname) { $errors.="<li>First Name is required</li>\n"; }
 if ($invalid_sn) { $errors.="<li>Last Name is required</li>\n"; }
-if ($invalid_account_identifier) {  $errors.="<li>The account identifier (" . $attribute_map[$account_attribute]['label'] . ") is invalid.</li>\n"; }
+if ($invalid_account_identifier) {  
+    $account_label = $admin_setup ? "Email" : (isset($attribute_map[$account_attribute]['label']) ? $attribute_map[$account_attribute]['label'] : "Account ID");
+    $errors.="<li>The account identifier (" . $account_label . ") is invalid.</li>\n"; 
+}
 if ($weak_password) { $errors.="<li>The password is too weak</li>\n"; }
 if ($invalid_password) { $errors.="<li>The password contained invalid characters</li>\n"; }
 if ($invalid_email) { $errors.="<li>The email address is invalid</li>\n"; }
 if ($mismatched_passwords) { $errors.="<li>The passwords are mismatched</li>\n"; }
 if ($invalid_username) { $errors.="<li>The username is invalid</li>\n"; }
-if ($invalid_organization) { $errors.="<li>Please select a valid organization</li>\n"; }
+if ($invalid_organization && !$admin_setup) { $errors.="<li>Please select a valid organization</li>\n"; }
 if ($invalid_user_role) { $errors.="<li>Please select a valid user role</li>\n"; }
 
 if ($errors != "") { ?>
@@ -463,6 +552,18 @@ $tabindex=1;
    if (document.getElementById('email').value) {
      updateUid();
    }
+   // For system users, ensure uid is populated from email on page load
+   <?php if ($admin_setup) { ?>
+   if (document.getElementById('email').value && document.getElementById('uid')) {
+     document.getElementById('uid').value = document.getElementById('email').value;
+   }
+   // Add event listener to email field for system users
+   document.getElementById('email').addEventListener('input', function() {
+     if (document.getElementById('uid')) {
+       document.getElementById('uid').value = this.value;
+     }
+   });
+   <?php } ?>
  });
 </script>
 <script type="text/javascript" src="<?php print $SERVER_PATH; ?>js/generate_passphrase.js"></script>
@@ -510,7 +611,7 @@ $tabindex=1;
    var email = document.getElementById('email').value;
    var uid = document.getElementById('uid');
    
-   if (email) {
+   if (email && uid) {
      uid.value = email;
    }
  }
@@ -549,7 +650,6 @@ $tabindex=1;
      <?php if ($admin_setup == TRUE) { ?><input type="hidden" name="setup_admin_account" value="true"><?php } ?>
      <input type="hidden" name="create_account">
      <input type="hidden" id="pass_score" value="0" name="pass_score">
-     <input type="hidden" id="uid" name="uid" value="">
      <?= csrf_token_field() ?>
 
      <?php
@@ -598,6 +698,15 @@ $tabindex=1;
                  echo '</select>';
                  echo '</div>';
                  echo '</div>';
+             } elseif ($form_field === 'uid' && $admin_setup) {
+                 // For system users, show a hidden field for uid that gets populated with email
+                 echo '<input type="hidden" name="uid" id="uid" value="">';
+             } elseif ($form_field === 'organization' && $admin_setup) {
+                 // For system users, organization is not needed
+                 continue;
+             } elseif ($form_field === 'user_role' && $admin_setup) {
+                 // For system users, user role is not needed
+                 continue;
              } else {
                  // Get current value
                  $current_value = '';
@@ -620,7 +729,7 @@ $tabindex=1;
                  if ($field_type === 'textarea') {
                      echo '<textarea class="form-control" id="' . $form_field . '" name="' . $form_field . '" ' . $required . ' rows="3"' . $onchange_attr . '>' . htmlspecialchars($current_value) . '</textarea>';
                  } else {
-                     echo '<input type="' . $field_type . '" class="form-control" id="' . $form_field . '" name="' . $form_field . '" value="' . htmlspecialchars($current_value) . '"' . $onchange_attr . '>';
+                     echo '<input type="' . $field_type . '" class="form-control" id="' . $form_field . '" name="' . $form_field . '" value="' . htmlspecialchars($current_value) . '"' . $onchange_attr . ' ' . $required . '>';
                  }
                  
                  echo '</div>';

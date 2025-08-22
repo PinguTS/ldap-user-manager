@@ -31,12 +31,11 @@ $SECURITY_CONFIG = [
         'require_special' => false,
         'max_age' => 90 * 24 * 3600, // 90 days
         'allowed_algorithms' => [
-            'ARGON2',
             'SSHA',
             'SHA512CRYPT',
             'SHA256CRYPT'
         ],
-        'default_algorithm' => 'ARGON2'
+        'default_algorithm' => 'SSHA'
     ],
     
     // Passcode policy
@@ -48,12 +47,11 @@ $SECURITY_CONFIG = [
         'require_special' => false,
         'max_age' => 90 * 24 * 3600, // 90 days
         'allowed_algorithms' => [
-            'ARGON2',
             'SSHA',
             'SHA512CRYPT',
             'SHA256CRYPT'
         ],
-        'default_algorithm' => 'ARGON2'
+        'default_algorithm' => 'SSHA'
     ],
     
     // File upload security
