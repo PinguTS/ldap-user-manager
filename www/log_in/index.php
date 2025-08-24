@@ -9,182 +9,137 @@ include_once "access_functions.inc.php";
 // Handle login POST before any output
 if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["passcode"]))) {
 
- // Check rate limiting before attempting authentication
- if (is_rate_limited($_POST["user_id"])) {
-   http_response_code(429); // Too Many Requests
-   header("Location: //{$_SERVER['HTTP_HOST']}{$THIS_MODULE_PATH}/index.php?rate_limited");
-   exit;
- }
+  // Check rate limiting before attempting authentication
+  if (is_rate_limited($_POST["user_id"])) {
+    http_response_code(429); // Too Many Requests
+    header("Location: //{$_SERVER['HTTP_HOST']}{$THIS_MODULE_PATH}/index.php?rate_limited");
+    exit;
+  }
 
- $ldap_connection = open_ldap_connection();
- $account_id = ldap_auth_username($ldap_connection,$_POST["user_id"],$_POST["password"]);
+  $ldap_connection = open_ldap_connection();
+  $account_id = ldap_auth_username($ldap_connection,$_POST["user_id"],$_POST["password"]);
 
- // Check if user is a administrator
- $is_admin = false;
- $is_admin = ldap_is_group_member($ldap_connection,$LDAP['admin_role'],$account_id);
+  // If password failed, try passcode
+  if ($account_id == FALSE && isset($_POST["passcode"]) && $_POST["passcode"] !== "") {
+    // Search for user DN across all organizations and system users
+    $user_search = ldap_search($ldap_connection, $LDAP['org_dn'], "({$LDAP['account_attribute']}=" . ldap_escape($_POST["user_id"], "", LDAP_ESCAPE_FILTER) . ")", ["dn", "userPassword"]);
+    $user_entries = ldap_get_entries($ldap_connection, $user_search);
+    
+    // If not found in organizations, search in system users
+    if ($user_entries["count"] == 0) {
+      $user_search = ldap_search($ldap_connection, $LDAP['people_dn'], "({$LDAP['account_attribute']}=" . ldap_escape($_POST["user_id"], "", LDAP_ESCAPE_FILTER) . ")", ["dn", "userPassword"]);
+      $user_entries = ldap_get_entries($ldap_connection, $user_search);
+    }
+    
+    if ($user_entries["count"] > 0 && isset($user_entries[0]["userpassword"])) {
+      // Check all userPassword values for passcode match
+      $passcode_found = false;
+      foreach ($user_entries[0]["userpassword"] as $index => $stored_hash) {
+        if ($index === "count") continue; // Skip the count field
+        
+        // Skip if this looks like a regular password (not a passcode format)
+        if (strpos($stored_hash, '{') === 0 && !preg_match('/^\{ARGON2\}|\{SSHA\}|\{CRYPT\}|\{SMD5\}|\{MD5\}|\{SHA\}/', $stored_hash)) {
+          continue; // Skip non-passcode hash formats
+        }
+        
+        // Verify passcode using LDAP-compatible hashing
+        if (verify_ldap_passcode($_POST["passcode"], $stored_hash)) {
+          $passcode_found = true;
+          break;
+        }
+      }
+      
+      if ($passcode_found) {
+        $account_id = $_POST["user_id"];
+        // Optionally, set $is_admin = false; (passcode logins are not admin)
+      }
+    }
+  }
+
+  if (!isset($account_id)) {
+    // Record failed login attempt
+    record_login_attempt($_POST["user_id"], false);
+
+    ldap_close($ldap_connection);
+
+    // If we get here, the login failed
+    header("Location: //{$_SERVER['HTTP_HOST']}{$THIS_MODULE_PATH}/index.php?invalid");
+    exit;
+  }
  
- // Check if user is a maintainer
- $is_maintainer = false;
- if ($account_id) {
-   $is_maintainer = ldap_is_group_member($ldap_connection,$LDAP['maintainer_role'],$account_id);
- }
+  // Check if user is a administrator
+  $is_admin = false;
+  $is_admin = ldap_is_group_member($ldap_connection,$LDAP['admin_role'],$account_id);
+
+  // Check if user is a maintainer
+  $is_maintainer = false;
+  $is_maintainer = ldap_is_group_member($ldap_connection,$LDAP['maintainer_role'],$account_id);
  
- // Check if user is an organization admin (but not global admin or maintainer)
- $is_org_admin = false;
- $user_org_name = null;
- if ($account_id && !$is_admin && !$is_maintainer) {
-   // Get user DN to check organization roles
-   $user_search = ldap_search($ldap_connection, $LDAP['org_dn'], "({$LDAP['account_attribute']}=" . ldap_escape($_POST["user_id"], "", LDAP_ESCAPE_FILTER) . ")", ["dn", "organization"]);
-   if ($user_search) {
-     $user_entries = ldap_get_entries($ldap_connection, $user_search);
-     if ($user_entries["count"] > 0) {
-       $user_dn = $user_entries[0]["dn"];
-       $user_org = null;
-       
-       // Try to get organization from user entry
-       if (isset($user_entries[0]["organization"][0])) {
-         $user_org = $user_entries[0]["organization"][0];
-       } else {
-         // Extract from DN if organization attribute not set
-         if (preg_match('/o=([^,]+),' . preg_quote($LDAP['org_ou'], '/') . ',/', $user_dn, $matches)) {
-           $user_org = $matches[1];
-         }
-       }
-       
-                if ($user_org) {
-           // Check if user is org admin for this organization
-           // According to LDAP structure, org admins are stored under ou=roles within each organization
-           $org_admin_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['org_admin_role']})(member=$user_dn))";
-           $org_roles_dn = "ou=roles,o=" . ldap_escape($user_org, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
-           $org_admin_search = @ldap_search($ldap_connection, $org_roles_dn, $org_admin_filter, ["cn"]);
-           if ($org_admin_search) {
-             $org_admin_result = ldap_get_entries($ldap_connection, $org_admin_search);
-             if ($org_admin_result["count"] > 0) {
-               $is_org_admin = true;
-               $user_org_name = $user_org;
-             }
-           }
-         }
-     }
-   }
-   
-   // If not found in organizations, check system users
-   if (!$is_org_admin) {
-     $user_search = ldap_search($ldap_connection, $LDAP['people_dn'], "({$LDAP['account_attribute']}=" . ldap_escape($_POST["user_id"], "", LDAP_ESCAPE_FILTER) . ")", ["dn", "organization"]);
-     if ($user_search) {
-       $user_entries = ldap_get_entries($ldap_connection, $user_search);
-       if ($user_entries["count"] > 0) {
-         $user_dn = $user_entries[0]["dn"];
-         $user_org = null;
-         
-         // Try to get organization from user entry
-         if (isset($user_entries[0]["organization"][0])) {
-           $user_org = $user_entries[0]["organization"][0];
-         }
-         
-         if ($user_org) {
-           // Check if user is org admin for this organization
-           // According to LDAP structure, org admins are stored under ou=roles within each organization
-           $org_admin_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['org_admin_role']})(member=$user_dn))";
-           $org_roles_dn = "ou=roles,o=" . ldap_escape($user_org, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
-           $org_admin_search = @ldap_search($ldap_connection, $org_roles_dn, $org_admin_filter, ["cn"]);
-           if ($org_admin_search) {
-             $org_admin_result = ldap_get_entries($ldap_connection, $org_admin_search);
-             if ($org_admin_result["count"] > 0) {
-               $is_org_admin = true;
-               $user_org_name = $user_org;
-             }
-           }
-         }
-       }
-     }
-   }
- }
+  // Check if user is an organization admin (but not global admin or maintainer)
+  $is_org_admin = false;
+  $user_org_name = null;
+  // Get user DN to check organization roles
+  $user_search = ldap_search($ldap_connection, $LDAP['org_people_dn'], "({$LDAP['account_attribute']}=" . ldap_escape($_POST["user_id"], "", LDAP_ESCAPE_FILTER) . ")", ["dn", "organization"]);
+  if ($user_search) {
+    $user_entries = ldap_get_entries($ldap_connection, $user_search);
+    if ($user_entries["count"] > 0) {
+      $user_dn = $user_entries[0]["dn"];
+      $user_org = null;
+      
+      // Try to get organization from user entry
+      if (isset($user_entries[0]["organization"][0])) {
+        $user_org = $user_entries[0]["organization"][0];
+      } else {
+        // Extract from DN if organization attribute not set
+        if (preg_match('/o=([^,]+),' . preg_quote($LDAP['org_ou'], '/') . ',/', $user_dn, $matches)) {
+          $user_org = $matches[1];
+        }
+      }
+      
+      if ($user_org) {
+        // Check if user is org admin for this organization
+        // According to LDAP structure, org admins are stored under ou=roles within each organization
+        $org_admin_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['org_admin_role']})(member=$user_dn))";
+        $org_roles_dn = "ou=roles,o=" . ldap_escape($user_org, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
+        $org_admin_search = @ldap_search($ldap_connection, $org_roles_dn, $org_admin_filter, ["cn"]);
+        if ($org_admin_search) {
+          $org_admin_result = ldap_get_entries($ldap_connection, $org_admin_search);
+          if ($org_admin_result["count"] > 0) {
+            $is_org_admin = true;
+            $user_org_name = $user_org;
+          }
+        }
+      }
+    }
+  }
 
- // If password failed, try passcode
- if ($account_id == FALSE && isset($_POST["passcode"]) && $_POST["passcode"] !== "") {
-   // Search for user DN across all organizations and system users
-   $user_search = ldap_search($ldap_connection, $LDAP['org_dn'], "({$LDAP['account_attribute']}=" . ldap_escape($_POST["user_id"], "", LDAP_ESCAPE_FILTER) . ")", ["dn", "userPassword"]);
-   $user_entries = ldap_get_entries($ldap_connection, $user_search);
-   
-   // If not found in organizations, search in system users
-   if ($user_entries["count"] == 0) {
-     $user_search = ldap_search($ldap_connection, $LDAP['people_dn'], "({$LDAP['account_attribute']}=" . ldap_escape($_POST["user_id"], "", LDAP_ESCAPE_FILTER) . ")", ["dn", "userPassword"]);
-     $user_entries = ldap_get_entries($ldap_connection, $user_search);
-   }
-   
-   if ($user_entries["count"] > 0 && isset($user_entries[0]["userpassword"])) {
-     // Check all userPassword values for passcode match
-     $passcode_found = false;
-     foreach ($user_entries[0]["userpassword"] as $index => $stored_hash) {
-       if ($index === "count") continue; // Skip the count field
-       
-       // Skip if this looks like a regular password (not a passcode format)
-       if (strpos($stored_hash, '{') === 0 && !preg_match('/^\{ARGON2\}|\{SSHA\}|\{CRYPT\}|\{SMD5\}|\{MD5\}|\{SHA\}/', $stored_hash)) {
-         continue; // Skip non-passcode hash formats
-       }
-       
-       // Verify passcode using LDAP-compatible hashing
-       if (verify_ldap_passcode($_POST["passcode"], $stored_hash)) {
-         $passcode_found = true;
-         break;
-       }
-     }
-     
-     if ($passcode_found) {
-       $account_id = $_POST["user_id"];
-       // Optionally, set $is_admin = false; (passcode logins are not admin)
-     }
-   }
- }
+  ldap_close($ldap_connection);
 
- ldap_close($ldap_connection);
-
- if ($account_id != FALSE) {
   // Record successful login attempt
   record_login_attempt($_POST["user_id"], true);
   
   set_passkey_cookie($account_id,$is_admin,$is_maintainer);
-  if (isset($_POST["redirect_to"])) {
-   $validated_redirect = validate_redirect_url($_POST['redirect_to']);
-   if ($validated_redirect !== false) {
-     header("Location: //{$_SERVER['HTTP_HOST']}" . $validated_redirect);
-   } else {
-     // Fallback to default location if redirect is invalid
-     if ($is_admin) { 
-       $default_module = "account_manager"; 
-     } elseif ($is_maintainer) {
-       $default_module = "account_manager/organizations"; 
-     } elseif ($is_org_admin && $user_org_name) {
-       $default_module = "account_manager/show_organization?org=" . urlencode($user_org_name);
-     } else { 
-       $default_module = "change_password"; 
-     }
-     header("Location: //{$_SERVER['HTTP_HOST']}{$SERVER_PATH}$default_module?logged_in");
-   }
-   exit;
-  }
-  else {
-   if ($is_admin) { 
-     $default_module = "account_manager"; 
-   } elseif ($is_maintainer) {
-     $default_module = "account_manager/organizations"; 
-   } elseif ($is_org_admin && $user_org_name) {
-     $default_module = "account_manager/show_organization?org=" . urlencode($user_org_name);
-   } else { 
-     $default_module = "change_password"; 
-   }
-   header("Location: //{$_SERVER['HTTP_HOST']}{$SERVER_PATH}$default_module?logged_in");
-   exit;
-  }
- }
- else {
-  // Record failed login attempt
-  record_login_attempt($_POST["user_id"], false);
   
-  header("Location: //{$_SERVER['HTTP_HOST']}{$THIS_MODULE_PATH}/index.php?invalid");
+  if (isset($_POST["redirect_to"])) {
+    $validated_redirect = validate_redirect_url($_POST['redirect_to']);
+    if ($validated_redirect !== false) {
+      header("Location: //{$_SERVER['HTTP_HOST']}" . $validated_redirect);
+    }
+    exit;
+  }
+  
+  if ($is_admin) { 
+    $default_module = "account_manager"; 
+  } elseif ($is_maintainer) {
+    $default_module = "account_manager/organizations"; 
+  } elseif ($is_org_admin && $user_org_name) {
+    $default_module = "account_manager/show_organization?org=" . urlencode($user_org_name);
+  } else { 
+    $default_module = "change_password"; 
+  }
+  header("Location: //{$_SERVER['HTTP_HOST']}{$SERVER_PATH}$default_module?logged_in");
   exit;
- }
+  
 }
 
 // Only render HTML after all possible headers are sent
