@@ -24,6 +24,8 @@ DOCKERHUB_REPO ?= $(DOCKERHUB_USER)/$(APP_NAME)
 BUILDKIT_CONFIG ?= .buildkit.toml
 #BUILDKIT_CONFIG ?= .buildkit.$(shell echo $(REGISTRY_HOST) | tr : _).toml
 
+BUILDER_NAME ?= mybuilder
+
 GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 GIT_SHA := $(shell git rev-parse --short HEAD)
 
@@ -36,8 +38,9 @@ builder:
 	  echo '[registry."$(REGISTRY_HOST)"]' > $(BUILDKIT_CONFIG); \
 	  echo '  http = true' >> $(BUILDKIT_CONFIG); \
 	fi
-	@docker buildx rm $(BUILDER_NAME) >/dev/null 2>&1 || true
-	@docker buildx create --name $(BUILDER_NAME) --driver docker-container --config "$(BUILDKIT_CONFIG)" --use
+	@docker buildx inspect $(BUILDER_NAME) >/dev/null 2>&1 || \
+	  docker buildx create --name $(BUILDER_NAME) --driver docker-container --config "$(BUILDKIT_CONFIG)" --use
+	@docker buildx use $(BUILDER_NAME)
 	@docker buildx inspect --bootstrap >/dev/null
 
 
@@ -83,12 +86,7 @@ check:
 	@echo "REGISTRY_HOST=$(REGISTRY_HOST)"
 	@echo "REGISTRY_USER=$(REGISTRY_USER)"
 
-.PHONY: builder
-builder:
-	@docker buildx inspect mybuilder >/dev/null 2>&1 || \
-	  docker buildx create --name mybuilder --driver docker-container --config $(BUILDKIT_CONFIG) --use
-	@docker buildx use mybuilder
-	@docker buildx inspect --bootstrap >/dev/null
+
 
 .PHONY: notify
 notify:
