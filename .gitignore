@@ -1,3 +1,5 @@
 .idea
 ldap-user-manager.iml
 local.dev
+buildkit.toml
+.buildkit.toml

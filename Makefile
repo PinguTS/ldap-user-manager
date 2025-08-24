@@ -10,6 +10,8 @@ endif
 
 # 2. git config
 REGISTRY_HOST ?= $(shell git config --get registry.host)
+PORTAINER_STACK_WEBHOOK ?= $(shell git config --get registry.webhook)
+
 
 # 3. Umgebungsvariablen schon gesetzt behalten
 # 4. Default nur wenn alles leer
@@ -19,16 +21,25 @@ LOCAL_REGISTRY ?= $(REGISTRY_HOST)
 DOCKERHUB_USER ?= pinguts
 DOCKERHUB_REPO ?= $(DOCKERHUB_USER)/$(APP_NAME)
 
+BUILDKIT_CONFIG ?= .buildkit.toml
+#BUILDKIT_CONFIG ?= .buildkit.$(shell echo $(REGISTRY_HOST) | tr : _).toml
+
 GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 GIT_SHA := $(shell git rev-parse --short HEAD)
+
 
 VERSION ?= 0.0.0
 
 .PHONY: builder
 builder:
-	@docker buildx inspect mybuilder >/dev/null 2>&1 || docker buildx create --use --name mybuilder
-	@docker buildx use mybuilder
+	@if [ ! -f "$(BUILDKIT_CONFIG)" ]; then \
+	  echo '[registry."$(REGISTRY_HOST)"]' > $(BUILDKIT_CONFIG); \
+	  echo '  http = true' >> $(BUILDKIT_CONFIG); \
+	fi
+	@docker buildx rm $(BUILDER_NAME) >/dev/null 2>&1 || true
+	@docker buildx create --name $(BUILDER_NAME) --driver docker-container --config "$(BUILDKIT_CONFIG)" --use
 	@docker buildx inspect --bootstrap >/dev/null
+
 
 # Dev Branch in private Registry pushen
 .PHONY: dev
@@ -70,3 +81,15 @@ echo:
 .PHONY: check
 check:
 	@echo "REGISTRY_HOST=$(REGISTRY_HOST)"
+	@echo "REGISTRY_USER=$(REGISTRY_USER)"
+
+.PHONY: builder
+builder:
+	@docker buildx inspect mybuilder >/dev/null 2>&1 || \
+	  docker buildx create --name mybuilder --driver docker-container --config $(BUILDKIT_CONFIG) --use
+	@docker buildx use mybuilder
+	@docker buildx inspect --bootstrap >/dev/null
+
+.PHONY: notify
+notify:
+	@curl -fsSL -X POST "$(PORTAINER_STACK_WEBHOOK)"
