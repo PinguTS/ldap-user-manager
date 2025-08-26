@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 include_once "ldap_functions.inc.php";
 include_once "config.inc.php";

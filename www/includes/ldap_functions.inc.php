@@ -1,101 +1,127 @@
 <?php
+declare(strict_types=1);
+
+/**
+ * LDAP connection and authentication functions
+ * 
+ * This file contains core LDAP functionality for user management,
+ * authentication, and directory operations.
+ */
 
 ###################################
 
-function open_ldap_connection($ldap_bind=TRUE) {
+/**
+ * Opens a connection to the LDAP server with optional binding
+ * 
+ * @param bool $ldap_bind Whether to bind as admin user
+ * @return resource|false LDAP connection resource or false on failure
+ * @throws Exception When connection fails in production environment
+ */
+function open_ldap_connection($ldap_bind = TRUE) {
 
- global $log_prefix, $LDAP, $SENT_HEADERS, $LDAP_DEBUG, $LDAP_VERBOSE_CONNECTION_LOGS;
+    global $log_prefix, $LDAP, $SENT_HEADERS, $LDAP_DEBUG, $LDAP_VERBOSE_CONNECTION_LOGS;
 
- // Enforce TLS in production environments
- if (getenv('ENVIRONMENT') !== 'development' && getenv('ENVIRONMENT') !== 'test') {
-     if ($LDAP['ignore_cert_errors'] == TRUE) { 
-         error_log("$log_prefix WARNING: Certificate errors are being ignored in production environment", 0);
-     }
- }
-
- if ($LDAP['ignore_cert_errors'] == TRUE) { putenv('LDAPTLS_REQCERT=never'); }
- $ldap_connection = @ ldap_connect($LDAP['uri']);
-
- if (!$ldap_connection) {
-  print "Problem: Can't connect to the LDAP server at {$LDAP['uri']}";
-  die("Can't connect to the LDAP server at {$LDAP['uri']}");
-  exit(1);
- }
-
- ldap_set_option($ldap_connection, LDAP_OPT_PROTOCOL_VERSION, 3);
- if ($LDAP_VERBOSE_CONNECTION_LOGS == TRUE) { ldap_set_option(NULL, LDAP_OPT_DEBUG_LEVEL, 7); }
-
- // Enforce TLS for non-localhost connections in production
- $is_localhost = preg_match('/^ldap:\/\/127\.0\.0\.([0-9]+)(:[0-9]+)$/', $LDAP['uri']) || 
-                 preg_match('/^ldap:\/\/localhost(:[0-9]+)?$/', $LDAP['uri']);
- 
- if (!preg_match("/^ldaps:/", $LDAP['uri'])) {
-
-  $tls_result = @ ldap_start_tls($ldap_connection);
-
-  if ($tls_result != TRUE) {
-
-   if (!preg_match('/^ldap:\/\/127\.0\.0\.([0-9]+)(:[0-9]+)$/', $LDAP['uri'])) { 
-     error_log("$log_prefix Failed to start STARTTLS connection to {$LDAP['uri']}: " . ldap_error($ldap_connection),0); 
-   }
-
-   if ($LDAP["require_starttls"] == TRUE || (!$is_localhost && getenv('ENVIRONMENT') !== 'development')) {
-    print "<div style='position: fixed;bottom: 0;width: 100%;' class='alert alert-danger'>Fatal:  Couldn't create a secure connection to {$LDAP['uri']} and LDAP_REQUIRE_STARTTLS is TRUE.</div>";
-    exit(0);
-   }
-   else {
-    if ($SENT_HEADERS == TRUE and !preg_match('/^ldap:\/\/localhost(:[0-9]+)?$/', $LDAP['uri']) and !preg_match('/^ldap:\/\/127\.0\.0\.([0-9]+)(:[0-9]+)$/', $LDAP['uri'])) {
-      print "<div style='position: fixed;bottom: 0px;width: 100%;height: 20px;border-bottom:solid 20px yellow;'>WARNING: Insecure LDAP connection to {$LDAP['uri']}</div>";
+    // Enforce TLS in production environments
+    if (getenv('ENVIRONMENT') !== 'development' && getenv('ENVIRONMENT') !== 'test') {
+        if ($LDAP['ignore_cert_errors'] === TRUE) { 
+            error_log("$log_prefix WARNING: Certificate errors are being ignored in production environment", 0);
+        }
     }
-    ldap_close($ldap_connection);
-    $ldap_connection = @ ldap_connect($LDAP['uri']);
+
+    if ($LDAP['ignore_cert_errors'] === TRUE) {
+        putenv('LDAPTLS_REQCERT=never');
+    }
+    $ldap_connection = @ldap_connect($LDAP['uri']);
+
+    if (!$ldap_connection) {
+        print "Problem: Can't connect to the LDAP server at {$LDAP['uri']}";
+        die("Can't connect to the LDAP server at {$LDAP['uri']}");
+        exit(1);
+    }
+
     ldap_set_option($ldap_connection, LDAP_OPT_PROTOCOL_VERSION, 3);
-   }
-  }
-  else {
-   if ($LDAP_DEBUG == TRUE) {
-     error_log("$log_prefix Start STARTTLS connection to {$LDAP['uri']}",0);
-   }
-   $LDAP['connection_type'] = "StartTLS";
-  }
+    if ($LDAP_VERBOSE_CONNECTION_LOGS === TRUE) {
+        ldap_set_option(NULL, LDAP_OPT_DEBUG_LEVEL, 7);
+    }
 
- }
- else {
-  if ($LDAP_DEBUG == TRUE) {
-    error_log("$log_prefix Using an LDAPS encrypted connection to {$LDAP['uri']}",0);
-   }
-   $LDAP['connection_type'] = 'LDAPS';
- }
+    // Enforce TLS for non-localhost connections in production
+    $is_localhost = preg_match('/^ldap:\/\/127\.0\.0\.([0-9]+)(:[0-9]+)$/', $LDAP['uri']) || 
+                    preg_match('/^ldap:\/\/localhost(:[0-9]+)?$/', $LDAP['uri']);
+    
+    if (!preg_match("/^ldaps:/", $LDAP['uri'])) {
 
- if ($ldap_bind == TRUE) {
+        $tls_result = @ldap_start_tls($ldap_connection);
 
-   if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix Attempting to bind to {$LDAP['uri']} as {$LDAP['admin_bind_dn']}",0); }
-   $bind_result = @ ldap_bind( $ldap_connection, $LDAP['admin_bind_dn'], $LDAP['admin_bind_pwd']);
+        if ($tls_result !== TRUE) {
 
-   if ($bind_result != TRUE) {
+            if (!preg_match('/^ldap:\/\/127\.0\.0\.([0-9]+)(:[0-9]+)$/', $LDAP['uri'])) { 
+                error_log("$log_prefix Failed to start STARTTLS connection to {$LDAP['uri']}: " . ldap_error($ldap_connection), 0); 
+            }
 
-     $this_error = "Failed to bind to {$LDAP['uri']} as {$LDAP['admin_bind_dn']}";
-     if ($LDAP_DEBUG == TRUE) { $this_error .= " with password {$LDAP['admin_bind_pwd']}"; }
-     $this_error .= ": " . ldap_error($ldap_connection);
-     print "Problem: Failed to bind as {$LDAP['admin_bind_dn']}";
-     error_log("$log_prefix $this_error",0);
+            if ($LDAP["require_starttls"] === TRUE || (!$is_localhost && getenv('ENVIRONMENT') !== 'development')) {
+                print "<div style='position: fixed;bottom: 0;width: 100%;' class='alert alert-danger'>Fatal:  Couldn't create a secure connection to {$LDAP['uri']} and LDAP_REQUIRE_STARTTLS is TRUE.</div>";
+                exit(0);
+            } else {
+                if ($SENT_HEADERS === TRUE and !preg_match('/^ldap:\/\/localhost(:[0-9]+)?$/', $LDAP['uri']) and !preg_match('/^ldap:\/\/127\.0\.0\.([0-9]+)(:[0-9]+)$/', $LDAP['uri'])) {
+                    print "<div style='position: fixed;bottom: 0px;width: 100%;height: 20px;border-bottom:solid 20px yellow;'>WARNING: Insecure LDAP connection to {$LDAP['uri']}</div>";
+                }
+                ldap_close($ldap_connection);
+                $ldap_connection = @ldap_connect($LDAP['uri']);
+                ldap_set_option($ldap_connection, LDAP_OPT_PROTOCOL_VERSION, 3);
+            }
+        } else {
+            if ($LDAP_DEBUG === TRUE) {
+                error_log("$log_prefix Start STARTTLS connection to {$LDAP['uri']}", 0);
+            }
+            $LDAP['connection_type'] = "StartTLS";
+        }
 
-     exit(1);
+    } else {
+        if ($LDAP_DEBUG === TRUE) {
+            error_log("$log_prefix Using an LDAPS encrypted connection to {$LDAP['uri']}", 0);
+        }
+        $LDAP['connection_type'] = 'LDAPS';
+    }
 
-   }
-   elseif ($LDAP_DEBUG == TRUE) {
-     error_log("$log_prefix Bound successfully as {$LDAP['admin_bind_dn']}",0);
-   }
+    if ($ldap_bind === TRUE) {
 
- }
+        if ($LDAP_DEBUG === TRUE) {
+            error_log("$log_prefix Attempting to bind to {$LDAP['uri']} as {$LDAP['admin_bind_dn']}", 0);
+        }
+        $bind_result = @ldap_bind($ldap_connection, $LDAP['admin_bind_dn'], $LDAP['admin_bind_pwd']);
 
- return $ldap_connection;
+        if ($bind_result !== TRUE) {
+
+            $this_error = "Failed to bind to {$LDAP['uri']} as {$LDAP['admin_bind_dn']}";
+            if ($LDAP_DEBUG === TRUE) {
+                $this_error .= " with password {$LDAP['admin_bind_pwd']}";
+            }
+            $this_error .= ": " . ldap_error($ldap_connection);
+            print "Problem: Failed to bind as {$LDAP['admin_bind_dn']}";
+            error_log("$log_prefix $this_error", 0);
+
+            exit(1);
+
+        } elseif ($LDAP_DEBUG === TRUE) {
+            error_log("$log_prefix Bound successfully as {$LDAP['admin_bind_dn']}", 0);
+        }
+
+    }
+
+    return $ldap_connection;
 
 }
 
-
 ###################################
 
+/**
+ * Authenticates a username and password against LDAP
+ * 
+ * @param resource $ldap_connection LDAP connection resource
+ * @param string $username Username to authenticate
+ * @param string $password Password to authenticate
+ * @return bool True if authentication succeeds, false otherwise
+ */
 function ldap_auth_username($ldap_connection, $username, $password) {
 
   # Search for the DN for the given username across all organizations.  If found, try binding with the DN and user's password.
@@ -104,7 +130,7 @@ function ldap_auth_username($ldap_connection, $username, $password) {
   global $log_prefix, $LDAP, $SITE_LOGIN_LDAP_ATTRIBUTE, $LDAP_DEBUG;
 
   $ldap_search_query="{$SITE_LOGIN_LDAP_ATTRIBUTE}=" . ldap_escape(($username === null ? '' : $username), "", LDAP_ESCAPE_FILTER);
-  if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix Running LDAP search for: $ldap_search_query"); }
+  if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix Running LDAP search for: $ldap_search_query"); }
 
   # Search across all organizations for the user
   $ldap_search = @ldap_search( $ldap_connection, $LDAP['org_dn'], $ldap_search_query );
@@ -119,7 +145,7 @@ function ldap_auth_username($ldap_connection, $username, $password) {
     return FALSE;
   }
 
-  if ($LDAP_DEBUG == TRUE) {
+  if ($LDAP_DEBUG === TRUE) {
     error_log("$log_prefix LDAP search returned " . $result["count"] . " records for $ldap_search_query",0);
     for ($i=1; $i==$result["count"]; $i++) {
       error_log("$log_prefix ". "Entry {$i}: " . $result[$i-1]['dn'], 0);
@@ -127,7 +153,7 @@ function ldap_auth_username($ldap_connection, $username, $password) {
   }
 
   if ($result["count"] > 1) {
-    if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix There was more than one entry for {$ldap_search_query} so it wasn't possible to determine which user to log in as."); }
+    if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix There was more than one entry for {$ldap_search_query} so it wasn't possible to determine which user to log in as."); }
     return FALSE;
   }
 
@@ -137,7 +163,7 @@ function ldap_auth_username($ldap_connection, $username, $password) {
 
   # If not found in organizations, search in system users
   if ($result["count"] == 0) {
-    if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix User not found in organizations, searching in system users"); }
+    if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix User not found in organizations, searching in system users"); }
     
     $ldap_search = @ldap_search( $ldap_connection, $LDAP['people_dn'], $ldap_search_query );
     if (!$ldap_search) {
@@ -151,7 +177,7 @@ function ldap_auth_username($ldap_connection, $username, $password) {
       return FALSE;
     }
 
-    if ($LDAP_DEBUG == TRUE) {
+    if ($LDAP_DEBUG === TRUE) {
       error_log("$log_prefix LDAP search in system users returned " . $result["count"] . " records for $ldap_search_query",0);
       for ($i=1; $i==$result["count"]; $i++) {
         error_log("$log_prefix ". "Entry {$i}: " . $result[$i-1]['dn'], 0);
@@ -159,7 +185,7 @@ function ldap_auth_username($ldap_connection, $username, $password) {
     }
 
     if ($result["count"] > 1) {
-      if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix There was more than one entry for {$username} in system users so it wasn't possible to determine which user to log in as."); }
+      if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix There was more than one entry for {$username} in system users so it wasn't possible to determine which user to log in as."); }
       return FALSE;
     }
 
@@ -168,23 +194,23 @@ function ldap_auth_username($ldap_connection, $username, $password) {
     }
 
     if ($result["count"] == 0) {
-      if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix There was no entry for {$username} in system users so it wasn't possible to determine which user to log in as."); }
+      if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix There was no entry for {$username} in system users so it wasn't possible to determine which user to log in as."); }
       return FALSE;
     }
   }
 
-  if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix Attempting authenticate as $username by binding with {$this_dn} ",0); }
+  if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix Attempting authenticate as $username by binding with {$this_dn} ",0); }
 
   $auth_ldap_connection = open_ldap_connection(FALSE);
 
   $can_bind =  @ldap_bind($auth_ldap_connection, $this_dn, $password);
   if ($can_bind) {
-    if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix Able to bind as {$username}: dn is {$this_dn}",0); }
+    if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix Able to bind as {$username}: dn is {$this_dn}",0); }
     ldap_close($auth_ldap_connection);
     return $this_dn;
   }
 
-  if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix Unable to bind as {$username}: " . ldap_error($auth_ldap_connection),0); }
+  if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix Unable to bind as {$username}: " . ldap_error($auth_ldap_connection),0); }
 
   ldap_close($auth_ldap_connection);
   return FALSE;
@@ -199,17 +225,17 @@ function ldap_setup_auth($ldap_connection, $password) {
  #credentials as passed in ADMIN_BIND_*
  global $log_prefix, $LDAP, $LDAP_DEBUG;
 
-  if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix Initial setup: opening another LDAP connection to test authentication as {$LDAP['admin_bind_dn']}.",0); }
+  if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix Initial setup: opening another LDAP connection to test authentication as {$LDAP['admin_bind_dn']}.",0); }
   $auth_ldap_connection = open_ldap_connection();
   $can_bind = @ldap_bind($auth_ldap_connection, $LDAP['admin_bind_dn'], $password);
   ldap_close($auth_ldap_connection);
   if ($can_bind) {
-    if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix Initial setup: able to authenticate as {$LDAP['admin_bind_dn']}.",0); }
+    if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix Initial setup: able to authenticate as {$LDAP['admin_bind_dn']}.",0); }
     return TRUE;
   }
   else {
     $this_error="Initial setup: Unable to authenticate as {$LDAP['admin_bind_dn']}";
-    if ($LDAP_DEBUG == TRUE) { $this_error .= " with password $password"; }
+    if ($LDAP_DEBUG === TRUE) { $this_error .= " with password $password"; }
     $this_error .= ". The password used to authenticate for /setup should be the same as set by LDAP_ADMIN_BIND_PWD. ";
     $this_error .= ldap_error($ldap_connection);
     error_log("$log_prefix $this_error",0);
@@ -484,7 +510,7 @@ function ldap_get_system_users($ldap_connection, $start=0, $entries=NULL, $sort=
     $ldap_search = @ ldap_search($ldap_connection, $LDAP['people_dn'], $this_filter, $fields);
     if ($ldap_search) {
         $result = @ ldap_get_entries($ldap_connection, $ldap_search);
-        if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix LDAP returned {$result['count']} system users when using this filter: $this_filter",0); }
+        if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix LDAP returned {$result['count']} system users when using this filter: $this_filter",0); }
         
         foreach ($result as $record) {
             if (isset($record[$sort_key][0])) {
@@ -527,7 +553,7 @@ function ldap_get_user_list($ldap_connection,$start=0,$entries=NULL,$sort="asc",
  $ldap_search = @ ldap_search($ldap_connection, $LDAP['org_dn'], $this_filter, $fields);
  if ($ldap_search) {
    $result = @ ldap_get_entries($ldap_connection, $ldap_search);
-   if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix LDAP returned {$result['count']} users in organizations when using this filter: $this_filter",0); }
+   if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix LDAP returned {$result['count']} users in organizations when using this filter: $this_filter",0); }
    
    foreach ($result as $record) {
      if (isset($record[$sort_key][0])) {
@@ -546,7 +572,7 @@ function ldap_get_user_list($ldap_connection,$start=0,$entries=NULL,$sort="asc",
  $ldap_search = @ ldap_search($ldap_connection, $LDAP['people_dn'], $this_filter, $fields);
  if ($ldap_search) {
    $result = @ ldap_get_entries($ldap_connection, $ldap_search);
-   if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix LDAP returned {$result['count']} system users when using this filter: $this_filter",0); }
+   if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix LDAP returned {$result['count']} system users when using this filter: $this_filter",0); }
    
    foreach ($result as $record) {
      if (isset($record[$sort_key][0])) {
@@ -607,7 +633,7 @@ function ldap_get_highest_id($ldap_connection,$type="uid") {
 
  $fetched_id = fetch_id_stored_in_ldap($ldap_connection,$type);
 
- if ($fetched_id != FALSE) {
+ if ($fetched_id !== FALSE) {
 
   return($fetched_id);
 
@@ -653,12 +679,12 @@ function ldap_get_role_members($ldap_connection, $role_name, $start=0, $entries=
    if ($key !== 'count' and !empty($value)) {
     // Extract the DN from the member attribute
     $records[] = $value;
-    if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix {$value} is a member of role {$role_name}",0); }
+    if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix {$value} is a member of role {$role_name}",0); }
    }
   }
 
   $actual_result_count = count($records);
-  if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix LDAP returned $actual_result_count members of role {$role_name}",0); }
+  if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix LDAP returned $actual_result_count members of role {$role_name}",0); }
 
   if ($actual_result_count > 0) {
    if ($sort == "asc") { sort($records); } else { rsort($records); }
@@ -771,7 +797,7 @@ function ldap_user_group_membership($ldap_connection,$user_dn) {
 function ldap_organization_get_uuid($ldap_connection, $organization_name) {
   global $log_prefix, $LDAP, $LDAP_DEBUG;
 
-  if ($LDAP_DEBUG) {
+  if ($LDAP_DEBUG === TRUE) {
     error_log("$log_prefix ldap_organization_get_uuid: Searching for organization '$organization_name'");
   }
 
@@ -781,7 +807,7 @@ function ldap_organization_get_uuid($ldap_connection, $organization_name) {
   $ldap_search = @ldap_search($ldap_connection, $LDAP['org_dn'], "(&(objectclass=organization)(o=$escaped_org_name))", array($LDAP['uuid_attribute']));
   
   if (!$ldap_search) {
-    if ($LDAP_DEBUG) {
+    if ($LDAP_DEBUG === TRUE) {
       error_log("$log_prefix ldap_organization_get_uuid: LDAP search failed: " . ldap_error($ldap_connection));
     }
     return FALSE;
@@ -789,19 +815,19 @@ function ldap_organization_get_uuid($ldap_connection, $organization_name) {
   
   $result = ldap_get_entries($ldap_connection, $ldap_search);
   
-  if ($LDAP_DEBUG) {
+  if ($LDAP_DEBUG === TRUE) {
     error_log("$log_prefix ldap_organization_get_uuid: Found " . $result['count'] . " organizations");
   }
 
   if ($result['count'] > 0) {
     $uuid = $result[0][strtolower($LDAP['uuid_attribute'])][0];
-    if ($LDAP_DEBUG) {
+    if ($LDAP_DEBUG === TRUE) {
       error_log("$log_prefix ldap_organization_get_uuid: Returning UUID: $uuid");
     }
     return $uuid;
   }
 
-  if ($LDAP_DEBUG) {
+  if ($LDAP_DEBUG === TRUE) {
     error_log("$log_prefix ldap_organization_get_uuid: No organization found with name '$organization_name'");
   }
   return FALSE;
@@ -973,7 +999,7 @@ function ldap_new_account($ldap_connection,$account_r) {
      }
 
      # Debug: Log the attributes being sent to ldap_add
-     if ($LDAP_DEBUG) {
+     if ($LDAP_DEBUG === TRUE) {
          error_log("$log_prefix ldap_new_account: Attributes for ldap_add: " . print_r($account_attributes, true));
      }
 
@@ -1250,7 +1276,7 @@ function ldap_get_user_info($ldap_connection, $username, $fields = NULL) {
    }
  }
  
- if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix User {$username} not found",0); }
+ if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix User {$username} not found",0); }
  return FALSE;
 
 }
@@ -1507,8 +1533,8 @@ function ldap_detect_rfc2307bis($ldap_connection) {
 
     $LDAP['rfc2307bis_available'] = FALSE;
 
-    if ($LDAP['forced_rfc2307bis'] == TRUE) {
-      if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix LDAP RFC2307BIS detection - skipping autodetection because FORCE_RFC2307BIS is TRUE",0); }
+    if ($LDAP['forced_rfc2307bis'] === TRUE) {
+      if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix LDAP RFC2307BIS detection - skipping autodetection because FORCE_RFC2307BIS is TRUE",0); }
       $LDAP['rfc2307bis_available'] = TRUE;
     }
     else {
@@ -1525,7 +1551,7 @@ function ldap_detect_rfc2307bis($ldap_connection) {
         if ($schema_base_results) {
 
           $schema_base_dn = $schema_base_results[0]['subschemasubentry'][0];
-          if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix LDAP RFC2307BIS detection - found that the 'subschemaSubentry' base DN is '$schema_base_dn'",0); }
+          if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix LDAP RFC2307BIS detection - found that the 'subschemaSubentry' base DN is '$schema_base_dn'",0); }
 
           $objclass_query = @ ldap_read($ldap_connection,$schema_base_dn,"(objectClasses=*)",array('objectClasses'));
           if (!$objclass_query) {
@@ -1535,28 +1561,28 @@ function ldap_detect_rfc2307bis($ldap_connection) {
             $objclass_results = @ ldap_get_entries($ldap_connection, $objclass_query);
             $this_count = $objclass_results[0]['objectclasses']['count'];
             if ($this_count > 0) {
-              if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix LDAP RFC2307BIS detection - found $this_count objectClasses under $schema_base_dn" ,0); }
+              if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix LDAP RFC2307BIS detection - found $this_count objectClasses under $schema_base_dn" ,0); }
               $posixgroup_search = preg_grep("/NAME 'posixGroup'.*AUXILIARY/",$objclass_results[0]['objectclasses']);
               if (count($posixgroup_search) > 0) {
-                if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix LDAP RFC2307BIS detection - found AUXILIARY in posixGroup definition which suggests we're using the RFC2307BIS schema" ,0); }
+                if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix LDAP RFC2307BIS detection - found AUXILIARY in posixGroup definition which suggests we're using the RFC2307BIS schema" ,0); }
                 $LDAP['rfc2307bis_available'] = TRUE;
               }
               else {
-                if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix LDAP RFC2307BIS detection - couldn't find AUXILIARY in the posixGroup definition which suggests we're not using the RFC2307BIS schema.  Set FORCE_RFC2307BIS to TRUE if you DO use RFC2307BIS. " ,0); }
+                if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix LDAP RFC2307BIS detection - couldn't find AUXILIARY in the posixGroup definition which suggests we're not using the RFC2307BIS schema.  Set FORCE_RFC2307BIS to TRUE if you DO use RFC2307BIS. " ,0); }
               }
             }
             else {
-              if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix LDAP RFC2307BIS detection - no objectClasses were returned when searching under $schema_base_dn" ,0); }
+              if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix LDAP RFC2307BIS detection - no objectClasses were returned when searching under $schema_base_dn" ,0); }
             }
           }
         }
         else {
-         if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix LDAP RFC2307BIS detection - unable to detect the subschemaSubentry base DN" ,0); }
+         if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix LDAP RFC2307BIS detection - unable to detect the subschemaSubentry base DN" ,0); }
         }
       }
     }
 
-    if ($LDAP['rfc2307bis_available'] == TRUE) {
+    if ($LDAP['rfc2307bis_available'] === TRUE) {
       if (!isset($LDAP['group_membership_attribute'])) { $LDAP['group_membership_attribute'] = 'uniquemember'; }
       if (!isset($LDAP['group_membership_uses_uid'])) { $LDAP['group_membership_uses_uid'] = FALSE; }
       if (!in_array('groupOfUniqueNames',$LDAP['group_objectclasses'])) { array_push($LDAP['group_objectclasses'], 'groupOfUniqueNames'); }

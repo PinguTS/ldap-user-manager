@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 include_once "$PHPMailer_PATH/PHPMailer.php";
 include_once "$PHPMailer_PATH/SMTP.php";

@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 set_include_path(".:" . __DIR__ . "/../includes/");
 
@@ -33,6 +34,7 @@ $ldap_connection = open_ldap_connection();
       <div class="panel-body">
        <ul class="list-group">
 <?php
+declare(strict_types=1);
 
 #Can we connect?  The open_ldap_connection() function will call die() if we can't.
 print "$li_good Connected to {$LDAP['uri']}</li>\n";
@@ -59,6 +61,7 @@ else {
       <div class="panel-body">
        <ul class="list-group">
 <?php
+declare(strict_types=1);
 
 # Check for organizations OU
 $org_result = array('count' => 0);
@@ -126,6 +129,7 @@ if (ldap_count_entries($ldap_connection, $global_roles_search) == 0) {
       <div class="panel-body">
        <ul class="list-group">
 <?php
+declare(strict_types=1);
 
 # First: Check if administrator role group exists
 $admin_role_filter = "(&(objectclass=groupOfNames)(cn=administrators))";
@@ -212,6 +216,7 @@ if (!$ldap_maintainer_role_search) {
       <div class="panel-body">
         <ul class="list-group">
 <?php
+declare(strict_types=1);
 
 # Check for example organization
 $example_org_filter = "(&(objectclass=organization)(o=Example Company))";
@@ -244,6 +249,7 @@ if ($ldap_example_org_search === false) {
       </div>
     </div>
 <?php
+declare(strict_types=1);
 
 ##############
 
@@ -270,6 +276,7 @@ if ($show_finish_button == TRUE) {
         </div>
       </div>
 <?php
+declare(strict_types=1);
 } else {
 ?>
       <div class='well'>
@@ -277,12 +284,14 @@ if ($show_finish_button == TRUE) {
       </div>
       </form>
 <?php
+declare(strict_types=1);
 }
 
 ?>
     </div>
   </div>
 <?php
+declare(strict_types=1);
 
 render_footer();
 ?>

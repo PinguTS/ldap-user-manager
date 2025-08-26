@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 set_include_path( ".:" . __DIR__ . "/../includes/");
 
@@ -73,6 +74,7 @@ $people = ldap_get_system_users($ldap_connection);
     });
   </script>
 <?php
+declare(strict_types=1);
 foreach ($people as $account_identifier => $attribs){
 
   $role_membership = ldap_user_group_membership($ldap_connection,$account_identifier);
@@ -98,6 +100,7 @@ foreach ($people as $account_identifier => $attribs){
  </table>
 </div>
 <?php
+declare(strict_types=1);
 
 ldap_close($ldap_connection);
 render_footer();

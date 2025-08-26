@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 set_include_path(".:" . __DIR__ . "/../includes/");
 
@@ -28,6 +29,7 @@ if ($SETUP_DEBUG == TRUE) {
       <ul class="list-group">
 
 <?php
+declare(strict_types=1);
 
 # Test 1: Check if OUs exist
 print "<li class='list-group-item'><strong>Test 1: Organizational Units</strong></li>\n";
@@ -168,6 +170,7 @@ if ($admin_search && ldap_count_entries($ldap_connection, $admin_search) > 0) {
   </div>
  
 <?php
+declare(strict_types=1);
 # Check if we have missing components and show appropriate options
 if (!empty($missing_components)) {
   if ($SETUP_DEBUG == TRUE) {
@@ -240,6 +243,7 @@ if (!empty($missing_components)) {
   </div>
 
 <?php
+declare(strict_types=1);
 
 render_footer();
 

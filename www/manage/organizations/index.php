@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 set_include_path( ".:" . __DIR__ . "/../../includes/");
 
@@ -188,5 +189,6 @@ function confirmDelete(orgName, orgUuid = '') {
 </script>
 
 <?php
+declare(strict_types=1);
 render_footer();
 ?> 

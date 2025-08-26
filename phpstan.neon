@@ -1,0 +1,14 @@
+parameters:
+    level: 8
+    paths:
+        - www/
+    excludePaths:
+        - www/js/
+        - www/bootstrap/
+        - www/request_account/fonts/
+    checkMissingIterableValueType: false
+    checkGenericClassInNonGenericObjectType: false
+    ignoreErrors:
+        - '#Call to an undefined method ldap_#'
+        - '#Call to an undefined function ldap_#'
+        - '#Access to an undefined property#'

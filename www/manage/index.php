@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 set_include_path( ".:" . __DIR__ . "/../includes/");
 include_once "web_functions.inc.php";
@@ -88,5 +89,6 @@ render_submenu();
 </div>
 
 <?php
+declare(strict_types=1);
 render_footer();
 ?>

@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 set_include_path( ".:" . __DIR__ . "/../../includes/");
 
@@ -197,5 +198,6 @@ render_submenu();
 </div>
 
 <?php
+declare(strict_types=1);
 render_footer();
 ?>

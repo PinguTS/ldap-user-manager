@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 set_include_path(".:" . __DIR__ . "/../includes/");
 
@@ -27,6 +28,7 @@ if (isset($_POST["admin_password"])) {
       <p class="text-center">The password was incorrect.</p>
     </div>
 <?php
+declare(strict_types=1);
   }
 ?>
     <div class="container">
@@ -45,6 +47,7 @@ if (isset($_POST["admin_password"])) {
       </div>
     </div>
 <?php
+declare(strict_types=1);
 }
 render_footer();
 ?>

@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 set_include_path( ".:" . __DIR__ . "/../includes/");
 
@@ -754,6 +755,7 @@ $not_member_of = array_diff($all_roles, $currently_member_of);
 </div>
 
 <?php
+declare(strict_types=1);
 
 
 // Handle self-service passcode change

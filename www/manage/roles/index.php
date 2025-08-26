@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 set_include_path( ".:" . __DIR__ . "/../../includes/");
 
@@ -227,6 +228,7 @@ $all_roles = array_merge($global_roles, $org_roles);
 </div>
 
 <?php
+declare(strict_types=1);
 
 ldap_close($ldap_connection);
 render_footer();

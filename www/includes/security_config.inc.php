@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 /**
  * Security Configuration File
  * Centralized security settings for the LDAP User Manager

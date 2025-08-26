@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
  #Modules and how they can be accessed.
 

@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 set_include_path( ".:" . __DIR__ . "/../includes/");
 
@@ -59,6 +60,7 @@ if (isset($_POST['fix_problems'])) {
     <ul class="list-group">
 
 <?php
+declare(strict_types=1);
 }
 
 if (isset($_POST['setup_organizations_ou'])) {
@@ -388,6 +390,7 @@ if ($no_errors == TRUE) {
  </div>
 </div>
 <?php
+declare(strict_types=1);
 
 ##############
 
@@ -401,6 +404,7 @@ if ($no_errors == TRUE) {
       </form>
     </div>
 <?php
+declare(strict_types=1);
   } else {
 ?>
     <div class='well'>
@@ -418,6 +422,7 @@ if ($no_errors == TRUE) {
       </form>
     </div>
 <?php
+declare(strict_types=1);
 }
 
 render_footer();

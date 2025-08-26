@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 set_include_path( ".:" . __DIR__ . "/../includes/");
 
@@ -531,6 +532,7 @@ if ($errors != "") { ?>
  </p>
 </div>
 <?php
+declare(strict_types=1);
 }
 
 // JavaScript functions for form enhancement
@@ -824,6 +826,7 @@ $tabindex=1;
  </div>
 </div>
 <?php
+declare(strict_types=1);
 
 
 
