@@ -1,7 +1,12 @@
 <?php
 
 function currentUserIsGlobalAdmin() {
-    global $LDAP, $USER_DN, $USER_ID;
+    global $LDAP, $USER_DN, $USER_ID, $IS_ADMIN;
+    
+    // First check if we already have this information from the session
+    if (isset($IS_ADMIN) && $IS_ADMIN === TRUE) {
+        return true;
+    }
     
     // If USER_DN is not set, try to construct it from USER_ID
     if (!$USER_DN && $USER_ID) {
@@ -61,7 +66,12 @@ function currentUserIsGlobalAdmin() {
 }
 
 function currentUserIsMaintainer() {
-    global $LDAP, $USER_DN, $USER_ID;
+    global $LDAP, $USER_DN, $USER_ID, $IS_MAINTAINER;
+    
+    // First check if we already have this information from the session
+    if (isset($IS_MAINTAINER) && $IS_MAINTAINER === TRUE) {
+        return true;
+    }
     
     // If USER_DN is not set, try to construct it from USER_ID
     if (!$USER_DN && $USER_ID) {
@@ -118,7 +128,12 @@ function currentUserIsMaintainer() {
 }
 
 function currentUserIsOrgManager($orgName) {
-    global $LDAP, $USER_DN;
+    global $LDAP, $USER_DN, $IS_ORG_ADMIN, $USER_ORG_NAME;
+    
+    // First check if we already have this information from the session
+    if (isset($IS_ORG_ADMIN) && $IS_ORG_ADMIN === TRUE && isset($USER_ORG_NAME) && $USER_ORG_NAME === $orgName) {
+        return true;
+    }
     
     if (empty($orgName) || !$USER_DN) {
         return false;
@@ -141,6 +156,28 @@ function currentUserIsOrgManager($orgName) {
     
     ldap_close($ldap);
     return false;
+}
+
+function currentUserIsOrgAdmin() {
+    global $IS_ORG_ADMIN, $USER_ORG_NAME;
+    
+    // Check if we have this information from the session
+    if (isset($IS_ORG_ADMIN) && $IS_ORG_ADMIN === TRUE && isset($USER_ORG_NAME) && !empty($USER_ORG_NAME)) {
+        return true;
+    }
+    
+    return false;
+}
+
+function currentUserGetOrgName() {
+    global $USER_ORG_NAME;
+    
+    // Return the organization name from session data
+    if (isset($USER_ORG_NAME) && !empty($USER_ORG_NAME)) {
+        return $USER_ORG_NAME;
+    }
+    
+    return null;
 }
 
 function currentUserCanModifyUser($targetUserDN) {

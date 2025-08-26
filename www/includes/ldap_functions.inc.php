@@ -128,14 +128,11 @@ function ldap_auth_username($ldap_connection, $username, $password) {
 
   if ($result["count"] > 1) {
     if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix There was more than one entry for {$ldap_search_query} so it wasn't possible to determine which user to log in as."); }
-    ldap_close($auth_ldap_connection);
     return FALSE;
   }
 
   if ($result["count"] == 1) {
-
     $this_dn = $result[0]['dn'];
-
   }
 
   # If not found in organizations, search in system users
@@ -163,22 +160,16 @@ function ldap_auth_username($ldap_connection, $username, $password) {
 
     if ($result["count"] > 1) {
       if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix There was more than one entry for {$username} in system users so it wasn't possible to determine which user to log in as."); }
-      ldap_close($auth_ldap_connection);
       return FALSE;
     }
 
     if ($result["count"] == 1) {
-
       $this_dn = $result[0]['dn'];
-
     }
 
     if ($result["count"] == 0) {
-
       if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix There was no entry for {$username} in system users so it wasn't possible to determine which user to log in as."); }
-      ldap_close($auth_ldap_connection);
       return FALSE;
-
     }
   }
 
@@ -188,14 +179,13 @@ function ldap_auth_username($ldap_connection, $username, $password) {
 
   $can_bind =  @ldap_bind($auth_ldap_connection, $this_dn, $password);
   if ($can_bind) {
-    preg_match("/{$LDAP['account_attribute']}=(.*?),/", $this_dn, $dn_match);
-    $account_id=$dn_match[1];
-    if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix Able to bind as {$username}: dn is {$this_dn} and account ID is {$account_id}",0); }
+    if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix Able to bind as {$username}: dn is {$this_dn}",0); }
     ldap_close($auth_ldap_connection);
     return $this_dn;
   }
 
   if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix Unable to bind as {$username}: " . ldap_error($auth_ldap_connection),0); }
+
   ldap_close($auth_ldap_connection);
   return FALSE;
 }
@@ -781,11 +771,11 @@ function ldap_user_group_membership($ldap_connection,$user_dn) {
 function ldap_organization_get_uuid($ldap_connection, $organization_name) {
   global $log_prefix, $LDAP, $LDAP_DEBUG;
 
-  $ldap_search = @ldap_search($ldap_connection, $LDAP['org_dn'], "(&(objectclass=organization)(cn=$organization_name))", array('uuid'));
+  $ldap_search = @ldap_search($ldap_connection, $LDAP['org_dn'], "(&(objectclass=organization)(o=$organization_name))", array($LDAP['uuid_attribute']));
   $result = ldap_get_entries($ldap_connection, $ldap_search);
 
   if ($result['count'] > 0) {
-    return $result[0]['uuid'][0];
+    return $result[0][strtolower($LDAP['uuid_attribute'])][0];
   }
 
   return FALSE;
@@ -795,11 +785,15 @@ function ldap_organization_get_uuid($ldap_connection, $organization_name) {
 function ldap_user_get_uuid($ldap_connection, $user_dn) {
   global $log_prefix, $LDAP, $LDAP_DEBUG;
 
-  $ldap_search = @ldap_search($ldap_connection, $LDAP['org_dn'], "(&(objectclass=inetOrgPerson)({$LDAP['account_attribute']}=$user_dn))", array('uuid'));
-  $result = ldap_get_entries($ldap_connection, $ldap_search);
+  // Search for the user by DN to get UUID
+  $ldap_search = @ldap_search($ldap_connection, $LDAP['base_dn'], "(dn=$user_dn)", array($LDAP['uuid_attribute']));
+  if (!$ldap_search) {
+    return FALSE;
+  }
   
+  $result = ldap_get_entries($ldap_connection, $ldap_search);
   if ($result['count'] > 0) {
-    return $result[0]['uuid'][0];
+    return $result[0][strtolower($LDAP['uuid_attribute'])][0];
   }
 
   return FALSE;
@@ -1431,6 +1425,47 @@ function uuid_to_url_param($uuid) {
 function url_param_to_uuid($url_param) {
     $uuid = urldecode($url_param);
     return is_valid_uuid($uuid) ? $uuid : false;
+}
+
+##################################
+
+function get_user_dn_from_identifier($ldap_connection, $identifier) {
+  global $log_prefix, $LDAP, $LDAP_DEBUG;
+  
+  // Check if identifier is a UUID
+  if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $identifier)) {
+    // Search by UUID
+    $ldap_search = @ldap_search($ldap_connection, $LDAP['base_dn'], 
+      "({$LDAP['uuid_attribute']}=$identifier)", ['dn']);
+    if ($ldap_search) {
+      $result = ldap_get_entries($ldap_connection, $ldap_search);
+      if ($result['count'] > 0) {
+        return $result[0]['dn'];
+      }
+    }
+  }
+  
+  // If not a UUID or UUID search failed, treat as username/email
+  $ldap_search = @ldap_search($ldap_connection, $LDAP['org_dn'], 
+    "({$LDAP['account_attribute']}=$identifier)", ['dn']);
+  if ($ldap_search) {
+    $result = ldap_get_entries($ldap_connection, $ldap_search);
+    if ($result['count'] > 0) {
+      return $result[0]['dn'];
+    }
+  }
+  
+  // Try system users
+  $ldap_search = @ldap_search($ldap_connection, $LDAP['people_dn'], 
+    "({$LDAP['account_attribute']}=$identifier)", ['dn']);
+  if ($ldap_search) {
+    $result = ldap_get_entries($ldap_connection, $ldap_search);
+    if ($result['count'] > 0) {
+      return $result[0]['dn'];
+    }
+  }
+  
+  return FALSE;
 }
 
 ##################################

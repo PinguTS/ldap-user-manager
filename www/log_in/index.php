@@ -17,10 +17,10 @@ if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["pas
   }
 
   $ldap_connection = open_ldap_connection();
-  $account_id = ldap_auth_username($ldap_connection,$_POST["user_id"],$_POST["password"]);
+  $user_dn = ldap_auth_username($ldap_connection,$_POST["user_id"],$_POST["password"]);
 
   // If password failed, try passcode
-  if ($account_id == FALSE && isset($_POST["passcode"]) && $_POST["passcode"] !== "") {
+  if ($user_dn == FALSE && isset($_POST["passcode"]) && $_POST["passcode"] !== "") {
     // Search for user DN across all organizations and system users
     $user_search = ldap_search($ldap_connection, $LDAP['org_dn'], "({$LDAP['account_attribute']}=" . ldap_escape($_POST["user_id"], "", LDAP_ESCAPE_FILTER) . ")", ["dn", "userPassword"]);
     $user_entries = ldap_get_entries($ldap_connection, $user_search);
@@ -45,18 +45,18 @@ if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["pas
         // Verify passcode using LDAP-compatible hashing
         if (verify_ldap_passcode($_POST["passcode"], $stored_hash)) {
           $passcode_found = true;
+          $user_dn = $user_entries[0]["dn"];
           break;
         }
       }
       
-      if ($passcode_found) {
-        $account_id = $_POST["user_id"];
-        // Optionally, set $is_admin = false; (passcode logins are not admin)
+      if (!$passcode_found) {
+        $user_dn = FALSE;
       }
     }
   }
 
-  if (!isset($account_id)) {
+  if (!$user_dn) {
     // Record failed login attempt
     record_login_attempt($_POST["user_id"], false);
 
@@ -66,21 +66,34 @@ if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["pas
     header("Location: //{$_SERVER['HTTP_HOST']}{$THIS_MODULE_PATH}/index.php?invalid");
     exit;
   }
+
+  // Get user UUID for internal use
+  $user_uuid = ldap_user_get_uuid($ldap_connection, $user_dn);
+  if (!$user_uuid) {
+    // Fallback: extract username from DN for backward compatibility
+    if (preg_match('/uid=([^,]+),/', $user_dn, $matches)) {
+      $username = $matches[1];
+    } else {
+      $username = $_POST["user_id"];
+    }
+  } else {
+    $username = $user_uuid;
+  }
  
   // Check if user is a administrator
   $is_admin = false;
-  $is_admin = ldap_is_group_member($ldap_connection, $LDAP['roles_dn'], $LDAP['admin_role'], $account_id);
+  $is_admin = ldap_is_group_member($ldap_connection, $LDAP['roles_dn'], $LDAP['admin_role'], $user_dn);
 
   // Check if user is a maintainer
   $is_maintainer = false;
-  $is_maintainer = ldap_is_group_member($ldap_connection, $LDAP['roles_dn'], $LDAP['maintainer_role'], $account_id);
+  $is_maintainer = ldap_is_group_member($ldap_connection, $LDAP['roles_dn'], $LDAP['maintainer_role'], $user_dn);
  
   // Check if user is an organization admin (but not global admin or maintainer)
   $is_org_admin = false;
-  $is_org_admin = ldap_is_group_member($ldap_connection, $LDAP['org_dn'], $LDAP['org_admin_role'], $account_id);
+  $is_org_admin = ldap_is_group_member($ldap_connection, $LDAP['org_dn'], $LDAP['org_admin_role'], $user_dn);
 
   $user_org_name = null;
-  $user_org_name = ldap_user_get_organization($ldap_connection, $account_id);
+  $user_org_name = ldap_user_get_organization($ldap_connection, $user_dn);
 
   
   ldap_close($ldap_connection);
@@ -88,7 +101,9 @@ if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["pas
   // Record successful login attempt
   record_login_attempt($_POST["user_id"], true);
   
-  set_passkey_cookie($account_id,$is_admin,$is_maintainer);
+  // Use UUID for cookie data when available, fallback to username
+  $cookie_user_id = $user_uuid ?: $_POST["user_id"];
+  set_passkey_cookie($cookie_user_id, $is_admin, $is_maintainer, $is_org_admin, $user_org_name);
   
   if (isset($_POST["redirect_to"])) {
     $validated_redirect = validate_redirect_url($_POST['redirect_to']);
