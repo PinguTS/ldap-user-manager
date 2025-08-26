@@ -180,6 +180,17 @@ function currentUserGetOrgName() {
     return null;
 }
 
+function currentUserGetOrgUuid() {
+    global $USER_ORG_UUID;
+    
+    // Return the organization UUID from session data
+    if (isset($USER_ORG_UUID) && !empty($USER_ORG_UUID)) {
+        return $USER_ORG_UUID;
+    }
+    
+    return null;
+}
+
 function currentUserCanModifyUser($targetUserDN) {
     global $LDAP, $USER_DN;
     

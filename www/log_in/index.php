@@ -79,6 +79,12 @@ if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["pas
   } else {
     $username = $user_uuid;
   }
+
+  // Get organization UUID for redirects
+  $org_uuid = null;
+  if ($user_org_name) {
+    $org_uuid = ldap_organization_get_uuid($ldap_connection, $user_org_name);
+  }
  
   // Check if user is a administrator
   $is_admin = false;
@@ -103,7 +109,7 @@ if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["pas
   
   // Use UUID for cookie data when available, fallback to username
   $cookie_user_id = $user_uuid ?: $_POST["user_id"];
-  set_passkey_cookie($cookie_user_id, $is_admin, $is_maintainer, $is_org_admin, $user_org_name);
+  set_passkey_cookie($cookie_user_id, $is_admin, $is_maintainer, $is_org_admin, $user_org_name, $org_uuid);
   
   if (isset($_POST["redirect_to"])) {
     $validated_redirect = validate_redirect_url($_POST['redirect_to']);
@@ -117,7 +123,10 @@ if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["pas
     $default_module = "account_manager"; 
   } elseif ($is_maintainer) {
     $default_module = "account_manager/organizations"; 
+  } elseif ($is_org_admin && $user_org_name && $org_uuid) {
+    $default_module = "account_manager/show_organization?uuid=" . urlencode($org_uuid);
   } elseif ($is_org_admin && $user_org_name) {
+    // Fallback to name-based URL if UUID not available
     $default_module = "account_manager/show_organization?org=" . urlencode($user_org_name);
   } else { 
     $default_module = "change_password"; 

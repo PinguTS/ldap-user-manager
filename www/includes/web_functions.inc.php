@@ -72,11 +72,11 @@ function generate_passkey() {
 
 ######################################################
 
-function set_passkey_cookie($user_id,$is_admin,$is_maintainer = false, $is_org_admin = false, $org_name = null) {
+function set_passkey_cookie($user_id,$is_admin,$is_maintainer = false, $is_org_admin = false, $org_name = null, $org_uuid = null) {
 
  # Create a random value, store it locally and set it in a cookie.
 
- global $SESSION_TIMEOUT, $VALIDATED, $USER_ID, $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $USER_ORG_NAME, $log_prefix, $SESSION_DEBUG, $DEFAULT_COOKIE_OPTIONS;
+ global $SESSION_TIMEOUT, $VALIDATED, $USER_ID, $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $USER_ORG_NAME, $USER_ORG_UUID, $log_prefix, $SESSION_DEBUG, $DEFAULT_COOKIE_OPTIONS;
 
 
  $passkey = generate_passkey();
@@ -103,6 +103,10 @@ function set_passkey_cookie($user_id,$is_admin,$is_maintainer = false, $is_org_a
  if ($org_name) {
   $USER_ORG_NAME = $org_name;
  }
+
+ if ($org_uuid) {
+  $USER_ORG_UUID = $org_uuid;
+ }
  
  // Clean up any existing session files for this user
  // Use a hash of the user_id to avoid filesystem issues with special characters
@@ -112,10 +116,13 @@ function set_passkey_cookie($user_id,$is_admin,$is_maintainer = false, $is_org_a
      unlink($old_session_file);
  }
  
- // Store session data: passkey:admin:maintainer:org_admin:time:org_name
+ // Store session data: passkey:admin:maintainer:org_admin:time:org_name:org_uuid
  $session_data = "$passkey:$admin_val:$maintainer_val:$org_admin_val:$this_time";
  if ($org_name) {
      $session_data .= ":" . base64_encode($org_name);
+ }
+ if ($org_uuid) {
+     $session_data .= ":" . base64_encode($org_uuid);
  }
  
  @ file_put_contents($old_session_file, $session_data);
@@ -124,7 +131,7 @@ function set_passkey_cookie($user_id,$is_admin,$is_maintainer = false, $is_org_a
  $sessto_cookie_opts['expires'] = $this_time+7200;
  setcookie('sessto_cookie', $this_time+(60 * $SESSION_TIMEOUT), $sessto_cookie_opts);
  
- if ( $SESSION_DEBUG == TRUE) {  error_log("$log_prefix Session: user $user_id validated (IS_ADMIN={$IS_ADMIN}, IS_MAINTAINER={$IS_MAINTAINER}, IS_ORG_ADMIN={$IS_ORG_ADMIN}, ORG={$org_name}), sent orf_cookie to the browser.",0); }
+ if ( $SESSION_DEBUG == TRUE) {  error_log("$log_prefix Session: user $user_id validated (IS_ADMIN={$IS_ADMIN}, IS_MAINTAINER={$IS_MAINTAINER}, IS_ORG_ADMIN={$IS_ORG_ADMIN}, ORG={$org_name}, ORG_UUID={$org_uuid}), sent orf_cookie to the browser.",0); }
  $VALIDATED = TRUE;
 
  // Regenerate session ID on login to prevent session fixation
@@ -138,6 +145,7 @@ function set_passkey_cookie($user_id,$is_admin,$is_maintainer = false, $is_org_a
  $_SESSION['is_maintainer'] = $is_maintainer;
  $_SESSION['is_org_admin'] = $is_org_admin;
  $_SESSION['org_name'] = $org_name;
+ $_SESSION['org_uuid'] = $org_uuid;
  $_SESSION['login_time'] = $this_time;
  $_SESSION['last_activity'] = $this_time;
 
@@ -166,7 +174,7 @@ function login_via_headers() {
 
 function validate_passkey_cookie() {
 
-  global $SESSION_TIMEOUT, $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $USER_ORG_NAME, $USER_ID, $USER_DN, $VALIDATED, $log_prefix, $SESSION_TIMED_OUT, $SESSION_DEBUG, $LDAP, $currentUserGroups;
+  global $SESSION_TIMEOUT, $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $USER_ORG_NAME, $USER_ORG_UUID, $USER_ID, $USER_DN, $VALIDATED, $log_prefix, $SESSION_TIMED_OUT, $SESSION_DEBUG, $LDAP, $currentUserGroups;
 
   $this_time=time();
   $VALIDATED = FALSE;
@@ -174,6 +182,7 @@ function validate_passkey_cookie() {
   $IS_MAINTAINER = FALSE;
   $IS_ORG_ADMIN = FALSE;
   $USER_ORG_NAME = null;
+  $USER_ORG_UUID = null;
   $USER_DN = null;
 
   if (isset($_COOKIE['orf_cookie'])) {
@@ -203,22 +212,31 @@ function validate_passkey_cookie() {
         $f_is_maintainer = 0; // Default to not maintainer for old sessions
         $f_is_org_admin = 0; // Default to not org admin for old sessions
         $f_org_name = null; // No org name in old format
+        $f_org_uuid = null; // No org uuid in old format
       } elseif ($field_count === 4) {
         // Format: passkey:admin:maintainer:time
         list($f_passkey,$f_is_admin,$f_is_maintainer,$f_time) = $session_fields;
         $f_is_org_admin = 0; // Default to not org admin for this format
         $f_org_name = null; // No org name in this format
+        $f_org_uuid = null; // No org uuid in this format
       } elseif ($field_count === 5) {
         // Format: passkey:admin:maintainer:org_admin:time
         list($f_passkey,$f_is_admin,$f_is_maintainer,$f_is_org_admin,$f_time) = $session_fields;
         $f_org_name = null; // No org name in this format
+        $f_org_uuid = null; // No org uuid in this format
       } elseif ($field_count === 6) {
-        // New format: passkey:admin:maintainer:org_admin:time:org_name
+        // Format: passkey:admin:maintainer:org_admin:time:org_name
         list($f_passkey,$f_is_admin,$f_is_maintainer,$f_is_org_admin,$f_time,$f_org_name_encoded) = $session_fields;
         $f_org_name = base64_decode($f_org_name_encoded);
+        $f_org_uuid = null; // No org uuid in this format
+      } elseif ($field_count === 7) {
+        // New format: passkey:admin:maintainer:org_admin:time:org_name:org_uuid
+        list($f_passkey,$f_is_admin,$f_is_maintainer,$f_is_org_admin,$f_time,$f_org_name_encoded,$f_org_uuid_encoded) = $session_fields;
+        $f_org_name = base64_decode($f_org_name_encoded);
+        $f_org_uuid = base64_decode($f_org_uuid_encoded);
       } else {
         // Invalid format
-        if ($SESSION_DEBUG == TRUE) { error_log("$log_prefix Session: Invalid session file format for user $user_id - expected 3-6 fields, got $field_count",0); }
+        if ($SESSION_DEBUG == TRUE) { error_log("$log_prefix Session: Invalid session file format for user $user_id - expected 3-7 fields, got $field_count",0); }
         @unlink("/tmp/session_{$session_hash}");
         return;
       }
@@ -245,6 +263,7 @@ function validate_passkey_cookie() {
         if ($f_is_maintainer == 1) { $IS_MAINTAINER = TRUE; }
         if ($f_is_org_admin == 1) { $IS_ORG_ADMIN = TRUE; }
         if ($f_org_name) { $USER_ORG_NAME = $f_org_name; }
+        if ($f_org_uuid) { $USER_ORG_UUID = $f_org_uuid; }
         $VALIDATED = TRUE;
         $USER_ID=$user_id;
         
@@ -253,10 +272,13 @@ function validate_passkey_cookie() {
         if ($f_org_name) {
             $new_session_data .= ":" . base64_encode($f_org_name);
         }
+        if ($f_org_uuid) {
+            $new_session_data .= ":" . base64_encode($f_org_uuid);
+        }
         @ file_put_contents("/tmp/session_{$session_hash}", $new_session_data);
         
-        if ($SESSION_DEBUG == TRUE) {  error_log("$log_prefix Setup session: Cookie and session file values match for user {$user_id} - VALIDATED (ADMIN = {$IS_ADMIN}, MAINTAINER = {$IS_MAINTAINER}, ORG_ADMIN = {$IS_ORG_ADMIN}, ORG = {$f_org_name})",0); }
-        set_passkey_cookie($USER_ID,$IS_ADMIN,$IS_MAINTAINER,$IS_ORG_ADMIN,$USER_ORG_NAME);
+        if ($SESSION_DEBUG == TRUE) {  error_log("$log_prefix Setup session: Cookie and session file values match for user {$user_id} - VALIDATED (ADMIN = {$IS_ADMIN}, MAINTAINER = {$IS_MAINTAINER}, ORG_ADMIN = {$IS_ORG_ADMIN}, ORG = {$f_org_name}, ORG_UUID = {$f_org_uuid})",0); }
+        set_passkey_cookie($USER_ID,$IS_ADMIN,$IS_MAINTAINER,$IS_ORG_ADMIN,$USER_ORG_NAME,$USER_ORG_UUID);
         // Populate currentUserGroups from LDAP
         $ldap_connection = open_ldap_connection();
         $user_dn = get_user_dn_from_identifier($ldap_connection, $USER_ID);
