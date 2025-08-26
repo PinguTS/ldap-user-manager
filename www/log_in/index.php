@@ -171,22 +171,6 @@ if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["pas
     error_log("Login: HTTP_HOST: '{$_SERVER['HTTP_HOST']}'");
   }
   
-  // Ensure the redirect URL is properly constructed
-  // Check if default_module already has query parameters
-  if (strpos($default_module, '?') !== false) {
-    // Already has query parameters, use & to append logged_in
-    $redirect_url = "//{$_SERVER['HTTP_HOST']}{$SERVER_PATH}$default_module&logged_in";
-    if ($LDAP_DEBUG) {
-      error_log("Login: Using & separator for logged_in (module has existing query params)");
-    }
-  } else {
-    // No query parameters, use ? to start query string
-    $redirect_url = "//{$_SERVER['HTTP_HOST']}{$SERVER_PATH}$default_module?logged_in";
-    if ($LDAP_DEBUG) {
-      error_log("Login: Using ? separator for logged_in (module has no query params)");
-    }
-  }
-  
   // Ensure SERVER_PATH is properly set and ends with /
   if (empty($SERVER_PATH) || $SERVER_PATH === '/') {
     $SERVER_PATH = '/';
@@ -197,21 +181,25 @@ if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["pas
   // Reconstruct URL with validated SERVER_PATH
   if (strpos($default_module, '?') !== false) {
     $redirect_url = "//{$_SERVER['HTTP_HOST']}{$SERVER_PATH}$default_module&logged_in";
+    if ($LDAP_DEBUG) {
+      error_log("Login: Using & separator for logged_in (module has existing query params)");
+    }
   } else {
     $redirect_url = "//{$_SERVER['HTTP_HOST']}{$SERVER_PATH}$default_module?logged_in";
-  }
-  
-  // Validate the final URL
-  if (!filter_var($redirect_url, FILTER_VALIDATE_URL)) {
-    error_log("Login: ERROR - Invalid redirect URL generated: $redirect_url");
-    // Fallback to a safe URL
-    $redirect_url = "//{$_SERVER['HTTP_HOST']}{$SERVER_PATH}change_password/index.php?logged_in";
-    error_log("Login: Using fallback URL: $redirect_url");
+    if ($LDAP_DEBUG) {
+      error_log("Login: Using ? separator for logged_in (module has no query params)");
+    }
   }
   
   if ($LDAP_DEBUG) {
     error_log("Login: Final redirect URL: $redirect_url");
     error_log("Login: SERVER_PATH after validation: '$SERVER_PATH'");
+    error_log("Login: About to redirect to: $redirect_url");
+  }
+  
+  // Final confirmation log
+  if ($LDAP_DEBUG) {
+    error_log("Login: EXECUTING REDIRECT to: $redirect_url");
   }
   
   header("Location: $redirect_url");
