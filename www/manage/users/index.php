@@ -46,15 +46,15 @@ $people = ldap_get_system_users($ldap_connection);
             
             <div class="row mb-3">
                 <div class="col-md-6">
-                    <a href="new.php" class="btn btn-success">
+                    <a href="/manage/users/new.php" class="btn btn-success">
                         <i class="glyphicon glyphicon-plus"></i> New System User
                     </a>
                     <span class="badge badge-info"><?php print count($people);?> system user<?php if (count($people) != 1) { print "s"; }?></span>
                 </div>
                 <div class="col-md-6 text-right">
                     <?php if (currentUserIsGlobalAdmin() || currentUserIsMaintainer()): ?>
-                    <a href="../organizations/" class="btn btn-info">Manage Organizations</a>
-                    <a href="../roles/" class="btn btn-warning">Role Management</a>
+                    <a href="/manage/organizations/" class="btn btn-info">Manage Organizations</a>
+                    <a href="/manage/roles/" class="btn btn-warning">Role Management</a>
                     <?php endif; ?>
                 </div>
             </div>
@@ -93,13 +93,13 @@ $people = ldap_get_system_users($ldap_connection);
                         $user_link_param = $user_uuid ? 'uuid=' . urlencode($user_uuid) : 'account_identifier=' . urlencode($account_identifier);
                         
                         print " <tr>\n";
-                        print "   <td><a href='show.php?{$user_link_param}'>" . htmlspecialchars($account_identifier) . "</a></td>\n";
+                        print "   <td><a href='/manage/users/show.php?{$user_link_param}'>" . htmlspecialchars($account_identifier) . "</a></td>\n";
                         print "   <td>" . safe_user_attribute($people[$account_identifier], 'givenname') . "</td>\n";
                         print "   <td>" . safe_user_attribute($people[$account_identifier], 'sn') . "</td>\n";
                         print "   <td>" . htmlspecialchars($this_mail) . "</td>\n"; 
                         print "   <td>" . htmlspecialchars(implode(", ", $role_membership)) . "</td>\n";
                         print "   <td>";
-                        print "     <a href='show.php?{$user_link_param}' class='btn btn-xs btn-info'>View</a>";
+                        print "     <a href='/manage/users/show.php?{$user_link_param}' class='btn btn-xs btn-info'>View</a>";
                         print "     <button type='button' class='btn btn-xs btn-danger' onclick='confirmDelete(\"" . htmlspecialchars($account_identifier) . "\")'>Delete</button>";
                         print "   </td>";
                         print " </tr>\n";

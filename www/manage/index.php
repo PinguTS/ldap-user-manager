@@ -30,7 +30,7 @@ render_submenu();
                 </div>
                 <div class="panel-body">
                     <p>Manage system users, roles, and permissions.</p>
-                    <a href="users/" class="btn btn-primary">Manage Users</a>
+                    <a href="/manage/users/" class="btn btn-primary">Manage Users</a>
                 </div>
             </div>
         </div>
@@ -42,7 +42,7 @@ render_submenu();
                 </div>
                 <div class="panel-body">
                     <p>Manage system roles and user assignments.</p>
-                    <a href="roles/" class="btn btn-success">Manage Roles</a>
+                    <a href="/manage/roles/" class="btn btn-success">Manage Roles</a>
                 </div>
             </div>
         </div>
@@ -55,7 +55,7 @@ render_submenu();
                 </div>
                 <div class="panel-body">
                     <p>Manage organizations and their users.</p>
-                    <a href="organizations/" class="btn btn-info">Manage Organizations</a>
+                    <a href="/manage/organizations/" class="btn btn-info">Manage Organizations</a>
                 </div>
             </div>
         </div>
@@ -75,9 +75,9 @@ render_submenu();
                     $org_uuid = currentUserGetOrgUuid();
                     
                     if ($org_uuid) {
-                        echo '<a href="organizations/show/index.php?uuid=' . urlencode($org_uuid) . '" class="btn btn-warning">View My Organization</a>';
+                        echo '<a href="/manage/organizations/show/index.php?uuid=' . urlencode($org_uuid) . '" class="btn btn-warning">View My Organization</a>';
                     } elseif ($org_name) {
-                        echo '<a href="organizations/show/index.php?org=' . urlencode($org_name) . '" class="btn btn-warning">View My Organization</a>';
+                        echo '<a href="/manage/organizations/show/index.php?org=' . urlencode($org_name) . '" class="btn btn-warning">View My Organization</a>';
                     }
                     ?>
                 </div>

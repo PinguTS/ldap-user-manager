@@ -27,11 +27,11 @@ function render_submenu() {
       }
       // Add Organizations link for admins/maintainers
       if (function_exists('currentUserIsGlobalAdmin') && function_exists('currentUserIsMaintainer') && (currentUserIsGlobalAdmin() || currentUserIsMaintainer())) {
-        $active = (basename($_SERVER['SCRIPT_FILENAME']) == 'organizations.php') ? " class='active'" : "";
-        print "<li$active><a href='organizations.php'>Organizations</a></li>\n";
+        $active = (basename($_SERVER['SCRIPT_FILENAME']) == 'index.php' && strpos($_SERVER['SCRIPT_FILENAME'], '/organizations/') !== false) ? " class='active'" : "";
+        print "<li$active><a href='/manage/organizations/'>Organizations</a></li>\n";
         // Add Role Management link
-        $active_roles = (basename($_SERVER['SCRIPT_FILENAME']) == 'manage_roles.php') ? " class='active'" : "";
-        print "<li$active_roles><a href='manage_roles.php'>Role Management</a></li>\n";
+        $active_roles = (basename($_SERVER['SCRIPT_FILENAME']) == 'index.php' && strpos($_SERVER['SCRIPT_FILENAME'], '/roles/') !== false) ? " class='active'" : "";
+        print "<li$active_roles><a href='/manage/roles/'>Role Management</a></li>\n";
       }
      ?>
      </ul>

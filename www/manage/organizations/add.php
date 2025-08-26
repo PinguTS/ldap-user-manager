@@ -187,7 +187,7 @@ render_submenu();
                         
                         <div class="form-group">
                             <button type="submit" class="btn btn-success">Create Organization</button>
-                            <a href="../index.php" class="btn btn-default">Cancel</a>
+                            <a href="/manage/organizations/" class="btn btn-default">Cancel</a>
                         </div>
                     </form>
                 </div>

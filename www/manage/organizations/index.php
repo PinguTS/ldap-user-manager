@@ -47,7 +47,7 @@ if (!is_array($organizations)) {
             <?php if (currentUserCanCreateOrganization()): ?>
             <div class="row mb-3">
                 <div class="col-md-12">
-                    <a href="add.php" class="btn btn-success">
+                    <a href="/manage/organizations/add.php" class="btn btn-success">
                         <i class="glyphicon glyphicon-plus"></i> Add New Organization
                     </a>
                 </div>
@@ -124,14 +124,14 @@ if (!is_array($organizations)) {
                                         </p>
                                         <div class="btn-group btn-group-sm">
                                             <?php if ($LDAP['use_uuid_identification'] && isset($org['entryUUID'])): ?>
-                                                <a href="show/index.php?uuid=<?php echo urlencode($org['entryUUID']); ?>" class="btn btn-info">View</a>
-                                                <a href="users/index.php?uuid=<?php echo urlencode($org['entryUUID']); ?>" class="btn btn-primary">Users</a>
+                                                <a href="/manage/organizations/show/index.php?uuid=<?php echo urlencode($org['entryUUID']); ?>" class="btn btn-info">View</a>
+                                                <a href="/manage/organizations/users/index.php?uuid=<?php echo urlencode($org['entryUUID']); ?>" class="btn btn-primary">Users</a>
                                                 <?php if (currentUserCanDeleteOrganization($org_name)): ?>
                                                     <button type="button" class="btn btn-danger" onclick="confirmDelete('<?php echo $org_name_safe; ?>', '<?php echo $org['entryUUID']; ?>')">Delete</button>
                                                 <?php endif; ?>
                                             <?php else: ?>
-                                                <a href="show/index.php?org=<?php echo $org_name_url; ?>" class="btn btn-info">View</a>
-                                                <a href="users/index.php?org=<?php echo $org_name_url; ?>" class="btn btn-primary">Users</a>
+                                                <a href="/manage/organizations/show/index.php?org=<?php echo $org_name_url; ?>" class="btn btn-info">View</a>
+                                                <a href="/manage/organizations/users/index.php?org=<?php echo $org_name_url; ?>" class="btn btn-primary">Users</a>
                                                 <?php if (currentUserCanDeleteOrganization($org_name)): ?>
                                                     <button type="button" class="btn btn-danger" onclick="confirmDelete('<?php echo $org_name_safe; ?>')">Delete</button>
                                                 <?php endif; ?>

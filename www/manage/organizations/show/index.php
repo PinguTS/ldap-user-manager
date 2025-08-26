@@ -236,10 +236,16 @@ if ($orgExists) {
 
   <nav aria-label="breadcrumb">
    <ol class="breadcrumb">
-    <li class="breadcrumb-item"><a href="organizations.php">Organizations</a></li>
+    <li class="breadcrumb-item"><a href="/manage/">Dashboard</a></li>
+    <li class="breadcrumb-item"><a href="/manage/organizations/">Organizations</a></li>
     <li class="breadcrumb-item active" aria-current="page"><?php print htmlspecialchars($org_name); ?></li>
    </ol>
   </nav>
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+   <h2>Organization: <?php print htmlspecialchars($org_name); ?></h2>
+   <a href="/manage/organizations/" class="btn btn-default pull-right">Back to Organizations</a>
+  </div>
 
   <div class="panel panel-default">
    <div class="panel-heading clearfix">
@@ -340,9 +346,10 @@ if ($orgExists) {
       </table>
       
       <h4>Actions</h4>
-      <div class="btn-group-vertical" style="width: 100%;">
-       <a href="<?php print $THIS_MODULE_PATH; ?>/org_users.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>" class="btn btn-info">View All Users</a>
-                       <a href="<?php print $THIS_MODULE_PATH; ?>/add_org_user.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>" class="btn btn-success">Add New User</a>
+      <div class="btn-group" role="group">
+                            <a href="/manage/organizations/users/index.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>" class="btn btn-info">View All Users</a>
+                            <a href="/manage/organizations/users/add.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>" class="btn btn-success">Add New User</a>
+                        </div>
        <?php if ($can_modify_org): ?>
        <button class="btn btn-primary" onclick="showEditForm()">Edit Organization</button>
        <?php endif; ?>
@@ -378,12 +385,16 @@ if ($orgExists) {
                          <td><?php print htmlspecialchars($user['mail']); ?></td>
                          <td><?php print htmlspecialchars(ucfirst(str_replace('_', ' ', $user['role'] ?? 'user'))); ?></td>
                          <td>
-                          <a href="<?php print $THIS_MODULE_PATH; ?>/org_users.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>&edit_user=<?php echo urlencode($user['uid'][0] ?? $user['mail']); ?>" class="btn btn-xs btn-primary">Edit</a>
-                         </td>
-                        </tr>
-                       <?php } ?>
-                      </tbody>
-                     </table>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="/manage/organizations/users/index.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>&edit_user=<?php echo urlencode($user['uid'][0] ?? $user['mail'][0] ?? $user['cn'][0]); ?>" class="btn btn-secondary btn-sm">Edit</a>
+                                    <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteUser('<?php echo htmlspecialchars($user['uid'][0] ?? $user['mail'][0] ?? $user['cn'][0]); ?>')">Delete</button>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                    
+                    <div class="text-center mt-3">
+                        <a href="/manage/organizations/users/index.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>">View all users</a>
                     </div>
        <?php if (count($org_users) > 5) { ?>
         <p><em>Showing 5 of <?php print count($org_users); ?> users. 

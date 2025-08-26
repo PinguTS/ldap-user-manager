@@ -282,9 +282,10 @@ if ($errors != "") { ?>
 <div class="container">
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="organizations.php">Organizations</a></li>
-            <li class="breadcrumb-item"><a href="show_organization.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>"><?php echo htmlspecialchars($org_name); ?></a></li>
-            <li class="breadcrumb-item"><a href="org_users.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>">Users</a></li>
+            <li class="breadcrumb-item"><a href="/manage/">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="/manage/organizations/">Organizations</a></li>
+            <li class="breadcrumb-item"><a href="/manage/organizations/show/index.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>"><?php echo htmlspecialchars($org_name); ?></a></li>
+            <li class="breadcrumb-item"><a href="/manage/organizations/users/index.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>">Users</a></li>
             <li class="breadcrumb-item active" aria-current="page">Add User</li>
         </ol>
     </nav>
@@ -427,8 +428,8 @@ if ($errors != "") { ?>
                         <!-- Submit Buttons -->
                         <div class="form-group">
                             <div class="col-sm-6 col-sm-offset-3">
-                                <button type="submit" class="btn btn-primary">Create User</button>
-                                <a href="org_users.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>" class="btn btn-default">Cancel</a>
+                                <button type="submit" name="create_user" class="btn btn-success">Create User</button>
+                                <a href="/manage/organizations/users/index.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>" class="btn btn-default">Cancel</a>
                             </div>
                         </div>
                     </form>

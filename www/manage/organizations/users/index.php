@@ -467,13 +467,17 @@ $orgManagerDns = getOrgManagerDns($orgName);
 <div class="container">
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="organizations.php">Organizations</a></li>
-            <li class="breadcrumb-item"><a href="show_organization.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName); ?>"><?= htmlspecialchars($orgDisplay) ?></a></li>
+            <li class="breadcrumb-item"><a href="/manage/">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="/manage/organizations/">Organizations</a></li>
+            <li class="breadcrumb-item"><a href="/manage/organizations/show/index.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName); ?>"><?= htmlspecialchars($orgDisplay) ?></a></li>
             <li class="breadcrumb-item active" aria-current="page">Users</li>
         </ol>
     </nav>
-    <h2>Users in Organization: <?= htmlspecialchars($orgDisplay) ?></h2>
-    <a href="show_organization.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName); ?>" class="btn btn-secondary mb-3">&larr; Back to Organization</a>
+    
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Users in <?= htmlspecialchars($orgDisplay) ?></h2>
+        <a href="/manage/organizations/show/index.php?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="btn btn-secondary mb-3">&larr; Back to Organization</a>
+    </div>
     <?php if ($message): ?>
         <div class="alert alert-<?= $message_type ?>" id="msgbox"> <?= $message ?> </div>
     <?php endif; ?>
@@ -505,20 +509,19 @@ $orgManagerDns = getOrgManagerDns($orgName);
                         </form>
                     </td>
                     <td>
-                        <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&edit_user=<?= urlencode($user['uid'][0]) ?>" class="btn btn-secondary btn-sm">Edit</a>
-                        <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&delete_user=<?= urlencode($user['uid'][0]) ?>" onclick="return confirm('Are you sure you want to delete this user?');" class="btn btn-danger btn-sm">Delete</a>
-                        <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&reset_user=<?= urlencode($user['uid'][0]) ?>" class="btn btn-warning btn-sm">Reset</a>
+                        <div class="btn-group btn-group-sm">
+                            <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&edit_user=<?= urlencode($user['uid'][0]) ?>" class="btn btn-secondary btn-sm">Edit</a>
+                            <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&delete_user=<?= urlencode($user['uid'][0]) ?>" onclick="return confirm('Are you sure you want to delete this user?')" class="btn btn-danger btn-sm">Delete</a>
+                            <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&reset_user=<?= urlencode($user['uid'][0]) ?>" class="btn btn-warning btn-sm">Reset</a>
+                        </div>
                     </td>
                 </tr>
             <?php endforeach; ?>
         </tbody>
     </table>
-    <h3>Add User to Organization</h3>
     
-    <!-- Link to full user creation form -->
-    <div class="alert alert-info">
-        <strong>Need to add a user?</strong> Use the full user creation form for complete user setup with all options.
-        <a href="add_org_user.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName); ?>" class="btn btn-success btn-sm ml-2">Create New User</a>
+    <div class="mt-3">
+        <a href="/manage/organizations/users/add.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName); ?>" class="btn btn-success btn-sm ml-2">Create New User</a>
     </div>
     
     <h4>Quick Add User</h4>
@@ -556,11 +559,11 @@ $orgManagerDns = getOrgManagerDns($orgName);
     <div class="modal show" tabindex="-1" style="display:block; background:rgba(0,0,0,0.3); z-index:1050;">
       <div class="modal-dialog">
         <div class="modal-content border-primary">
-          <form method="post">
+          <form method="post" action="">
             <?= csrf_token_field() ?>
             <div class="modal-header bg-primary text-white">
               <h5 class="modal-title">Edit User: <?= htmlspecialchars($editUser['uid'][0]) ?></h5>
-              <a href="org_users.php?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="close text-white">&times;</a>
+              <a href="/manage/organizations/users/index.php?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="close text-white">&times;</a>
             </div>
             <div class="modal-body">
               <input type="hidden" name="edit_uid" value="<?= htmlspecialchars($editUser['uid'][0]) ?>">
@@ -587,7 +590,7 @@ $orgManagerDns = getOrgManagerDns($orgName);
             </div>
             <div class="modal-footer">
               <button type="submit" name="save_user" class="btn btn-primary">Save Changes</button>
-              <a href="org_users.php?org=<?= urlencode($orgName) ?>" class="btn btn-secondary">Cancel</a>
+              <a href="/manage/organizations/users/index.php?org=<?= urlencode($orgName) ?>" class="btn btn-secondary">Cancel</a>
             </div>
           </form>
         </div>
@@ -602,7 +605,7 @@ $orgManagerDns = getOrgManagerDns($orgName);
             <?= csrf_token_field() ?>
             <div class="modal-header bg-warning text-dark">
               <h5 class="modal-title">Reset Credentials for <?= htmlspecialchars($resetUid) ?></h5>
-              <a href="org_users.php?org=<?= urlencode($orgName) ?>" class="close text-dark">&times;</a>
+              <a href="/manage/organizations/users/index.php?org=<?= urlencode($orgName) ?>" class="close text-dark">&times;</a>
             </div>
             <div class="modal-body">
               <input type="hidden" name="reset_uid" value="<?= htmlspecialchars($resetUid) ?>">
@@ -617,7 +620,7 @@ $orgManagerDns = getOrgManagerDns($orgName);
             </div>
             <div class="modal-footer">
               <button type="submit" name="reset_creds" class="btn btn-warning">Reset</button>
-              <a href="org_users.php?org=<?= urlencode($orgName) ?>" class="btn btn-secondary">Cancel</a>
+              <a href="/manage/organizations/users/index.php?org=<?= urlencode($orgName) ?>" class="btn btn-secondary">Cancel</a>
             </div>
           </form>
         </div>
