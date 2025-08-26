@@ -493,7 +493,11 @@ function render_menu() {
  #Render the navigation menu.
  #The menu is dynamically rendered the $MODULES hash
 
- global $SITE_NAME, $MODULES, $THIS_MODULE, $VALIDATED, $IS_ADMIN, $USER_ID, $SERVER_PATH, $CUSTOM_LOGO;
+ global $SITE_NAME, $MODULES, $THIS_MODULE, $VALIDATED, $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $USER_ID, $SERVER_PATH, $CUSTOM_LOGO, $LDAP_DEBUG;
+
+ if (isset($LDAP_DEBUG) && $LDAP_DEBUG) {
+   error_log("render_menu: User roles - Admin: " . ($IS_ADMIN ? 'YES' : 'NO') . ", Maintainer: " . ($IS_MAINTAINER ? 'YES' : 'NO') . ", Org Admin: " . ($IS_ORG_ADMIN ? 'YES' : 'NO') . ", Validated: " . ($VALIDATED ? 'YES' : 'NO'));
+ }
 
  ?>
   <nav class="navbar navbar-default">
@@ -511,11 +515,17 @@ function render_menu() {
       $show_this_module = TRUE;
       if ($VALIDATED == TRUE) {
        if ($access == 'hidden_on_login') { $show_this_module = FALSE; }
-       if ($IS_ADMIN == FALSE and $access == 'admin' ){ $show_this_module = FALSE; }
+       if ($access == 'admin' && $IS_ADMIN == FALSE) { $show_this_module = FALSE; }
+       if ($access == 'admin_maintainer_org_admin' && !$IS_ADMIN && !$IS_MAINTAINER && !$IS_ORG_ADMIN) { $show_this_module = FALSE; }
       }
       else {
        if ($access != 'hidden_on_login') { $show_this_module = FALSE; }
       }
+      
+      if (isset($LDAP_DEBUG) && $LDAP_DEBUG) {
+        error_log("render_menu: Module '$module' (access: $access) - show: " . ($show_this_module ? 'YES' : 'NO'));
+      }
+      
       #print "<p>$module - access is $access & show is $show_this_module</p>";
       if ($show_this_module == TRUE ) {
        if ($module == $THIS_MODULE) {
