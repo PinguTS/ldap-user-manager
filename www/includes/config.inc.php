@@ -243,7 +243,6 @@ $LDAP['org_dn'] = "ou={$LDAP['org_ou']},{$LDAP['base_dn']}";
 $LDAP['people_dn'] = "ou=people,{$LDAP['base_dn']}";
 $LDAP['org_people_dn'] = "ou=people,{$LDAP['org_dn']}";
 $LDAP['roles_dn'] = "ou=roles,{$LDAP['base_dn']}";
-$LDAP['org_roles_dn'] = "ou=roles,{$LDAP['org_dn']}";
 
 # UUID-based identification configuration
 $LDAP['use_uuid_identification'] = getenv('LDAP_USE_UUID_IDENTIFICATION') ? 

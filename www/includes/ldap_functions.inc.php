@@ -98,109 +98,106 @@ function open_ldap_connection($ldap_bind=TRUE) {
 
 function ldap_auth_username($ldap_connection, $username, $password) {
 
- # Search for the DN for the given username across all organizations.  If found, try binding with the DN and user's password.
- # If the binding succeeds, return the DN.
+  # Search for the DN for the given username across all organizations.  If found, try binding with the DN and user's password.
+  # If the binding succeeds, return the DN.
 
- global $log_prefix, $LDAP, $SITE_LOGIN_LDAP_ATTRIBUTE, $LDAP_DEBUG;
+  global $log_prefix, $LDAP, $SITE_LOGIN_LDAP_ATTRIBUTE, $LDAP_DEBUG;
 
- $ldap_search_query="{$SITE_LOGIN_LDAP_ATTRIBUTE}=" . ldap_escape(($username === null ? '' : $username), "", LDAP_ESCAPE_FILTER);
- if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix Running LDAP search for: $ldap_search_query"); }
+  $ldap_search_query="{$SITE_LOGIN_LDAP_ATTRIBUTE}=" . ldap_escape(($username === null ? '' : $username), "", LDAP_ESCAPE_FILTER);
+  if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix Running LDAP search for: $ldap_search_query"); }
 
- # Search across all organizations for the user
- $ldap_search = @ ldap_search( $ldap_connection, $LDAP['org_dn'], $ldap_search_query );
-
- if (!$ldap_search) {
-  error_log("$log_prefix Couldn't search for $ldap_search_query: " . ldap_error($ldap_connection),0);
-  return FALSE;
- }
-
- $result = @ ldap_get_entries($ldap_connection, $ldap_search);
- if (!$result) {
-  error_log("$log_prefix Couldn't get LDAP entries for {$username}: " . ldap_error($ldap_connection),0);
-  return FALSE;
- }
- if ($LDAP_DEBUG == TRUE) {
-   error_log("$log_prefix LDAP search returned " . $result["count"] . " records for $ldap_search_query",0);
-   for ($i=1; $i==$result["count"]; $i++) {
-     error_log("$log_prefix ". "Entry {$i}: " . $result[$i-1]['dn'], 0);
-   }
- }
-
- if ($result["count"] == 1) {
-
-  $this_dn = $result[0]['dn'];
-  if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix Attempting authenticate as $username by binding with {$this_dn} ",0); }
-  $auth_ldap_connection = open_ldap_connection(FALSE);
-  $can_bind =  @ ldap_bind($auth_ldap_connection, $result[0]['dn'], $password);
-
-  if ($can_bind) {
-   preg_match("/{$LDAP['account_attribute']}=(.*?),/",$result[0]['dn'],$dn_match);
-   $account_id=$dn_match[1];
-   if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix Able to bind as {$username}: dn is {$result[0]['dn']} and account ID is {$account_id}",0); }
-   ldap_close($auth_ldap_connection);
-   return $account_id;
-  }
-  else {
-   if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix Unable to bind as {$username}: " . ldap_error($auth_ldap_connection),0); }
-   ldap_close($auth_ldap_connection);
-   return FALSE;
+  # Search across all organizations for the user
+  $ldap_search = @ldap_search( $ldap_connection, $LDAP['org_dn'], $ldap_search_query );
+  if (!$ldap_search) {
+    error_log("$log_prefix Couldn't search for $ldap_search_query: " . ldap_error($ldap_connection),0);
+    return FALSE;
   }
 
- }
- elseif ($result["count"] > 1) {
-   if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix There was more than one entry for {$ldap_search_query} so it wasn't possible to determine which user to log in as."); }
- }
-
- # If not found in organizations, search in system users
- if ($result["count"] == 0) {
-   if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix User not found in organizations, searching in system users"); }
-   
-   $ldap_search = @ ldap_search( $ldap_connection, $LDAP['people_dn'], $ldap_search_query );
-   
-   if (!$ldap_search) {
-    error_log("$log_prefix Couldn't search for $ldap_search_query in system users: " . ldap_error($ldap_connection),0);
+  $result = @ldap_get_entries($ldap_connection, $ldap_search);
+  if (!$result) {
+    error_log("$log_prefix Couldn't get LDAP entries for {$username}: " . ldap_error($ldap_connection),0);
     return FALSE;
-   }
+  }
 
-   $result = @ ldap_get_entries($ldap_connection, $ldap_search);
-   if (!$result) {
-    error_log("$log_prefix Couldn't get LDAP entries for {$username} in system users: " . ldap_error($ldap_connection),0);
+  if ($LDAP_DEBUG == TRUE) {
+    error_log("$log_prefix LDAP search returned " . $result["count"] . " records for $ldap_search_query",0);
+    for ($i=1; $i==$result["count"]; $i++) {
+      error_log("$log_prefix ". "Entry {$i}: " . $result[$i-1]['dn'], 0);
+    }
+  }
+
+  if ($result["count"] > 1) {
+    if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix There was more than one entry for {$ldap_search_query} so it wasn't possible to determine which user to log in as."); }
+    ldap_close($auth_ldap_connection);
     return FALSE;
-   }
-   if ($LDAP_DEBUG == TRUE) {
-     error_log("$log_prefix LDAP search in system users returned " . $result["count"] . " records for $ldap_search_query",0);
-     for ($i=1; $i==$result["count"]; $i++) {
-       error_log("$log_prefix ". "Entry {$i}: " . $result[$i-1]['dn'], 0);
-     }
-   }
+  }
 
-   if ($result["count"] == 1) {
+  if ($result["count"] == 1) {
 
     $this_dn = $result[0]['dn'];
-    if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix Attempting authenticate as $username by binding with {$this_dn} ",0); }
-    $auth_ldap_connection = open_ldap_connection(FALSE);
-    $can_bind =  @ ldap_bind($auth_ldap_connection, $result[0]['dn'], $password);
 
-    if ($can_bind) {
-     preg_match("/{$LDAP['account_attribute']}=(.*?),/",$result[0]['dn'],$dn_match);
-     $account_id=$dn_match[1];
-     if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix Able to bind as {$username}: dn is {$result[0]['dn']} and account ID is {$account_id}",0); }
-     ldap_close($auth_ldap_connection);
-     return $account_id;
-    }
-    else {
-     if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix Unable to bind as {$username}: " . ldap_error($auth_ldap_connection),0); }
-     ldap_close($auth_ldap_connection);
-     return FALSE;
+  }
+
+  # If not found in organizations, search in system users
+  if ($result["count"] == 0) {
+    if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix User not found in organizations, searching in system users"); }
+    
+    $ldap_search = @ldap_search( $ldap_connection, $LDAP['people_dn'], $ldap_search_query );
+    if (!$ldap_search) {
+      error_log("$log_prefix Couldn't search for $ldap_search_query in system users: " . ldap_error($ldap_connection),0);
+      return FALSE;
     }
 
-   }
-   elseif ($result["count"] > 1) {
-     if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix There was more than one entry for {$username} in system users so it wasn't possible to determine which user to log in as."); }
-   }
- }
+    $result = @ldap_get_entries($ldap_connection, $ldap_search);
+    if (!$result) {
+      error_log("$log_prefix Couldn't get LDAP entries for {$username} in system users: " . ldap_error($ldap_connection),0);
+      return FALSE;
+    }
 
- return FALSE;
+    if ($LDAP_DEBUG == TRUE) {
+      error_log("$log_prefix LDAP search in system users returned " . $result["count"] . " records for $ldap_search_query",0);
+      for ($i=1; $i==$result["count"]; $i++) {
+        error_log("$log_prefix ". "Entry {$i}: " . $result[$i-1]['dn'], 0);
+      }
+    }
+
+    if ($result["count"] > 1) {
+      if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix There was more than one entry for {$username} in system users so it wasn't possible to determine which user to log in as."); }
+      ldap_close($auth_ldap_connection);
+      return FALSE;
+    }
+
+    if ($result["count"] == 1) {
+
+      $this_dn = $result[0]['dn'];
+
+    }
+
+    if ($result["count"] == 0) {
+
+      if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix There was no entry for {$username} in system users so it wasn't possible to determine which user to log in as."); }
+      ldap_close($auth_ldap_connection);
+      return FALSE;
+
+    }
+  }
+
+  if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix Attempting authenticate as $username by binding with {$this_dn} ",0); }
+
+  $auth_ldap_connection = open_ldap_connection(FALSE);
+
+  $can_bind =  @ldap_bind($auth_ldap_connection, $this_dn, $password);
+  if ($can_bind) {
+    preg_match("/{$LDAP['account_attribute']}=(.*?),/", $this_dn, $dn_match);
+    $account_id=$dn_match[1];
+    if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix Able to bind as {$username}: dn is {$this_dn} and account ID is {$account_id}",0); }
+    ldap_close($auth_ldap_connection);
+    return $this_dn;
+  }
+
+  if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix Unable to bind as {$username}: " . ldap_error($auth_ldap_connection),0); }
+  ldap_close($auth_ldap_connection);
+  return FALSE;
 }
 
 
@@ -688,153 +685,126 @@ function ldap_get_role_members($ldap_connection, $role_name, $start=0, $entries=
 
 ##################################
 
-function ldap_is_group_member($ldap_connection, $group_name, $username) {
-    global $log_prefix, $LDAP, $LDAP_DEBUG;
+function ldap_is_group_member($ldap_connection, $base_dn, $group_name, $user_dn) {
+  global $log_prefix, $LDAP, $LDAP_DEBUG;
 
-    if (empty($group_name) || empty($username)) {
-        return FALSE;
-    }
+  if (empty($base_dn) || empty($group_name) || empty($user_dn)) {
+    return FALSE;
+  }
 
+  $ldap_search_query = "(&(objectclass=groupOfNames)(cn=$group_name)(member=$user_dn))";
+  $ldap_search = @ldap_search($ldap_connection, $base_dn, $ldap_search_query);
+  if (!$ldap_search) {
+    return FALSE;
+  }
 
+  $result = ldap_get_entries($ldap_connection, $ldap_search);
+  if ($result['count'] > 0) {
+    return ($result['count'] > 0);
+  }
 
-    # Get user DN first
-    $user_dn = null;
-    $user_filter = "(&(objectclass=inetOrgPerson)({$LDAP['account_attribute']}=$username))";
-    
-    # Search in organizations
-    $ldap_search = @ ldap_search($ldap_connection, $LDAP['org_dn'], $user_filter, array('dn'));
-    if ($ldap_search) {
-      $result = @ ldap_get_entries($ldap_connection, $ldap_search);
-      if ($result['count'] > 0) {
-        $user_dn = $result[0]['dn'];
-      }
-    }
-    
-    # If not found in organizations, search in system users
-    if (!$user_dn) {
-      $ldap_search = @ ldap_search($ldap_connection, $LDAP['people_dn'], $user_filter, array('dn'));
-      if ($ldap_search) {
-        $result = @ ldap_get_entries($ldap_connection, $ldap_search);
-        if ($result['count'] > 0) {
-          $user_dn = $result[0]['dn'];
-        }
-      }
-    }
-    
-    if (!$user_dn) {
-        if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix User $username not found for role membership check",0); }
-        return FALSE;
-    }
-
-    # Check if this is a global role (administrator, maintainer)
-            if (in_array($group_name, array($LDAP['admin_role'], $LDAP['maintainer_role']))) {
-        # Search in global roles
-        $ldap_search_query = "(&(objectclass=groupOfNames)(cn=$group_name)(member=$user_dn))";
-        $ldap_search = @ldap_search($ldap_connection, $LDAP['roles_dn'], $ldap_search_query);
-        
-        if ($ldap_search) {
-            $result = ldap_get_entries($ldap_connection, $ldap_search);
-            return ($result['count'] > 0);
-        }
-        return FALSE;
-    } else {
-        # Search in organization-specific roles
-        $ldap_search_query = "(&(objectclass=groupOfNames)(cn=$group_name)(member=$user_dn))";
-        $ldap_search = @ldap_search($ldap_connection, $LDAP['org_dn'], $ldap_search_query);
-        
-        if ($ldap_search) {
-            $result = ldap_get_entries($ldap_connection, $ldap_search);
-            return ($result['count'] > 0);
-        }
-        return FALSE;
-    }
+  return FALSE;
 }
 
 
 ##################################
 
-function ldap_user_group_membership($ldap_connection,$username) {
+function ldap_user_get_organization($ldap_connection, $user_dn) {
+  global $log_prefix, $LDAP, $LDAP_DEBUG;
 
- global $log_prefix, $LDAP, $LDAP_DEBUG;
+  return get_organization_from_user_dn($user_dn);
+}
 
- # Get user DN first
- $user_dn = null;
- $user_filter = "(&(objectclass=inetOrgPerson)({$LDAP['account_attribute']}=$username))";
- 
- # Search in organizations
- $ldap_search = @ ldap_search($ldap_connection, $LDAP['org_dn'], $user_filter, array('dn'));
- if ($ldap_search) {
-   $result = @ ldap_get_entries($ldap_connection, $ldap_search);
-   if ($result['count'] > 0) {
-     $user_dn = $result[0]['dn'];
-   }
- }
- 
- # If not found in organizations, search in system users
- if (!$user_dn) {
-   $ldap_search = @ ldap_search($ldap_connection, $LDAP['people_dn'], $user_filter, array('dn'));
-   if ($ldap_search) {
-     $result = @ ldap_get_entries($ldap_connection, $ldap_search);
-     if ($result['count'] > 0) {
-       $user_dn = $result[0]['dn'];
-     }
-   }
- }
- 
- if (!$user_dn) {
-   if ($LDAP_DEBUG == TRUE) { error_log("$log_prefix User $username not found for role membership check",0); }
-   return array();
- }
+function get_organization_from_user_dn($user_dn) {
+  global $LDAP;
+  
+  // Pattern: uid=username,ou=people,o=OrgName,ou=organizations,dc=example,dc=com
+  if (preg_match('/o=([^,]+),ou=organizations,/', $user_dn, $matches)) {
+      return $matches[1];
+  }
+  
+  // Alternative pattern for some structures
+  if (preg_match('/o=([^,]+),/', $user_dn, $matches)) {
+      return $matches[1];
+  }
+  
+  return FALSE;
+}
 
- # Search for roles that contain this user
- $roles = array();
- 
- # Check global roles (administrator, maintainer)
- $global_roles_filter = "(&(objectclass=groupOfNames)(member=$user_dn))";
- $ldap_search = @ ldap_search($ldap_connection, $LDAP['roles_dn'], $global_roles_filter, array('cn'));
- if ($ldap_search) {
-   $result = @ ldap_get_entries($ldap_connection, $ldap_search);
-   foreach ($result as $record) {
-     if (isset($record['cn'][0])) {
-       $roles[] = $record['cn'][0];
-     }
-   }
- }
- 
- # Check organization-specific roles
- $org_roles_filter = "(&(objectclass=groupOfNames)(member=$user_dn))";
- $ldap_search = @ ldap_search($ldap_connection, $LDAP['org_roles_dn'], $org_roles_filter, array('cn'));
- if ($ldap_search) {
-   $result = @ ldap_get_entries($ldap_connection, $ldap_search);
-   foreach ($result as $record) {
-     if (isset($record['cn'][0])) {
-       $roles[] = $record['cn'][0];
-     }
-   }
- }
- 
- sort($roles);
- return $roles;
+##################################
+
+function ldap_user_group_membership($ldap_connection,$user_dn) {
+
+  global $log_prefix, $LDAP, $LDAP_DEBUG;
+
+  # Search for roles that contain this user
+  $roles = array();
+
+  if (empty($user_dn)) {
+    return $roles;
+  }
+
+  # Check global roles (administrator, maintainer)
+  $global_roles_filter = "(&(objectclass=groupOfNames)(member=$user_dn))";
+  $ldap_search = @ldap_search($ldap_connection, $LDAP['roles_dn'], $global_roles_filter, array('cn'));
+  if ($ldap_search) {
+    $result = @ldap_get_entries($ldap_connection, $ldap_search);
+    foreach ($result as $record) {
+      if (isset($record['cn'][0])) {
+        $roles[] = $record['cn'][0];
+      }
+    }
+  }
+
+  # Check organization-specific roles
+  $org_roles_filter = "(&(objectclass=groupOfNames)(member=$user_dn))";
+  $ldap_search = @ldap_search($ldap_connection, $LDAP['org_dn'], $org_roles_filter, array('cn'));
+  if ($ldap_search) {
+    $result = @ldap_get_entries($ldap_connection, $ldap_search);
+    foreach ($result as $record) {
+      if (isset($record['cn'][0])) {
+        $roles[] = $record['cn'][0];
+      }
+    }
+  }
+
+  sort($roles);
+  return $roles;
 
 }
 
 
 
 
-
-
-
-
-
-
-
-
-
 ##################################
 
+function ldap_organization_get_uuid($ldap_connection, $organization_name) {
+  global $log_prefix, $LDAP, $LDAP_DEBUG;
 
+  $ldap_search = @ldap_search($ldap_connection, $LDAP['org_dn'], "(&(objectclass=organization)(cn=$organization_name))", array('uuid'));
+  $result = ldap_get_entries($ldap_connection, $ldap_search);
 
+  if ($result['count'] > 0) {
+    return $result[0]['uuid'][0];
+  }
 
+  return FALSE;
+
+}
+
+function ldap_user_get_uuid($ldap_connection, $user_dn) {
+  global $log_prefix, $LDAP, $LDAP_DEBUG;
+
+  $ldap_search = @ldap_search($ldap_connection, $LDAP['org_dn'], "(&(objectclass=inetOrgPerson)({$LDAP['account_attribute']}=$user_dn))", array('uuid'));
+  $result = ldap_get_entries($ldap_connection, $ldap_search);
+  
+  if ($result['count'] > 0) {
+    return $result[0]['uuid'][0];
+  }
+
+  return FALSE;
+
+}
 ##################################
 
 function ldap_complete_attribute_array($default_attributes,$additional_attributes) {
