@@ -7,8 +7,12 @@ This directory contains the management interface for the LDAP User Manager syste
 ```
 /manage/
 ├── index.php                    # Main management dashboard
+├── download.php                 # File download functionality
+├── module_functions.inc.php     # Submenu navigation functions
 ├── users/                       # User management
-│   └── index.php               # System users management
+│   ├── index.php               # System users management
+│   ├── new.php                 # Create new system user
+│   └── show.php                # View/edit user profile
 ├── roles/                       # Role management
 │   └── index.php               # System roles management
 └── organizations/               # Organization management
@@ -20,6 +24,27 @@ This directory contains the management interface for the LDAP User Manager syste
         ├── index.php           # List organization users
         └── add.php             # Add user to organization
 ```
+
+## Complete File Migration Mapping
+
+### **From `/account_manager/` → To `/manage/`**
+
+| Old Path | New Path | Function |
+|----------|----------|----------|
+| `index.php` | `users/index.php` | System users management |
+| `manage_roles.php` | `roles/index.php` | System roles management |
+| `organizations.php` | `organizations/index.php` | Organizations overview |
+| `show_organization.php` | `organizations/show/index.php` | View/edit organization |
+| `org_users.php` | `organizations/users/index.php` | Organization users list |
+| `add_org_user.php` | `organizations/users/add.php` | Add user to organization |
+| `new_user.php` | `users/new.php` | Create new system user |
+| `show_user.php` | `users/show.php` | View/edit user profile |
+| `download.php` | `download.php` | File download functionality |
+| `module_functions.inc.php` | `module_functions.inc.php` | Submenu navigation |
+
+### **New Files Added**
+- `index.php` - Main management dashboard
+- `organizations/add.php` - Dedicated organization creation
 
 ## Access Control
 
@@ -70,7 +95,12 @@ The management system is accessible through the main navigation menu, which show
 
 ### User Management
 - **System Users**: `/manage/users/`
+- **New System User**: `/manage/users/new.php`
+- **View/Edit User**: `/manage/users/show.php?uuid={uuid}` or `?account_identifier={id}`
 - **System Roles**: `/manage/roles/`
+
+### File Downloads
+- **Download**: `/manage/download.php?resource_identifier={dn}&attribute={attr}`
 
 ## Benefits of New Structure
 
@@ -80,7 +110,27 @@ The management system is accessible through the main navigation menu, which show
 4. **Intuitive URLs**: Self-explanatory paths like `/manage/organizations/users/add`
 5. **Better UX**: Users can easily find and navigate to management functions
 6. **Consistent Access Control**: Unified permission system across all management areas
+7. **Maintainable**: Easier for developers to understand and modify
+8. **Professional Interface**: More enterprise-grade appearance and organization
 
 ## Migration Notes
 
-This structure replaces the previous flat `/account_manager/` directory structure. All redirects and links have been updated to use the new paths.
+This structure replaces the previous flat `/account_manager/` directory structure. All redirects and links have been updated to use the new paths. The new structure maintains 100% functional compatibility while providing a much more logical and maintainable organization.
+
+### **Functionality Preserved**
+- ✅ All user management functions
+- ✅ All role management functions  
+- ✅ All organization management functions
+- ✅ All file download capabilities
+- ✅ All access control mechanisms
+- ✅ All form processing and validation
+- ✅ All LDAP operations and queries
+- ✅ All security features (CSRF, validation, etc.)
+
+### **Improvements Added**
+- 🆕 Main management dashboard
+- 🆕 Dedicated organization creation page
+- 🆕 Better navigation and breadcrumbs
+- 🆕 Consistent UI patterns
+- 🆕 Enhanced error handling
+- 🆕 Better mobile responsiveness
