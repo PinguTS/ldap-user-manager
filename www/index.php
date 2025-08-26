@@ -20,16 +20,16 @@ if (isset($VALIDATED) && $VALIDATED) {
   if (isset($IS_ADMIN) && $IS_ADMIN) {
     // Global admin, redirect to account manager
     if (isset($LDAP_DEBUG) && $LDAP_DEBUG) {
-      error_log("Main Index: Redirecting global admin to account_manager/");
+      error_log("Main Index: Redirecting global admin to manage/users/");
     }
-    header("Location: account_manager/");
+    header("Location: manage/users/");
     exit;
   } elseif (isset($IS_MAINTAINER) && $IS_MAINTAINER) {
     // Maintainer, redirect to organizations page
     if (isset($LDAP_DEBUG) && $LDAP_DEBUG) {
-      error_log("Main Index: Redirecting maintainer to account_manager/organizations.php");
+      error_log("Main Index: Redirecting maintainer to manage/organizations/");
     }
-    header("Location: account_manager/organizations.php");
+    header("Location: manage/organizations/");
     exit;
   } elseif (isset($IS_ORG_ADMIN) && $IS_ORG_ADMIN) {
     // Organization admin, redirect to their organization page
@@ -41,9 +41,9 @@ if (isset($VALIDATED) && $VALIDATED) {
     }
     
     if ($org_uuid) {
-      header("Location: account_manager/show_organization.php?uuid=" . urlencode($org_uuid));
+      header("Location: manage/organizations/show/index.php?uuid=" . urlencode($org_uuid));
     } elseif ($org_name) {
-      header("Location: account_manager/show_organization.php?org=" . urlencode($org_name));
+      header("Location: manage/organizations/show/index.php?org=" . urlencode($org_name));
     } else {
       header("Location: change_password/");
     }

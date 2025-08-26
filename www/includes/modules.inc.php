@@ -11,7 +11,7 @@
  $MODULES = array(
                     'log_in'          => 'hidden_on_login',
                     'change_password' => 'auth',
-                    'account_manager' => 'admin_maintainer_org_admin',
+                    'manage'          => 'admin_maintainer_org_admin',
                   );
 
 if ($ACCOUNT_REQUESTS_ENABLED == TRUE) {

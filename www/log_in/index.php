@@ -150,15 +150,15 @@ if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["pas
   }
   
   if ($is_admin) { 
-    $default_module = "account_manager/index.php"; 
+    $default_module = "manage/users/index.php"; 
   } elseif ($is_maintainer) {
-    $default_module = "account_manager/organizations.php"; 
+    $default_module = "manage/organizations/index.php"; 
   } elseif ($is_org_admin && $user_org_name && $org_uuid) {
     // Use UUID-based URL for better security
-    $default_module = "account_manager/show_organization.php?uuid=" . urlencode($org_uuid);
+    $default_module = "manage/organizations/show/index.php?uuid=" . urlencode($org_uuid);
   } elseif ($is_org_admin && $user_org_name) {
     // Fallback to name-based URL if UUID not available
-    $default_module = "account_manager/show_organization.php?org=" . urlencode($user_org_name);
+    $default_module = "manage/organizations/show/index.php?org=" . urlencode($user_org_name);
   } else { 
     $default_module = "change_password/index.php"; 
   }

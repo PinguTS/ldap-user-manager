@@ -510,7 +510,13 @@ function render_menu() {
      <?php
      foreach ($MODULES as $module => $access) {
 
-      $this_module_name=stripslashes(ucwords(preg_replace('/_/',' ', $module ?? '')));
+      // Customize module names for better display
+      $this_module_name = '';
+      if ($module === 'manage') {
+        $this_module_name = 'Manage';
+      } else {
+        $this_module_name = stripslashes(ucwords(preg_replace('/_/',' ', $module ?? '')));
+      }
 
       $show_this_module = TRUE;
       if ($VALIDATED == TRUE) {
@@ -662,15 +668,14 @@ function set_page_access($allowed_levels) {
        
      case 'maintainer':
        if ($IS_MAINTAINER == TRUE && $VALIDATED == TRUE) {
-         // Check path-based restrictions for maintainers
+         // Path-based restrictions for maintainers
          if (strpos($current_path, '/setup') === 0) {
            // Maintainers cannot access setup
            continue;
          }
-         if (strpos($current_path, '/account_manager/index.php') === 0 || 
-             strpos($current_path, '/account_manager/new_user.php') === 0 || 
-             strpos($current_path, '/account_manager/manage_roles.php') === 0) {
-           // Maintainers cannot access these specific pages
+         if (strpos($current_path, '/manage/users') === 0 || 
+             strpos($current_path, '/manage/roles') === 0) {
+           // Maintainers cannot access user and role management
            continue;
          }
          $has_access = true;
@@ -686,10 +691,9 @@ function set_page_access($allowed_levels) {
            // Org admins cannot access setup
            continue;
          }
-         // Org admins can only access specific pages
-         if (strpos($current_path, '/account_manager/show_organization.php') === 0 || 
-             strpos($current_path, '/account_manager/org_users.php') === 0 || 
-             strpos($current_path, '/account_manager/add_org_user.php') === 0) {
+         // Org admins can only access specific organization pages
+         if (strpos($current_path, '/manage/organizations/show') === 0 || 
+             strpos($current_path, '/manage/organizations/users') === 0) {
            $has_access = true;
            $user_level = 'org_admin';
            break;
@@ -750,17 +754,17 @@ function get_default_redirect_for_user() {
  if ($IS_SETUP_ADMIN) {
    return "//" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}setup/";
  } elseif ($IS_ADMIN) {
-   return "//" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}account_manager/";
+   return "//" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}manage/users/";
  } elseif ($IS_MAINTAINER) {
-   return "//" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}account_manager/organizations.php";
+   return "//" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}manage/organizations/";
  } elseif ($IS_ORG_ADMIN) {
    // Get organization info for org admin redirect
    global $USER_ORG_NAME, $USER_ORG_UUID;
    
    if (isset($USER_ORG_UUID) && $USER_ORG_UUID) {
-     return "//" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}account_manager/show_organization.php?uuid=" . urlencode($USER_ORG_UUID);
+     return "//" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}manage/organizations/show/index.php?uuid=" . urlencode($USER_ORG_UUID);
    } elseif (isset($USER_ORG_NAME) && $USER_ORG_NAME) {
-     return "//" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}account_manager/show_organization.php?org=" . urlencode($USER_ORG_NAME);
+     return "//" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}manage/organizations/show/index.php?org=" . urlencode($USER_ORG_NAME);
    } else {
      // Fallback to change password if org info not available
      return "//" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}change_password/";
