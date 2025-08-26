@@ -9,7 +9,7 @@ include_once "module_functions.inc.php";
 include_once "organization_functions.inc.php";
 
 // Use the enhanced access control function
-set_page_access(["admin", "maintainer"]);
+set_page_access(["admin", "maintainer", "org_admin"]);
 
 // Get user's access level for UI customization
 $is_global_admin = currentUserIsGlobalAdmin();

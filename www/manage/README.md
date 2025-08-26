@@ -29,7 +29,7 @@ This directory contains the management interface for the LDAP User Manager syste
 |-----------|-------|-------|---------------|---------|-----------|--------------|
 | **Global Admin** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | ✅ Full | ✅ Full |
 | **Maintainer** | ❌ None | ❌ None | ✅ View/Edit | ✅ Create | ✅ View/Edit | ✅ Add |
-| **Organization Admin** | ❌ None | ❌ None | ❌ None | ❌ None | ✅ Own Org Only | ✅ Own Org Only |
+| **Organization Admin** | ❌ None | ❌ None | ✅ Own Org Only | ❌ None | ✅ Own Org Only | ✅ Own Org Only |
 | **Regular User** | ❌ None | ❌ None | ❌ None | ❌ None | ❌ None | ❌ None |
 
 ### Path-Based Restrictions
@@ -37,10 +37,23 @@ This directory contains the management interface for the LDAP User Manager syste
 - **`/setup`**: Only Setup Administrators
 - **`/manage/users`**: Only Global Administrators
 - **`/manage/roles`**: Only Global Administrators  
-- **`/manage/organizations`**: Global Admins, Maintainers
-- **`/manage/organizations/show`**: Global Admins, Maintainers, Organization Admins (own org only)
-- **`/manage/organizations/users`**: Global Admins, Maintainers, Organization Admins (own org only)
+- **`/manage/organizations`**: Global Admins, Maintainers, Organization Admins (own org only)
 - **`/manage/organizations/add`**: Global Admins, Maintainers
+
+**Note**: Organization Admins can access the organizations list page (`/manage/organizations/`) but will only see their own organization. This provides them with a consistent interface while maintaining security boundaries.
+
+### Organization Admin Permissions
+
+Organization Administrators have **limited but important** access to manage their own organization:
+
+- **✅ View Own Organization**: Can see their organization's details, contact information, and settings
+- **✅ Edit Own Organization**: Can modify their organization's information (name, address, contact details, etc.)
+- **✅ Organizations List**: Can access the organizations list page (but only see their own organization)
+- **✅ Manage Own Org Users**: Can view, add, edit, and delete users within their organization
+- **✅ User Management**: Can assign roles and permissions to users within their organization
+- **❌ Cannot Access**: Other organizations, system users, system roles, or create new organizations
+
+This design ensures that Organization Admins have full control over their own organization while maintaining system security by preventing access to other organizations or system-level functions. They can use the same interface as Global Admins and Maintainers, but the system automatically filters content to show only their own organization.
 
 ## Navigation
 

@@ -691,9 +691,8 @@ function set_page_access($allowed_levels) {
            // Org admins cannot access setup
            continue;
          }
-         // Org admins can only access specific organization pages
-         if (strpos($current_path, '/manage/organizations/show') === 0 || 
-             strpos($current_path, '/manage/organizations/users') === 0) {
+         // Org admins can access organization pages (but will only see their own org)
+         if (strpos($current_path, '/manage/organizations') === 0) {
            $has_access = true;
            $user_level = 'org_admin';
            break;
