@@ -771,13 +771,39 @@ function ldap_user_group_membership($ldap_connection,$user_dn) {
 function ldap_organization_get_uuid($ldap_connection, $organization_name) {
   global $log_prefix, $LDAP, $LDAP_DEBUG;
 
-  $ldap_search = @ldap_search($ldap_connection, $LDAP['org_dn'], "(&(objectclass=organization)(o=$organization_name))", array($LDAP['uuid_attribute']));
-  $result = ldap_get_entries($ldap_connection, $ldap_search);
-
-  if ($result['count'] > 0) {
-    return $result[0][strtolower($LDAP['uuid_attribute'])][0];
+  if ($LDAP_DEBUG) {
+    error_log("$log_prefix ldap_organization_get_uuid: Searching for organization '$organization_name'");
   }
 
+  // Escape the organization name for LDAP search
+  $escaped_org_name = ldap_escape($organization_name, "", LDAP_ESCAPE_FILTER);
+  
+  $ldap_search = @ldap_search($ldap_connection, $LDAP['org_dn'], "(&(objectclass=organization)(o=$escaped_org_name))", array($LDAP['uuid_attribute']));
+  
+  if (!$ldap_search) {
+    if ($LDAP_DEBUG) {
+      error_log("$log_prefix ldap_organization_get_uuid: LDAP search failed: " . ldap_error($ldap_connection));
+    }
+    return FALSE;
+  }
+  
+  $result = ldap_get_entries($ldap_connection, $ldap_search);
+  
+  if ($LDAP_DEBUG) {
+    error_log("$log_prefix ldap_organization_get_uuid: Found " . $result['count'] . " organizations");
+  }
+
+  if ($result['count'] > 0) {
+    $uuid = $result[0][strtolower($LDAP['uuid_attribute'])][0];
+    if ($LDAP_DEBUG) {
+      error_log("$log_prefix ldap_organization_get_uuid: Returning UUID: $uuid");
+    }
+    return $uuid;
+  }
+
+  if ($LDAP_DEBUG) {
+    error_log("$log_prefix ldap_organization_get_uuid: No organization found with name '$organization_name'");
+  }
   return FALSE;
 
 }

@@ -80,12 +80,6 @@ if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["pas
     $username = $user_uuid;
   }
 
-  // Get organization UUID for redirects
-  $org_uuid = null;
-  if ($user_org_name) {
-    $org_uuid = ldap_organization_get_uuid($ldap_connection, $user_org_name);
-  }
- 
   // Check if user is a administrator
   $is_admin = false;
   $is_admin = ldap_is_group_member($ldap_connection, $LDAP['roles_dn'], $LDAP['admin_role'], $user_dn);
@@ -94,13 +88,49 @@ if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["pas
   $is_maintainer = false;
   $is_maintainer = ldap_is_group_member($ldap_connection, $LDAP['roles_dn'], $LDAP['maintainer_role'], $user_dn);
  
-  // Check if user is an organization admin (but not global admin or maintainer)
-  $is_org_admin = false;
-  $is_org_admin = ldap_is_group_member($ldap_connection, $LDAP['org_dn'], $LDAP['org_admin_role'], $user_dn);
-
+  // Get user organization information first
   $user_org_name = null;
   $user_org_name = ldap_user_get_organization($ldap_connection, $user_dn);
+  
+  if ($LDAP_DEBUG) {
+    error_log("Login: User DN: $user_dn");
+    error_log("Login: Extracted organization name: " . ($user_org_name ?: 'NULL'));
+  }
 
+  // Check if user is an organization admin (but not global admin or maintainer)
+  $is_org_admin = false;
+  if ($user_org_name && !$is_admin && !$is_maintainer) {
+    // Search for org admin role within the user's specific organization
+    $org_roles_dn = "ou=roles,o=" . ldap_escape($user_org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
+    $org_admin_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['org_admin_role']})(member=$user_dn))";
+    
+    if ($LDAP_DEBUG) {
+      error_log("Login: Checking org admin role in: $org_roles_dn");
+      error_log("Login: Using filter: $org_admin_filter");
+    }
+    
+    $org_admin_search = @ldap_search($ldap_connection, $org_roles_dn, $org_admin_filter, ['cn']);
+    if ($org_admin_search) {
+      $org_admin_result = ldap_get_entries($ldap_connection, $org_admin_search);
+      $is_org_admin = ($org_admin_result['count'] > 0);
+      if ($LDAP_DEBUG) {
+        error_log("Login: Org admin search result: " . $org_admin_result['count'] . " entries");
+      }
+    } else {
+      if ($LDAP_DEBUG) {
+        error_log("Login: Org admin search failed: " . ldap_error($ldap_connection));
+      }
+    }
+  }
+
+  // Get organization UUID for redirects (only if we have an organization name)
+  $org_uuid = null;
+  if ($user_org_name) {
+    $org_uuid = ldap_organization_get_uuid($ldap_connection, $user_org_name);
+    if ($LDAP_DEBUG) {
+      error_log("Login: Organization '$user_org_name' UUID lookup result: " . ($org_uuid ?: 'FAILED'));
+    }
+  }
   
   ldap_close($ldap_connection);
 
@@ -124,6 +154,7 @@ if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["pas
   } elseif ($is_maintainer) {
     $default_module = "account_manager/organizations"; 
   } elseif ($is_org_admin && $user_org_name && $org_uuid) {
+    // Use UUID-based URL for better security
     $default_module = "account_manager/show_organization?uuid=" . urlencode($org_uuid);
   } elseif ($is_org_admin && $user_org_name) {
     // Fallback to name-based URL if UUID not available
@@ -131,7 +162,21 @@ if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["pas
   } else { 
     $default_module = "change_password"; 
   }
-  header("Location: //{$_SERVER['HTTP_HOST']}{$SERVER_PATH}$default_module?logged_in");
+  
+  if ($LDAP_DEBUG) {
+    error_log("Login: Redirecting to: $default_module");
+    error_log("Login: User roles - Admin: " . ($is_admin ? 'YES' : 'NO') . ", Maintainer: " . ($is_maintainer ? 'YES' : 'NO') . ", Org Admin: " . ($is_org_admin ? 'YES' : 'NO'));
+    error_log("Login: Organization info - Name: " . ($user_org_name ?: 'NULL') . ", UUID: " . ($org_uuid ?: 'NULL'));
+  }
+  
+  // Ensure the redirect URL is properly constructed
+  $redirect_url = "//{$_SERVER['HTTP_HOST']}{$SERVER_PATH}$default_module?logged_in";
+  
+  if ($LDAP_DEBUG) {
+    error_log("Login: Final redirect URL: $redirect_url");
+  }
+  
+  header("Location: $redirect_url");
   exit;
   
 }
