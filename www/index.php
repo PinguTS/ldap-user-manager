@@ -6,8 +6,55 @@ include_once "access_functions.inc.php";
 
 // Use the enhanced access control function
 // The main index should be accessible to all authenticated users
-// but the function will automatically redirect users to appropriate default views
 set_page_access("user");
+
+// After access control, check if user should be redirected to their default view
+// This ensures users don't stay on the empty main index page
+if (isset($VALIDATED) && $VALIDATED) {
+  // User is authenticated, check if they should be redirected
+  if (isset($LDAP_DEBUG) && $LDAP_DEBUG) {
+    error_log("Main Index: User is validated, checking role for redirect");
+    error_log("Main Index: User roles - Admin: " . (isset($IS_ADMIN) && $IS_ADMIN ? 'YES' : 'NO') . ", Maintainer: " . (isset($IS_MAINTAINER) && $IS_MAINTAINER ? 'YES' : 'NO') . ", Org Admin: " . (isset($IS_ORG_ADMIN) && $IS_ORG_ADMIN ? 'YES' : 'NO'));
+  }
+  
+  if (isset($IS_ADMIN) && $IS_ADMIN) {
+    // Global admin, redirect to account manager
+    if (isset($LDAP_DEBUG) && $LDAP_DEBUG) {
+      error_log("Main Index: Redirecting global admin to account_manager/");
+    }
+    header("Location: account_manager/");
+    exit;
+  } elseif (isset($IS_MAINTAINER) && $IS_MAINTAINER) {
+    // Maintainer, redirect to organizations page
+    if (isset($LDAP_DEBUG) && $LDAP_DEBUG) {
+      error_log("Main Index: Redirecting maintainer to account_manager/organizations.php");
+    }
+    header("Location: account_manager/organizations.php");
+    exit;
+  } elseif (isset($IS_ORG_ADMIN) && $IS_ORG_ADMIN) {
+    // Organization admin, redirect to their organization page
+    $org_name = currentUserGetOrgName();
+    $org_uuid = currentUserGetOrgUuid();
+    
+    if (isset($LDAP_DEBUG) && $LDAP_DEBUG) {
+      error_log("Main Index: Redirecting org admin '$org_name' to organization page");
+    }
+    
+    if ($org_uuid) {
+      header("Location: account_manager/show_organization.php?uuid=" . urlencode($org_uuid));
+    } elseif ($org_name) {
+      header("Location: account_manager/show_organization.php?org=" . urlencode($org_name));
+    } else {
+      header("Location: change_password/");
+    }
+    exit;
+  }
+  
+  if (isset($LDAP_DEBUG) && $LDAP_DEBUG) {
+    error_log("Main Index: User is regular user, allowing access to main index");
+  }
+  // Regular users can stay on the main index
+}
 
 render_header();
 
