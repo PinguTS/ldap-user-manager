@@ -150,30 +150,68 @@ if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["pas
   }
   
   if ($is_admin) { 
-    $default_module = "account_manager"; 
+    $default_module = "account_manager/index.php"; 
   } elseif ($is_maintainer) {
-    $default_module = "account_manager/organizations"; 
+    $default_module = "account_manager/organizations.php"; 
   } elseif ($is_org_admin && $user_org_name && $org_uuid) {
     // Use UUID-based URL for better security
-    $default_module = "account_manager/show_organization?uuid=" . urlencode($org_uuid);
+    $default_module = "account_manager/show_organization.php?uuid=" . urlencode($org_uuid);
   } elseif ($is_org_admin && $user_org_name) {
     // Fallback to name-based URL if UUID not available
-    $default_module = "account_manager/show_organization?org=" . urlencode($user_org_name);
+    $default_module = "account_manager/show_organization.php?org=" . urlencode($user_org_name);
   } else { 
-    $default_module = "change_password"; 
+    $default_module = "change_password/index.php"; 
   }
   
   if ($LDAP_DEBUG) {
     error_log("Login: Redirecting to: $default_module");
     error_log("Login: User roles - Admin: " . ($is_admin ? 'YES' : 'NO') . ", Maintainer: " . ($is_maintainer ? 'YES' : 'NO') . ", Org Admin: " . ($is_org_admin ? 'YES' : 'NO'));
     error_log("Login: Organization info - Name: " . ($user_org_name ?: 'NULL') . ", UUID: " . ($org_uuid ?: 'NULL'));
+    error_log("Login: SERVER_PATH: '$SERVER_PATH'");
+    error_log("Login: HTTP_HOST: '{$_SERVER['HTTP_HOST']}'");
   }
   
   // Ensure the redirect URL is properly constructed
-  $redirect_url = "//{$_SERVER['HTTP_HOST']}{$SERVER_PATH}$default_module?logged_in";
+  // Check if default_module already has query parameters
+  if (strpos($default_module, '?') !== false) {
+    // Already has query parameters, use & to append logged_in
+    $redirect_url = "//{$_SERVER['HTTP_HOST']}{$SERVER_PATH}$default_module&logged_in";
+    if ($LDAP_DEBUG) {
+      error_log("Login: Using & separator for logged_in (module has existing query params)");
+    }
+  } else {
+    // No query parameters, use ? to start query string
+    $redirect_url = "//{$_SERVER['HTTP_HOST']}{$SERVER_PATH}$default_module?logged_in";
+    if ($LDAP_DEBUG) {
+      error_log("Login: Using ? separator for logged_in (module has no query params)");
+    }
+  }
+  
+  // Ensure SERVER_PATH is properly set and ends with /
+  if (empty($SERVER_PATH) || $SERVER_PATH === '/') {
+    $SERVER_PATH = '/';
+  } elseif (substr($SERVER_PATH, -1) !== '/') {
+    $SERVER_PATH .= '/';
+  }
+  
+  // Reconstruct URL with validated SERVER_PATH
+  if (strpos($default_module, '?') !== false) {
+    $redirect_url = "//{$_SERVER['HTTP_HOST']}{$SERVER_PATH}$default_module&logged_in";
+  } else {
+    $redirect_url = "//{$_SERVER['HTTP_HOST']}{$SERVER_PATH}$default_module?logged_in";
+  }
+  
+  // Validate the final URL
+  if (!filter_var($redirect_url, FILTER_VALIDATE_URL)) {
+    error_log("Login: ERROR - Invalid redirect URL generated: $redirect_url");
+    // Fallback to a safe URL
+    $redirect_url = "//{$_SERVER['HTTP_HOST']}{$SERVER_PATH}change_password/index.php?logged_in";
+    error_log("Login: Using fallback URL: $redirect_url");
+  }
   
   if ($LDAP_DEBUG) {
     error_log("Login: Final redirect URL: $redirect_url");
+    error_log("Login: SERVER_PATH after validation: '$SERVER_PATH'");
   }
   
   header("Location: $redirect_url");
