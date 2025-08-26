@@ -40,6 +40,34 @@ if ( isset($_POST['setup_admin_account']) ) {
 else {
   set_page_access("admin");
 
+  // Check if user is an organization admin (but not global admin or maintainer)
+  // If so, redirect them to their organization page since they should manage
+  // users within their organization context, not system-wide
+  if (currentUserIsOrgAdmin() && !currentUserIsGlobalAdmin() && !currentUserIsMaintainer()) {
+    $org_name = currentUserGetOrgName();
+    $org_uuid = currentUserGetOrgUuid();
+    
+    if ($org_uuid) {
+      // Use UUID-based URL for better security
+      $redirect_url = "show_organization.php?uuid=" . urlencode($org_uuid);
+    } elseif ($org_name) {
+      // Fallback to name-based URL if UUID not available
+      $redirect_url = "show_organization.php?org=" . urlencode($org_name);
+    } else {
+      // If we can't determine the organization, redirect to change password
+      $redirect_url = "../change_password/index.php";
+    }
+    
+    // Log the redirect for debugging
+    if (isset($LDAP_DEBUG) && $LDAP_DEBUG) {
+      error_log("New User: Redirecting org admin '$org_name' to: $redirect_url");
+    }
+    
+    // Perform the redirect
+    header("Location: $redirect_url");
+    exit;
+  }
+
   $completed_action="{$THIS_MODULE_PATH}/";
   $page_title="New account";
   $admin_setup = FALSE;

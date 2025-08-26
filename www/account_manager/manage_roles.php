@@ -12,6 +12,34 @@ get_csrf_token();
 
 set_page_access("admin");
 
+// Check if user is an organization admin (but not global admin or maintainer)
+// If so, redirect them to their organization page since this page only manages
+// system-level roles, which organization admins cannot manage
+if (currentUserIsOrgAdmin() && !currentUserIsGlobalAdmin() && !currentUserIsMaintainer()) {
+  $org_name = currentUserGetOrgName();
+  $org_uuid = currentUserGetOrgUuid();
+  
+  if ($org_uuid) {
+    // Use UUID-based URL for better security
+    $redirect_url = "show_organization.php?uuid=" . urlencode($org_uuid);
+  } elseif ($org_name) {
+    // Fallback to name-based URL if UUID not available
+    $redirect_url = "show_organization.php?org=" . urlencode($org_name);
+  } else {
+    // If we can't determine the organization, redirect to change password
+    $redirect_url = "../change_password/index.php";
+  }
+  
+  // Log the redirect for debugging
+  if (isset($LDAP_DEBUG) && $LDAP_DEBUG) {
+    error_log("Role Management: Redirecting org admin '$org_name' to: $redirect_url");
+  }
+  
+  // Perform the redirect
+  header("Location: $redirect_url");
+  exit;
+}
+
 render_header("$ORGANISATION_NAME - System Role Management");
 render_submenu();
 
