@@ -8,14 +8,10 @@ include_once "access_functions.inc.php";
 include_once "module_functions.inc.php";
 include_once "organization_functions.inc.php";
 
-// Check if user has appropriate permissions
-if (!(currentUserIsGlobalAdmin() || currentUserIsMaintainer() || currentUserIsOrgManager(''))) {
-    // Redirect unauthorized users
-    header("Location: ../index.php");
-    exit;
-}
+// Use the enhanced access control function
+set_page_access(["admin", "maintainer"]);
 
-// Determine user's access level
+// Get user's access level for UI customization
 $is_global_admin = currentUserIsGlobalAdmin();
 $is_maintainer = currentUserIsMaintainer();
 $user_organizations = [];

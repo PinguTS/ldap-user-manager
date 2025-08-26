@@ -54,12 +54,8 @@ if (isset($_GET['uuid']) && !empty($_GET['uuid'])) {
     exit(0);
 }
 
-// Check if user has appropriate permissions
-if (!(currentUserIsGlobalAdmin() || currentUserIsMaintainer() || currentUserIsOrgManager($org_name))) {
-    // Redirect unauthorized users
-    header("Location: ../index.php");
-    exit;
-}
+// Use the enhanced access control function
+set_page_access(["admin", "maintainer", "org_admin"]);
 
 // Check if user can modify this organization
 $can_modify_org = currentUserCanModifyOrganization($org_name);

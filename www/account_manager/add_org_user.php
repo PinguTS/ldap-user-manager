@@ -70,11 +70,7 @@ if ($org_uuid) {
 }
 
 // Check if user has appropriate permissions for this organization
-if (!(currentUserIsGlobalAdmin() || currentUserIsMaintainer() || currentUserIsOrgManager($org_name))) {
-    render_alert_banner("You do not have permission to add users to this organization.", "danger");
-    render_footer();
-    exit(0);
-}
+set_page_access(["admin", "maintainer", "org_admin"]);
 
 // Verify the organization exists (if not already verified by UUID)
 if (!$organization) {

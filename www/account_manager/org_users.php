@@ -49,12 +49,7 @@ if (isset($_GET['uuid']) && !empty($_GET['uuid'])) {
 }
 
 // Access control: only admins, maintainers, or org managers for this org
-if (!(currentUserIsGlobalAdmin() || currentUserIsMaintainer() || currentUserIsOrgManager($orgName))) {
-    render_header('Organization User Management');
-    echo "<div class='alert alert-danger'>You do not have permission to access this page.";
-    render_footer();
-    exit;
-}
+set_page_access(["admin", "maintainer", "org_admin"]);
 $orgs = listOrganizations();
 if (!is_array($orgs)) {
     $orgs = [];

@@ -554,50 +554,211 @@ function render_footer() {
 
 ######################################################
 
-function set_page_access($level) {
+function set_page_access($allowed_levels) {
 
- global $IS_ADMIN, $IS_SETUP_ADMIN, $VALIDATED, $log_prefix, $SESSION_DEBUG, $SESSION_TIMED_OUT, $SERVER_PATH;
+ global $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $IS_SETUP_ADMIN, $VALIDATED, $log_prefix, $SESSION_DEBUG, $SESSION_TIMED_OUT, $SERVER_PATH, $LDAP_DEBUG;
 
- #Set the security level needed to view a page.
- #This should be one of the first pieces of code
- #you call on a page.
- #Either 'setup', 'admin' or 'user'.
+ # Enhanced access control function that accepts multiple access levels
+ # and implements path-based restrictions with automatic redirects
+ # 
+ # Parameters:
+ # $allowed_levels: string or array of allowed access levels
+ #   - 'setup': Setup administrator (only allowed under /setup)
+ #   - 'admin': Global administrator (allowed everywhere except /setup)
+ #   - 'maintainer': Maintainer (restricted access with specific exclusions)
+ #   - 'org_admin': Organization administrator (very restricted access)
+ #   - 'user': Any authenticated user
+ #
+ # Special paths:
+ # - /change_password and below: Available to any authenticated user
+ # - /log_out and below: Available to any authenticated user  
+ # - /log_in and below: Available to any non-authenticated user
 
- if ($level == "setup") {
-  if ($IS_SETUP_ADMIN == TRUE) {
-   return;
-  }
-  else {
-   header("Location: //" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}setup/index.php?unauthorised\n\n");
-   if ( $SESSION_DEBUG == TRUE) {  error_log("$log_prefix Session: UNAUTHORISED: page security level is 'setup' but IS_SETUP_ADMIN isn't TRUE",0); }
-   exit(0);
-  }
+ // Convert single level to array for consistent handling
+ if (!is_array($allowed_levels)) {
+   $allowed_levels = array($allowed_levels);
  }
 
- if ($SESSION_TIMED_OUT == TRUE) { $reason = "session_timeout"; } else { $reason = "unauthorised"; }
-
- if ($level == "admin") {
-  if ($IS_ADMIN == TRUE and $VALIDATED == TRUE) {
-   return;
-  }
-  else {
-   header("Location: //" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}log_in/index.php?$reason&redirect_to=" . base64_encode($_SERVER['REQUEST_URI']) . "\n\n");
-   if ( $SESSION_DEBUG == TRUE) {  error_log("$log_prefix Session: no access to page ($reason): page security level is 'admin' but IS_ADMIN = '{$IS_ADMIN}' and VALIDATED = '{$VALIDATED}' (user) ",0); }
-   exit(0);
-  }
+ // Get current request path for path-based restrictions
+ $current_path = $_SERVER['REQUEST_URI'];
+ $current_path = parse_url($current_path, PHP_URL_PATH);
+ $current_path = rtrim($current_path, '/');
+ 
+ if ($LDAP_DEBUG) {
+   error_log("$log_prefix set_page_access: Checking access for path: $current_path");
+   error_log("$log_prefix set_page_access: Allowed levels: " . implode(', ', $allowed_levels));
+   error_log("$log_prefix set_page_access: User roles - Admin: " . ($IS_ADMIN ? 'YES' : 'NO') . ", Maintainer: " . ($IS_MAINTAINER ? 'YES' : 'NO') . ", Org Admin: " . ($IS_ORG_ADMIN ? 'YES' : 'NO') . ", Setup: " . ($IS_SETUP_ADMIN ? 'YES' : 'NO'));
  }
 
- if ($level == "user") {
-  if ($VALIDATED == TRUE){
-   return;
-  }
-  else {
-   header("Location: //" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}log_in/index.php?$reason&redirect_to=" . base64_encode($_SERVER['REQUEST_URI']) . "\n\n");
-   if ( $SESSION_DEBUG == TRUE) {  error_log("$log_prefix Session: no access to page ($reason): page security level is 'user' but VALIDATED = '{$VALIDATED}'",0); }
-   exit(0);
-  }
+ // Special path handling for change_password, log_out, and log_in
+ if (strpos($current_path, '/change_password') === 0 || strpos($current_path, '/log_out') === 0) {
+   // These paths are available to any authenticated user
+   if ($VALIDATED == TRUE) {
+     if ($LDAP_DEBUG) {
+       error_log("$log_prefix set_page_access: Allowing access to $current_path (authenticated user)");
+     }
+     return;
+   } else {
+     // Redirect to login
+     $reason = ($SESSION_TIMED_OUT == TRUE) ? "session_timeout" : "unauthorised";
+     header("Location: //" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}log_in/index.php?$reason&redirect_to=" . base64_encode($_SERVER['REQUEST_URI']));
+     if ($SESSION_DEBUG == TRUE) {
+       error_log("$log_prefix set_page_access: Redirecting unauthenticated user to login from $current_path");
+     }
+     exit(0);
+   }
  }
 
+ if (strpos($current_path, '/log_in') === 0) {
+   // Login pages are available to any non-authenticated user
+   if ($VALIDATED == TRUE) {
+     // User is already logged in, redirect to appropriate default
+     $redirect_url = get_default_redirect_for_user();
+     if ($LDAP_DEBUG) {
+       error_log("$log_prefix set_page_access: Logged in user accessing login page, redirecting to: $redirect_url");
+     }
+     header("Location: $redirect_url");
+     exit(0);
+   } else {
+     // Allow access to login page
+     if ($LDAP_DEBUG) {
+       error_log("$log_prefix set_page_access: Allowing access to login page (non-authenticated user)");
+     }
+     return;
+   }
+ }
+
+ // Check if user has any of the allowed access levels
+ $has_access = false;
+ $user_level = null;
+
+ foreach ($allowed_levels as $level) {
+   switch ($level) {
+     case 'setup':
+       if ($IS_SETUP_ADMIN == TRUE) {
+         $has_access = true;
+         $user_level = 'setup';
+         break;
+       }
+       break;
+       
+     case 'admin':
+       if ($IS_ADMIN == TRUE && $VALIDATED == TRUE) {
+         $has_access = true;
+         $user_level = 'admin';
+         break;
+       }
+       break;
+       
+     case 'maintainer':
+       if ($IS_MAINTAINER == TRUE && $VALIDATED == TRUE) {
+         // Check path-based restrictions for maintainers
+         if (strpos($current_path, '/setup') === 0) {
+           // Maintainers cannot access setup
+           continue;
+         }
+         if (strpos($current_path, '/account_manager/index.php') === 0 || 
+             strpos($current_path, '/account_manager/new_user.php') === 0 || 
+             strpos($current_path, '/account_manager/manage_roles.php') === 0) {
+           // Maintainers cannot access these specific pages
+           continue;
+         }
+         $has_access = true;
+         $user_level = 'maintainer';
+         break;
+       }
+       break;
+       
+     case 'org_admin':
+       if ($IS_ORG_ADMIN == TRUE && $VALIDATED == TRUE) {
+         // Check path-based restrictions for organization admins
+         if (strpos($current_path, '/setup') === 0) {
+           // Org admins cannot access setup
+           continue;
+         }
+         // Org admins can only access specific pages
+         if (strpos($current_path, '/account_manager/show_organization.php') === 0 || 
+             strpos($current_path, '/account_manager/org_users.php') === 0 || 
+             strpos($current_path, '/account_manager/add_org_user.php') === 0) {
+           $has_access = true;
+           $user_level = 'org_admin';
+           break;
+         }
+         continue;
+       }
+       break;
+       
+     case 'user':
+       if ($VALIDATED == TRUE) {
+         $has_access = true;
+         $user_level = 'user';
+         break;
+       }
+       break;
+   }
+   
+   if ($has_access) {
+     break;
+   }
+ }
+
+ // If user has access, allow them to proceed
+ if ($has_access) {
+   if ($LDAP_DEBUG) {
+     error_log("$log_prefix set_page_access: Access granted to $current_path for user level: $user_level");
+   }
+   return;
+ }
+
+ // User doesn't have access, redirect to appropriate default view
+ if ($LDAP_DEBUG) {
+   error_log("$log_prefix set_page_access: Access denied to $current_path, redirecting user");
+ }
+
+ $redirect_url = get_default_redirect_for_user();
+ header("Location: $redirect_url");
+ 
+ if ($SESSION_DEBUG == TRUE) {
+   error_log("$log_prefix set_page_access: UNAUTHORISED: redirecting user from $current_path to $redirect_url");
+ }
+ exit(0);
+}
+
+/**
+ * Get the appropriate default redirect URL based on user's access level
+ */
+function get_default_redirect_for_user() {
+ global $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $IS_SETUP_ADMIN, $VALIDATED, $SERVER_PATH, $LDAP_DEBUG;
+
+ // If user is not validated, redirect to login
+ if (!$VALIDATED) {
+   $reason = ($SESSION_TIMED_OUT == TRUE) ? "session_timeout" : "unauthorised";
+   return "//" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}log_in/index.php?$reason&redirect_to=" . base64_encode($_SERVER['REQUEST_URI']);
+ }
+
+ // Determine default redirect based on user's highest access level
+ if ($IS_SETUP_ADMIN) {
+   return "//" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}setup/";
+ } elseif ($IS_ADMIN) {
+   return "//" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}account_manager/";
+ } elseif ($IS_MAINTAINER) {
+   return "//" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}account_manager/organizations.php";
+ } elseif ($IS_ORG_ADMIN) {
+   // Get organization info for org admin redirect
+   global $USER_ORG_NAME, $USER_ORG_UUID;
+   
+   if (isset($USER_ORG_UUID) && $USER_ORG_UUID) {
+     return "//" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}account_manager/show_organization.php?uuid=" . urlencode($USER_ORG_UUID);
+   } elseif (isset($USER_ORG_NAME) && $USER_ORG_NAME) {
+     return "//" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}account_manager/show_organization.php?org=" . urlencode($USER_ORG_NAME);
+   } else {
+     // Fallback to change password if org info not available
+     return "//" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}change_password/";
+   }
+ } else {
+   // Regular user, redirect to change password
+   return "//" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}change_password/";
+ }
 }
 
 
