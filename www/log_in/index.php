@@ -7,6 +7,12 @@ include_once "web_functions.inc.php";
 include_once "ldap_functions.inc.php";
 include_once "access_functions.inc.php";
 
+// CRITICAL: Check for role configuration conflicts before allowing login
+// This prevents authentication with broken access control configuration
+if (function_exists('checkRuntimeRoleConflicts') && checkRuntimeRoleConflicts()) {
+    displayMaintenanceMode();
+}
+
 // Handle login POST before any output
 if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["passcode"]))) {
 
@@ -83,11 +89,13 @@ if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["pas
 
   // Check if user is a administrator
   $is_admin = false;
-  $is_admin = ldap_is_group_member($ldap_connection, $LDAP['roles_dn'], $LDAP['admin_role'], $user_dn);
+  // IMPORTANT: Check global admin role independently, regardless of role value conflicts
+  $is_admin = ldap_is_group_member($ldap_connection, $LDAP['roles_dn'], $LDAP['admin_group_name'], $user_dn);
 
   // Check if user is a maintainer
   $is_maintainer = false;
-  $is_maintainer = ldap_is_group_member($ldap_connection, $LDAP['roles_dn'], $LDAP['maintainer_role'], $user_dn);
+  // IMPORTANT: Check global maintainer role independently, regardless of role value conflicts
+  $is_maintainer = ldap_is_group_member($ldap_connection, $LDAP['roles_dn'], $LDAP['maintainer_group_name'], $user_dn);
  
   // Get user organization information first
   $user_org_name = null;
@@ -122,6 +130,31 @@ if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["pas
         error_log("Login: Org admin search failed: " . ldap_error($ldap_connection));
       }
     }
+  }
+
+  // IMPORTANT: Handle role conflicts by ensuring proper hierarchy
+  // If a user has multiple roles, they get the highest privilege level
+  // This works even when role values are the same due to independent checks
+  if ($is_admin) {
+    // Global admin overrides all other roles
+    $is_maintainer = false;
+    $is_org_admin = false;
+    if ($LDAP_DEBUG) {
+      error_log("Login: User is global admin - overriding other roles");
+    }
+  } elseif ($is_maintainer) {
+    // Maintainer overrides org admin but not global admin
+    $is_org_admin = false;
+    if ($LDAP_DEBUG) {
+      error_log("Login: User is maintainer - overriding org admin role");
+    }
+  }
+  
+  // Additional safety check: if roles are configured to be the same, 
+  // ensure we don't have conflicting privileges
+  // This is now handled automatically by the independent role checks above
+  if ($LDAP_DEBUG && $LDAP['admin_role'] === $LDAP['org_admin_role'] && $is_admin && $user_org_name) {
+    error_log("Login: NOTE - admin_role and org_admin_role have the same value, but access control is working correctly due to independent checks");
   }
 
   // Get organization UUID for redirects (only if we have an organization name)
@@ -288,6 +321,5 @@ render_header("$ORGANISATION_NAME account manager - log in");
  </div>
 </div>
 <?php
-declare(strict_types=1);
 render_footer();
 ?>

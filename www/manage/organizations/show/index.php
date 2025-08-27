@@ -379,7 +379,7 @@ if ($orgExists) {
                       <tbody>
                        <?php 
                        $recent_users = array_slice($org_users, 0, 5); // Show only first 5 users
-                       foreach ($recent_users as $user) { 
+                       foreach ($recent_users as $user): 
                        ?>
                         <tr>
                          <td><?php print safe_display_name($user); ?></td>
@@ -390,10 +390,12 @@ if ($orgExists) {
                                     <a href="/manage/organizations/users/index.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>&edit_user=<?php echo urlencode($user['uid'][0] ?? $user['mail'][0] ?? $user['cn'][0]); ?>" class="btn btn-secondary btn-sm">Edit</a>
                                     <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteUser('<?php echo htmlspecialchars($user['uid'][0] ?? $user['mail'][0] ?? $user['cn'][0]); ?>')">Delete</button>
                                 </div>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                    
+                         </td>
+                       </tr>
+                       <?php endforeach; ?>
+                    </tbody>
+                    </table>
+                    </div>
                     <div class="text-center mt-3">
                         <a href="/manage/organizations/users/index.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>">View all users</a>
                     </div>
@@ -599,8 +601,6 @@ function hideEditForm() {
 </script>
 
 <?php
-declare(strict_types=1);
-
 render_footer();
 
 ?> 

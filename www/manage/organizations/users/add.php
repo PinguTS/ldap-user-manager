@@ -114,7 +114,7 @@ $new_account_r = array();
 $account_attribute = $LDAP['account_attribute'];
 
 // Available user roles for organization users
-$available_user_roles = ['user', 'org_admin'];
+        $available_user_roles = [$LDAP['user_role'], $LDAP['org_admin_role']];
 
 // Handle form submission
 if (isset($_POST['create_org_user'])) {
@@ -223,7 +223,7 @@ if (isset($_POST['create_org_user'])) {
                 $creation_message = "User account '$account_identifier' was created successfully in organization '$org_name'.";
 
                 // Add user to organization admin role if selected
-                if ($user_role === 'org_admin') {
+                if ($user_role === $LDAP['org_admin_role']) {
                     $org_admin_add = addUserToOrgAdmin($org_name, $new_account);
                     if (!$org_admin_add) {
                         $creation_message .= " Warning: Failed to add user to organization admin role.";
@@ -320,8 +320,8 @@ if ($errors != "") { ?>
                             <div class="col-sm-6">
                                 <select class="form-control" name="user_role" id="user_role" required>
                                     <option value="">Select a role...</option>
-                                    <option value="user" <?php echo (isset($_POST['user_role']) && $_POST['user_role'] === 'user') ? 'selected' : ''; ?>>Regular User</option>
-                                    <option value="org_admin" <?php echo (isset($_POST['user_role']) && $_POST['user_role'] === 'org_admin') ? 'selected' : ''; ?>>Organization Administrator</option>
+                                    <option value="<?php echo $LDAP['user_role']; ?>" <?php echo (isset($_POST['user_role']) && $_POST['user_role'] === $LDAP['user_role']) ? 'selected' : ''; ?>><?php echo $LDAP['role_display_labels']['user_role']; ?></option>
+                                    <option value="<?php echo $LDAP['org_admin_role']; ?>" <?php echo (isset($_POST['user_role']) && $_POST['user_role'] === $LDAP['org_admin_role']) ? 'selected' : ''; ?>><?php echo $LDAP['role_display_labels']['org_admin_role']; ?></option>
                                 </select>
                             </div>
                         </div>

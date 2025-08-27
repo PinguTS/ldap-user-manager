@@ -6,6 +6,12 @@ set_include_path(".:" . __DIR__ . "/../includes/");
 include_once "web_functions.inc.php";
 include_once "ldap_functions.inc.php";
 
+// CRITICAL: Check for role configuration conflicts before allowing setup
+// This prevents setup completion with broken access control configuration
+if (function_exists('checkRuntimeRoleConflicts') && checkRuntimeRoleConflicts()) {
+    displayMaintenanceMode();
+}
+
 if (isset($_POST["admin_password"])) {
   $ldap_connection = open_ldap_connection();
   $user_auth = ldap_setup_auth($ldap_connection, $_POST["admin_password"]);
@@ -28,7 +34,6 @@ if (isset($_POST["admin_password"])) {
       <p class="text-center">The password was incorrect.</p>
     </div>
 <?php
-declare(strict_types=1);
   }
 ?>
     <div class="container">
@@ -47,7 +52,6 @@ declare(strict_types=1);
       </div>
     </div>
 <?php
-declare(strict_types=1);
 }
 render_footer();
 ?>

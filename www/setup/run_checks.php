@@ -34,7 +34,6 @@ $ldap_connection = open_ldap_connection();
       <div class="panel-body">
        <ul class="list-group">
 <?php
-declare(strict_types=1);
 
 #Can we connect?  The open_ldap_connection() function will call die() if we can't.
 print "$li_good Connected to {$LDAP['uri']}</li>\n";
@@ -61,7 +60,6 @@ else {
       <div class="panel-body">
        <ul class="list-group">
 <?php
-declare(strict_types=1);
 
 # Check for organizations OU
 $org_result = array('count' => 0);
@@ -129,10 +127,9 @@ if (ldap_count_entries($ldap_connection, $global_roles_search) == 0) {
       <div class="panel-body">
        <ul class="list-group">
 <?php
-declare(strict_types=1);
 
 # First: Check if administrator role group exists
-$admin_role_filter = "(&(objectclass=groupOfNames)(cn=administrators))";
+$admin_role_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['admin_group_name']}))";
 $ldap_admin_role_search = ldap_search($ldap_connection, $LDAP['roles_dn'], $admin_role_filter);
 
 if (!$ldap_admin_role_search) {
@@ -141,14 +138,14 @@ if (!$ldap_admin_role_search) {
   $show_finish_button = FALSE;
 } else {
   if (ldap_count_entries($ldap_connection, $ldap_admin_role_search) == 0) {
-    print "$li_info The administrator role (<strong>cn=administrators,{$LDAP['roles_dn']}</strong>) doesn't exist yet. ";
+            print "$li_info The administrator role (<strong>cn={$LDAP['admin_group_name']},{$LDAP['roles_dn']}</strong>) doesn't exist yet. ";
     print "<br><small class='text-muted'>ℹ️ <strong>Info:</strong> This will be created automatically when you create an admin user</small>";
     print "<br><label class='pull-right'><input type='checkbox' name='setup_admin_user' class='pull-right' checked>Create admin user?&nbsp;</label>";
     print "<br><small>Email: <input type='email' name='admin_email' placeholder='admin@example.com' value='admin@example.com' class='form-control input-sm' style='width: 250px; display: inline-block;'></small>";
     print "<br><small>Password: <input type='password' name='admin_password' placeholder='Enter admin password' class='form-control input-sm' style='width: 200px; display: inline-block;'></small>";
     $show_finish_button = FALSE;
   } else {
-    print "$li_good The administrator role (<strong>cn=administrators,{$LDAP['roles_dn']}</strong>) is present.</li>";
+            print "$li_good The administrator role (<strong>cn={$LDAP['admin_group_name']},{$LDAP['roles_dn']}</strong>) is present.</li>";
     
     # Second: Check if there's at least one user who is a member of the administrator role
     $admin_role_entries = ldap_get_entries($ldap_connection, $ldap_admin_role_search);
@@ -167,7 +164,7 @@ if (!$ldap_admin_role_search) {
 }
 
 # Check for maintainer role (essential for system structure)
-$maintainer_role_filter = "(&(objectclass=groupOfNames)(cn=maintainers))";
+$maintainer_role_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['maintainer_group_name']}))";
 $ldap_maintainer_role_search = ldap_search($ldap_connection, $LDAP['roles_dn'], $maintainer_role_filter);
 
 if (!$ldap_maintainer_role_search) {
@@ -176,13 +173,13 @@ if (!$ldap_maintainer_role_search) {
   $show_finish_button = FALSE;
 } else {
   if (ldap_count_entries($ldap_connection, $ldap_maintainer_role_search) == 0) {
-    print "$li_info The maintainer role (<strong>cn=maintainers,{$LDAP['roles_dn']}</strong>) doesn't exist yet. ";
+            print "$li_info The maintainer role (<strong>cn={$LDAP['maintainer_group_name']},{$LDAP['roles_dn']}</strong>) doesn't exist yet. ";
     print "<br><small class='text-muted'>ℹ️ <strong>Info:</strong> This will be created automatically when you create a maintainer user</small>";
     print "<br><label class='pull-right'><input type='checkbox' name='setup_maintainer_user' class='pull-right'>Create maintainer user?&nbsp;</label>";
     print "<br><small>Email: <input type='email' name='maintainer_email' placeholder='maintainer@example.com' value='maintainer@example.com' class='form-control input-sm' style='width: 250px; display: inline-block;'></small>";
     print "<br><small>Password: <input type='password' name='maintainer_password' placeholder='Enter maintainer password' class='form-control input-sm' style='width: 200px; display: inline-block;'></small>";
   } else {
-    print "$li_good The maintainer role (<strong>cn=maintainers,{$LDAP['roles_dn']}</strong>) is present.</li>";
+            print "$li_good The maintainer role (<strong>cn={$LDAP['maintainer_group_name']},{$LDAP['roles_dn']}</strong>) is present.</li>";
     
     # Check if maintainer role has members (optional - can be created during runtime)
     $maintainer_role_entries = ldap_get_entries($ldap_connection, $ldap_maintainer_role_search);
@@ -216,7 +213,6 @@ if (!$ldap_maintainer_role_search) {
       <div class="panel-body">
         <ul class="list-group">
 <?php
-declare(strict_types=1);
 
 # Check for example organization
 $example_org_filter = "(&(objectclass=organization)(o=Example Company))";
@@ -249,7 +245,6 @@ if ($ldap_example_org_search === false) {
       </div>
     </div>
 <?php
-declare(strict_types=1);
 
 ##############
 
@@ -276,7 +271,6 @@ if ($show_finish_button == TRUE) {
         </div>
       </div>
 <?php
-declare(strict_types=1);
 } else {
 ?>
       <div class='well'>
@@ -284,14 +278,12 @@ declare(strict_types=1);
       </div>
       </form>
 <?php
-declare(strict_types=1);
 }
 
 ?>
     </div>
   </div>
 <?php
-declare(strict_types=1);
 
 render_footer();
 ?>

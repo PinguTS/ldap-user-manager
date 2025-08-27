@@ -60,7 +60,6 @@ if (isset($_POST['fix_problems'])) {
     <ul class="list-group">
 
 <?php
-declare(strict_types=1);
 }
 
 if (isset($_POST['setup_organizations_ou'])) {
@@ -260,47 +259,45 @@ if ($no_errors == TRUE) {
     print "$li_good <strong>Verifying admin role membership...</strong></li>\n";
     
     # Check if administrators group exists
-    $admin_group_filter = "(&(objectclass=groupOfNames)(cn=administrators))";
+    $admin_group_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['admin_group_name']}))";
     $admin_group_search = ldap_search($ldap_connection, $LDAP['roles_dn'], $admin_group_filter);
     $admin_group_exists = ($admin_group_search && ldap_count_entries($ldap_connection, $admin_group_search) > 0);
     
     if (!$admin_group_exists) {
-      # Create administrators group with admin user as first member
-      print "$li_info ⚠ Administrators group doesn't exist - creating now with admin user as first member</li>\n";
-      
-      $admin_member_dn = "uid={$admin_email},ou=people,{$LDAP['base_dn']}";
-      $admin_role = array(
-        'objectClass' => array('top', 'groupOfNames'),
-        'cn' => 'administrators',
-                    'description' => $LDAP['admin_role'],
-        'member' => $admin_member_dn
-      );
-      
-      $role_add = @ldap_add($ldap_connection, "cn=administrators,{$LDAP['roles_dn']}", $admin_role);
-      if ($role_add) {
-        print "$li_good ✓ Created administrators group with admin user as first member</li>\n";
-      } else {
-        print "$li_fail ✗ Failed to create administrators group: <pre>" . ldap_error($ldap_connection) . "</pre></li>\n";
-        $no_errors = FALSE;
-      }
-    } else {
-      # Group exists, verify admin user is a member
-      $admin_group_entries = ldap_get_entries($ldap_connection, $admin_group_search);
-      $admin_group_dn = $admin_group_entries[0]['dn'];
-      $admin_member_dn = "uid={$admin_email},ou=people,{$LDAP['base_dn']}";
-      
-      if (in_array($admin_member_dn, $admin_group_entries[0]['member'])) {
-        print "$li_good ✓ Admin user <strong>{$admin_email}</strong> is properly member of administrators group</li>\n";
-      } else {
-        print "$li_warn ⚠ Admin user <strong>{$admin_email}</strong> is not in administrators group - adding now</li>\n";
-        $add_member = ldap_mod_add($ldap_connection, $admin_group_dn, array('member' => $admin_member_dn));
-        if ($add_member) {
-          print "$li_good ✓ Successfully added admin user to administrators group</li>\n";
+        # Create administrators group with admin user as first member
+        print "$li_info ⚠ Administrators group doesn't exist - creating now with admin user as first member</li>\n";
+        
+        $admin_member_dn = "uid={$admin_email},ou=people,{$LDAP['base_dn']}";
+        $admin_role = array(
+            'objectClass' => array('top', 'groupOfNames'),
+            'cn' => $LDAP['admin_group_name'],
+            'description' => $LDAP['admin_role'],
+            'member' => $admin_member_dn
+        );
+        
+        $role_add = @ldap_add($ldap_connection, "cn={$LDAP['admin_group_name']},{$LDAP['roles_dn']}", $admin_role);
+        if ($role_add) {
+            print "$li_good ✓ Created administrators group with admin user as first member</li>\n";
         } else {
-          print "$li_fail ✗ Failed to add admin user to administrators group: <pre>" . ldap_error($ldap_connection) . "</pre></li>\n";
-          $no_errors = FALSE;
+            print "$li_fail ✗ Failed to create administrators group: <pre>" . ldap_error($ldap_connection) . "</pre></li>\n";
         }
-      }
+    } else {
+        # Group exists, verify admin user is a member
+        $admin_group_entries = ldap_get_entries($ldap_connection, $admin_group_search);
+        $admin_group_dn = $admin_group_entries[0]['dn'];
+        $admin_member_dn = "uid={$admin_email},ou=people,{$LDAP['base_dn']}";
+        
+        if (in_array($admin_member_dn, $admin_group_entries[0]['member'])) {
+            print "$li_good ✓ Admin user <strong>{$admin_email}</strong> is properly member of administrators group</li>\n";
+        } else {
+            print "$li_warn ⚠ Admin user <strong>{$admin_email}</strong> is not in administrators group - adding now</li>\n";
+            $member_add = @ldap_modify($ldap_connection, $admin_group_dn, array('member' => $admin_member_dn));
+            if ($member_add) {
+                print "$li_good ✓ Successfully added admin user to administrators group</li>\n";
+            } else {
+                print "$li_fail ✗ Failed to add admin user to administrators group: <pre>" . ldap_error($ldap_connection) . "</pre></li>\n";
+            }
+        }
     }
   }
   
@@ -309,47 +306,45 @@ if ($no_errors == TRUE) {
     print "$li_good <strong>Verifying maintainer role membership...</strong></li>\n";
     
     # Check if maintainers group exists
-    $maintainer_group_filter = "(&(objectclass=groupOfNames)(cn=maintainers))";
+    $maintainer_group_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['maintainer_group_name']}))";
     $maintainer_group_search = ldap_search($ldap_connection, $LDAP['roles_dn'], $maintainer_group_filter);
     $maintainer_group_exists = ($maintainer_group_search && ldap_count_entries($ldap_connection, $maintainer_group_search) > 0);
     
     if (!$maintainer_group_exists) {
-      # Create maintainers group with maintainer user as first member
-      print "$li_info ⚠ Maintainers group doesn't exist - creating now with maintainer user as first member</li>\n";
-      
-      $maintainer_member_dn = "uid={$maintainer_email},ou=people,{$LDAP['base_dn']}";
-      $maintainer_role = array(
-        'objectClass' => array('top', 'groupOfNames'),
-        'cn' => 'maintainers',
-        'description' => 'System maintainer with limited privileges',
-        'member' => $maintainer_member_dn
-      );
-      
-      $role_add = @ldap_add($ldap_connection, "cn=maintainers,{$LDAP['roles_dn']}", $maintainer_role);
-      if ($role_add) {
-        print "$li_good ✓ Created maintainers group with maintainer user as first member</li>\n";
-      } else {
-        print "$li_fail ✗ Failed to create maintainers group: <pre>" . ldap_error($ldap_connection) . "</pre></li>\n";
-        $no_errors = FALSE;
-      }
-    } else {
-      # Group exists, verify maintainer user is a member
-      $maintainer_group_entries = ldap_get_entries($ldap_connection, $maintainer_group_search);
-      $maintainer_group_dn = $maintainer_group_entries[0]['dn'];
-      $maintainer_member_dn = "uid={$maintainer_email},ou=people,{$LDAP['base_dn']}";
-      
-      if (in_array($maintainer_member_dn, $maintainer_group_entries[0]['member'])) {
-        print "$li_good ✓ Maintainer user <strong>{$maintainer_email}</strong> is properly member of maintainers group</li>\n";
-      } else {
-        print "$li_warn ⚠ Maintainer user <strong>{$maintainer_email}</strong> is not in maintainers group - adding now</li>\n";
-        $add_member = ldap_mod_add($ldap_connection, $maintainer_group_dn, array('member' => $maintainer_member_dn));
-        if ($add_member) {
-          print "$li_good ✓ Successfully added maintainer user to maintainers group</li>\n";
+        # Create maintainers group with maintainer user as first member
+        print "$li_info ⚠ Maintainers group doesn't exist - creating now with maintainer user as first member</li>\n";
+        
+        $maintainer_member_dn = "uid={$maintainer_email},ou=people,{$LDAP['base_dn']}";
+        $maintainer_role = array(
+            'objectClass' => array('top', 'groupOfNames'),
+            'cn' => $LDAP['maintainer_group_name'],
+            'description' => 'System maintainer with limited privileges',
+            'member' => $maintainer_member_dn
+        );
+        
+        $role_add = @ldap_add($ldap_connection, "cn={$LDAP['maintainer_group_name']},{$LDAP['roles_dn']}", $maintainer_role);
+        if ($role_add) {
+            print "$li_good ✓ Created maintainers group with maintainer user as first member</li>\n";
         } else {
-          print "$li_fail ✗ Failed to add maintainer user to maintainers group: <pre>" . ldap_error($ldap_connection) . "</pre></li>\n";
-          $no_errors = FALSE;
+            print "$li_fail ✗ Failed to create maintainers group: <pre>" . ldap_error($ldap_connection) . "</pre></li>\n";
         }
-      }
+    } else {
+        # Group exists, verify maintainer user is a member
+        $maintainer_group_entries = ldap_get_entries($ldap_connection, $maintainer_group_search);
+        $maintainer_group_dn = $maintainer_group_entries[0]['dn'];
+        $maintainer_member_dn = "uid={$maintainer_email},ou=people,{$LDAP['base_dn']}";
+        
+        if (in_array($maintainer_member_dn, $maintainer_group_entries[0]['member'])) {
+            print "$li_good ✓ Maintainer user <strong>{$maintainer_email}</strong> is properly member of maintainers group</li>\n";
+        } else {
+            print "$li_warn ⚠ Maintainer user <strong>{$maintainer_email}</strong> is not in maintainers group - adding now</li>\n";
+            $member_add = @ldap_modify($ldap_connection, $maintainer_group_dn, array('member' => $maintainer_member_dn));
+            if ($member_add) {
+                print "$li_good ✓ Successfully added maintainer user to maintainers group</li>\n";
+            } else {
+                print "$li_fail ✗ Failed to add maintainer user to maintainers group: <pre>" . ldap_error($ldap_connection) . "</pre></li>\n";
+            }
+        }
     }
   }
   
@@ -390,7 +385,6 @@ if ($no_errors == TRUE) {
  </div>
 </div>
 <?php
-declare(strict_types=1);
 
 ##############
 
@@ -404,7 +398,6 @@ if ($no_errors == TRUE) {
       </form>
     </div>
 <?php
-declare(strict_types=1);
   } else {
 ?>
     <div class='well'>
@@ -422,7 +415,6 @@ declare(strict_types=1);
       </form>
     </div>
 <?php
-declare(strict_types=1);
 }
 
 render_footer();

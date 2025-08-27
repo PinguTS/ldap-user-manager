@@ -20,11 +20,11 @@ These are typically included by default in most OpenLDAP installations.
 
 ### 1.1 Current Implementation
 
-**The Approach**: Use existing LDAP attributes that are available in all standard LDAP schemas.
+**Approach**: Use existing LDAP attributes that are available in all standard LDAP schemas.
 
-**What This Means**: The application stores role information in the `description` attribute and passcodes in the `userPassword` attribute.
+**Implementation**: The application stores role information in the `description` attribute and passcodes in the `userPassword` attribute.
 
-**Benefits**:
+**Features**:
 - Works with any LDAP server
 - No schema modifications required
 - Standard LDAP compliance
@@ -110,8 +110,9 @@ All users include:
 ## 3. UUID-Based Identification
 
 ### 3.1 Overview
-LDAP User Manager now uses OpenLDAP's `entryUUID` operational attribute for secure, immutable identification of entries. This provides several benefits:
+LDAP User Manager uses OpenLDAP's `entryUUID` operational attribute for secure, immutable identification of entries.
 
+**Features**:
 - **Security**: UUIDs cannot be guessed or enumerated
 - **Reliability**: UUIDs remain valid even if names change
 - **Performance**: UUID lookups are faster than DN-based searches
@@ -230,6 +231,8 @@ The LDAP User Manager includes a comprehensive web-based setup wizard that autom
 
 The LDIF files in the `ldif/` directory are provided for reference and advanced users who want to understand the LDAP structure. They are **not required** for normal operation since the web-based setup wizard handles everything automatically.
 
+**Note**: LDIF files are provided for reference and manual setup. The web-based setup wizard handles everything automatically.
+
 **Available LDIF files:**
 - `ldif/base.ldif` - Base directory structure
 - `ldif/system_users.ldif` - System user definitions
@@ -328,9 +331,7 @@ Access the web interface at `/setup/` to:
 
 **Note**: The web-based setup wizard handles everything automatically. No manual LDIF loading is required.
 
-#### **Alternative: Custom LDAP Image (Not Recommended)**
-
-**Note**: This approach is not recommended since the web-based setup wizard handles everything automatically. However, if you need a custom LDAP image for other reasons:
+**Note**: The web-based setup wizard handles everything automatically. However, if you need a custom LDAP image for other reasons:
 
 **Dockerfile for Custom LDAP Image**
 
@@ -422,9 +423,7 @@ ldapsearch -x -b ou=people,dc=example,dc=com -D cn=admin,dc=example,dc=com -w yo
 - Main [README.md](README.md) for general setup and environment variables
 - [docs/ldap-structure.md](docs/ldap-structure.md) for detailed LDAP structure examples 
 
-## Organization Field Configuration
-
-The system now supports fully configurable organization fields through environment variables. This allows you to customize which fields are required, optional, or ignored when creating organizations.
+The system supports fully configurable organization fields through environment variables. You can customize which fields are required, optional, or ignored when creating organizations.
 
 ### Environment Variables
 

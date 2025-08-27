@@ -664,5 +664,4 @@ setTimeout(function() {
 }, 4000);
 </script>
 <?php
-declare(strict_types=1);
 render_footer(); 

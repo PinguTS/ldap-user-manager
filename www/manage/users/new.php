@@ -12,23 +12,12 @@ include_once "organization_functions.inc.php";
 // Ensure CSRF token is generated early
 get_csrf_token();
 
-$attribute_map = $LDAP['default_attribute_map'];
-if (isset($LDAP['account_additional_attributes'])) { $attribute_map = ldap_complete_attribute_map($attribute_map,$LDAP['account_additional_attributes']); }
 
-// Ensure account_attribute is properly set
-$account_attribute = $LDAP['account_attribute'];
-if (! array_key_exists($account_attribute, $attribute_map)) {
-  $attribute_map[$account_attribute] = array("label" => "Account UID");
-}
-
-if (! array_key_exists($LDAP['account_attribute'], $attribute_map)) {
-  $attribute_r = array_merge($attribute_map, array($LDAP['account_attribute'] => array("label" => "Account UID")));
-}
 
 set_page_access(["admin", "maintainer"]);
 
 $completed_action="{$SERVER_PATH}manage/users/";
-$page_title="New account";
+$page_title = "New System User";
 $admin_setup = FALSE;
 
 render_header("$ORGANISATION_NAME - New User Account");
@@ -43,53 +32,53 @@ $disabled_email_tickbox = TRUE;
 $invalid_cn = FALSE;
 $invalid_givenname = FALSE;
 $invalid_sn = FALSE;
-$invalid_account_identifier = FALSE;
-$invalid_organization = FALSE;
+
 $invalid_user_role = FALSE;
-$account_attribute = $LDAP['account_attribute'];
 
 $new_account_r = array();
 
-// Get available organizations for selection
-$available_organizations = listOrganizations();
 
-// Get available user roles
-$available_user_roles = ['user', 'org_admin'];
 
-foreach ($attribute_map as $attribute => $attr_r) {
+// Get available user roles based on current user's permissions
+$available_user_roles = [];
+if (currentUserIsGlobalAdmin()) {
+    // System administrators can create users with any system role
+    $available_user_roles = [$LDAP['admin_role'], 'maintainer'];
+} elseif (currentUserIsMaintainer()) {
+    // System maintainers can only create users with maintainer role
+    $available_user_roles = ['maintainer'];
+} else {
+    // Other users cannot create system users
+    $available_user_roles = [];
+}
 
-  if (isset($_FILES[$attribute]['size']) and $_FILES[$attribute]['size'] > 0) {
-    // File upload validation
-    global $FILE_UPLOAD_MAX_SIZE, $FILE_UPLOAD_ALLOWED_MIME_TYPES;
-    $max_file_size = $FILE_UPLOAD_MAX_SIZE;
-    $allowed_mime_types = $FILE_UPLOAD_ALLOWED_MIME_TYPES;
-    $file_size = $_FILES[$attribute]['size'];
-    $file_tmp = $_FILES[$attribute]['tmp_name'];
-    $file_error = $_FILES[$attribute]['error'];
-    $finfo = finfo_open(FILEINFO_MIME_TYPE);
-    $mime_type = finfo_file($finfo, $file_tmp);
-    finfo_close($finfo);
-    if ($file_error !== UPLOAD_ERR_OK) {
-      render_alert_banner('File upload error for ' . htmlspecialchars($attribute) . '.', 'danger', 10000);
-      continue;
-    }
-    if ($file_size > $max_file_size) {
-      render_alert_banner('File for ' . htmlspecialchars($attribute) . ' is too large (max 2MB).', 'danger', 10000);
-      continue;
-    }
-    if (!in_array($mime_type, $allowed_mime_types)) {
-      render_alert_banner('Invalid file type for ' . htmlspecialchars($attribute) . '. Allowed: images, PDF, text.', 'danger', 10000);
-      continue;
-    }
-    
-    // Read file content and store in new_account_r
-    $file_content = file_get_contents($file_tmp);
-    if ($file_content !== false) {
-      $new_account_r[$attribute] = $file_content;
-    }
-  } elseif (isset($_POST[$attribute]) and !empty(trim($_POST[$attribute]))) {
-    $new_account_r[$attribute] = trim($_POST[$attribute]);
-  }
+// Process form data directly for system user creation
+if (isset($_POST['mail']) && !empty(trim($_POST['mail']))) {
+    $new_account_r['mail'] = trim($_POST['mail']);
+}
+if (isset($_POST['cn']) && !empty(trim($_POST['cn']))) {
+    $new_account_r['cn'] = trim($_POST['cn']);
+}
+if (isset($_POST['givenName']) && !empty(trim($_POST['givenName']))) {
+    $new_account_r['givenName'] = trim($_POST['givenName']);
+}
+if (isset($_POST['sn']) && !empty(trim($_POST['sn']))) {
+    $new_account_r['sn'] = trim($_POST['sn']);
+}
+if (isset($_POST['userPassword']) && !empty(trim($_POST['userPassword']))) {
+    $new_account_r['userPassword'] = trim($_POST['userPassword']);
+}
+if (isset($_POST['userRole']) && !empty(trim($_POST['userRole']))) {
+    $new_account_r['userRole'] = trim($_POST['userRole']);
+}
+if (isset($_POST['telephoneNumber']) && !empty(trim($_POST['telephoneNumber']))) {
+    $new_account_r['telephoneNumber'] = trim($_POST['telephoneNumber']);
+}
+
+// Debug: Log what was submitted (remove this in production)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
+    error_log("Form submitted with data: " . print_r($_POST, true));
+    error_log("Processed data: " . print_r($new_account_r, true));
 }
 
 // Handle form submission
@@ -99,9 +88,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
   // Validate required fields
   $errors = [];
   
-  if (empty($new_account_r[$account_attribute])) {
-    $invalid_account_identifier = TRUE;
-    $errors[] = "Account identifier is required.";
+  if (empty($new_account_r['mail'])) {
+    $invalid_email = TRUE;
+    $errors[] = "Email address is required and will be used as the account ID.";
   }
   
   if (empty($new_account_r['cn'])) {
@@ -129,14 +118,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
     $errors[] = "Passwords do not match.";
   }
   
-  if (empty($new_account_r['o'])) {
-    $invalid_organization = TRUE;
-    $errors[] = "Organization is required.";
-  }
+  // Organization is not required for system users
   
   if (empty($new_account_r['userRole'])) {
     $invalid_user_role = TRUE;
     $errors[] = "User role is required.";
+  }
+  
+  // Validate role permissions
+  if (!empty($new_account_r['userRole'])) {
+    // Validate that maintainers cannot create administrator roles
+    if (currentUserIsMaintainer() && $new_account_r['userRole'] === $LDAP['admin_role']) {
+      $invalid_user_role = TRUE;
+      $errors[] = $LDAP['error_messages']['maintainer_cannot_create_admin'];
+    }
+    
+    if (!in_array($new_account_r['userRole'], $available_user_roles)) {
+      $invalid_user_role = TRUE;
+      $errors[] = "You do not have permission to create users with this role.";
+    }
   }
   
   // If no errors, create the account
@@ -159,26 +159,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
 <div class="container">
     <div class="row">
         <div class="col-md-12">
-            <h2>Create New User Account</h2>
+            <h2>Create New System User</h2>
+            <div class="alert alert-info">
+                <strong>System User:</strong> This user will have system-wide access and will not be associated with any specific organization. 
+                System users can manage the entire system and all organizations.
+            </div>
             
             <div class="panel panel-primary">
                 <div class="panel-heading">
-                    <h3 class="panel-title">New User Information</h3>
+                    <h3 class="panel-title">System User Information</h3>
                 </div>
                 <div class="panel-body">
                     <form method="post" action="" enctype="multipart/form-data" id="newUserForm">
                         <?php echo csrf_token_field(); ?>
                         
+                        <style>
+                        .password-strength-meter {
+                            margin-top: 8px;
+                        }
+                        .password-strength-meter .progress {
+                            margin-bottom: 4px;
+                        }
+                        .progress-bar-danger { background-color: #d9534f; }
+                        .progress-bar-warning { background-color: #f0ad4e; }
+                        .progress-bar-info { background-color: #5bc0de; }
+                        .progress-bar-success { background-color: #5cb85c; }
+                        .input-group-btn .btn {
+                            border-left: 0;
+                        }
+                        .mt-2 { margin-top: 8px; }
+                        </style>
+                        
                         <!-- Account Information -->
                         <h4>Account Information</h4>
                         <div class="row">
                             <div class="col-md-6">
-                                <div class="form-group <?php echo $invalid_account_identifier ? 'has-error' : ''; ?>">
-                                    <label for="<?php echo $account_attribute; ?>"><?php echo $attribute_map[$account_attribute]['label'] ?? 'Account ID'; ?> *</label>
-                                    <input type="text" class="form-control" id="<?php echo $account_attribute; ?>" name="<?php echo $account_attribute; ?>" 
-                                           value="<?php echo htmlspecialchars($new_account_r[$account_attribute] ?? ''); ?>" required>
-                                    <?php if ($invalid_account_identifier): ?>
-                                        <span class="help-block">Account identifier is required.</span>
+                                <div class="form-group <?php echo $invalid_email ? 'has-error' : ''; ?>">
+                                    <label for="mail">Email Address (Account ID) *</label>
+                                    <input type="email" class="form-control" id="mail" name="mail" 
+                                           value="<?php echo htmlspecialchars($new_account_r['mail'] ?? ''); ?>" required>
+                                    <?php if ($invalid_email): ?>
+                                        <span class="help-block">Valid email address is required and will be used as the account ID.</span>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -189,7 +210,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
                                         <option value="">Select Role</option>
                                         <?php foreach ($available_user_roles as $role): ?>
                                             <option value="<?php echo htmlspecialchars($role); ?>" <?php echo ($new_account_r['userRole'] ?? '') === $role ? 'selected' : ''; ?>>
-                                                <?php echo ucfirst(str_replace('_', ' ', $role)); ?>
+                                                <?php 
+                                                $role_label = match($role) {
+                                                    $LDAP['admin_role'] => $LDAP['role_display_labels']['admin_role'],
+                                                    'maintainer' => $LDAP['role_display_labels']['maintainer_role'],
+                                                    default => ucfirst(str_replace('_', ' ', $role))
+                                                };
+                                                echo htmlspecialchars($role_label);
+                                                ?>
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
@@ -225,7 +253,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
                             </div>
                             <div class="col-md-4">
                                 <div class="form-group <?php echo $invalid_cn ? 'has-error' : ''; ?>">
-                                    <label for="cn">Display Name *</label>
+                                    <label for="cn">Display Name * <small class="text-muted">(auto-filled from name)</small></label>
                                     <input type="text" class="form-control" id="cn" name="cn" 
                                            value="<?php echo htmlspecialchars($new_account_r['cn'] ?? ''); ?>" required>
                                     <?php if ($invalid_cn): ?>
@@ -239,16 +267,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
                         <h4>Contact Information</h4>
                         <div class="row">
                             <div class="col-md-6">
-                                <div class="form-group <?php echo $invalid_email ? 'has-error' : ''; ?>">
-                                    <label for="mail">Email Address</label>
-                                    <input type="email" class="form-control" id="mail" name="mail" 
-                                           value="<?php echo htmlspecialchars($new_account_r['mail'] ?? ''); ?>">
-                                    <?php if ($invalid_email): ?>
-                                        <span class="help-block">Please enter a valid email address.</span>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
                                 <div class="form-group">
                                     <label for="telephoneNumber">Phone Number</label>
                                     <input type="tel" class="form-control" id="telephoneNumber" name="telephoneNumber" 
@@ -257,38 +275,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
                             </div>
                         </div>
                         
-                        <!-- Organization -->
-                        <h4>Organization</h4>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group <?php echo $invalid_organization ? 'has-error' : ''; ?>">
-                                    <label for="o">Organization *</label>
-                                    <select class="form-control" id="o" name="o" required>
-                                        <option value="">Select Organization</option>
-                                        <?php foreach ($available_organizations as $org): ?>
-                                            <?php 
-                                            $org_name = '';
-                                            if (isset($org['o']) && !empty($org['o'])) {
-                                                if (strpos($org['o'], ',') !== false) {
-                                                    $org_name = preg_replace('/^o=([^,]+).*$/', '$1', $org['o']);
-                                                } else {
-                                                    $org_name = $org['o'];
-                                                }
-                                            } elseif (isset($org['dn']) && !empty($org['dn'])) {
-                                                $org_name = preg_replace('/^o=([^,]+).*$/', '$1', $org['dn']);
-                                            }
-                                            ?>
-                                            <option value="<?php echo htmlspecialchars($org_name); ?>" <?php echo ($new_account_r['o'] ?? '') === $org_name ? 'selected' : ''; ?>>
-                                                <?php echo htmlspecialchars($org_name); ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                    <?php if ($invalid_organization): ?>
-                                        <span class="help-block">Organization is required.</span>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                        </div>
+
                         
                         <!-- Security -->
                         <h4>Security</h4>
@@ -296,7 +283,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
                             <div class="col-md-6">
                                 <div class="form-group <?php echo $invalid_password ? 'has-error' : ''; ?>">
                                     <label for="userPassword">Password *</label>
-                                    <input type="password" class="form-control" id="userPassword" name="userPassword" required>
+                                    <div class="input-group">
+                                        <input type="password" class="form-control" id="userPassword" name="userPassword" required>
+                                        <span class="input-group-btn">
+                                            <button type="button" class="btn btn-info" id="generatePassword" title="Generate secure password">
+                                                <i class="glyphicon glyphicon-refresh"></i>
+                                            </button>
+                                        </span>
+                                    </div>
+                                    <div class="password-strength-meter mt-2">
+                                        <div class="progress" style="height: 8px;">
+                                            <div class="progress-bar" id="passwordStrengthBar" role="progressbar" style="width: 0%;"></div>
+                                        </div>
+                                        <small class="text-muted" id="passwordStrengthText">Password strength: Very Weak</small>
+                                    </div>
                                     <?php if ($invalid_password): ?>
                                         <span class="help-block">Password is required.</span>
                                     <?php endif; ?>
@@ -345,10 +345,161 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
 </div>
 
 <script>
+// Auto-fill display name from given name and surname
+function updateDisplayName() {
+    const givenName = document.getElementById('givenName').value.trim();
+    const surname = document.getElementById('sn').value.trim();
+    const displayName = document.getElementById('cn');
+    
+    if (givenName && surname) {
+        displayName.value = givenName + ' ' + surname;
+    } else if (givenName) {
+        displayName.value = givenName;
+    } else if (surname) {
+        displayName.value = surname;
+    } else {
+        displayName.value = '';
+    }
+}
+
+// Add event listeners for auto-fill
+document.getElementById('givenName').addEventListener('input', updateDisplayName);
+document.getElementById('sn').addEventListener('input', updateDisplayName);
+
+// Password strength assessment using zxcvbn algorithm
+function assessPasswordStrength(password) {
+    if (!password) {
+        return { score: 0, feedback: 'Very Weak' };
+    }
+    
+    // Simple strength assessment (you can integrate zxcvbn library for more sophisticated analysis)
+    let score = 0;
+    let feedback = '';
+    
+    if (password.length >= 8) score++;
+    if (password.length >= 12) score++;
+    if (/[a-z]/.test(password)) score++;
+    if (/[A-Z]/.test(password)) score++;
+    if (/[0-9]/.test(password)) score++;
+    if (/[^A-Za-z0-9]/.test(password)) score++;
+    
+    // Bonus for mixed case and numbers
+    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++;
+    if (/[0-9]/.test(password) && /[^0-9]/.test(password)) score++;
+    
+    // Penalty for common patterns
+    if (/(.)\1{2,}/.test(password)) score = Math.max(0, score - 1);
+    if (/123|abc|qwe|password|admin/i.test(password)) score = Math.max(0, score - 2);
+    
+    switch (score) {
+        case 0:
+        case 1:
+            feedback = 'Very Weak';
+            break;
+        case 2:
+            feedback = 'Weak';
+            break;
+        case 3:
+            feedback = 'Fair';
+            break;
+        case 4:
+            feedback = 'Good';
+            break;
+        case 5:
+            feedback = 'Strong';
+            break;
+        default:
+            feedback = 'Very Strong';
+    }
+    
+    return { score: Math.min(score, 5), feedback: feedback };
+}
+
+// Update password strength meter
+function updatePasswordStrength() {
+    const password = document.getElementById('userPassword').value;
+    const strengthBar = document.getElementById('passwordStrengthBar');
+    const strengthText = document.getElementById('passwordStrengthText');
+    
+    const strength = assessPasswordStrength(password);
+    const percentage = (strength.score / 5) * 100;
+    
+    // Update progress bar
+    strengthBar.style.width = percentage + '%';
+    
+    // Update colors based on strength
+    strengthBar.className = 'progress-bar';
+    if (strength.score <= 1) {
+        strengthBar.classList.add('progress-bar-danger');
+    } else if (strength.score <= 2) {
+        strengthBar.classList.add('progress-bar-warning');
+    } else if (strength.score <= 3) {
+        strengthBar.classList.add('progress-bar-info');
+    } else if (strength.score <= 4) {
+        strengthBar.classList.add('progress-bar-success');
+    } else {
+        strengthBar.classList.add('progress-bar-success');
+    }
+    
+    // Update text
+    strengthText.textContent = `Password strength: ${strength.feedback}`;
+    
+    // Update confirm password validation
+    const confirm = document.getElementById('confirm_password');
+    if (confirm.value) {
+        confirm.dispatchEvent(new Event('input'));
+    }
+}
+
+// Secure password generation using established standards
+function generateSecurePassword() {
+    // Word-based password generation (more memorable than random characters)
+    const adjectives = [
+        'Swift', 'Bright', 'Calm', 'Brave', 'Wise', 'Gentle', 'Noble', 'Pure',
+        'Bold', 'Clear', 'Deep', 'Fair', 'Fresh', 'Grand', 'Happy', 'Kind'
+    ];
+    
+    const nouns = [
+        'River', 'Mountain', 'Ocean', 'Forest', 'Valley', 'Meadow', 'Spring', 'Star',
+        'Moon', 'Sun', 'Cloud', 'Wind', 'Rain', 'Snow', 'Flower', 'Tree'
+    ];
+    
+    const numbers = '0123456789';
+    const symbols = '!@#$%^&*';
+    
+    // Generate password: Adjective + Noun + Number + Symbol
+    const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+    const noun = nouns[Math.floor(Math.random() * nouns.length)];
+    const number = numbers[Math.floor(Math.random() * numbers.length)];
+    const symbol = symbols[Math.floor(Math.random() * symbols.length)];
+    
+    const password = adjective + noun + number + symbol;
+    
+    // Set the generated password
+    document.getElementById('userPassword').value = password;
+    document.getElementById('confirm_password').value = password;
+    
+    // Update strength meter
+    updatePasswordStrength();
+    
+    // Show success message
+    const generateBtn = document.getElementById('generatePassword');
+    const originalText = generateBtn.innerHTML;
+    generateBtn.innerHTML = '<i class="glyphicon glyphicon-ok"></i>';
+    generateBtn.classList.remove('btn-info');
+    generateBtn.classList.add('btn-success');
+    
+    setTimeout(() => {
+        generateBtn.innerHTML = originalText;
+        generateBtn.classList.remove('btn-success');
+        generateBtn.classList.add('btn-info');
+    }, 2000);
+}
+
 // Password confirmation validation
 document.getElementById('confirm_password').addEventListener('input', function() {
-    var password = document.getElementById('userPassword').value;
-    var confirm = this.value;
+    const password = document.getElementById('userPassword').value;
+    const confirm = this.value;
     
     if (password !== confirm) {
         this.setCustomValidity('Passwords do not match');
@@ -357,15 +508,19 @@ document.getElementById('confirm_password').addEventListener('input', function()
     }
 });
 
-document.getElementById('userPassword').addEventListener('input', function() {
-    var confirm = document.getElementById('confirm_password');
-    if (confirm.value) {
-        confirm.dispatchEvent(new Event('input'));
-    }
+// Update password strength on input
+document.getElementById('userPassword').addEventListener('input', updatePasswordStrength);
+
+// Generate password button
+document.getElementById('generatePassword').addEventListener('click', generateSecurePassword);
+
+// Initialize display name if fields have values
+document.addEventListener('DOMContentLoaded', function() {
+    updateDisplayName();
+    updatePasswordStrength();
 });
 </script>
 
 <?php
-declare(strict_types=1);
 render_footer();
 ?>

@@ -47,6 +47,9 @@ if [ "${NO_HTTPS,,}" == "true" ]; then
    Require all granted
  </Directory>
 
+ # Include LDAP User Manager configuration
+ Include /etc/apache2/conf-available/ldap-user-manager.conf
+
 </VirtualHost>
 EoHTTPC
 
@@ -161,6 +164,9 @@ EoHTTPrd
  <Directory $php_dir>
    Require all granted
  </Directory>
+
+ # Include LDAP User Manager configuration
+ Include /etc/apache2/conf-available/ldap-user-manager.conf
 
  SSLEngine On
  SSLCertificateFile ${ssl_dir}/${SERVER_CERT_FILENAME:-server.crt}

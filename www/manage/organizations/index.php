@@ -23,8 +23,8 @@ if (!$is_global_admin && !$is_maintainer) {
     // This is a bit complex since we need to search through all organizations
     $all_orgs = listOrganizations();
     foreach ($all_orgs as $org) {
-        if (currentUserIsOrgManager($org['o'])) {
-            $user_organizations[] = $org['o'];
+        if (currentUserIsOrgManager($org['name'])) {
+            $user_organizations[] = $org['name'];
         }
     }
 }
@@ -70,17 +70,8 @@ if (!is_array($organizations)) {
                             if (!$is_global_admin && !$is_maintainer) {
                                 // Organization admins can only see their own organizations
                                 $display_organizations = array_filter($organizations, function($org) use ($user_organizations) {
-                                    // Extract organization name from DN or use 'o' attribute
-                                    $org_name = '';
-                                    if (isset($org['o']) && !empty($org['o'])) {
-                                        if (strpos($org['o'], ',') !== false) {
-                                            $org_name = preg_replace('/^o=([^,]+).*$/', '$1', $org['o']);
-                                        } else {
-                                            $org_name = $org['o'];
-                                        }
-                                    } elseif (isset($org['dn']) && !empty($org['dn'])) {
-                                        $org_name = preg_replace('/^o=([^,]+).*$/', '$1', $org['dn']);
-                                    }
+                                    // Use the organization name directly
+                                    $org_name = $org['name'] ?? 'Unknown';
                                     return in_array($org_name, $user_organizations);
                                 });
                             }
@@ -90,23 +81,8 @@ if (!is_array($organizations)) {
                             <?php else: ?>
                                 <?php foreach ($display_organizations as $org): ?>
                                     <?php 
-                                    // Extract organization name from DN or use 'o' attribute
-                                    $org_name = '';
-                                    if (isset($org['o']) && !empty($org['o'])) {
-                                        // If 'o' is a DN, extract just the organization name
-                                        if (strpos($org['o'], ',') !== false) {
-                                            // Extract the organization name from DN like "o=OrgName,ou=organizations,dc=pingu,dc=info"
-                                            $org_name = preg_replace('/^o=([^,]+).*$/', '$1', $org['o']);
-                                        } else {
-                                            $org_name = $org['o'];
-                                        }
-                                    } elseif (isset($org['dn']) && !empty($org['dn'])) {
-                                        // Extract from DN attribute
-                                        $org_name = preg_replace('/^o=([^,]+).*$/', '$1', $org['dn']);
-                                    } else {
-                                        $org_name = 'Unknown Organization';
-                                    }
-                                    
+                                    // Use the organization name directly from the listOrganizations result
+                                    $org_name = $org['name'] ?? 'Unknown Organization';
                                     $org_name_safe = htmlspecialchars($org_name);
                                     $org_name_url = urlencode($org_name);
                                     ?>
@@ -189,6 +165,5 @@ function confirmDelete(orgName, orgUuid = '') {
 </script>
 
 <?php
-declare(strict_types=1);
 render_footer();
 ?> 

@@ -1,6 +1,6 @@
 # Recent Changes and Improvements
 
-This document summarizes the major changes and improvements made to LDAP User Manager, including bug fixes, feature enhancements, and architectural improvements.
+This document summarizes the major changes and improvements made to LDAP User Manager.
 
 ---
 
@@ -14,14 +14,11 @@ This document summarizes the major changes and improvements made to LDAP User Ma
 - Implemented secure, immutable identification for all LDAP entries
 - Added fallback support for legacy name-based lookups
 
-**Benefits:**
-- **Security**: UUIDs cannot be guessed or enumerated
-- **Reliability**: UUIDs remain valid even if names change
-- **Performance**: UUID lookups are faster than DN-based searches
-- **Compatibility**: Works with any OpenLDAP server
+**New Functions:**
+- `ldap_get_organization_by_uuid()`
+- `ldap_get_user_by_uuid()`
 
-**Implementation:**
-- New functions: `ldap_get_organization_by_uuid()`, `ldap_get_user_by_uuid()`
+**Usage:**
 - URL parameters now support `uuid=` (preferred) and legacy `org=`/`account_identifier=`
 - All organization and user links updated to use UUIDs when available
 
@@ -36,16 +33,7 @@ This document summarizes the major changes and improvements made to LDAP User Ma
 - Auto-generation of `cn` from `givenname` + `sn`
 - Auto-generation of `uid` from email address
 
-**Before (Complex):**
-```php
-// Old configuration included unnecessary address fields
-$LDAP['user_optional_fields'] = [
-    'cn', 'organization', 'description', 'telephoneNumber', 'labeledURI',
-    'street', 'city', 'state', 'postalCode', 'country', 'postalAddress'
-];
-```
-
-**After (Simplified):**
+**Configuration:**
 ```php
 // New configuration - essential fields only
 $LDAP['user_optional_fields'] = [
@@ -53,11 +41,10 @@ $LDAP['user_optional_fields'] = [
 ];
 ```
 
-**Benefits:**
-- **Cleaner Forms**: System users see only relevant fields
-- **Auto-generation**: Common Name and UID automatically populated
-- **Better UX**: Simplified workflow for administrators
-- **Consistent**: Matches the simplified nature of system user accounts
+**Features:**
+- Auto-generated Common Name and UID
+- Simplified workflow for administrators
+- Essential fields only for system users
 
 ---
 
@@ -69,27 +56,16 @@ $LDAP['user_optional_fields'] = [
 - Added dynamic form generation based on configuration
 - Respects required/optional field settings from configuration
 
-**Before (Individual Fields):**
+**Address Format:**
 ```ldif
-# Old approach - individual attributes (not in standard schema)
-street: 123 Main St
-city: New York
-state: NY
-postalCode: 10001
-country: USA
-```
-
-**After (Composite Field):**
-```ldif
-# New approach - single composite attribute (standard schema)
+# Single composite attribute (standard schema)
 postalAddress: 123 Main St$10001$New York$NY$USA
 ```
 
-**Benefits:**
-- **Schema Compliance**: Uses standard LDAP attributes only
-- **Dynamic Forms**: Address fields generated from configuration
-- **Configurable**: Required/optional status controlled by configuration
-- **Searchable**: `postalAddress` is searchable and follows LDAP standards
+**Configuration:**
+- Address fields generated from configuration
+- Required/optional status controlled by configuration
+- Uses standard LDAP attributes only
 
 ---
 
@@ -98,140 +74,119 @@ postalAddress: 123 Main St$10001$New York$NY$USA
 
 **What Changed:**
 - Fixed organization admin role placement under `ou=roles`
-- Prevented system users from being automatically added as organization admins
-- Improved role display and management consistency
+- Improved role hierarchy enforcement
+- Added role conflict detection and prevention
 
-**Before (Inconsistent):**
-```ldif
-# Old approach - roles placed directly under organization
-dn: cn=org_admin,o=Company Name,ou=organizations,dc=example,dc=com
-```
+**Role Hierarchy:**
+- `global_admin` = 100 (highest - can do everything)
+- `maintainer` = 80 (high - can manage users and orgs)
+- `org_admin` = 60 (medium - can manage their org)
+- `user` = 10 (lowest - basic user)
 
-**After (Consistent):**
-```ldif
-# New approach - roles properly organized under ou=roles
-dn: cn=org_admin,ou=roles,o=Company Name,ou=organizations,dc=example,dc=com
-```
-
-**Benefits:**
-- **Consistent Structure**: All roles follow the same organizational pattern
-- **Proper Separation**: System users don't get unnecessary organization roles
-- **Clean Hierarchy**: Clear separation between system and organization permissions
-- **Better Management**: Easier to manage and audit role assignments
+**Conflict Prevention:**
+- Automatic detection of conflicting role configurations
+- Setup blocked if critical conflicts detected
+- Runtime maintenance mode for configuration errors
 
 ---
 
-### 5. Improved User Experience
+### 5. Role Value Synchronization
 **Status**: ✅ **Implemented**
 
 **What Changed:**
-- Added breadcrumb navigation throughout the application
-- Fixed backlinks to point to appropriate context
-- Improved form validation and error handling
-- Enhanced CSRF protection and session management
+- Role values now default to group names by default
+- Eliminates duplication between role values and group names
+- Maintains full flexibility for custom configurations
 
-**Navigation Improvements:**
-- **Breadcrumbs**: `Organizations > Company Name > Users > Add User`
-- **Contextual Backlinks**: Users return to appropriate organization view
-- **Better Flow**: Logical navigation between related pages
-
-**Form Improvements:**
-- **Auto-population**: Common Name and UID fields automatically filled
-- **Validation**: Better error messages and field validation
-- **Security**: Enhanced CSRF protection and session handling
-
----
-
-## 🐛 Bug Fixes
-
-### 1. Fixed Parse Errors
-- **Issue**: Syntax errors in `new_user.php` preventing system user creation
-- **Fix**: Corrected missing braces and variable initialization
-- **Result**: System user creation now works without errors
-
-### 2. Fixed Undefined Variable Warnings
-- **Issue**: PHP warnings for undefined variables in user creation forms
-- **Fix**: Added proper variable initialization and null coalescing
-- **Result**: Clean execution without PHP warnings
-
-### 3. Fixed LDAP Connection Errors
-- **Issue**: "LDAP connection has already been closed" fatal errors
-- **Fix**: Capture error messages before closing connections
-- **Result**: Proper error reporting and graceful error handling
-
-### 4. Fixed Organization User Links
-- **Issue**: Organization user "View" buttons led to wrong system user page
-- **Fix**: Updated links to point to organization user management
-- **Result**: Users stay within organization context for proper management
-
-### 5. Fixed CSRF Token Issues
-- **Issue**: CSRF tokens expiring prematurely causing form submission failures
-- **Fix**: Increased session timeout and improved token regeneration
-- **Result**: Reliable form submission without security token errors
-
----
-
-## 🔧 Technical Improvements
-
-### 1. Configuration-Driven Forms
-- **Dynamic Field Generation**: Forms now generated from configuration arrays
-- **Configurable Validation**: Required/optional fields controlled by configuration
-- **Flexible Layout**: Field types and labels configurable per deployment
-
-### 2. Enhanced Security
-- **UUID-Based URLs**: Secure, unguessable identifiers for all resources
-- **Improved CSRF Protection**: Better session management and token handling
-- **Input Validation**: Enhanced form validation and sanitization
-
-### 3. Better Error Handling
-- **Graceful Degradation**: System continues working even with missing directories
-- **Detailed Logging**: Better error messages and debugging information
-- **User-Friendly Errors**: Clear error messages for end users
-
----
-
-## 📋 Migration Notes
-
-### For Existing Installations
-1. **No Schema Changes Required**: All improvements use existing LDAP attributes
-2. **Backward Compatible**: Legacy name-based URLs continue to work
-3. **Gradual Migration**: Can adopt UUID-based URLs incrementally
-4. **Configuration Updates**: Optional configuration improvements available
-
-### Configuration Updates
+**Default Behavior:**
 ```php
-// New configuration options available
-$LDAP['use_uuid_identification'] = true;  // Enable UUID-based lookups
-$LDAP['org_address_fields'] = [           // Configure address field requirements
-    'org_address' => ['required' => false],
-    'org_city' => ['required' => true],   // Make city required
-    // ... other fields
+// Role values automatically sync to group names
+$LDAP['admin_role'] = 'administrators';          // Defaults to admin_group_name
+$LDAP['maintainer_role'] = 'maintainers';        // Defaults to maintainer_group_name
+```
+
+**Configuration Options:**
+- Use synchronized defaults (recommended)
+- Override with environment variables if needed
+- System automatically prevents conflicts
+
+---
+
+### 6. Comprehensive Error Handling
+**Status**: ✅ **Implemented**
+
+**What Changed:**
+- Professional maintenance mode for configuration errors
+- Clear error messages with step-by-step solutions
+- Automatic conflict detection and prevention
+
+**Error Handling:**
+- Setup process validation
+- Runtime conflict detection
+- Professional maintenance pages
+- Clear configuration instructions
+
+---
+
+## 🔧 Configuration Examples
+
+### Role Configuration
+```bash
+# Synchronized defaults (recommended)
+LDAP_ADMIN_GROUP_NAME=administrators
+LDAP_MAINTAINER_GROUP_NAME=maintainers
+# admin_role and maintainer_role automatically sync
+
+# Custom configuration
+LDAP_ADMIN_ROLE=superuser
+LDAP_MAINTAINER_ROLE=tech_support
+LDAP_ADMIN_GROUP_NAME=global_admins
+LDAP_MAINTAINER_GROUP_NAME=system_maintainers
+```
+
+### Address Configuration
+```php
+// Make address fields required
+$LDAP['org_address_fields'] = [
+    'org_address' => ['label' => 'Street Address', 'type' => 'text', 'required' => true],
+    'org_zip' => ['label' => 'Postal Code', 'type' => 'text', 'required' => true],
+    'org_city' => ['label' => 'City', 'type' => 'text', 'required' => true],
+    'org_state' => ['label' => 'State/Province', 'type' => 'text', 'required' => true],
+    'org_country' => ['label' => 'Country', 'type' => 'text', 'required' => true]
 ];
 ```
 
 ---
 
-## 🎯 Future Enhancements
+## 📋 Files Modified
 
-### Planned Improvements
-1. **Enhanced Search**: Better search capabilities across organizations
-2. **Bulk Operations**: Support for bulk user management
-3. **Advanced Reporting**: User and organization analytics
-4. **API Support**: REST API for external integrations
+### Core Configuration
+- `www/includes/config.inc.php` - Role synchronization, conflict detection
+- `www/includes/access_functions.inc.php` - Enhanced role checking
+- `www/includes/ldap_functions.inc.php` - UUID support, improved searches
 
-### Configuration Enhancements
-1. **Custom Field Types**: Support for custom field types and validation
-2. **Multi-language Support**: Internationalization for labels and messages
-3. **Theme Support**: Customizable UI themes and branding
+### User Management
+- `www/manage/users/new.php` - Simplified system user creation
+- `www/manage/users/index.php` - Enhanced access control
+- `www/manage/organizations/users/add.php` - Improved organization user management
+
+### Setup and Validation
+- `www/setup/ldap.php` - Role group creation
+- `www/setup/verify.php` - Enhanced validation
+- `www/setup/run_checks.php` - Improved runtime checks
+
+### Documentation
+- `ROLE_CONFLICT_FIXES.md` - Role conflict prevention guide
+- `CONFIGURATION_VARIABLES.md` - Updated configuration reference
+- `docs/RECENT_CHANGES.md` - This change log
 
 ---
 
-## 📚 Related Documentation
+## 🎯 Benefits
 
-- **[README.md](../README.md)** - Overview and quick start guide
-- **[LDAP-CONFIGURATION.md](../LDAP-CONFIGURATION.md)** - LDAP schema and configuration details
-- **[docs/ldap-structure.md](ldap-structure.md)** - Complete LDAP structure documentation
-- **[DOCKER-SETUP.md](../DOCKER-SETUP.md)** - Docker deployment instructions
-
----
+- **Improved Security**: Role conflict prevention and enhanced access control
+- **Better User Experience**: Simplified forms and professional error handling
+- **Enhanced Reliability**: UUID-based identification and conflict detection
+- **Configuration Flexibility**: Role synchronization with custom override options
+- **Professional Error Handling**: Clear messages and maintenance mode
 

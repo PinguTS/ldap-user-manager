@@ -89,7 +89,7 @@ This guide explains how to connect TYPO3 to an OpenLDAP directory using the `ig_
   ```
   (|(uid={USERNAME})(mail={USERNAME}))
   ```
-  This allows users to log in with either their username or email address.
+  Users can log in with either their username or email address.
 
 - **Attribute Mapping:**
   - Username: `uid`

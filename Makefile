@@ -1,51 +1,56 @@
-# Makefile für ldap-user-manager
-APP_NAME ?= ldap-user-manager
-PLATFORMS ?= linux/amd64,linux/arm64
+# Makefile for ldap-user-manager
+# This file contains build targets for Docker images and code quality tools
 
-# 1. local.env
-ifneq ("$(wildcard local.env)","")
-include local.env
-export
-endif
+# =============================================================================
+# Configuration
+# =============================================================================
 
-# 2. git config
-REGISTRY_HOST ?= $(shell git config --get registry.host)
-PORTAINER_STACK_WEBHOOK ?= $(shell git config --get registry.webhook)
+# Application name
+APP_NAME := ldap-user-manager
 
-# 3. Umgebungsvariablen schon gesetzt behalten
-# 4. Default nur wenn alles leer
-REGISTRY_HOST ?= REGISTRY_HOST_FEHLT
+# Docker registry configuration
+REGISTRY_HOST ?= localhost
+REGISTRY_PORT ?= 5000
+REGISTRY_USER ?= admin
+REGISTRY_PASS ?= admin
+LOCAL_REGISTRY := $(REGISTRY_HOST):$(REGISTRY_PORT)
 
-LOCAL_REGISTRY ?= $(REGISTRY_HOST)
-DOCKERHUB_USER ?= pinguts
-DOCKERHUB_REPO ?= $(DOCKERHUB_USER)/$(APP_NAME)
+# Docker Hub repository
+DOCKERHUB_REPO ?= your-username/ldap-user-manager
 
-BUILDKIT_CONFIG ?= .buildkit.toml
-#BUILDKIT_CONFIG ?= .buildkit.$(shell echo $(REGISTRY_HOST) | tr : _).toml
-
-BUILDER_NAME ?= mybuilder
-
-GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+# Git information
 GIT_SHA := $(shell git rev-parse --short HEAD)
+GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 
+# Version (set via VERSION=1.2.3)
 VERSION ?= 0.0.0
 
+# Build platforms
+PLATFORMS := linux/amd64,linux/arm64
+
+# BuildKit configuration
+BUILDKIT_CONFIG := $(HOME)/.docker/buildkitd.toml
+BUILDER_NAME := ldap-user-manager-builder
+
+# Portainer webhook for notifications
+PORTAINER_STACK_WEBHOOK ?= http://localhost:9000/api/webhooks/your-webhook-id
+
+# =============================================================================
+# Docker Build Commands
+# =============================================================================
+
+# Set up Docker buildx builder
 .PHONY: builder
 builder:
-	@if [ ! -f "$(BUILDKIT_CONFIG)" ]; then \
-	  echo '[registry."$(REGISTRY_HOST)"]' > $(BUILDKIT_CONFIG); \
-	  echo '  http = true' >> $(BUILDKIT_CONFIG); \
-	fi
-	@docker buildx inspect $(BUILDER_NAME) >/dev/null 2>&1 || \
-	  docker buildx create --name $(BUILDER_NAME) --driver docker-container --config "$(BUILDKIT_CONFIG)" --use
+	@docker buildx create --name $(BUILDER_NAME) --driver docker-container --config "$(BUILDKIT_CONFIG)" --use
 	@docker buildx use $(BUILDER_NAME)
 	@docker buildx inspect --bootstrap >/dev/null
 
-# Dev Branch in private Registry pushen
+# Build and push dev version to private registry
 .PHONY: dev
 dev: builder
 	@if [ "$(GIT_BRANCH)" != "dev" ]; then \
-		echo "Abbruch. Dieser Task ist nur für den dev Branch. Aktuell: $(GIT_BRANCH)"; exit 1; \
+		echo "Aborted. This task is only for the dev branch. Current: $(GIT_BRANCH)"; exit 1; \
 	fi
 	docker buildx build \
 		--platform $(PLATFORMS) \
@@ -54,15 +59,15 @@ dev: builder
 		--push \
 		.
 
-# Lokaler Test für amd64 ohne Push
+# Local test for amd64 without push
 .PHONY: load-amd64
 load-amd64: builder
 	docker buildx build --platform linux/amd64 -t $(APP_NAME):test --load .
 
-# Release zu Docker Hub
+# Release to Docker Hub
 .PHONY: release
 release: builder
-	@if [ "$(VERSION)" = "0.0.0" ]; then echo "Bitte VERSION=1.2.3 setzen"; exit 1; fi
+	@if [ "$(VERSION)" = "0.0.0" ]; then echo "Please set VERSION=1.2.3"; exit 1; fi
 	docker buildx build \
 		--platform $(PLATFORMS) \
 		-t $(DOCKERHUB_REPO):$(VERSION) \
@@ -70,12 +75,12 @@ release: builder
 		--push \
 		.
 
-# Prüfen der aktuell berechneten Tags
+# Show currently calculated tags
 .PHONY: echo
 echo:
 	@echo "Branch: $(GIT_BRANCH)"
 	@echo "SHA: $(GIT_SHA)"
-	@echo "Local dev tags: $(LOCAL_REGISTRY)/$(APP_NAME):dev und dev-$(GIT_SHA)"
+	@echo "Local dev tags: $(LOCAL_REGISTRY)/$(APP_NAME):dev and dev-$(GIT_SHA)"
 	@echo "Docker Hub repo: $(DOCKERHUB_REPO)"
 
 .PHONY: check

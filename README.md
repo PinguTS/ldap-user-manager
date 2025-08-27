@@ -4,45 +4,38 @@ A PHP-based web interface for managing LDAP user accounts, organizations, and ro
 
 ***
 
-## Features
+## 🚀 **Quick Start**
 
-- **Setup Wizard**: Creates necessary LDAP structure and initial admin user
-- **Organization Management**: Create, edit, and delete organizations (companies, universities, etc.)
-- **Role-based Access Control**: Administrators, maintainers, organization managers, and regular users
-- **User Management**: Create, edit, and delete user accounts with secure password generation
-- **Group Management**: Create and manage LDAP groups
-- **Self-service**: Users can manage their own accounts and change passwords
-- **Email Integration**: Optional email notifications for new accounts and credential updates
-- **Passcode Support**: Optional passcode attributes for additional authentication
-- **Unified User Structure**: Consistent `ou=people` naming convention across the entire LDAP tree
+### **Option 1: Docker (Recommended)**
+```bash
+# Clone repository
+git clone https://github.com/your-repo/ldap-user-manager.git
+cd ldap-user-manager
 
-***
+# Start with Docker Compose
+docker-compose -f docker-compose.app.yml up -d
+```
 
-## Quick Setup with Docker Compose
+### **Option 2: Direct Web Server Deployment**
+```bash
+# Clone repository
+git clone https://github.com/your-repo/ldap-user-manager.git
+cd ldap-user-manager
 
-1. **Start LDAP server:**
-   ```bash
-   docker-compose -f docker-compose.ldap.yml up -d
-   ```
+# Single setup script for all scenarios
+./web-servers/setup.sh
+```
 
-2. **Start user manager:**
-   ```bash
-   docker-compose -f docker-compose.app.yml up -d
-   ```
+## 📚 **Documentation**
 
-3. **Complete setup at `http://localhost:8080/setup/`**
-
-The web-based setup wizard will automatically create all necessary LDAP structure, users, and roles.
-
-***
-
-## Documentation
-
-- **[DOCKER-SETUP.md](DOCKER-SETUP.md)** - Complete Docker setup guide with Portainer instructions and troubleshooting
-- **[LDAP-CONFIGURATION.md](LDAP-CONFIGURATION.md)** - LDAP schema requirements and configuration details
-- **[docs/ldap-structure.md](docs/ldap-structure.md)** - Complete LDAP structure documentation with examples
-- **[docs/RECENT_CHANGES.md](docs/RECENT_CHANGES.md)** - Summary of recent improvements and changes
-- **[ldif/README.md](ldif/README.md)** - LDIF file documentation and setup process
+- [LDAP Configuration](LDAP-CONFIGURATION.md) - LDAP schema and setup
+- [Docker Setup](DOCKER-SETUP.md) - Container deployment guide
+- [Web Server Deployment](web-servers/README.md) - Apache, Nginx, and direct deployment
+- [Configuration Variables](CONFIGURATION_VARIABLES.md) - Environment variables
+- [Role Conflict Fixes](ROLE_CONFLICT_FIXES.md) - Access control configuration
+- [URL Routing](docs/URL_ROUTING.md) - Clean URLs and routing system
+- [Apache Configuration](apache/README.md) - Server configuration and optimization
+- [Apache Migration](docs/APACHE_MIGRATION.md) - Migration from .htaccess to Apache config
 
 ***
 

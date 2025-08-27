@@ -761,16 +761,20 @@ function ldap_user_group_membership($ldap_connection,$user_dn) {
   }
 
   # Check global roles (administrator, maintainer)
-  $global_roles_filter = "(&(objectclass=groupOfNames)(member=$user_dn))";
-  $ldap_search = @ldap_search($ldap_connection, $LDAP['roles_dn'], $global_roles_filter, array('cn'));
-  if ($ldap_search) {
-    $result = @ldap_get_entries($ldap_connection, $ldap_search);
-    foreach ($result as $record) {
-      if (isset($record['cn'][0])) {
-        $roles[] = $record['cn'][0];
-      }
-    }
-  }
+# IMPORTANT: Check global roles independently, regardless of role value conflicts
+$global_admin_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['admin_group_name']})(member=$user_dn))";
+$global_maintainer_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['maintainer_group_name']})(member=$user_dn))";
+
+$global_admin_search = @ldap_search($ldap_connection, $LDAP['roles_dn'], $global_admin_filter, ['cn']);
+$global_maintainer_search = @ldap_search($ldap_connection, $LDAP['roles_dn'], $global_maintainer_filter, ['cn']);
+
+if ($global_admin_search && ldap_count_entries($ldap_connection, $global_admin_search) > 0) {
+    $currentUserGroups[] = $LDAP['admin_role'];
+    if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix User is global administrator"); }
+} elseif ($global_maintainer_search && ldap_count_entries($ldap_connection, $global_maintainer_search) > 0) {
+    $currentUserGroups[] = $LDAP['maintainer_role'];
+    if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix User is global maintainer"); }
+}
 
   # Check organization-specific roles
   $org_roles_filter = "(&(objectclass=groupOfNames)(member=$user_dn))";
@@ -990,7 +994,7 @@ function ldap_new_account($ldap_connection,$account_r) {
 
      # Set default description (role) if not specified
      if (!isset($account_attributes['description'][0])) {
-       $account_attributes['description'][0] = 'user';
+               $account_attributes['description'][0] = $LDAP['user_role'];
      }
 
      # Ensure uid is set to email for email-based login
@@ -1014,11 +1018,11 @@ function ldap_new_account($ldap_connection,$account_r) {
        # Add user to organization admin role ONLY if they are organization users (not system users)
        # System administrators/maintainers already have full access to all organizations
        # Check: 1) User has org_admin role, 2) Organization is specified, 3) User DN is under org_dn (not people_dn)
+       # IMPORTANT: Check organization admin role independently, regardless of role value conflicts
        if (isset($account_attributes['description'][0]) && 
-           $account_attributes['description'][0] === $LDAP['org_admin_role'] && 
-           $organization !== null && 
-           strpos($user_dn, $LDAP['org_dn']) !== false &&
-           strpos($user_dn, $LDAP['people_dn']) === false) {
+           $account_attributes['description'][0] === $LDAP['org_admin_role'] &&
+           isset($account_attributes['o'][0]) && 
+           strpos($user_dn, $LDAP['org_dn']) !== false) {
          addUserToOrgAdmin($organization, "{$LDAP['account_attribute']}=$account_identifier,{$user_dn}");
        }
        

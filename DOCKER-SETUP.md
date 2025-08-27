@@ -19,9 +19,9 @@ This guide provides step-by-step instructions for setting up LDAP User Manager u
 │  ldap-server    │    │  ldap-user-manager  │
 │                 │    │                     │
 │  ┌───────────┐  │    │  ┌──────────────┐   │
-│  │   LDAP    │◄─┼────┼─►│  Web App    │   │
-│  │  Server   │  │    │   │             │   │
-│  └───────────┘  │    │   └──────────────┘   │
+│  │   LDAP    │◄─┼────┼─►│  Web App     │   │
+│  │  Server   │  │    │  │              │   │
+│  └───────────┘  │    │  └──────────────┘   │
 └─────────────────┘    └─────────────────────┘
 ```
 
@@ -201,7 +201,7 @@ networks:
 
 ### Option 1: Custom LDAP Image
 
-**Note**: This approach is not recommended since the web-based setup wizard handles everything automatically. However, if you need a custom LDAP image for other reasons:
+**Note**: The web-based setup wizard handles everything automatically. However, if you need a custom LDAP image for other reasons:
 
 **Dockerfile for Custom LDAP Image**
 
@@ -228,7 +228,7 @@ CMD ["/container/tool/run"]
 
 ### Option 2: Init Container Pattern
 
-**Note**: This approach is not recommended since the web-based setup wizard handles everything automatically. However, if you need an init container for other reasons:
+**Note**: The web-based setup wizard handles everything automatically. However, if you need an init container for other reasons:
 
 ```yaml
 version: '3.8'
@@ -291,7 +291,7 @@ docker exec -it ldap-user-manager ldapsearch -x -H ldap://ldap-server:389 -b dc=
 # Verify LDAP server is accessible
 docker exec -it ldap-server ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=schema,cn=configuration -s base
 
-# Note: The system uses existing LDAP attributes - no custom schema required
+- The system uses existing LDAP attributes - no custom schema required
 ```
 
 ### Verify Users
@@ -323,7 +323,7 @@ docker exec -it ldap-server ldapsearch -x -b ou=roles,dc=example,dc=com -D cn=ad
    - Check if OUs exist: `ldapsearch -x -b dc=example,dc=com -D cn=admin,dc=example,dc=com -w admin123`
 
 4. **"attribute type undefined"**
-   - This error should not occur since we're using existing LDAP attributes
+   - The system uses existing LDAP attributes - no custom schema required
    - Check if the web-based setup wizard completed successfully
 
 ### Debug Commands

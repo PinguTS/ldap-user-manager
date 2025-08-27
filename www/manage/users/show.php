@@ -104,7 +104,7 @@ if ($user_uuid) {
         $user_location = 'organization';
     } else {
         // Try system users
-        $ldap_search = ldap_search( $ldap_connection, $LDAP['user_dn'], $ldap_search_query);
+        $ldap_search = ldap_search( $ldap_connection, $LDAP['people_dn'], $ldap_search_query);
         if ($ldap_search && ldap_count_entries($ldap_connection, $ldap_search) > 0) {
             $user = ldap_get_entries($ldap_connection, $ldap_search);
             $user_location = 'system';
@@ -159,8 +159,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile']) && 
     
     // If no errors, update the user
     if (empty($errors)) {
-        $result = updateUserProfile($user_data['dn'], $update_data);
-        if ($result[0]) {
+        $result = updateUser($user_data['dn'], $update_data);
+        if ($result) {
             render_alert_banner('User profile updated successfully!', 'success', 10000);
             // Refresh user data
             $ldap_search = ldap_read($ldap_connection, $user_data['dn'], '(objectClass=*)');
@@ -171,7 +171,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile']) && 
                 }
             }
         } else {
-            render_alert_banner('Error updating user profile: ' . $result[1], 'danger', 10000);
+            render_alert_banner('Error updating user profile. Please check the logs for details.', 'danger', 10000);
         }
     } else {
         render_alert_banner('Please correct the following errors: ' . implode(', ', $errors), 'danger', 10000);
@@ -406,6 +406,5 @@ document.getElementById('new_password').addEventListener('input', function() {
 </script>
 
 <?php
-declare(strict_types=1);
 render_footer();
 ?>

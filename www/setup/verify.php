@@ -29,7 +29,6 @@ if ($SETUP_DEBUG == TRUE) {
       <ul class="list-group">
 
 <?php
-declare(strict_types=1);
 
 # Test 1: Check if OUs exist
 print "<li class='list-group-item'><strong>Test 1: Organizational Units</strong></li>\n";
@@ -74,8 +73,8 @@ foreach ($user_tests as $filter => $user_name) {
 print "<li class='list-group-item'><strong>Test 3: Role Groups</strong></li>\n";
 
 $role_tests = array(
-    "(&(objectclass=groupOfNames)(cn=administrators))" => "Administrators Group",
-    "(&(objectclass=groupOfNames)(cn=maintainers))" => "Maintainers Group"
+            "(&(objectclass=groupOfNames)(cn={$LDAP['admin_group_name']}))" => "Administrators Group",
+            "(&(objectclass=groupOfNames)(cn={$LDAP['maintainer_group_name']}))" => "Maintainers Group"
 );
 
 foreach ($role_tests as $filter => $role_name) {
@@ -92,7 +91,7 @@ foreach ($role_tests as $filter => $role_name) {
 print "<li class='list-group-item'><strong>Test 4: Role Memberships</strong></li>\n";
 
 # Check administrators group membership
-$admin_group_search = ldap_search($ldap_connection, $LDAP['roles_dn'], "(&(objectclass=groupOfNames)(cn=administrators))");
+$admin_group_search = ldap_search($ldap_connection, $LDAP['roles_dn'], "(&(objectclass=groupOfNames)(cn={$LDAP['admin_group_name']}))");
 if ($admin_group_search && ldap_count_entries($ldap_connection, $admin_group_search) > 0) {
     $admin_group_entries = ldap_get_entries($ldap_connection, $admin_group_search);
     $admin_group = $admin_group_entries[0];
@@ -170,7 +169,6 @@ if ($admin_search && ldap_count_entries($ldap_connection, $admin_search) > 0) {
   </div>
  
 <?php
-declare(strict_types=1);
 # Check if we have missing components and show appropriate options
 if (!empty($missing_components)) {
   if ($SETUP_DEBUG == TRUE) {
@@ -243,7 +241,6 @@ if (!empty($missing_components)) {
   </div>
 
 <?php
-declare(strict_types=1);
 
 render_footer();
 

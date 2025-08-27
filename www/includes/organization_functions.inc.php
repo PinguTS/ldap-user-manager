@@ -231,7 +231,7 @@ function addUserToOrgAdmin($orgName, $userDn) {
         $groupData = [
             'objectClass' => ['top', 'groupOfNames'],
             'cn' => $LDAP['org_admin_role'],
-            'description' => "Organization administrators for {$orgName}",
+            'description' => "Organization {$LDAP['role_display_labels']['org_admin_role']}s for {$orgName}",
             'member' => [$userDn]
         ];
         $result = @ldap_add($ldap, $groupDN, $groupData);
@@ -521,5 +521,178 @@ function deleteUser($userIdentifier) {
         error_log("deleteUser: Failed to delete user $userIdentifier: " . $error_msg);
         return false;
     }
+}
+
+/**
+ * Create a new user account (system user or organization user)
+ * @param array $userData User data from the form
+ * @return array [success, message]
+ */
+function createUserAccount($userData) {
+    global $LDAP;
+    $ldap = open_ldap_connection();
+    
+    try {
+        // Determine if this is a system user or organization user
+        $is_system_user = in_array($userData['userRole'], [$LDAP['admin_role'], 'maintainer']);
+        
+        if ($is_system_user) {
+            // Create system user (administrator/maintainer)
+            return createSystemUser($ldap, $userData);
+        } else {
+            // Create organization user
+            return createOrganizationUser($ldap, $userData);
+        }
+    } catch (Exception $e) {
+        ldap_close($ldap);
+        return [false, "Error creating user account: " . $e->getMessage()];
+    }
+}
+
+/**
+ * Create a system user (administrator/maintainer)
+ * @param resource $ldap LDAP connection
+ * @param array $userData User data
+ * @return array [success, message]
+ */
+function createSystemUser($ldap, $userData) {
+    global $LDAP;
+    
+    // System users go directly under the people DN
+    $user_dn = "uid=" . ldap_escape($userData['mail'], '', LDAP_ESCAPE_DN) . "," . $LDAP['people_dn'];
+    
+    // Check if user already exists
+    $search = @ldap_search($ldap, $LDAP['people_dn'], "(uid=" . ldap_escape($userData['mail'], '', LDAP_ESCAPE_FILTER) . ")");
+    if ($search && ldap_count_entries($ldap, $search) > 0) {
+        return [false, "User with email {$userData['mail']} already exists"];
+    }
+    
+    // Prepare user attributes
+    $user_attributes = [
+        'objectclass' => ['top', 'person', 'organizationalPerson', 'inetOrgPerson'],
+        'uid' => $userData['mail'],
+        'mail' => $userData['mail'],
+        'cn' => $userData['cn'],
+        'givenName' => $userData['givenName'],
+        'sn' => $userData['sn'],
+        'userPassword' => ldap_hashed_password($userData['userPassword']),
+        'description' => $userData['userRole'] // Role is stored in description
+    ];
+    
+    // Add optional fields
+    if (!empty($userData['telephoneNumber'])) {
+        $user_attributes['telephoneNumber'] = $userData['telephoneNumber'];
+    }
+    
+    // Create the user
+    $result = @ldap_add($ldap, $user_dn, $user_attributes);
+    if (!$result) {
+        $error = ldap_error($ldap);
+        return [false, "Failed to create system user: $error"];
+    }
+    
+    // Add user to the appropriate role group
+    $role_group_dn = "cn={$userData['userRole']}," . $LDAP['roles_dn'];
+    $modify = @ldap_modify($ldap, $role_group_dn, ['member' => $user_dn]);
+    if (!$modify) {
+        // Log the warning but don't fail the user creation
+        error_log("Warning: Failed to add user to role group {$userData['userRole']}: " . ldap_error($ldap));
+    }
+    
+    return [true, "System user created successfully"];
+}
+
+/**
+ * Create an organization user
+ * @param resource $ldap LDAP connection
+ * @param array $userData User data
+ * @return array [success, message]
+ */
+function createOrganizationUser($ldap, $userData) {
+    global $LDAP;
+    
+    // Organization users go under their organization
+    $org_name = $userData['o'];
+    $user_dn = "uid=" . ldap_escape($userData['mail'], '', LDAP_ESCAPE_DN) . ",ou=people,o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
+    
+    // Check if organization exists
+    $org_search = @ldap_search($ldap, $LDAP['org_dn'], "o=" . ldap_escape($org_name, '', LDAP_ESCAPE_FILTER));
+    if (!$org_search || ldap_count_entries($ldap, $org_search) == 0) {
+        return [false, "Organization '$org_name' does not exist"];
+    }
+    
+    // Check if user already exists in this organization
+    $user_search = @ldap_search($ldap, "ou=people,o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'], 
+                               "(uid=" . ldap_escape($userData['mail'], '', LDAP_ESCAPE_FILTER) . ")");
+    if ($user_search && ldap_count_entries($ldap, $user_search) > 0) {
+        return [false, "User with email {$userData['mail']} already exists in organization '$org_name'"];
+    }
+    
+    // Ensure the users directory exists
+    $users_dn = "ou=people,o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
+    $usersDirExists = @ldap_read($ldap, $users_dn, '(objectClass=*)', ['dn']);
+    if (!$usersDirExists) {
+        $usersDirEntry = [
+            'objectClass' => ['top', 'organizationalUnit'],
+            'ou' => 'people',
+            'description' => "Users for organization $org_name"
+        ];
+        
+        $createUsersDir = @ldap_add($ldap, $users_dn, $usersDirEntry);
+        if (!$createUsersDir) {
+            return [false, "Failed to create users directory for organization '$org_name'"];
+        }
+    }
+    
+    // Prepare user attributes
+    $user_attributes = [
+        'objectclass' => ['top', 'person', 'organizationalPerson', 'inetOrgPerson'],
+        'uid' => $userData['mail'],
+        'mail' => $userData['mail'],
+        'cn' => $userData['cn'],
+        'givenName' => $userData['givenName'],
+        'sn' => $userData['sn'],
+        'userPassword' => ldap_hashed_password($userData['userPassword']),
+        'o' => $org_name,
+        'description' => $userData['userRole'] // Role is stored in description
+    ];
+    
+    // Add optional fields
+    if (!empty($userData['telephoneNumber'])) {
+        $user_attributes['telephoneNumber'] = $userData['telephoneNumber'];
+    }
+    
+    // Create the user
+    $result = @ldap_add($ldap, $user_dn, $user_attributes);
+    if (!$result) {
+        $error = ldap_error($ldap);
+        return [false, "Failed to create organization user: $error"];
+    }
+    
+    // If user is an organization admin, add them to the org_admin role
+    // IMPORTANT: Check organization admin role independently, regardless of role value conflicts
+    if ($userData['userRole'] === $LDAP['org_admin_role']) {
+        // Add user to organization admin role
+        $org_roles_dn = "ou=roles,o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
+        $org_admin_group_dn = "cn={$LDAP['org_admin_role']},$org_roles_dn";
+        
+        // Ensure the org_admin group exists
+        $groupExists = @ldap_read($ldap, $org_admin_group_dn, '(objectClass=*)', ['dn']);
+        if (!$groupExists) {
+            // Create the org_admin group if it doesn't exist
+            $groupEntry = [
+                'objectClass' => ['top', 'groupOfNames'],
+                'cn' => $LDAP['org_admin_role'],
+                'description' => "Organization {$LDAP['role_display_labels']['org_admin_role']}s for $org_name",
+                'member' => [$user_dn]
+            ];
+            @ldap_add($ldap, $org_admin_group_dn, $groupEntry);
+        } else {
+            // Add user to existing org_admin group
+            @ldap_modify($ldap, $org_admin_group_dn, ['member' => $user_dn]);
+        }
+    }
+    
+    return [true, "Organization user created successfully"];
 }
 

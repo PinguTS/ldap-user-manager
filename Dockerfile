@@ -22,7 +22,11 @@ RUN set -eux; \
 # PHPMailer holen
 ADD https://github.com/PHPMailer/PHPMailer/archive/refs/tags/v6.3.0.tar.gz /tmp
 
-RUN a2enmod rewrite ssl && a2dissite 000-default default-ssl
+# Enable Apache modules for security, performance, and URL rewriting
+RUN a2enmod rewrite ssl headers expires deflate && a2dissite 000-default default-ssl
+
+# Copy Apache configuration
+COPY apache/ /etc/apache2/conf-available/
 
 EXPOSE 80
 EXPOSE 443

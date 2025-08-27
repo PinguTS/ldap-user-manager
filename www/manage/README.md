@@ -25,27 +25,6 @@ This directory contains the management interface for the LDAP User Manager syste
         └── add.php             # Add user to organization
 ```
 
-## Complete File Migration Mapping
-
-### **From `/account_manager/` → To `/manage/`**
-
-| Old Path | New Path | Function |
-|----------|----------|----------|
-| `index.php` | `users/index.php` | System users management |
-| `manage_roles.php` | `roles/index.php` | System roles management |
-| `organizations.php` | `organizations/index.php` | Organizations overview |
-| `show_organization.php` | `organizations/show/index.php` | View/edit organization |
-| `org_users.php` | `organizations/users/index.php` | Organization users list |
-| `add_org_user.php` | `organizations/users/add.php` | Add user to organization |
-| `new_user.php` | `users/new.php` | Create new system user |
-| `show_user.php` | `users/show.php` | View/edit user profile |
-| `download.php` | `download.php` | File download functionality |
-| `module_functions.inc.php` | `module_functions.inc.php` | Submenu navigation |
-
-### **New Files Added**
-- `index.php` - Main management dashboard
-- `organizations/add.php` - Dedicated organization creation
-
 ## Access Control
 
 ### User Types and Permissions
@@ -65,7 +44,7 @@ This directory contains the management interface for the LDAP User Manager syste
 - **`/manage/organizations`**: Global Admins, Maintainers, Organization Admins (own org only)
 - **`/manage/organizations/add`**: Global Admins, Maintainers
 
-**Note**: Organization Admins can access the organizations list page (`/manage/organizations/`) but will only see their own organization. This provides them with a consistent interface while maintaining security boundaries.
+Organization Admins have full control over their own organization while maintaining system security by preventing access to other organizations or system-level functions.
 
 ### Organization Admin Permissions
 
@@ -78,7 +57,7 @@ Organization Administrators have **limited but important** access to manage thei
 - **✅ User Management**: Can assign roles and permissions to users within their organization
 - **❌ Cannot Access**: Other organizations, system users, system roles, or create new organizations
 
-This design ensures that Organization Admins have full control over their own organization while maintaining system security by preventing access to other organizations or system-level functions. They can use the same interface as Global Admins and Maintainers, but the system automatically filters content to show only their own organization.
+This design ensures that Organization Admins have full control over their own organization while maintaining system security by preventing access to other organizations or system-level functions.
 
 ## Navigation
 
@@ -115,7 +94,7 @@ The management system is accessible through the main navigation menu, which show
 
 ## Migration Notes
 
-This structure replaces the previous flat `/account_manager/` directory structure. All redirects and links have been updated to use the new paths. The new structure maintains 100% functional compatibility while providing a much more logical and maintainable organization.
+The new structure maintains 100% functional compatibility with the previous system while providing better organization and user experience.
 
 ### **Functionality Preserved**
 - ✅ All user management functions

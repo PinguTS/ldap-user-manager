@@ -5,6 +5,12 @@ set_include_path(".:" . __DIR__ . "/includes/");
 include_once "web_functions.inc.php";
 include_once "access_functions.inc.php";
 
+// CRITICAL: Check for role configuration conflicts before allowing any access
+// This prevents the system from operating with broken access control
+if (function_exists('checkRuntimeRoleConflicts') && checkRuntimeRoleConflicts()) {
+    displayMaintenanceMode();
+}
+
 // Use the enhanced access control function
 // The main index should be accessible to all authenticated users
 set_page_access("user");

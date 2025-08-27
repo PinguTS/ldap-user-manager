@@ -153,7 +153,7 @@ function set_passkey_cookie($user_id, $is_admin, $is_maintainer = false, $is_org
     setcookie('orf_cookie', "$user_id:$passkey", $DEFAULT_COOKIE_OPTIONS);
     $sessto_cookie_opts = $DEFAULT_COOKIE_OPTIONS;
     $sessto_cookie_opts['expires'] = $this_time + 7200;
-    setcookie('sessto_cookie', $this_time + (60 * $SESSION_TIMEOUT), $sessto_cookie_opts);
+    setcookie('sessto_cookie', (string)($this_time + (60 * $SESSION_TIMEOUT)), $sessto_cookie_opts);
     
     if ( $SESSION_DEBUG == TRUE) {  error_log("$log_prefix Session: user $user_id validated (IS_ADMIN={$IS_ADMIN}, IS_MAINTAINER={$IS_MAINTAINER}, IS_ORG_ADMIN={$IS_ORG_ADMIN}, ORG={$org_name}, ORG_UUID={$org_uuid}), sent orf_cookie to the browser.",0); }
     $VALIDATED = TRUE;
@@ -686,12 +686,12 @@ function set_page_access($allowed_levels) {
          // Path-based restrictions for maintainers
          if (strpos($current_path, '/setup') === 0) {
            // Maintainers cannot access setup
-           continue;
+           break;
          }
          if (strpos($current_path, '/manage/users') === 0 || 
              strpos($current_path, '/manage/roles') === 0) {
            // Maintainers cannot access user and role management
-           continue;
+           break;
          }
          $has_access = true;
          $user_level = 'maintainer';
@@ -704,7 +704,7 @@ function set_page_access($allowed_levels) {
          // Check path-based restrictions for organization admins
          if (strpos($current_path, '/setup') === 0) {
            // Org admins cannot access setup
-           continue;
+           break;
          }
          // Org admins can access organization pages (but will only see their own org)
          if (strpos($current_path, '/manage/organizations') === 0) {
@@ -712,7 +712,7 @@ function set_page_access($allowed_levels) {
            $user_level = 'org_admin';
            break;
          }
-         continue;
+         break;
        }
        break;
        

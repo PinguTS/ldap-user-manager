@@ -39,7 +39,7 @@ These LDIF files are provided for reference and advanced users who want to under
 - `system_users.ldif` - System user definitions (admin, maintainer)
 - `example-org.ldif` - Example organization structure
 
-**Note**: Passcodes are stored in the `userPassword` attribute alongside regular passwords, eliminating the need for custom schema files.
+**Note**: LDIF files are provided for reference and manual setup. The web-based setup wizard handles everything automatically.
 
 ## 🔍 Verification
 
