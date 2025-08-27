@@ -153,15 +153,17 @@ if (!is_array($organizations)) {
     </div>
 </div>
 
+<script src="/js/jquery-3.6.0.min.js"></script>
+<script src="/js/user_management.min.js"></script>
 <script>
-function confirmDelete(orgName, orgUuid = '') {
-    document.getElementById('deleteOrgName').textContent = orgName;
-    document.getElementById('deleteOrgNameInput').value = orgName;
-    if (orgUuid) {
-        document.getElementById('deleteOrgUuidInput').value = orgUuid;
-    }
-    $('#deleteModal').modal('show');
-}
+    // Initialize common user management page functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeUserManagementPage({
+            searchInputId: 'org_search_input',
+            tableId: 'org_table',
+            messageId: 'msgbox'
+        });
+    });
 </script>
 
 <?php

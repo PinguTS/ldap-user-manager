@@ -25,6 +25,19 @@ if (isset($_POST['delete_user'])) {
     $this_user = $_POST['delete_user'];
     $this_user = urldecode($this_user);
 
+    // Check if this is a UUID or account identifier
+    $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $this_user);
+    
+    if ($is_uuid) {
+      // Convert UUID to account identifier for delete operation
+      $user_entry = ldap_get_entry_by_uuid($ldap_connection, $this_user, $LDAP['people_dn']);
+      if (!$user_entry || !isset($user_entry['uid'][0])) {
+        render_alert_banner("User not found with UUID: $this_user", "danger");
+        return;
+      }
+      $this_user = $user_entry['uid'][0];
+    }
+
     // Check if user can delete this user
     $can_delete = false;
     $delete_reason = '';
@@ -45,7 +58,7 @@ if (isset($_POST['delete_user'])) {
         if (is_array($role_membership) && !in_array($LDAP['admin_role'], $role_membership)) {
           $can_delete = true;
         } else {
-                          $delete_reason = $LDAP['error_messages']['maintainer_cannot_delete_admin'];
+          $delete_reason = $LDAP['error_messages']['maintainer_cannot_delete_admin'];
         }
       }
     }
@@ -116,10 +129,14 @@ $people = ldap_get_system_users($ldap_connection);
                     <?php
                     foreach ($people as $account_identifier => $attribs){
 
-                        $role_membership = ldap_user_group_membership($ldap_connection,$account_identifier);
+                        // Get user DN for role checking - use DN from user data if available
+                        $user_dn = isset($attribs['dn']) ? $attribs['dn'] : get_user_dn_from_identifier($ldap_connection, $account_identifier);
+                        
+                        $role_membership = ldap_user_group_membership($ldap_connection, $user_dn);
                         if (!is_array($role_membership)) {
                             $role_membership = [];
                         }
+                        
                         if (isset($people[$account_identifier]['mail'])) { $this_mail = $people[$account_identifier]['mail']; } else { $this_mail = ""; }
                         
                         // Use UUID for user link if available, otherwise fall back to account_identifier
@@ -147,26 +164,29 @@ $people = ldap_get_system_users($ldap_connection);
                         elseif (currentUserIsGlobalAdmin()) {
                             $can_delete = true;
                         }
-                                                  elseif (currentUserIsMaintainer()) {
-          // Maintainers can only delete maintainer users, not admins
-          // IMPORTANT: Check global admin role independently, regardless of role value conflicts
-          $ldap = open_ldap_connection();
-          $admin_role_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['admin_group_name']})(member=$user_dn))";
-          $ldap_search = @ldap_search($ldap, $LDAP['roles_dn'], $admin_role_filter, ['cn']);
-          if ($ldap_search) {
-            $result = ldap_get_entries($ldap, $ldap_search);
-            ldap_close($ldap);
-            if ($result['count'] > 0) {
-              $can_delete = false;
-              $delete_reason = $LDAP['error_messages']['maintainer_cannot_delete_admin'];
-            }
-          } else {
-            ldap_close($ldap);
-          }
-        }
+                        elseif (currentUserIsMaintainer()) {
+                            // Maintainers can only delete maintainer users, not admins
+                            if ($user_dn) {
+                                $admin_role_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['admin_group_name']})(member=" . ldap_escape($user_dn, "", LDAP_ESCAPE_FILTER) . "))";
+                                $ldap_search = @ldap_search($ldap_connection, $LDAP['roles_dn'], $admin_role_filter, ['cn']);
+                                if ($ldap_search) {
+                                    $result = ldap_get_entries($ldap_connection, $ldap_search);
+                                    if ($result['count'] > 0) {
+                                        $can_delete = false;
+                                        $delete_reason = $LDAP['error_messages']['maintainer_cannot_delete_admin'];
+                                    } else {
+                                        $can_delete = true;
+                                    }
+                                } else {
+                                    $can_delete = true;
+                                }
+                            }
+                        }
                         
                         if ($can_delete) {
-                            print "     <button type='button' class='btn btn-xs btn-danger' onclick='confirmDelete(\"" . htmlspecialchars($account_identifier) . "\")'>Delete</button>";
+                            // Use UUID for delete if available, otherwise use account_identifier
+                            $delete_param = $user_uuid ? $user_uuid : $account_identifier;
+                            print "     <button type='button' class='btn btn-xs btn-danger' onclick='confirmDelete(\"" . htmlspecialchars($delete_param) . "\", \"" . htmlspecialchars($account_identifier) . "\")'>Delete</button>";
                         } else {
                             print "     <button type='button' class='btn btn-xs btn-danger' disabled title='" . htmlspecialchars($delete_reason) . "'>Delete</button>";
                         }
@@ -208,22 +228,18 @@ $people = ldap_get_system_users($ldap_connection);
     </div>
 </div>
 
-<script>
-$(document).ready(function(){
-    $("#search_input").on("keyup", function() {
-        var value = $(this).val().toLowerCase();
-        $("#userlist tr").filter(function() {
-            $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
+    <script src="/js/jquery-3.6.0.min.js"></script>
+    <script src="/js/user_management.min.js"></script>
+    <script>
+        // Initialize common user management page functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeUserManagementPage({
+                searchInputId: 'user_search_input',
+                tableId: 'user_table',
+                messageId: 'msgbox'
+            });
         });
-    });
-});
-
-function confirmDelete(userName) {
-    document.getElementById('deleteUserName').textContent = userName;
-    document.getElementById('deleteUserInput').value = userName;
-    $('#deleteModal').modal('show');
-}
-</script>
+    </script>
 
 <?php
 render_footer();

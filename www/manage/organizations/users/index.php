@@ -8,6 +8,7 @@ include_once "ldap_functions.inc.php";
 include_once "access_functions.inc.php";
 include_once dirname(dirname(__DIR__)) . "/module_functions.inc.php";
 include_once "organization_functions.inc.php";
+include_once "user_functions.inc.php";
 
 // Ensure CSRF token is generated early
 get_csrf_token();
@@ -135,7 +136,7 @@ function getUsersInOrg($orgName) {
     }
     
     $filter = '(objectClass=inetOrgPerson)';
-    $attributes = ['uid', 'cn', 'sn', 'mail'];
+    $attributes = ['uid', 'cn', 'sn', 'mail', 'entryUUID'];
     $result = @ldap_search($ldap, $usersDn, $filter, $attributes);
     if (!$result) {
         // Log the error but don't show it to the user
@@ -181,8 +182,31 @@ function getOrgManagerDns($orgName) {
 
 // Handle org manager role toggle
 if (isset($_GET['toggle_manager']) && isset($_GET['uid'])) {
-    $uid = $_GET['uid'];
-    $userDn = getUserDn($orgName, $uid);
+    $toggleUserParam = $_GET['uid'];
+    
+    // Check if this is a UUID or uid
+    $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $toggleUserParam);
+    
+    if ($is_uuid) {
+        // UUID-based lookup - get user DN from UUID
+        $ldap_connection = open_ldap_connection();
+        $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
+        $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
+        $user_by_uuid = ldap_get_entry_by_uuid($ldap_connection, $toggleUserParam, $usersDn);
+        ldap_close($ldap_connection);
+        
+        if ($user_by_uuid) {
+            $userDn = $user_by_uuid['dn'];
+        } else {
+            $message = 'User not found with UUID: ' . $toggleUserParam;
+            $message_type = 'danger';
+            goto after_toggle_manager;
+        }
+    } else {
+        // Legacy uid-based lookup
+        $userDn = getUserDn($orgName, $toggleUserParam);
+    }
+    
     $orgManagerDns = getOrgManagerDns($orgName);
     $ldap = open_ldap_connection();
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
@@ -268,16 +292,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
         $message_type = 'danger';
         goto after_add_user;
     }
-    $givenname = trim($_POST['givenname']);
+    $givenName = trim($_POST['givenName']);
     $sn = trim($_POST['sn']);
     $mail = trim($_POST['mail']);
+    $cn = trim($_POST['cn']);
     $password = $_POST['password'];
     $passcode = $_POST['passcode'];
     
     // Use email as username since that's how the system is configured
     $uid = $mail;
     
-    if ($givenname === '' || $sn === '' || $mail === '' || $password === '') {
+    if ($givenName === '' || $sn === '' || $mail === '' || $password === '') {
         $message = 'All fields are required.';
         $message_type = 'danger';
         goto after_add_user;
@@ -322,9 +347,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
     $entry = [
         'objectClass' => ['inetOrgPerson', 'top'],
         'uid' => $uid,
-        'givenname' => $givenname,
+        'givenname' => $givenName,
         'sn' => $sn,
-        'cn' => $givenname . ' ' . $sn, // Construct cn from givenname + sn
+        'cn' => $cn, // Use the cn from the form
         'mail' => $mail,
         'userPassword' => password_hash($password, PASSWORD_DEFAULT), // For demo; use LDAP hash in production
     ];
@@ -347,15 +372,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
     
     ldap_close($ldap);
 }
-
 after_add_user:
+
 // Handle delete user
 if (isset($_GET['delete_user'])) {
-    $uidToDelete = $_GET['delete_user'];
-    $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
-    $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
-    $userDn = "uid=" . ldap_escape($uidToDelete, '', LDAP_ESCAPE_DN) . ",$usersDn";
+    $deleteUserParam = $_GET['delete_user'];
+    
+    // Check if this is a UUID or uid
+    $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $deleteUserParam);
+    
+    if ($is_uuid) {
+        // UUID-based lookup - get user DN from UUID
+        $ldap_connection = open_ldap_connection();
+        $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
+        $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
+        $user_by_uuid = ldap_get_entry_by_uuid($ldap_connection, $deleteUserParam, $usersDn);
+        ldap_close($ldap_connection);
+        
+        if ($user_by_uuid) {
+            $userDn = $user_by_uuid['dn'];
+        } else {
+            $message = 'User not found with UUID: ' . $deleteUserParam;
+            $message_type = 'danger';
+            goto after_delete_user;
+        }
+    } else {
+        // Legacy uid-based lookup
+        $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
+        $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
+        $userDn = "uid=" . ldap_escape($deleteUserParam, '', LDAP_ESCAPE_DN) . ",$usersDn";
+    }
+    
     $ldap = open_ldap_connection();
+    
+    // Remove user from all groups before deletion
+    $group_cleanup_success = ldap_remove_user_from_all_groups($ldap, $userDn);
+    if (!$group_cleanup_success) {
+        error_log("Warning: Failed to remove user from some groups before deletion");
+        // Continue with deletion even if group cleanup failed
+    }
+    
     try {
         ldap_delete($ldap, $userDn);
         $message = 'User deleted successfully.';
@@ -364,20 +420,40 @@ if (isset($_GET['delete_user'])) {
         $message = 'Error deleting user: ' . htmlspecialchars($e->getMessage());
         $message_type = 'danger';
     }
+    ldap_close($ldap);
 }
+after_delete_user:
 
 // Handle edit user
 $editUser = null;
 if (isset($_GET['edit_user'])) {
-    $uidToEdit = $_GET['edit_user'];
-    $existingUsers = getUsersInOrg($orgName);
-    if (!is_array($existingUsers)) {
-        $existingUsers = [];
-    }
-    foreach ($existingUsers as $user) {
-        if (strtolower($user['uid'][0]) === strtolower($uidToEdit)) {
-            $editUser = $user;
-            break;
+    $editUserParam = $_GET['edit_user'];
+    
+    // Check if this is a UUID or uid
+    $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $editUserParam);
+    
+    if ($is_uuid) {
+        // UUID-based lookup
+        $ldap_connection = open_ldap_connection();
+        $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
+        $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
+        $user_by_uuid = ldap_get_entry_by_uuid($ldap_connection, $editUserParam, $usersDn);
+        ldap_close($ldap_connection);
+        
+        if ($user_by_uuid) {
+            $editUser = $user_by_uuid;
+        }
+    } else {
+        // Legacy uid-based lookup
+        $existingUsers = getUsersInOrg($orgName);
+        if (!is_array($existingUsers)) {
+            $existingUsers = [];
+        }
+        foreach ($existingUsers as $user) {
+            if (strtolower(get_ldap_attribute($user, 'uid')) === strtolower($editUserParam)) {
+                $editUser = $user;
+                break;
+            }
         }
     }
 }
@@ -386,19 +462,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
         validate_csrf_token();
     }
     $uid = trim($_POST['edit_uid']);
-    $givenname = trim($_POST['edit_givenname']);
+    $givenName = trim($_POST['edit_givenname']);
     $sn = trim($_POST['edit_sn']);
     $mail = trim($_POST['edit_mail']);
     $password = $_POST['edit_password'];
     $passcode = $_POST['edit_passcode'];
-    $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
-    $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
-    $userDn = "uid=" . ldap_escape($uid, '', LDAP_ESCAPE_DN) . ",$usersDn";
+    
+    // Check if the edit_uid is a UUID or uid
+    $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $uid);
+    
+    if ($is_uuid) {
+        // UUID-based lookup - get user DN from UUID
+        $ldap_connection = open_ldap_connection();
+        $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
+        $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
+        $user_by_uuid = ldap_get_entry_by_uuid($ldap_connection, $uid, $usersDn);
+        ldap_close($ldap_connection);
+        
+        if ($user_by_uuid) {
+            $userDn = $user_by_uuid['dn'];
+        } else {
+            $message = 'User not found with UUID: ' . $uid;
+            $message_type = 'danger';
+            goto after_edit_user;
+        }
+    } else {
+        // Legacy uid-based lookup
+        $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
+        $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
+        $userDn = "uid=" . ldap_escape($uid, '', LDAP_ESCAPE_DN) . ",$usersDn";
+    }
+    
     $ldap = open_ldap_connection();
     $entry = [
-        'givenname' => $givenname,
+        'givenname' => $givenName,
         'sn' => $sn,
-        'cn' => $givenname . ' ' . $sn, // Construct cn from givenname + sn
+        'cn' => $givenName . ' ' . $sn, // Construct cn from givenName + sn
         'mail' => $mail
     ];
     if ($password !== '') {
@@ -419,19 +518,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
         $message = 'Error updating user: ' . htmlspecialchars($e->getMessage());
         $message_type = 'danger';
     }
+    ldap_close($ldap);
 }
+after_edit_user:
 
 // Handle reset password/passcode
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         validate_csrf_token();
     }
-    $uid = trim($_POST['reset_uid']);
+    $resetUserParam = $_POST['reset_uid'];
+    
+    // Check if this is a UUID or uid
+    $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $resetUserParam);
+    
+    if ($is_uuid) {
+        // UUID-based lookup - get user DN from UUID
+        $ldap_connection = open_ldap_connection();
+        $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
+        $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
+        $user_by_uuid = ldap_get_entry_by_uuid($ldap_connection, $resetUserParam, $usersDn);
+        ldap_close($ldap_connection);
+        
+        if ($user_by_uuid) {
+            $userDn = $user_by_uuid['dn'];
+        } else {
+            $message = 'User not found with UUID: ' . $resetUserParam;
+            $message_type = 'danger';
+            goto after_reset_user;
+        }
+    } else {
+        // Legacy uid-based lookup
+        $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
+        $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
+        $userDn = "uid=" . ldap_escape($resetUserParam, '', LDAP_ESCAPE_DN) . ",$usersDn";
+    }
+    
     $new_password = $_POST['reset_password'];
     $new_passcode = $_POST['reset_passcode'];
-    $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
-    $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
-    $userDn = "uid=" . ldap_escape($uid, '', LDAP_ESCAPE_DN) . ",$usersDn";
     $ldap = open_ldap_connection();
     $entry = [];
     if ($new_password !== '') {
@@ -457,7 +581,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
         $message = 'Please enter a new password and/or passcode.';
         $message_type = 'warning';
     }
+    ldap_close($ldap);
 }
+after_reset_user:
 
 $users = getUsersInOrg($orgName);
 if (!is_array($users)) {
@@ -477,7 +603,11 @@ $orgManagerDns = getOrgManagerDns($orgName);
     
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2>Users in <?= htmlspecialchars($orgDisplay) ?></h2>
-        <a href="/manage/organizations/show/index.php?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="btn btn-secondary mb-3">&larr; Back to Organization</a>
+        <div>
+            <button type="button" class="btn btn-info btn-sm me-2" onclick="testModal()">Test Modal</button>
+            <button type="button" class="btn btn-warning btn-sm me-2" onclick="testSession()">Test Session</button>
+            <a href="/manage/organizations/show/index.php?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="btn btn-secondary mb-3">&larr; Back to Organization</a>
+        </div>
     </div>
     <?php if ($message): ?>
         <div class="alert alert-<?= $message_type ?>" id="msgbox"> <?= $message ?> </div>
@@ -495,25 +625,28 @@ $orgManagerDns = getOrgManagerDns($orgName);
         </thead>
         <tbody>
             <?php foreach ($users as $user): 
-                $isManager = in_array(getUserDn($orgName, $user['uid'][0] ?? ''), $orgManagerDns);
+                $isManager = in_array(getUserDn($orgName, get_ldap_attribute($user, 'uid')), $orgManagerDns);
+                // Use robust UUID extraction for user actions
+                $user_uuid = get_user_uuid($user);
+                $user_identifier = $user_uuid ?: get_ldap_attribute($user, 'uid');
             ?>
                 <tr<?= $isManager ? ' class="table-success"' : '' ?>>
-                    <td><?= htmlspecialchars($user['uid'][0] ?? '') ?></td>
-                    <td><?= safe_display_name($user); ?></td>
-                    <td><?= htmlspecialchars($user['mail'][0] ?? '') ?></td>
+                    <td><?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?></td>
+                    <td><?= safe_display_name($user, 'cn', 'givenName', 'sn') ?></td>
+                    <td><?= htmlspecialchars(get_ldap_attribute($user, 'mail')) ?></td>
                     <td>
                         <form method="get" style="display:inline">
                             <input type="hidden" name="<?= $org_uuid ? 'uuid' : 'org' ?>" value="<?= htmlspecialchars($org_uuid ?: $orgName) ?>">
-                            <input type="hidden" name="uid" value="<?= htmlspecialchars($user['uid'][0] ?? '') ?>">
+                            <input type="hidden" name="uid" value="<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>">
                             <input type="hidden" name="toggle_manager" value="1">
                             <input type="checkbox" onchange="this.form.submit()" <?= $isManager ? 'checked' : '' ?> title="Toggle Org Manager role">
                         </form>
                     </td>
                     <td>
                         <div class="btn-group btn-group-sm">
-                            <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&edit_user=<?= urlencode($user['uid'][0]) ?>" class="btn btn-secondary btn-sm">Edit</a>
-                            <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&delete_user=<?= urlencode($user['uid'][0]) ?>" onclick="return confirm('Are you sure you want to delete this user?')" class="btn btn-danger btn-sm">Delete</a>
-                            <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&reset_user=<?= urlencode($user['uid'][0]) ?>" class="btn btn-warning btn-sm">Reset</a>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="openEditModal('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')">Edit</button>
+                            <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&delete_user=<?= urlencode($user_identifier) ?>" onclick="return confirm('Are you sure you want to delete this user?')" class="btn btn-danger btn-sm">Delete</a>
+                            <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&reset_user=<?= urlencode($user_identifier) ?>" class="btn btn-warning btn-sm">Reset</a>
                         </div>
                     </td>
                 </tr>
@@ -530,18 +663,23 @@ $orgManagerDns = getOrgManagerDns($orgName);
     <form method="post" class="mb-4" id="add_user_form" onsubmit="return validateAddUserForm();">
         <?= csrf_token_field() ?>
         <div class="form-group">
-            <label for="givenname">First Name</label>
-            <input type="text" class="form-control" name="givenname" id="givenname" required>
+            <label for="givenName">First Name</label>
+            <input type="text" class="form-control" name="givenName" id="givenName" onchange="updateCommonName()" required>
         </div>
         <div class="form-group">
             <label for="sn">Last Name</label>
-            <input type="text" class="form-control" name="sn" id="sn" required>
+            <input type="text" class="form-control" name="sn" id="sn" onchange="updateCommonName()" required>
         </div>
         <div class="form-group">
             <label for="mail">Email (Username)</label>
-            <input type="email" class="form-control" name="mail" id="mail" required>
-            <small class="form-text text-muted">Email will be used as the username for login</small>
+            <input type="email" class="form-control" name="mail" id="mail" onchange="updateAccountUid(this.value)" required>
+            <small class="text-muted">Email will be used as the username for login</small>
         </div>
+        
+        <!-- Hidden fields for auto-generated values -->
+        <input type="hidden" name="cn" id="cn" value="">
+        <input type="hidden" name="<?php echo $LDAP['account_attribute']; ?>" id="<?php echo $LDAP['account_attribute']; ?>" value="">
+        
         <div class="form-group">
             <label for="password">Password</label>
             <input type="password" class="form-control" name="password" id="password" required>
@@ -556,29 +694,30 @@ $orgManagerDns = getOrgManagerDns($orgName);
     </form>
 
     <!-- Edit User Modal -->
-    <?php if ($editUser): ?>
-    <div class="modal show" tabindex="-1" style="display:block; background:rgba(0,0,0,0.3); z-index:1050;">
-      <div class="modal-dialog">
-        <div class="modal-content border-primary">
+    <div class="modal fade" id="editUserModal" tabindex="-1" role="dialog" aria-labelledby="editUserModalLabel" aria-hidden="true">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
           <form method="post" action="">
             <?= csrf_token_field() ?>
-            <div class="modal-header bg-primary text-white">
-              <h5 class="modal-title">Edit User: <?= htmlspecialchars($editUser['uid'][0]) ?></h5>
-              <a href="/manage/organizations/users/index.php?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="close text-white">&times;</a>
+            <div class="modal-header">
+              <h5 class="modal-title" id="editUserModalLabel">Edit User</h5>
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
             </div>
             <div class="modal-body">
-              <input type="hidden" name="edit_uid" value="<?= htmlspecialchars($editUser['uid'][0]) ?>">
+              <input type="hidden" name="edit_uid" id="edit_uid_input" value="">
               <div class="form-group">
                 <label for="edit_givenname">First Name</label>
-                <input type="text" class="form-control" name="edit_givenname" id="edit_givenname" value="<?= htmlspecialchars($editUser['givenname'][0] ?? '') ?>" required>
+                <input type="text" class="form-control" name="edit_givenname" id="edit_givenname" required>
               </div>
               <div class="form-group">
                 <label for="edit_sn">Last Name</label>
-                <input type="text" class="form-control" name="edit_sn" id="edit_sn" value="<?= htmlspecialchars($editUser['sn'][0] ?? '') ?>" required>
+                <input type="text" class="form-control" name="edit_sn" id="edit_sn" required>
               </div>
               <div class="form-group">
                 <label for="edit_mail">Email</label>
-                <input type="email" class="form-control" name="edit_mail" id="edit_mail" value="<?= htmlspecialchars($editUser['mail'][0] ?? '') ?>" required>
+                <input type="email" class="form-control" name="edit_mail" id="edit_mail" required>
               </div>
               <div class="form-group">
                 <label for="edit_password">Password (leave blank to keep unchanged)</label>
@@ -591,25 +730,47 @@ $orgManagerDns = getOrgManagerDns($orgName);
             </div>
             <div class="modal-footer">
               <button type="submit" name="save_user" class="btn btn-primary">Save Changes</button>
-              <a href="/manage/organizations/users/index.php?org=<?= urlencode($orgName) ?>" class="btn btn-secondary">Cancel</a>
+              <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
             </div>
           </form>
         </div>
       </div>
     </div>
-    <?php endif; ?>
-    <?php if (isset($_GET['reset_user'])): $resetUid = $_GET['reset_user']; ?>
+    <?php if (isset($_GET['reset_user'])): 
+        $resetUserParam = $_GET['reset_user'];
+        $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $resetUserParam);
+        
+        // Get user information for display
+        $resetUserDisplay = '';
+        if ($is_uuid) {
+            // UUID-based lookup
+            $ldap_connection = open_ldap_connection();
+            $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
+            $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
+            $user_by_uuid = ldap_get_entry_by_uuid($ldap_connection, $resetUserParam, $usersDn);
+            ldap_close($ldap_connection);
+            
+            if ($user_by_uuid) {
+                $resetUserDisplay = get_ldap_attribute($user_by_uuid, 'uid') ?: $resetUserParam;
+            } else {
+                $resetUserDisplay = $resetUserParam;
+            }
+        } else {
+            // Legacy uid-based lookup
+            $resetUserDisplay = $resetUserParam;
+        }
+    ?>
     <div class="modal show" tabindex="-1" style="display:block; background:rgba(0,0,0,0.3); z-index:1050;">
       <div class="modal-dialog">
         <div class="modal-content border-warning">
           <form method="post">
             <?= csrf_token_field() ?>
             <div class="modal-header bg-warning text-dark">
-              <h5 class="modal-title">Reset Credentials for <?= htmlspecialchars($resetUid) ?></h5>
-              <a href="/manage/organizations/users/index.php?org=<?= urlencode($orgName) ?>" class="close text-dark">&times;</a>
+              <h5 class="modal-title">Reset Credentials for <?= htmlspecialchars($resetUserDisplay) ?></h5>
+              <a href="/manage/organizations/users/index.php?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="close text-dark">&times;</a>
             </div>
             <div class="modal-body">
-              <input type="hidden" name="reset_uid" value="<?= htmlspecialchars($resetUid) ?>">
+              <input type="hidden" name="reset_uid" value="<?= htmlspecialchars($resetUserParam) ?>">
               <div class="form-group">
                 <label for="reset_password">New Password (leave blank to keep unchanged)</label>
                 <input type="password" class="form-control" name="reset_password" id="reset_password">
@@ -621,7 +782,7 @@ $orgManagerDns = getOrgManagerDns($orgName);
             </div>
             <div class="modal-footer">
               <button type="submit" name="reset_creds" class="btn btn-warning">Reset</button>
-              <a href="/manage/organizations/users/index.php?org=<?= urlencode($orgName) ?>" class="btn btn-secondary">Cancel</a>
+              <a href="/manage/organizations/users/index.php?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="btn btn-secondary">Cancel</a>
             </div>
           </form>
         </div>
@@ -630,38 +791,279 @@ $orgManagerDns = getOrgManagerDns($orgName);
     <?php endif; ?>
     <p class="text-muted mt-2">(Role management and UI refinements complete.)</p>
 </div>
+<script src="/js/jquery-3.6.0.min.js"></script>
+<script src="/js/user_management.min.js"></script>
 <script>
-// Client-side validation for add user form
-function validateAddUserForm() {
-    var required = ['cn','sn','mail','password'];
-    for (var i=0; i<required.length; i++) {
-        var el = document.getElementById(required[i]);
-        if (!el.value.trim()) {
-            alert('Please fill in all required fields.');
-            el.focus();
-            return false;
-        }
+    // Debug: Check if jQuery and Bootstrap are loaded
+    console.log('jQuery version:', typeof $ !== 'undefined' ? $.fn.jquery : 'NOT LOADED');
+    console.log('Bootstrap modal:', typeof $ !== 'undefined' && $.fn.modal ? 'AVAILABLE' : 'NOT AVAILABLE');
+    console.log('Bootstrap object:', typeof $ !== 'undefined' ? $.fn : 'jQuery not available');
+    console.log('Bootstrap version check:', typeof $ !== 'undefined' ? Object.keys($.fn).filter(key => key.includes('modal')) : 'jQuery not available');
+    
+    // Check if Bootstrap is loaded by looking for specific functions
+    if (typeof $ !== 'undefined') {
+        console.log('Available jQuery plugins:', Object.keys($.fn));
+        console.log('Bootstrap modal function:', typeof $.fn.modal);
+        console.log('Bootstrap dropdown function:', typeof $.fn.dropdown);
+        console.log('Bootstrap tooltip function:', typeof $.fn.tooltip);
     }
-    document.getElementById('add_user_btn').disabled = true;
-    document.getElementById('add_user_spinner').style.display = '';
-    return true;
-}
-// Search/filter for users
-const userSearchInput = document.getElementById('user_search_input');
-if (userSearchInput) {
-    userSearchInput.addEventListener('keyup', function() {
-        var value = this.value.toLowerCase();
-        var rows = document.querySelectorAll('#user_table tbody tr');
-        rows.forEach(function(row) {
-            row.style.display = row.textContent.toLowerCase().indexOf(value) > -1 ? '' : 'none';
+    
+    // Debug: Check Bootstrap file accessibility
+    console.log('Checking Bootstrap file accessibility...');
+    $.ajax({
+        url: '/bootstrap/js/bootstrap.min.js',
+        method: 'HEAD',
+        success: function() {
+            console.log('✅ Bootstrap JS file is accessible');
+        },
+        error: function(xhr, status, error) {
+            console.error('❌ Bootstrap JS file is NOT accessible:', status, error);
+            console.log('Response status:', xhr.status);
+            console.log('Response text:', xhr.responseText);
+        }
+    });
+    
+    // Debug: Check what scripts are actually loaded
+    console.log('Scripts in document:', document.querySelectorAll('script[src]'));
+    Array.from(document.querySelectorAll('script[src]')).forEach(script => {
+        console.log('Script src:', script.src);
+    });
+    
+    // Debug: Try to manually load Bootstrap
+    console.log('Attempting to manually load Bootstrap...');
+    var bootstrapScript = document.createElement('script');
+    bootstrapScript.src = '/bootstrap/js/bootstrap.min.js';
+    bootstrapScript.onload = function() {
+        console.log('✅ Bootstrap manually loaded successfully');
+        console.log('Bootstrap modal function now available:', typeof $ !== 'undefined' && $.fn.modal);
+    };
+    bootstrapScript.onerror = function() {
+        console.error('❌ Failed to manually load Bootstrap');
+    };
+    document.head.appendChild(bootstrapScript);
+    
+    // Initialize form enhancements when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM loaded, initializing forms...');
+        initializeUserManagementForms({
+            givenNameField: 'edit_givenname',
+            surnameField: 'edit_sn',
+            displayField: 'edit_cn',
+            emailField: 'edit_mail'
         });
     });
-}
-// Auto-dismiss feedback messages after 4 seconds
-setTimeout(function() {
-    var msg = document.getElementById('msgbox');
-    if (msg) { msg.style.display = 'none'; }
-}, 4000);
-</script>
+
+    // Function to open edit modal and populate with user data
+    function openEditModal(userIdentifier, userUid) {
+        console.log('openEditModal called with:', userIdentifier, userUid);
+        
+        // Check if jQuery is available
+        if (typeof $ === 'undefined') {
+            console.error('jQuery is not loaded!');
+            alert('Error: jQuery not loaded. Please refresh the page.');
+            return;
+        }
+        
+        // Check if modal element exists
+        const modalElement = document.getElementById('editUserModal');
+        if (!modalElement) {
+            console.error('Modal element not found!');
+            alert('Error: Edit modal not found. Please refresh the page.');
+            return;
+        }
+        
+        console.log('Modal element found:', modalElement);
+        console.log('Opening modal...');
+        
+        try {
+            // Try Bootstrap 3 modal first
+            if (typeof $.fn.modal !== 'undefined') {
+                $('#editUserModal').modal('show');
+                console.log('Bootstrap modal opened successfully');
+            } else {
+                // Fallback: manually show the modal
+                console.log('Bootstrap modal not available, using manual fallback');
+                $('#editUserModal').show();
+                $('body').addClass('modal-open');
+                $('#editUserModal').addClass('in');
+                $('#editUserModal').attr('aria-hidden', 'false');
+                
+                // Add backdrop
+                if (!$('.modal-backdrop').length) {
+                    $('body').append('<div class="modal-backdrop fade in"></div>');
+                }
+            }
+            
+            // Set the user identifier in the hidden field
+            $('#edit_uid_input').val(userIdentifier);
+            console.log('User identifier set:', userIdentifier);
+            
+            // Fetch user data and populate the form
+            fetchUserData(userIdentifier, userUid);
+        } catch (error) {
+            console.error('Error opening modal:', error);
+            // Fallback: try manual modal display
+            try {
+                console.log('Trying manual modal display...');
+                $('#editUserModal').show();
+                $('body').addClass('modal-open');
+                $('#editUserModal').addClass('in');
+                $('#editUserModal').attr('aria-hidden', 'false');
+                
+                // Set the user identifier in the hidden field
+                $('#edit_uid_input').val(userIdentifier);
+                console.log('User identifier set (fallback):', userIdentifier);
+                
+                // Fetch user data and populate the form
+                fetchUserData(userIdentifier, userUid);
+            } catch (fallbackError) {
+                console.error('Fallback modal display also failed:', fallbackError);
+                alert('Error opening edit modal. Please refresh the page and try again.');
+            }
+        }
+    }
+
+    // Function to fetch user data via AJAX
+    function fetchUserData(userIdentifier, userUid) {
+        console.log('fetchUserData called with:', userIdentifier, userUid);
+        
+        const orgParam = '<?= $org_uuid ? "uuid" : "org" ?>';
+        const orgValue = '<?= $org_uuid ?: $orgName ?>';
+        const csrfToken = '<?= get_csrf_token() ?>';
+        
+        // Make AJAX request to get user data
+        $.ajax({
+            url: 'ajax_handler.php',
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            data: {
+                action: 'fetch_user_data',
+                [orgParam]: orgValue,
+                'fetch_user_data': userIdentifier,
+                'csrf_token': csrfToken
+            },
+            success: function(response) {
+                console.log('User data received:', response);
+                
+                if (response.success && response.user_data) {
+                    // Populate form fields with user data
+                    $('#edit_givenname').val(response.user_data.givenName || '');
+                    $('#edit_sn').val(response.user_data.sn || '');
+                    $('#edit_mail').val(response.user_data.mail || '');
+                    $('#editUserModalLabel').text('Edit User: ' + (response.user_data.uid || userUid));
+                } else {
+                    // No user data found or error
+                    console.log('No user data or error:', response.error || 'Unknown error');
+                    $('#edit_givenname').val('');
+                    $('#edit_sn').val('');
+                    $('#edit_mail').val('');
+                    $('#editUserModalLabel').text('Edit User: ' + userUid);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('AJAX error:', status, error);
+                console.log('Response status:', xhr.status);
+                console.log('Response text:', xhr.responseText);
+                
+                // Try to parse error response
+                try {
+                    const errorResponse = JSON.parse(xhr.responseText);
+                    if (errorResponse.error) {
+                        console.error('Server error:', errorResponse.error);
+                    }
+                } catch (e) {
+                    console.error('Could not parse error response');
+                }
+                
+                // Fallback: clear fields
+                $('#edit_givenname').val('');
+                $('#edit_sn').val('');
+                $('#edit_mail').val('');
+                $('#editUserModalLabel').text('Edit User: ' + userUid);
+            }
+        });
+    }
+        
+        // Test function to verify modal works
+        function testModal() {
+            console.log('Testing modal functionality...');
+            if (typeof $ !== 'undefined' && $.fn.modal) {
+                $('#editUserModal').modal('show');
+                console.log('Test modal opened successfully');
+            } else {
+                console.log('Bootstrap modal not available, using manual fallback');
+                $('#editUserModal').show();
+                $('body').addClass('modal-open');
+                $('#editUserModal').addClass('in');
+                $('#editUserModal').attr('aria-hidden', 'false');
+                
+                // Add backdrop
+                if (!$('.modal-backdrop').length) {
+                    $('body').append('<div class="modal-backdrop fade in"></div>');
+                }
+                console.log('Test modal opened with fallback');
+            }
+        }
+        
+        // Test function to check session status
+        function testSession() {
+            console.log('Testing session status...');
+            $.ajax({
+                url: 'ajax_handler.php',
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                data: {
+                    action: 'test_session'
+                },
+                success: function(response) {
+                    console.log('Session test response:', response);
+                },
+                error: function(xhr, status, error) {
+                    console.error('Session test error:', status, error);
+                    console.log('Response status:', xhr.status);
+                    console.log('Response text:', xhr.responseText);
+                }
+            });
+        }
+        
+        // Function to close modal manually
+        function closeModal() {
+            if (typeof $ !== 'undefined' && $.fn.modal) {
+                $('#editUserModal').modal('hide');
+            } else {
+                $('#editUserModal').hide();
+                $('body').removeClass('modal-open');
+                $('#editUserModal').removeClass('in');
+                $('#editUserModal').attr('aria-hidden', 'true');
+                $('.modal-backdrop').remove();
+            }
+        }
+        
+        // Add click handlers for modal close buttons
+        $(document).ready(function() {
+            // Handle close button clicks
+            $(document).on('click', '[data-dismiss="modal"]', function() {
+                closeModal();
+            });
+            
+            // Handle clicking outside modal to close
+            $(document).on('click', '#editUserModal', function(e) {
+                if (e.target === this) {
+                    closeModal();
+                }
+            });
+            
+            // Handle escape key
+            $(document).on('keydown', function(e) {
+                if (e.keyCode === 27) { // ESC key
+                    closeModal();
+                }
+            });
+        });
+    </script>
 <?php
 render_footer(); 

@@ -382,7 +382,7 @@ if ($orgExists) {
                        foreach ($recent_users as $user): 
                        ?>
                         <tr>
-                         <td><?php print safe_display_name($user); ?></td>
+                         <td><?php print safe_display_name($user, 'cn', 'givenName', 'sn'); ?></td>
                          <td><?php print htmlspecialchars($user['mail']); ?></td>
                          <td><?php print htmlspecialchars(ucfirst(str_replace('_', ' ', $user['role'] ?? 'user'))); ?></td>
                          <td>

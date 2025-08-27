@@ -508,6 +508,13 @@ function deleteUser($userIdentifier) {
         $user_dn = $userIdentifier;
     }
     
+    // Remove user from all groups before deleting the user account
+    $group_cleanup_success = ldap_remove_user_from_all_groups($ldap, $user_dn);
+    if (!$group_cleanup_success) {
+        error_log("deleteUser: Warning: Failed to remove user $userIdentifier from some groups");
+        // Continue with deletion even if group cleanup failed
+    }
+
     // Perform the deletion
     $result = @ldap_delete($ldap, $user_dn);
     

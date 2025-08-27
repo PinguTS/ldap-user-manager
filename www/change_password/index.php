@@ -62,7 +62,7 @@ if (isset($mismatched)) {  ?>
 ?>
 
 <script src="<?php print $SERVER_PATH; ?>js/zxcvbn.min.js"></script>
-<script type="text/javascript" src="<?php print $SERVER_PATH; ?>js/zxcvbn-bootstrap-strength-meter.js"></script>
+<script type="text/javascript" src="<?php print $SERVER_PATH; ?>js/zxcvbn-bootstrap-strength-meter.min.js"></script>
 <script type="text/javascript">$(document).ready(function(){	$("#StrengthProgressBar").zxcvbnProgressBar({ passwordInput: "#password" });});</script>
 
 <div class="container">

@@ -8,6 +8,7 @@ include_once "ldap_functions.inc.php";
 include_once "access_functions.inc.php";
 include_once dirname(dirname(__DIR__)) . "/module_functions.inc.php";
 include_once "organization_functions.inc.php";
+include_once "user_functions.inc.php";
 
 // Ensure CSRF token is generated early
 get_csrf_token();
@@ -168,10 +169,10 @@ if (isset($_POST['create_org_user'])) {
             $new_account_r[$account_attribute] = $mail;
         }
         
-        // Auto-populate Common Name (cn) from givenname and sn if not provided
-        if (empty($cn[0]) && (!empty($givenname[0]) || !empty($sn[0]))) {
+        // Auto-populate Common Name (cn) from givenName and sn if not provided
+        if (empty($cn[0]) && (!empty($givenName[0]) || !empty($sn[0]))) {
             $cn_parts = [];
-            if (!empty($givenname[0])) $cn_parts[] = $givenname[0];
+            if (!empty($givenName[0])) $cn_parts[] = $givenName[0];
             if (!empty($sn[0])) $cn_parts[] = $sn[0];
             $cn = array(0 => implode(' ', $cn_parts));
             $new_account_r['cn'] = $cn;
@@ -187,12 +188,12 @@ if (isset($_POST['create_org_user'])) {
         $account_identifier = $new_account_r[$account_attribute][0] ?? '';
         $this_cn = $cn[0] ?? '';
         $this_mail = $mail[0] ?? '';
-        $this_givenname = $givenname[0] ?? '';
+        $this_givenName = $givenName[0] ?? '';
         $this_sn = $sn[0] ?? '';
 
-        // Common Name (cn) is auto-generated from givenname + sn, so no validation needed
+        // Common Name (cn) is auto-generated from givenName + sn, so no validation needed
         if (empty($account_identifier)) { $invalid_account_identifier = TRUE; }
-        if (empty($this_givenname)) { $invalid_givenname = TRUE; }
+        if (empty($this_givenName)) { $invalid_givenname = TRUE; }
         if (empty($this_sn)) { $invalid_sn = TRUE; }
         if (empty($password)) { $invalid_password = TRUE; }
         if ($password !== $password_match) { $mismatched_passwords = TRUE; }
@@ -233,10 +234,10 @@ if (isset($_POST['create_org_user'])) {
                 // Send email if requested
                 if ($send_email && isset($this_mail) && $EMAIL_SENDING_ENABLED == TRUE) {
                     include_once "mail_functions.inc.php";
-                    $mail_body = parse_mail_text($new_account_mail_body, $password, $account_identifier, $this_givenname, $this_sn);
-                    $mail_subject = parse_mail_text($new_account_mail_subject, $password, $account_identifier, $this_givenname, $this_sn);
+                    $mail_body = parse_mail_text($new_account_mail_body, $password, $account_identifier, $this_givenName, $this_sn);
+                    $mail_subject = parse_mail_text($new_account_mail_subject, $password, $account_identifier, $this_givenName, $this_sn);
                     
-                    $sent_email = send_email($this_mail, "$this_givenname $this_sn", $mail_subject, $mail_body);
+                    $sent_email = send_email($this_mail, "$this_givenName $this_sn", $mail_subject, $mail_body);
                     if ($sent_email) {
                         $creation_message .= " An email was sent to $this_mail.";
                     } else {
@@ -265,8 +266,8 @@ render_submenu();
 
 // Display any validation errors
 $errors = "";
-if ($invalid_givenname) { $errors .= "<li>First Name is required</li>\n"; }
-if ($invalid_sn) { $errors .= "<li>Last Name is required</li>\n"; }
+if ($invalid_givenname) { $errors .= "<li>First Name (givenName) is required</li>\n"; }
+if ($invalid_sn) { $errors .= "<li>Last Name (sn) is required</li>\n"; }
 if ($invalid_account_identifier) { $errors .= "<li>The email address (username) is invalid or already exists</li>\n"; }
 if ($invalid_password) { $errors .= "<li>The password is required</li>\n"; }
 if ($mismatched_passwords) { $errors .= "<li>The passwords do not match</li>\n"; }
@@ -353,12 +354,12 @@ if ($errors != "") { ?>
 
                         <!-- First Name -->
                         <div class="form-group">
-                            <label for="givenname" class="col-sm-3 control-label">
+                            <label for="givenName" class="col-sm-3 control-label">
                                 <strong>First Name</strong><sup>*</sup>
                             </label>
                             <div class="col-sm-6">
-                                <input type="text" class="form-control" name="givenname" id="givenname" 
-                                       value="<?php echo htmlspecialchars($_POST['givenname'] ?? ''); ?>" 
+                                <input type="text" class="form-control" name="givenName" id="givenName" 
+                                       value="<?php echo htmlspecialchars($_POST['givenName'] ?? ''); ?>" 
                                        onchange="updateCommonName()" required>
                             </div>
                         </div>
@@ -440,54 +441,19 @@ if ($errors != "") { ?>
     </div>
 </div>
 
+<script src="/js/jquery-3.6.0.min.js"></script>
+<script src="/js/user_management.min.js"></script>
 <script>
-function generatePassword() {
-    // Simple password generator - you can enhance this
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
-    let password = '';
-    for (let i = 0; i < 12; i++) {
-        password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    document.getElementById('password').value = password;
-}
-
-function updateCommonName() {
-    const givenname = document.getElementById('givenname').value;
-    const sn = document.getElementById('sn').value;
-    const cn = document.getElementById('cn');
-    
-    if (givenname && sn) {
-        cn.value = givenname + ' ' + sn;
-    } else if (givenname) {
-        cn.value = givenname;
-    } else if (sn) {
-        cn.value = sn;
-    } else {
-        cn.value = '';
-    }
-}
-
-// Auto-populate cn field on page load
-document.addEventListener('DOMContentLoaded', function() {
-    updateCommonName();
-});
-
-function updateAccountUid(email) {
-    // Automatically update the Account UID field when email is entered
-    const accountUidField = document.getElementById('<?php echo $account_attribute; ?>');
-    if (accountUidField && email) {
-        accountUidField.value = email;
-    }
-}
-
-// Auto-populate Account UID on page load if email is already filled
-document.addEventListener('DOMContentLoaded', function() {
-    const emailField = document.getElementById('mail');
-    const accountUidField = document.getElementById('<?php echo $account_attribute; ?>');
-    if (emailField && accountUidField && emailField.value) {
-        accountUidField.value = emailField.value;
-    }
-});
+    // Initialize form enhancements when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeUserManagementForms({
+            givenNameField: 'givenName',
+            surnameField: 'sn',
+            displayField: 'cn',
+            emailField: 'mail',
+            passwordField: 'password'
+        });
+    });
 </script>
 
 <?php render_footer(); ?>

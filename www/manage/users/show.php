@@ -7,7 +7,7 @@ include_once "web_functions.inc.php";
 include_once "ldap_functions.inc.php";
 include_once "access_functions.inc.php";
 include_once dirname(__DIR__) . "/module_functions.inc.php";
-include_once "organization_functions.inc.php";
+include_once "user_functions.inc.php";
 
 // Ensure CSRF token is generated early
 get_csrf_token();
@@ -80,6 +80,7 @@ $ldap_connection = open_ldap_connection();
 // Search for user across both organizations and system users
 if ($user_uuid) {
     // UUID-based lookup - we already have the user data
+    // Convert single user entry to expected format
     $user = [];
     $user[0] = $user_by_uuid;
     $user['count'] = 1;
@@ -185,7 +186,7 @@ ldap_close($ldap_connection);
 <div class="container">
     <div class="row">
         <div class="col-md-12">
-            <h2>User Profile: <?php echo htmlspecialchars($user_data['cn'][0] ?? $user_data[$LDAP['account_attribute']][0] ?? 'Unknown User'); ?></h2>
+            <h2>User Profile: <?php echo htmlspecialchars(get_ldap_attribute($user_data, 'cn') ?: get_ldap_attribute($user_data, $LDAP['account_attribute']) ?: 'Unknown User'); ?></h2>
             
             <?php if ($can_edit): ?>
             <div class="panel panel-primary">
@@ -203,7 +204,7 @@ ldap_close($ldap_connection);
                                 <div class="form-group">
                                     <label for="<?php echo $LDAP['account_attribute']; ?>"><?php echo $attribute_map[$LDAP['account_attribute']]['label'] ?? 'Account ID'; ?></label>
                                     <input type="text" class="form-control" id="<?php echo $LDAP['account_attribute']; ?>" name="<?php echo $LDAP['account_attribute']; ?>" 
-                                           value="<?php echo htmlspecialchars($user_data[$LDAP['account_attribute']][0] ?? ''); ?>" readonly>
+                                           value="<?php echo htmlspecialchars(get_ldap_attribute($user_data, $LDAP['account_attribute'])); ?>" readonly>
                                     <small class="form-text text-muted">Account ID cannot be changed.</small>
                                 </div>
                             </div>
@@ -211,7 +212,7 @@ ldap_close($ldap_connection);
                                 <div class="form-group">
                                     <label for="userRole">User Role</label>
                                     <input type="text" class="form-control" id="userRole" name="userRole" 
-                                           value="<?php echo htmlspecialchars($user_data['userRole'][0] ?? ''); ?>" readonly>
+                                           value="<?php echo htmlspecialchars(get_ldap_attribute($user_data, 'userRole')); ?>" readonly>
                                     <small class="form-text text-muted">User role cannot be changed from this interface.</small>
                                 </div>
                             </div>
@@ -224,21 +225,21 @@ ldap_close($ldap_connection);
                                 <div class="form-group">
                                     <label for="givenName">Given Name *</label>
                                     <input type="text" class="form-control" id="givenName" name="givenName" 
-                                           value="<?php echo htmlspecialchars($user_data['givenName'][0] ?? ''); ?>" required>
+                                           value="<?php echo htmlspecialchars(get_ldap_attribute($user_data, 'givenName')); ?>" required>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="form-group">
                                     <label for="sn">Surname *</label>
                                     <input type="text" class="form-control" id="sn" name="sn" 
-                                           value="<?php echo htmlspecialchars($user_data['sn'][0] ?? ''); ?>" required>
+                                           value="<?php echo htmlspecialchars(get_ldap_attribute($user_data, 'sn')); ?>" required>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="form-group">
                                     <label for="cn">Display Name *</label>
                                     <input type="text" class="form-control" id="cn" name="cn" 
-                                           value="<?php echo htmlspecialchars($user_data['cn'][0] ?? ''); ?>" required>
+                                           value="<?php echo htmlspecialchars(get_ldap_attribute($user_data, 'cn')); ?>" required>
                                 </div>
                             </div>
                         </div>
@@ -250,14 +251,14 @@ ldap_close($ldap_connection);
                                 <div class="form-group">
                                     <label for="mail">Email Address</label>
                                     <input type="email" class="form-control" id="mail" name="mail" 
-                                           value="<?php echo htmlspecialchars($user_data['mail'][0] ?? ''); ?>">
+                                           value="<?php echo htmlspecialchars(get_ldap_attribute($user_data, 'mail')); ?>">
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label for="telephoneNumber">Phone Number</label>
                                     <input type="tel" class="form-control" id="telephoneNumber" name="telephoneNumber" 
-                                           value="<?php echo htmlspecialchars($user_data['telephoneNumber'][0] ?? ''); ?>">
+                                           value="<?php echo htmlspecialchars(get_ldap_attribute($user_data, 'telephoneNumber')); ?>">
                                 </div>
                             </div>
                         </div>
@@ -269,7 +270,7 @@ ldap_close($ldap_connection);
                                 <div class="form-group">
                                     <label for="o">Organization</label>
                                     <input type="text" class="form-control" id="o" name="o" 
-                                           value="<?php echo htmlspecialchars($user_data['o'][0] ?? ''); ?>" readonly>
+                                           value="<?php echo htmlspecialchars(get_ldap_attribute($user_data, 'o')); ?>" readonly>
                                     <small class="form-text text-muted">Organization cannot be changed from this interface.</small>
                                 </div>
                             </div>
@@ -304,10 +305,10 @@ ldap_close($ldap_connection);
                                     <div class="form-group">
                                         <label for="<?php echo htmlspecialchars($attr_name); ?>"><?php echo htmlspecialchars($attr_config['label'] ?? ucfirst(str_replace('_', ' ', $attr_name))); ?></label>
                                         <?php if (isset($attr_config['type']) && $attr_config['type'] === 'textarea'): ?>
-                                            <textarea class="form-control" id="<?php echo htmlspecialchars($attr_name); ?>" name="<?php echo htmlspecialchars($attr_name); ?>" rows="3"><?php echo htmlspecialchars($user_data[$attr_name][0] ?? ''); ?></textarea>
+                                            <textarea class="form-control" id="<?php echo htmlspecialchars($attr_name); ?>" name="<?php echo htmlspecialchars($attr_name); ?>" rows="3"><?php echo htmlspecialchars(get_ldap_attribute($user_data, $attr_name)); ?></textarea>
                                         <?php else: ?>
                                             <input type="<?php echo htmlspecialchars($attr_config['type'] ?? 'text'); ?>" class="form-control" id="<?php echo htmlspecialchars($attr_name); ?>" name="<?php echo htmlspecialchars($attr_name); ?>" 
-                                                   value="<?php echo htmlspecialchars($user_data[$attr_name][0] ?? ''); ?>">
+                                                   value="<?php echo htmlspecialchars(get_ldap_attribute($user_data, $attr_name)); ?>">
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -344,31 +345,31 @@ ldap_close($ldap_connection);
                         <div class="col-md-6">
                             <dl class="dl-horizontal">
                                 <dt>Account ID:</dt>
-                                <dd><?php echo htmlspecialchars($user_data[$LDAP['account_attribute']][0] ?? 'N/A'); ?></dd>
+                                <dd><?php echo htmlspecialchars(get_ldap_attribute($user_data, $LDAP['account_attribute'])); ?></dd>
                                 
                                 <dt>Display Name:</dt>
-                                <dd><?php echo htmlspecialchars($user_data['cn'][0] ?? 'N/A'); ?></dd>
+                                <dd><?php echo htmlspecialchars(get_ldap_attribute($user_data, 'cn')); ?></dd>
                                 
                                 <dt>Given Name:</dt>
-                                <dd><?php echo htmlspecialchars($user_data['givenName'][0] ?? 'N/A'); ?></dd>
+                                <dd><?php echo htmlspecialchars(get_ldap_attribute($user_data, 'givenName')); ?></dd>
                                 
                                 <dt>Surname:</dt>
-                                <dd><?php echo htmlspecialchars($user_data['sn'][0] ?? 'N/A'); ?></dd>
+                                <dd><?php echo htmlspecialchars(get_ldap_attribute($user_data, 'sn')); ?></dd>
                                 
                                 <dt>User Role:</dt>
-                                <dd><?php echo htmlspecialchars($user_data['userRole'][0] ?? 'N/A'); ?></dd>
+                                <dd><?php echo htmlspecialchars(get_ldap_attribute($user_data, 'userRole')); ?></dd>
                             </dl>
                         </div>
                         <div class="col-md-6">
                             <dl class="dl-horizontal">
                                 <dt>Email:</dt>
-                                <dd><?php echo htmlspecialchars($user_data['mail'][0] ?? 'N/A'); ?></dd>
+                                <dd><?php echo htmlspecialchars(get_ldap_attribute($user_data, 'mail')); ?></dd>
                                 
                                 <dt>Phone:</dt>
-                                <dd><?php echo htmlspecialchars($user_data['telephoneNumber'][0] ?? 'N/A'); ?></dd>
+                                <dd><?php echo htmlspecialchars(get_ldap_attribute($user_data, 'telephoneNumber')); ?></dd>
                                 
                                 <dt>Organization:</dt>
-                                <dd><?php echo htmlspecialchars($user_data['o'][0] ?? 'N/A'); ?></dd>
+                                <dd><?php echo htmlspecialchars(get_ldap_attribute($user_data, 'o')); ?></dd>
                                 
                                 <dt>Location:</dt>
                                 <dd><?php echo ucfirst($user_location); ?> User</dd>

@@ -492,7 +492,7 @@ function ldap_get_system_users($ldap_connection, $start=0, $entries=NULL, $sort=
     global $log_prefix, $LDAP, $LDAP_DEBUG;
 
     if (!isset($fields)) { 
-        $fields = array_unique( array("{$LDAP['account_attribute']}", "givenname", "sn", "cn", "mail", "description"));
+        $fields = array_unique( array("{$LDAP['account_attribute']}", "givenname", "sn", "cn", "mail", "description", "dn"));
         // Add UUID field if UUID identification is enabled
         if ($LDAP['use_uuid_identification']) {
             $fields[] = 'entryUUID';
@@ -500,6 +500,11 @@ function ldap_get_system_users($ldap_connection, $start=0, $entries=NULL, $sort=
     }
 
     if (!isset($sort_key)) { $sort_key = $LDAP['account_attribute']; }
+    
+    # Ensure the sort key attribute is always included in the requested fields
+    if (!in_array($sort_key, $fields)) {
+        $fields[] = $sort_key;
+    }
 
     $this_filter = "(&(objectclass=inetOrgPerson)({$LDAP['account_attribute']}=*)$filters)";
 
@@ -510,22 +515,144 @@ function ldap_get_system_users($ldap_connection, $start=0, $entries=NULL, $sort=
     $ldap_search = @ ldap_search($ldap_connection, $LDAP['people_dn'], $this_filter, $fields);
     if ($ldap_search) {
         $result = @ ldap_get_entries($ldap_connection, $ldap_search);
-        if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix LDAP returned {$result['count']} system users when using this filter: $this_filter",0); }
+        if ($LDAP_DEBUG === TRUE) { 
+            if ($result && is_array($result)) {
+                error_log("$log_prefix LDAP returned {$result['count']} system users when using this filter: $this_filter");
+            } else {
+                error_log("$log_prefix LDAP search failed or returned invalid result: " . print_r($result, true));
+            }
+        }
         
-        foreach ($result as $record) {
-            if (isset($record[$sort_key][0])) {
-                $add_these = array();
-                foreach($fields as $this_attr) {
-                    if ($this_attr !== $sort_key and isset($record[$this_attr])) { 
-                        $add_these[$this_attr] = $record[$this_attr][0]; 
+        # If we need entryUUID and it's not in the result, try with operational attributes
+        if ($LDAP['use_uuid_identification'] && $result && is_array($result) && $result['count'] > 0) {
+            $has_uuid = false;
+            foreach ($result as $record) {
+                if (isset($record['entryUUID']) || isset($record['entryuuid'])) {
+                    $has_uuid = true;
+                    break;
+                }
+            }
+            if (!$has_uuid) {
+                if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix entryUUID not found, trying with operational attributes"); }
+                # Try again with operational attributes
+                $ldap_search = @ ldap_search($ldap_connection, $LDAP['people_dn'], $this_filter, array_merge($fields, ['+']));
+                if ($ldap_search) {
+                    $result = @ ldap_get_entries($ldap_connection, $ldap_search);
+                    if ($LDAP_DEBUG === TRUE) { 
+                        if ($result && is_array($result)) {
+                            error_log("$log_prefix LDAP returned {$result['count']} system users with operational attributes");
+                        } else {
+                            error_log("$log_prefix LDAP search with operational attributes failed or returned invalid result: " . print_r($result, true));
+                        }
                     }
                 }
-                $users[$record[$sort_key][0]] = $add_these;
+            }
+        }
+        
+        # Only process results if we have a valid array
+        if ($result && is_array($result) && $result['count'] > 0) {
+            foreach ($result as $key => $record) {
+                # Skip non-numeric keys (like 'count', 'dn', etc.) - only process actual user records
+                if (!is_numeric($key)) {
+                    continue;
+                }
+                
+                if ($LDAP_DEBUG === TRUE) {
+                    error_log("$log_prefix Processing record: " . print_r($record, true));
+                    error_log("$log_prefix Record keys: " . print_r(array_keys($record), true));
+                    error_log("$log_prefix Sort key: $sort_key, Sort key value: " . (isset($record[$sort_key][0]) ? $record[$sort_key][0] : 'NOT SET'));
+                }
+                
+                if (isset($record[$sort_key][0])) {
+                    $add_these = array();
+                    if ($LDAP_DEBUG === TRUE) {
+                        error_log("$log_prefix Processing user record: " . $record[$sort_key][0]);
+                        error_log("$log_prefix Available attributes in record: " . print_r(array_keys($record), true));
+                        error_log("$log_prefix Requested fields: " . print_r($fields, true));
+                    }
+                    foreach($fields as $this_attr) {
+                        // Skip the sort key attribute itself, but include all other requested fields
+                        if ($this_attr !== $sort_key) {
+                            // Check for case-insensitive attribute match
+                            $found_attr = false;
+                            $attr_value = null;
+                            
+                            if ($LDAP_DEBUG === TRUE) {
+                                error_log("$log_prefix Processing field: $this_attr");
+                            }
+                            
+                            // First try exact match
+                            if (isset($record[$this_attr])) {
+                                $found_attr = true;
+                                $attr_value = $record[$this_attr];
+                                if ($LDAP_DEBUG === TRUE) {
+                                    error_log("$log_prefix Found exact match for $this_attr");
+                                }
+                            } else {
+                                // Try case-insensitive match
+                                foreach (array_keys($record) as $key) {
+                                    if (is_string($key) && strcasecmp($key, $this_attr) === 0) {
+                                        $found_attr = true;
+                                        $attr_value = $record[$key];
+                                        if ($LDAP_DEBUG === TRUE) {
+                                            error_log("$log_prefix Found attribute $this_attr with different casing: $key");
+                                            // Special debug for entryUUID
+                                            if (strcasecmp($this_attr, 'entryUUID') === 0) {
+                                                error_log("$log_prefix entryUUID case-insensitive match - key: $key, value: " . print_r($attr_value, true));
+                                                error_log("$log_prefix Will store as: $this_attr (requested name)");
+                                            }
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            if ($found_attr) {
+                                if ($this_attr === 'dn') {
+                                    // DN is a special case - it's not an array
+                                    $add_these[$this_attr] = $attr_value;
+                                } else {
+                                    $add_these[$this_attr] = $attr_value[0]; 
+                                }
+                                if ($LDAP_DEBUG === TRUE) {
+                                    error_log("$log_prefix Added attribute $this_attr: " . print_r($add_these[$this_attr], true));
+                                    // Special debug for entryUUID
+                                    if (strcasecmp($this_attr, 'entryUUID') === 0) {
+                                        error_log("$log_prefix entryUUID raw value: " . print_r($attr_value, true));
+                                        error_log("$log_prefix entryUUID extracted value: " . print_r($add_these[$this_attr], true));
+                                        error_log("$log_prefix entryUUID stored with key: $this_attr");
+                                    }
+                                }
+                            } else {
+                                if ($LDAP_DEBUG === TRUE) {
+                                    error_log("$log_prefix Attribute $this_attr not found in record (case-insensitive check)");
+                                }
+                            }
+                        } else {
+                            if ($LDAP_DEBUG === TRUE) {
+                                error_log("$log_prefix Skipping sort key attribute: $this_attr");
+                            }
+                        }
+                    }
+                    $users[$record[$sort_key][0]] = $add_these;
+                    if ($LDAP_DEBUG === TRUE) {
+                        error_log("$log_prefix Added user to array: " . $record[$sort_key][0]);
+                    }
+                } else {
+                    if ($LDAP_DEBUG === TRUE) {
+                        error_log("$log_prefix Record missing sort key: $sort_key");
+                    }
+                }
             }
         }
     }
 
     if ($sort == "asc") { ksort($users); } else { krsort($users); }
+
+    if ($LDAP_DEBUG === TRUE) {
+        error_log("$log_prefix Final users array: " . print_r($users, true));
+        error_log("$log_prefix Returning " . count($users) . " users");
+    }
 
     return(array_slice($users,$start,$entries));
 }
@@ -588,6 +715,11 @@ function ldap_get_user_list($ldap_connection,$start=0,$entries=NULL,$sort="asc",
  }
 
  if ($sort == "asc") { ksort($users); } else { krsort($users); }
+
+ if ($LDAP_DEBUG === TRUE) {
+     error_log("$log_prefix Final users array: " . print_r($users, true));
+     error_log("$log_prefix Returning " . count($users) . " users");
+ }
 
  return(array_slice($users,$start,$entries));
 
@@ -761,23 +893,23 @@ function ldap_user_group_membership($ldap_connection,$user_dn) {
   }
 
   # Check global roles (administrator, maintainer)
-# IMPORTANT: Check global roles independently, regardless of role value conflicts
-$global_admin_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['admin_group_name']})(member=$user_dn))";
-$global_maintainer_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['maintainer_group_name']})(member=$user_dn))";
+  # IMPORTANT: Check global roles independently, regardless of role value conflicts
+  $global_admin_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['admin_group_name']})(member=" . ldap_escape($user_dn, "", LDAP_ESCAPE_FILTER) . "))";
+  $global_maintainer_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['maintainer_group_name']})(member=" . ldap_escape($user_dn, "", LDAP_ESCAPE_FILTER) . "))";
 
-$global_admin_search = @ldap_search($ldap_connection, $LDAP['roles_dn'], $global_admin_filter, ['cn']);
-$global_maintainer_search = @ldap_search($ldap_connection, $LDAP['roles_dn'], $global_maintainer_filter, ['cn']);
+  $global_admin_search = @ldap_search($ldap_connection, $LDAP['roles_dn'], $global_admin_filter, ['cn']);
+  $global_maintainer_search = @ldap_search($ldap_connection, $LDAP['roles_dn'], $global_maintainer_filter, ['cn']);
 
-if ($global_admin_search && ldap_count_entries($ldap_connection, $global_admin_search) > 0) {
-    $currentUserGroups[] = $LDAP['admin_role'];
-    if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix User is global administrator"); }
-} elseif ($global_maintainer_search && ldap_count_entries($ldap_connection, $global_maintainer_search) > 0) {
-    $currentUserGroups[] = $LDAP['maintainer_role'];
-    if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix User is global maintainer"); }
-}
+  if ($global_admin_search && ldap_count_entries($ldap_connection, $global_admin_search) > 0) {
+      $roles[] = $LDAP['admin_role'];
+      if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix User is global administrator"); }
+  } elseif ($global_maintainer_search && ldap_count_entries($ldap_connection, $global_maintainer_search) > 0) {
+      $roles[] = $LDAP['maintainer_role'];
+      if ($LDAP_DEBUG === TRUE) { error_log("$log_prefix User is global maintainer"); }
+  }
 
   # Check organization-specific roles
-  $org_roles_filter = "(&(objectclass=groupOfNames)(member=$user_dn))";
+  $org_roles_filter = "(&(objectclass=groupOfNames)(member=" . ldap_escape($user_dn, "", LDAP_ESCAPE_FILTER) . "))";
   $ldap_search = @ldap_search($ldap_connection, $LDAP['org_dn'], $org_roles_filter, array('cn'));
   if ($ldap_search) {
     $result = @ldap_get_entries($ldap_connection, $ldap_search);
@@ -1084,6 +1216,13 @@ function ldap_delete_account($ldap_connection,$username) {
   if (!$user_dn) {
    error_log("$log_prefix Delete account; User {$username} not found",0);
    return FALSE;
+  }
+  
+  // Remove user from all groups before deletion
+  $group_cleanup_success = ldap_remove_user_from_all_groups($ldap_connection, $user_dn);
+  if (!$group_cleanup_success) {
+   error_log("$log_prefix Warning: Failed to remove user {$username} from some groups",0);
+   // Continue with deletion even if group cleanup failed
   }
   
   $delete = @ ldap_delete($ldap_connection, $user_dn);
@@ -1601,4 +1740,320 @@ function ldap_detect_rfc2307bis($ldap_connection) {
   }
 
 }
+
+##################################
+
+/**
+ * Get the DN of a user by username
+ * @param resource $ldap_connection LDAP connection
+ * @param string $username Username to look up
+ * @return string|false User DN or false if not found
+ */
+function ldap_get_user_dn($ldap_connection, $username) {
+  global $LDAP;
+  
+  // First try to find the user in system users (ou=people)
+  $search = @ldap_search($ldap_connection, $LDAP['people_dn'], 
+    "(uid=$username)", ['dn']);
+  if ($search) {
+    $result = ldap_get_entries($ldap_connection, $search);
+    if ($result['count'] > 0) {
+      return $result[0]['dn'];
+    }
+  }
+  
+  // If not found in system users, try organization users
+  $search = @ldap_search($ldap_connection, $LDAP['org_dn'], 
+    "(uid=$username)", ['dn']);
+  if ($search) {
+    $result = ldap_get_entries($ldap_connection, $search);
+    if ($result['count'] > 0) {
+      return $result[0]['dn'];
+    }
+  }
+  
+  return FALSE;
+}
+
+/**
+ * Add a user to a role group
+ * @param resource $ldap_connection LDAP connection
+ * @param string $role_name Role name (e.g., 'administrators', 'maintainers')
+ * @param string $username Username to add
+ * @return bool Success status
+ */
+function ldap_add_member_to_group($ldap_connection, $role_name, $username) {
+  global $LDAP;
+  
+  // Get the user's DN
+  $user_dn = ldap_get_user_dn($ldap_connection, $username);
+  if (!$user_dn) {
+    error_log("Failed to get DN for user: $username");
+    return FALSE;
+  }
+  
+  // Determine if this is a global role or organization role
+  $global_roles = array($LDAP['admin_role'], $LDAP['maintainer_role']);
+  
+  if (in_array($role_name, $global_roles)) {
+    // Global role - add to ou=roles,dc=example,dc=com
+    $group_dn = "cn=$role_name,{$LDAP['roles_dn']}";
+  } else {
+    // Organization role - need to determine which organization
+    // For now, assume it's a global role if not found
+    $group_dn = "cn=$role_name,{$LDAP['roles_dn']}";
+  }
+  
+  // Check if the group exists
+  $group_exists = @ldap_read($ldap_connection, $group_dn, '(objectClass=*)', ['dn']);
+  if (!$group_exists) {
+    // For global roles, try to create the missing group
+    if (in_array($role_name, $global_roles)) {
+      error_log("Group does not exist: $group_dn - attempting to create it");
+      
+      // Create the group with the user as the first member
+      $group_entry = array(
+        'objectClass' => array('top', 'groupOfNames'),
+        'cn' => $role_name,
+        'description' => 'System role group for ' . $role_name,
+        'member' => $user_dn
+      );
+      
+      $group_created = @ldap_add($ldap_connection, $group_dn, $group_entry);
+      if ($group_created) {
+        error_log("Successfully created group: $group_dn with user $username as first member");
+        return TRUE; // Group created and user added successfully
+      } else {
+        error_log("Failed to create group: $group_dn - " . ldap_error($ldap_connection));
+        return FALSE;
+      }
+    } else {
+      error_log("Group does not exist: $group_dn");
+      return FALSE;
+    }
+  }
+  
+  // Add the user to the group
+  $modify = @ldap_modify($ldap_connection, $group_dn, array('member' => $user_dn));
+  if (!$modify) {
+    error_log("Failed to add user $username to group $role_name: " . ldap_error($ldap_connection));
+    return FALSE;
+  }
+  
+  return TRUE;
+}
+
+/**
+ * Remove a user from a role group
+ * @param resource $ldap_connection LDAP connection
+ * @param string $role_name Role name (e.g., 'administrators', 'maintainers')
+ * @param string $username Username to remove
+ * @return bool Success status
+ */
+function ldap_delete_member_from_group($ldap_connection, $role_name, $username) {
+  global $LDAP;
+  
+  // Get the user's DN
+  $user_dn = ldap_get_user_dn($ldap_connection, $username);
+  if (!$user_dn) {
+    error_log("Failed to get DN for user: $username");
+    return FALSE;
+  }
+  
+  // Determine if this is a global role or organization role
+  $global_roles = array($LDAP['admin_role'], $LDAP['maintainer_role']);
+  
+  if (in_array($role_name, $global_roles)) {
+    // Global role - remove from ou=roles,dc=example,dc=com
+    $group_dn = "cn=$role_name,{$LDAP['roles_dn']}";
+  } else {
+    // Organization role - need to determine which organization
+    // For now, assume it's a global role if not found
+    $group_dn = "cn=$role_name,{$LDAP['roles_dn']}";
+  }
+  
+  // Check if the group exists
+  $group_exists = @ldap_read($ldap_connection, $group_dn, '(objectClass=*)', ['dn', 'member']);
+  if (!$group_exists) {
+    error_log("Group does not exist: $group_dn - cannot remove user");
+    return FALSE;
+  }
+  
+  // Get current group information to check member count
+  $group_info = ldap_get_entries($ldap_connection, $group_exists);
+  if (!$group_info || $group_info['count'] == 0) {
+    error_log("Failed to get group information for: $group_dn");
+    return FALSE;
+  }
+  
+  $current_group = $group_info[0];
+  $current_members = isset($current_group['member']) ? $current_group['member'] : array();
+  $member_count = isset($current_members['count']) ? $current_members['count'] : 0;
+  
+  // Check if this user is actually a member
+  $user_is_member = FALSE;
+  if ($member_count > 0) {
+    for ($i = 0; $i < $member_count; $i++) {
+      if ($current_members[$i] === $user_dn) {
+        $user_is_member = TRUE;
+        break;
+      }
+    }
+  }
+  
+  if (!$user_is_member) {
+    error_log("User $username is not a member of group $role_name");
+    return TRUE; // Consider this a success since the user is already not in the group
+  }
+  
+  // If this is the last member, delete the entire group
+  if ($member_count == 1) {
+    // Safety check: Don't allow removing the last administrator
+    if ($role_name === $LDAP['admin_role']) {
+      error_log("Cannot remove last administrator from administrators group - this would lock out the system");
+      return FALSE;
+    }
+    
+    error_log("Removing last member from group $role_name - deleting entire group");
+    $delete_group = @ldap_delete($ldap_connection, $group_dn);
+    if ($delete_group) {
+      error_log("Successfully deleted group $role_name (was last member)");
+      return TRUE;
+    } else {
+      error_log("Failed to delete group $role_name: " . ldap_error($ldap_connection));
+      return FALSE;
+    }
+  }
+  
+  // Remove the user from the group (there are other members)
+  $modify = @ldap_modify($ldap_connection, $group_dn, array('member' => $user_dn));
+  if (!$modify) {
+    error_log("Failed to remove user $username from group $role_name: " . ldap_error($ldap_connection));
+    return FALSE;
+  }
+  
+  error_log("Successfully removed user $username from group $role_name");
+  return TRUE;
+}
+
+/**
+ * Find all groups that a user is a member of
+ * @param resource $ldap_connection LDAP connection
+ * @param string $user_dn User DN to search for
+ * @return array Array of group DNs that the user is a member of
+ */
+function ldap_get_user_groups($ldap_connection, $user_dn) {
+  global $LDAP;
+  $user_groups = array();
+  
+  // Search for groups in global roles OU
+  $global_roles_search = @ldap_search($ldap_connection, $LDAP['roles_dn'], 
+    "(&(objectClass=groupOfNames)(member=" . ldap_escape($user_dn, '', LDAP_ESCAPE_FILTER) . "))", 
+    ['dn', 'cn']);
+  
+  if ($global_roles_search) {
+    $global_roles = ldap_get_entries($ldap_connection, $global_roles_search);
+    for ($i = 0; $i < $global_roles['count']; $i++) {
+      $user_groups[] = $global_roles[$i]['dn'];
+    }
+  }
+  
+  // Search for groups in organization roles OUs
+  $org_search = @ldap_search($ldap_connection, $LDAP['org_dn'], 
+    "(&(objectClass=organizationalUnit)(ou=roles))", ['dn']);
+  
+  if ($org_search) {
+    $org_roles_ous = ldap_get_entries($ldap_connection, $org_search);
+    for ($i = 0; $i < $org_roles_ous['count']; $i++) {
+      $org_roles_dn = $org_roles_ous[$i]['dn'];
+      
+      // Search for groups in this organization's roles OU
+      $org_groups_search = @ldap_search($ldap_connection, $org_roles_dn, 
+        "(&(objectClass=groupOfNames)(member=" . ldap_escape($user_dn, '', LDAP_ESCAPE_FILTER) . "))", 
+        ['dn', 'cn']);
+      
+      if ($org_groups_search) {
+        $org_groups = ldap_get_entries($ldap_connection, $org_groups_search);
+        for ($j = 0; $j < $org_groups['count']; $j++) {
+          $user_groups[] = $org_groups[$j]['dn'];
+        }
+      }
+    }
+  }
+  
+  return $user_groups;
+}
+
+/**
+ * Remove a user from all groups they belong to
+ * @param resource $ldap_connection LDAP connection
+ * @param string $user_dn User DN to remove from groups
+ * @return bool Success status
+ */
+function ldap_remove_user_from_all_groups($ldap_connection, $user_dn) {
+  global $LDAP;
+  
+  // Get all groups the user is a member of
+  $user_groups = ldap_get_user_groups($ldap_connection, $user_dn);
+  
+  if (empty($user_groups)) {
+    // User is not a member of any groups
+    return TRUE;
+  }
+  
+  $success = TRUE;
+  
+  foreach ($user_groups as $group_dn) {
+    // Get current group information to check member count
+    $group_info = @ldap_read($ldap_connection, $group_dn, '(objectClass=*)', ['dn', 'member']);
+    if (!$group_info) {
+      error_log("Failed to read group information for: $group_dn");
+      $success = FALSE;
+      continue;
+    }
+    
+    $group_data = ldap_get_entries($ldap_connection, $group_info);
+    if (!$group_data || $group_data['count'] == 0) {
+      error_log("Failed to get group data for: $group_dn");
+      $success = FALSE;
+      continue;
+    }
+    
+    $current_group = $group_data[0];
+    $current_members = isset($current_group['member']) ? $current_group['member'] : array();
+    $member_count = isset($current_members['count']) ? $current_members['count'] : 0;
+    
+    // If this is the last member, delete the entire group
+    if ($member_count == 1) {
+      // Safety check: Don't allow deleting the administrators group if it's the last admin
+      if (strpos($group_dn, 'cn=' . $LDAP['admin_role']) !== false) {
+        error_log("Cannot delete administrators group - would lock out the system");
+        $success = FALSE;
+        continue;
+      }
+      
+      error_log("Removing last member from group $group_dn - deleting entire group");
+      $delete_group = @ldap_delete($ldap_connection, $group_dn);
+      if ($delete_group) {
+        error_log("Successfully deleted group $group_dn (was last member)");
+      } else {
+        error_log("Failed to delete group $group_dn: " . ldap_error($ldap_connection));
+        $success = FALSE;
+      }
+    } else {
+      // Remove the user from the group (there are other members)
+      $modify = @ldap_modify($ldap_connection, $group_dn, array('member' => $user_dn));
+      if (!$modify) {
+        error_log("Failed to remove user from group $group_dn: " . ldap_error($ldap_connection));
+        $success = FALSE;
+      } else {
+        error_log("Successfully removed user from group $group_dn");
+      }
+    }
+  }
+  
+  return $success;
+}
+
+
 

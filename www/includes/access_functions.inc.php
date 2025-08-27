@@ -332,37 +332,15 @@ function currentUserCanCreateOrganization() {
 }
 
 function currentUserCanDeleteOrganization($orgName) {
-    // Only global administrators can delete organizations
-    if (currentUserIsGlobalAdmin()) {
-        return true;
-    }
-    
-    // Maintainers cannot delete organizations
-    if (currentUserIsMaintainer()) {
-        return false;
-    }
-    
-    // Organization managers cannot delete their own organization
-    return false;
+    // Only global administrators and maintainers can delete organizations
+    return (currentUserIsGlobalAdmin() || currentUserIsMaintainer());
 }
 
 function currentUserCanCreateUser($orgName = null) {
     // Global administrators can create users anywhere
-    if (currentUserIsGlobalAdmin()) {
-        return true;
-    }
-    
     // Maintainers can create users in any organization
-    if (currentUserIsMaintainer()) {
-        return true;
-    }
-    
     // Organization managers can create users in their organization
-    if ($orgName && currentUserIsOrgManager($orgName)) {
-        return true;
-    }
-    
-    return false;
+    return (currentUserIsGlobalAdmin() || currentUserIsMaintainer() || ($orgName && currentUserIsOrgManager($orgName)));
 }
 
 function currentUserCanDeleteUser($targetUserDN) {
