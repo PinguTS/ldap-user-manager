@@ -6,7 +6,7 @@ This directory contains Apache configuration files that provide clean URLs, secu
 
 - **`ldap-user-manager.conf`** - Main configuration with URL rewriting, security, and performance settings
 
-## Why Apache Config Instead of .htaccess?
+## Why Apache Configuration?
 
 ### ✅ Benefits
 
@@ -21,7 +21,7 @@ This directory contains Apache configuration files that provide clean URLs, secu
 #### **URL Rewriting**
 - Clean URLs (e.g., `/manage/users/show` instead of `/manage/users/show.php`)
 - Parameter handling (e.g., `/manage/users/show/username`)
-- Fallback redirects for non-existing URLs
+- Fallback handling for non-existing URLs (redirects to index.php)
 
 #### **Security**
 - Prevents access to sensitive files (.htaccess, .ini, .log, etc.)
@@ -34,10 +34,27 @@ This directory contains Apache configuration files that provide clean URLs, secu
 - Gzip compression for text-based content
 - Optimized file serving
 
+## Important Configuration Notes
+
+### **Directory-Based Configuration**
+- **URL rewriting**: All rewrite rules are contained within `<Directory "/opt/ldap_user_manager">` block
+- **Scope limitation**: Rewrite rules only apply to the web application directory, not globally
+- **Static file protection**: Static files (CSS, JS, images) are served directly by Apache without PHP processing
+
+### **Static File Handling**
+- **Direct serving**: Static files bypass PHP entirely and are served directly by Apache
+- **Performance**: No unnecessary PHP processing for static assets
+- **Caching**: Static files get proper caching headers and compression
+
+### **Fallback Rule**
+- **Selective rewriting**: Only non-static file URLs are rewritten to `/index.php`
+- **Pattern matching**: Uses `RewriteCond %{REQUEST_URI} !\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|pdf|zip|txt|xml|json)$` to exclude static files
+- **Clean URLs**: Users see the original URL in their browser
+
 ## Integration
 
 The configuration is automatically included in the Docker container through the entrypoint script, which generates the Apache VirtualHost configuration.
 
-## Migration from .htaccess
+## Configuration Details
 
-The `.htaccess` file in the `www/` directory can now be removed as all functionality is handled by this Apache configuration.
+This Apache configuration provides all the functionality needed for the LDAP User Manager web application, including clean URLs, security protection, and performance optimization.

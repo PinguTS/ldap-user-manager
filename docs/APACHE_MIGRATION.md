@@ -1,16 +1,8 @@
-# Migration from .htaccess to Apache Configuration
+# Apache Configuration for Docker
 
-This document explains the migration from using `.htaccess` files to Apache configuration for the LDAP User Manager Docker container.
+This document explains the Apache configuration system used in the LDAP User Manager Docker container.
 
-## 🎯 **Why This Migration?**
-
-### **Problems with .htaccess in Docker**
-
-1. **Performance Overhead**: `.htaccess` files are read on every request
-2. **Security Risk**: Users could potentially modify URL rewriting rules
-3. **Docker Anti-Pattern**: Configuration should be part of the container
-4. **Inconsistency**: Different instances might have different configurations
-5. **Maintenance Issues**: Harder to manage in containerized environments
+## 🎯 **Why Apache Configuration?**
 
 ### **Benefits of Apache Configuration**
 
@@ -20,22 +12,15 @@ This document explains the migration from using `.htaccess` files to Apache conf
 4. **Consistency**: All container instances use identical configuration
 5. **Centralized Management**: Single source of truth for configuration
 
-## 🔧 **What Changed**
+## 🔧 **Configuration Structure**
 
-### **Before (.htaccess)**
-- Configuration in `www/.htaccess`
-- Read on every request
-- User-modifiable
-- Performance overhead
-
-### **After (Apache Config)**
+### **Apache Configuration Files**
 - Configuration in `apache/ldap-user-manager.conf`
 - Loaded once at startup
 - User-immutable
 - Optimized performance
 
-## 📁 **New File Structure**
-
+### **File Organization**
 ```
 apache/
 ├── README.md                    # Configuration documentation
@@ -44,7 +29,7 @@ apache/
 
 ## 🐳 **Docker Integration**
 
-### **Dockerfile Changes**
+### **Dockerfile Configuration**
 ```dockerfile
 # Enable Apache modules for security, performance, and URL rewriting
 RUN a2enmod rewrite ssl headers expires deflate && a2dissite 000-default default-ssl
@@ -53,28 +38,28 @@ RUN a2enmod rewrite ssl headers expires deflate && a2dissite 000-default default
 COPY apache/ /etc/apache2/conf-available/
 ```
 
-### **Entrypoint Changes**
+### **Entrypoint Integration**
 ```bash
 # Include LDAP User Manager configuration
 Include /etc/apache2/conf-available/ldap-user-manager.conf
 ```
 
-## 🚀 **Migration Steps**
+## 🚀 **Configuration Features**
 
-### **1. Remove .htaccess**
-```bash
-rm www/.htaccess
-```
+### **URL Rewriting**
+- Clean URLs (e.g., `/manage/users/show`)
+- Parameter handling (e.g., `/manage/users/show/username`)
+- Fallback handling for non-existing URLs
 
-### **2. Add Apache Configuration**
-- Copy `apache/` directory to project
-- Update Dockerfile to copy configuration
-- Update entrypoint to include configuration
+### **Security**
+- File access protection
+- Directory access control
+- Security headers
 
-### **3. Update Documentation**
-- Remove `.htaccess` references
-- Update URL routing documentation
-- Add Apache configuration documentation
+### **Performance**
+- Static file caching
+- Gzip compression
+- Optimized file serving
 
 ## ✅ **Verification**
 
@@ -90,9 +75,9 @@ apache2ctl -S
 - Confirm fallback redirects work
 
 ### **Performance Testing**
-- Monitor response times before/after
+- Monitor response times
 - Check Apache access logs for configuration loading
-- Verify no `.htaccess` file access attempts
+- Verify configuration is properly loaded
 
 ## 🔍 **Troubleshooting**
 
@@ -106,11 +91,11 @@ apache2ctl -S
 #### **URL Rewriting Not Working**
 - Ensure `mod_rewrite` is enabled
 - Check RewriteEngine is On
-- Verify RewriteBase is correct
+- Verify configuration is properly included
 
 #### **Performance Issues**
 - Check Apache configuration is loaded
-- Verify no `.htaccess` files are being read
+- Verify configuration is optimized
 - Monitor Apache worker processes
 
 ### **Debug Commands**
@@ -136,7 +121,7 @@ apache2ctl -D DUMP_RUN_CFG
 
 ## 🎉 **Result**
 
-After migration, the LDAP User Manager will have:
+The LDAP User Manager Docker container provides:
 - **Better performance** from optimized configuration loading
 - **Enhanced security** from immutable configuration
 - **Docker best practices** with containerized configuration

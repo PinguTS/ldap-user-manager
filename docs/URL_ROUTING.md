@@ -1,10 +1,10 @@
 # URL Routing and Clean URLs
 
-This document explains the URL routing system for LDAP User Manager and how the `.htaccess` file provides clean, user-friendly URLs.
+This document explains the URL routing system for LDAP User Manager and how it provides clean, user-friendly URLs.
 
 ## 🎯 **Overview**
 
-The `.htaccess` file provides clean URLs by removing `.php` extensions and handling URL rewriting. This makes URLs more professional and easier to remember.
+The system provides clean URLs by removing `.php` extensions and handling URL rewriting. This makes URLs more professional and easier to remember.
 
 ## 🔗 **Supported Clean URLs**
 
@@ -39,9 +39,9 @@ The `.htaccess` file provides clean URLs by removing `.php` extensions and handl
 - `/manage/roles` → Role management
 - `/manage/download` → Download functionality
 
-## �� **How It Works**
+## 🔧 **How It Works**
 
-The URL routing system uses **Apache configuration** (not `.htaccess`) to provide clean URLs and proper routing for the web application.
+The URL routing system uses **Apache configuration** to provide clean URLs and proper routing for the web application.
 
 ### **Apache Configuration**
 - **Location**: `/apache/ldap-user-manager.conf` in the Docker container
@@ -127,7 +127,7 @@ The URL routing system uses **Apache configuration** (not `.htaccess`) to provid
 
 1. **URLs not working**
    - Check if `mod_rewrite` is enabled
-   - Verify `.htaccess` files are allowed
+   - Verify Apache configuration is properly loaded
    - Check Apache error logs
 
 2. **Infinite redirects**
@@ -151,4 +151,4 @@ RewriteLogLevel 3
 - [LDAP Configuration](LDAP-CONFIGURATION.md) - LDAP setup and configuration
 - [Docker Setup](DOCKER-SETUP.md) - Docker deployment instructions
 - [Configuration Variables](CONFIGURATION_VARIABLES.md) - Environment variables
-- [Role Conflict Fixes](ROLE_CONFLICT_FIXES.md) - Access control configuration
+- [Role Configuration](ROLE_CONFIGURATION.md) - Access control configuration

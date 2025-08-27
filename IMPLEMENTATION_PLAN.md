@@ -1,11 +1,13 @@
-# LDAP User Manager - Implementation Plan
+# LDAP User Manager - System Overview
 
-## Overview
-This document outlines the current implementation status and remaining tasks for the LDAP User Manager system.
+This document provides an overview of the LDAP User Manager system architecture and capabilities.
 
-## Current Implementation Status
+## System Overview
 
-### ✅ **COMPLETED FEATURES**
+LDAP User Manager is a comprehensive web-based interface for managing LDAP user accounts, organizations, and role-based access control. It provides a unified approach to user management across both system-level and organization-level contexts.
+
+## ✅ **Available Features**
+
 1. **LDAP Structure**: Standard `postalAddress` attribute implementation
 2. **Role Hierarchy**: Administrator, maintainer, and organization manager roles
 3. **Access Control**: Maintainers cannot modify administrator accounts
@@ -15,15 +17,17 @@ This document outlines the current implementation status and remaining tasks for
 7. **Role Conflict Detection**: Automatic detection and prevention of configuration conflicts
 8. **Role Value Synchronization**: Role values default to group names by default
 
-### 🔄 **IN PROGRESS FEATURES**
+## 🔄 **Core Functionality**
+
 1. **User Creation**: User creation functions working within organizations
 2. **Passcode Support**: Passcode functionality implemented for future logins
 3. **Organization Management UI**: Frontend updated to handle organization structure
 
-### ❌ **PENDING FEATURES**
-1. **Setup Wizard**: Setup process updated for new LDAP structure
-2. **User Interface**: All UI components working with new structure
-3. **Testing**: All functionality tested with new LDAP structure
+## 🚀 **Planned Enhancements**
+
+1. **Setup Wizard**: Enhanced setup process for new LDAP structure
+2. **User Interface**: Additional UI components for new structure
+3. **Testing**: Comprehensive testing of all functionality
 
 ## Current LDAP Structure
 
@@ -62,55 +66,38 @@ dc=example,dc=com
 - Secure password generation and validation
 - Role assignment and management
 
-## Remaining Tasks
+## System Architecture
 
-### Phase 1: Complete Core Functionality (Priority: High)
+### Core Components
 1. **User Creation Functions**
-   - Modify `ldap_functions.inc.php` to create users within organizations
-   - Update user DN structure to be organization-based
-   - Implement email-based login (uid = email address)
+   - LDAP functions for creating users within organizations
+   - User DN structure based on organization context
+   - Email-based login (uid = email address)
 
 2. **Passcode Support**
-   - Add passcode attribute to user entries
-   - Update password change functions to handle passcodes
-   - Add passcode validation and hashing
+   - Passcode attribute in user entries
+   - Password change functions with passcode handling
+   - Passcode validation and hashing
 
 3. **Setup Process**
-   - Modify setup wizard to create new LDAP structure
-   - Add organization creation during setup
-   - Ensure proper role assignment
+   - Setup wizard for new LDAP structure
+   - Organization creation during setup
+   - Proper role assignment
 
-### Phase 2: User Interface Updates (Priority: Medium)
+### User Interface Components
 1. **Organization Management**
-   - Update organization creation forms to use new address format
-   - Add organization editing capabilities
-   - Implement organization deletion with proper access control
+   - Organization creation forms with new address format
+   - Organization editing capabilities
+   - Organization deletion with proper access control
 
 2. **User Management**
-   - Update user creation forms to work within organizations
-   - Add organization selection for user creation
-   - Implement user role management within organizations
+   - User creation forms within organizations
+   - Organization selection for user creation
+   - User role management within organizations
 
 3. **Access Control UI**
-   - Add role-based UI elements
-   - Implement proper permission checking in all forms
-
-### Phase 3: Testing and Validation (Priority: High)
-1. **Functional Testing**
-   - Test user creation and management
-   - Test organization management
-   - Test role-based access control
-   - Test passcode functionality
-
-2. **Integration Testing**
-   - Test LDAP operations
-   - Test access control enforcement
-   - Test error handling and validation
-
-3. **Security Testing**
-   - Test role-based restrictions
-   - Test access control bypass attempts
-   - Test edge cases and error conditions
+   - Role-based UI elements
+   - Proper permission checking in all forms
 
 ## Configuration Examples
 
@@ -140,7 +127,7 @@ $LDAP['org_address_fields'] = [
 ];
 ```
 
-## Files Modified
+## System Components
 
 ### Core Configuration
 - `www/includes/config.inc.php` - Role synchronization, conflict detection
@@ -157,7 +144,20 @@ $LDAP['org_address_fields'] = [
 - `www/setup/verify.php` - Enhanced validation
 - `www/setup/run_checks.php` - Improved runtime checks
 
-### Documentation
-- `ROLE_CONFLICT_FIXES.md` - Role conflict prevention guide
-- `CONFIGURATION_VARIABLES.md` - Updated configuration reference
-- `docs/RECENT_CHANGES.md` - Change log 
+## Testing and Validation
+
+### Functional Testing
+- User creation and management
+- Organization management
+- Role-based access control
+- Passcode functionality
+
+### Integration Testing
+- LDAP operations
+- Access control enforcement
+- Error handling and validation
+
+### Security Testing
+- Role-based restrictions
+- Access control bypass attempts
+- Edge cases and error conditions 

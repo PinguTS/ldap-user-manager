@@ -116,11 +116,12 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^manage/users/show/([^/]+)/?$ /manage/users/show.php?user=$1 [L,QSA]
 
-# Fallback: Redirect non-existing URLs to root (or sub-path root)
-# This should be the last rule
+# Fallback: Only rewrite non-existing URLs that don't match static file patterns
+# This should be the last rule and should NOT catch static files
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ / [R=302,L]
+RewriteCond %{REQUEST_URI} !\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|pdf|zip|txt|xml|json)$
+RewriteRule ^(.*)$ /index.php [L]
 
 # Performance and caching
 <IfModule mod_expires.c>

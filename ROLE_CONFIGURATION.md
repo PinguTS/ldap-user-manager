@@ -15,16 +15,9 @@ The system uses role-based access control with two main role types:
 
 ### **Role Values**
 ```bash
-# Role values define what gets stored in the 'description' field
-LDAP_ADMIN_ROLE=administrator
-LDAP_MAINTAINER_ROLE=maintainer
-```
-
-### **Group Names**
-```bash
 # Group names define the LDAP groups under ou=roles
-LDAP_ADMIN_GROUP_NAME=administrators
-LDAP_MAINTAINER_GROUP_NAME=maintainers
+LDAP_ADMIN_ROLE=administrators
+LDAP_MAINTAINER_ROLE=maintainers
 ```
 
 ## ⚠️ **Important Configuration Rules**
@@ -41,53 +34,7 @@ LDAP_ADMIN_ROLE=admin
 LDAP_MAINTAINER_ROLE=admin
 ```
 
-### **Rule 2: Different Group Names**
-Group names must be different from each other:
-```bash
-# ✅ CORRECT - Different group names
-LDAP_ADMIN_GROUP_NAME=administrators
-LDAP_MAINTAINER_GROUP_NAME=maintainers
-
-# ❌ INCORRECT - Same group names
-LDAP_ADMIN_GROUP_NAME=admins
-LDAP_MAINTAINER_GROUP_NAME=admins
-```
-
-### **Rule 3: No Cross-Conflicts**
-Role values should not conflict with group names:
-```bash
-# ✅ CORRECT - No conflicts
-LDAP_ADMIN_ROLE=administrator
-LDAP_MAINTAINER_ROLE=maintainer
-LDAP_ADMIN_GROUP_NAME=administrators
-LDAP_MAINTAINER_GROUP_NAME=maintainers
-
-# ❌ INCORRECT - Role conflicts with group
-LDAP_ADMIN_ROLE=maintainer
-LDAP_MAINTAINER_GROUP_NAME=maintainer
-```
-
 ## 🚀 **Recommended Configuration**
-
-### **Option 1: Synchronized Defaults (Recommended)**
-```bash
-# Set only group names - role values auto-sync
-LDAP_ADMIN_GROUP_NAME=administrators
-LDAP_MAINTAINER_GROUP_NAME=maintainers
-
-# System automatically sets:
-# LDAP_ADMIN_ROLE=administrators
-# LDAP_MAINTAINER_ROLE=maintainers
-```
-
-### **Option 2: Custom Configuration**
-```bash
-# Set both role values and group names
-LDAP_ADMIN_ROLE=superuser
-LDAP_MAINTAINER_ROLE=tech_support
-LDAP_ADMIN_GROUP_NAME=global_admins
-LDAP_MAINTAINER_GROUP_NAME=system_maintainers
-```
 
 ## 🔍 **Configuration Validation**
 
@@ -99,33 +46,30 @@ The system automatically validates your configuration:
 
 ## 📋 **Configuration Examples**
 
+### **Simple Setup**
+```bash
+# All values use defaults
+```
+
 ### **Production Environment**
 ```bash
-LDAP_ADMIN_GROUP_NAME=global_administrators
-LDAP_MAINTAINER_GROUP_NAME=system_maintainers
-LDAP_ORG_ADMIN_ROLE=organization_administrator
+LDAP_ADMIN_ROLE=administrators
+LDAP_MAINTAINER_ROLE=maintainers
+LDAP_ORG_ADMIN_ROLE=organization_administrators
 LDAP_USER_ROLE=standard_user
 ```
 
 ### **Development Environment**
 ```bash
-LDAP_ADMIN_GROUP_NAME=dev_admins
-LDAP_MAINTAINER_GROUP_NAME=dev_maintainers
+LDAP_ADMIN_ROLE=dev_admins
+LDAP_MAINTAINER_ROLE=dev_maintainers
 LDAP_ORG_ADMIN_ROLE=org_admin
 LDAP_USER_ROLE=user
-```
-
-### **Simple Setup**
-```bash
-LDAP_ADMIN_GROUP_NAME=admins
-LDAP_MAINTAINER_GROUP_NAME=maintainers
-# All other values use defaults
 ```
 
 ## 🛡️ **Security Considerations**
 
 - **Role Separation**: Keep administrator and maintainer roles distinct
-- **Group Isolation**: Use different group names to prevent conflicts
 - **Access Control**: Maintainers cannot manage administrator accounts
 - **Self-Protection**: Users cannot delete their own accounts
 
@@ -133,8 +77,6 @@ LDAP_MAINTAINER_GROUP_NAME=maintainers
 
 ### **Setup Won't Complete**
 - Check for duplicate role values
-- Verify group names are different
-- Ensure no cross-conflicts between roles and groups
 
 ### **Maintenance Mode Active**
 - Review your configuration variables
@@ -143,7 +85,6 @@ LDAP_MAINTAINER_GROUP_NAME=maintainers
 
 ### **Access Control Issues**
 - Verify role values match your LDAP structure
-- Check group membership
 - Ensure proper role hierarchy
 
 ## 📚 **Related Documentation**

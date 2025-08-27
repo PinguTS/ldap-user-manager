@@ -18,26 +18,33 @@ This directory contains ready-to-use web server configurations for deploying the
 
 ## 🚀 **Quick Setup**
 
-### **Automated Setup (Recommended)**
+### **Automatic Setup (Recommended)**
 ```bash
-# Single script for all scenarios
+# Run the unified setup script
 ./web-servers/setup.sh
 ```
 
-This script automatically:
+The script automatically:
 - Detects your web server (Apache or Nginx)
-- Asks for deployment type (root or sub-path)
-- Configures everything automatically
-- Provides guidance for next steps
+- Prompts for deployment type (root or sub-path)
+- Configures all necessary files
+- Sets proper permissions
+- Reloads your web server
 
 ### **Manual Setup**
-```bash
-# Copy configuration files
-cp web-servers/.htaccess www/                    # Apache
-cp web-servers/nginx.conf /etc/nginx/sites-available/  # Nginx
+1. **Apache**: Copy `web-servers/.htaccess` to your web root
+2. **Nginx**: Copy `web-servers/nginx.conf` to your sites-available directory
+3. **Configure paths** and domain names
+4. **Enable the site** and reload your web server
 
-# Follow detailed instructions in DEPLOYMENT.md
-```
+## ✨ **Features**
+
+- **Clean URLs**: `/manage/users/show` instead of `/manage/users/show.php`
+- **Sub-path support**: Deploy in any subdirectory
+- **Static file optimization**: CSS, JS, images served directly with caching
+- **Security**: File access protection and security headers
+- **Performance**: Compression and caching for optimal speed
+- **Proper static file handling**: Static files served directly without PHP processing
 
 ## 🔧 **Configuration Features**
 

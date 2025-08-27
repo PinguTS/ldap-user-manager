@@ -81,6 +81,16 @@ cd ldap-user-manager
 5. **Checks prerequisites** and provides guidance
 6. **Reloads your web server** with new configuration
 
+### **Static File Handling**
+Both Apache and Nginx configurations are designed to serve static files (CSS, JS, images, fonts) directly without processing them through PHP:
+
+- **CSS/JS files**: Served with proper caching headers
+- **Images and fonts**: Optimized with compression and caching
+- **No PHP processing**: Static files bypass the application entirely
+- **Performance**: Faster loading and better caching
+
+This ensures optimal performance and prevents unnecessary PHP processing of static assets.
+
 ### **Configuration Examples**
 
 #### **Apache .htaccess**
@@ -99,136 +109,50 @@ RewriteBase /ldap-manager/  # Example for sub-path
 set $base_path "/ldap-manager";  # Example for sub-path
 ```
 
-### **Manual Setup (Alternative)**
-```bash
-# For Apache
-cp web-servers/.htaccess /path/to/your/webroot/.htaccess
-# Edit .htaccess and change RewriteBase line
-
-# For Nginx
-cp web-servers/nginx.conf /etc/nginx/sites-available/ldap-user-manager
-# Edit nginx.conf and change $base_path variable
-```
-
-### **Features**
-- ✅ **Clean URLs** work in both root and sub-path deployments
-- ✅ **Parameter handling** for dynamic content
-- ✅ **Security protection** for sensitive files
-- ✅ **Performance optimization** with caching and compression
-- ✅ **Security headers** for XSS and clickjacking protection
-
-## 🔧 **Configuration Requirements**
-
-### **Apache Modules**
-```bash
-# Required modules
-a2enmod rewrite
-a2enmod headers
-a2enmod expires
-a2enmod deflate
-
-# Reload Apache
-systemctl reload apache2
-```
-
-### **PHP Extensions**
-```bash
-# Required PHP extensions
-php -m | grep -E "(ldap|openssl|mbstring|json)"
-```
-
-### **LDAP Configuration**
-- LDAP server hostname/IP
-- LDAP bind DN and password
-- LDAP base DN
-- SSL/TLS certificate (if required)
-
-## 📊 **Performance Comparison**
-
-| Feature | Docker | Apache | Nginx |
-|---------|--------|--------|-------|
-| **Setup Complexity** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ |
-| **Performance** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| **Security** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
-| **Maintenance** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ |
-| **Flexibility** | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
-
-## 🚨 **Troubleshooting**
+## 🔧 **Troubleshooting**
 
 ### **Common Issues**
 
-#### **URL Rewriting Not Working**
-```bash
-# Apache: Check mod_rewrite
-apache2ctl -M | grep rewrite
+#### **Static Files Redirecting to Login Page**
+- **Symptom**: CSS, JS, images, or favicon redirect to login page
+- **Cause**: Rewrite rules catching static file requests
+- **Solution**: Ensure your configuration excludes static file extensions (already configured)
 
-# Nginx: Check configuration syntax
-nginx -t
+#### **Clean URLs Not Working**
+- **Symptom**: URLs like `/manage/users/show` return 404
+- **Cause**: `mod_rewrite` not enabled (Apache) or incorrect `try_files` (Nginx)
+- **Solution**: Enable required modules and reload web server
 
-# Verify file permissions
-ls -la www/.htaccess
-```
+#### **Permission Denied Errors**
+- **Symptom**: 403 Forbidden errors
+- **Cause**: Incorrect file ownership or web server user permissions
+- **Solution**: Run setup script with correct web server user/group
 
-#### **PHP Processing Issues**
-```bash
-# Check PHP-FPM status
-systemctl status php8.0-fpm
+#### **PHP Processing Errors**
+- **Symptom**: PHP code displayed as text or 500 errors
+- **Cause**: PHP not properly configured or PHP-FPM not running (Nginx)
+- **Solution**: Verify PHP installation and PHP-FPM status
 
-# Verify PHP socket
-ls -la /var/run/php/php8.0-fpm.sock
-
-# Test PHP processing
-echo "<?php phpinfo(); ?>" | php
-```
-
-#### **LDAP Connection Issues**
-```bash
-# Test LDAP connection
-ldapsearch -H ldap://your-ldap-server -x -D "cn=admin,dc=example,dc=com" -w password -b "dc=example,dc=com"
-```
-
-### **Debug Commands**
-```bash
-# Apache error logs
-tail -f /var/log/apache2/error.log
-
-# Nginx error logs
-tail -f /var/log/nginx/error.log
-
-# PHP-FPM logs
-tail -f /var/log/php8.0-fpm.log
-```
-
-## 🔒 **Security Considerations**
-
-### **File Access Protection**
-- ✅ **Sensitive files** (.htaccess, .ini, .log) are blocked
-- ✅ **Includes directory** is protected from direct access
-- ✅ **Configuration files** (.env, .git) are hidden
-
-### **Security Headers**
-- ✅ **X-Frame-Options**: Prevents clickjacking
-- ✅ **X-Content-Type-Options**: Prevents MIME type sniffing
-- ✅ **X-XSS-Protection**: Enables XSS protection
-- ✅ **Referrer-Policy**: Controls referrer information
-
-### **Performance Optimization**
-- ✅ **Browser caching** for static assets
-- ✅ **Gzip compression** for text content
-- ✅ **Efficient routing** with minimal overhead
+### **Debug Steps**
+1. **Check web server error logs** for specific error messages
+2. **Verify module status**: `apache2ctl -M` (Apache) or `nginx -t` (Nginx)
+3. **Test static file access** directly (e.g., `/bootstrap/css/bootstrap.css`)
+4. **Check file permissions** and ownership
+5. **Verify configuration syntax** before reloading
 
 ## 📚 **Additional Resources**
 
-- [Apache mod_rewrite Documentation](https://httpd.apache.org/docs/current/mod/mod_rewrite.html)
-- [Nginx try_files Directive](https://nginx.org/en/docs/http/ngx_http_core_module.html#try_files)
-- [PHP-FPM Configuration](https://www.php.net/manual/en/install.fpm.configuration.php)
-- [LDAP Configuration](LDAP-CONFIGURATION.md)
+- [Apache Documentation](https://httpd.apache.org/docs/)
+- [Nginx Documentation](https://nginx.org/en/docs/)
+- [PHP-FPM Configuration](https://www.php.net/manual/en/install.fpm.php)
 
-## 🎯 **Recommendation**
+## 🎯 **Next Steps**
 
-- **Production/Enterprise**: Use **Docker** for consistency and security
-- **Shared Hosting**: Use **Direct deployment** with Apache
-- **High-Performance**: Use **Direct deployment** with Nginx
-- **Development**: Use **Docker** for easy setup and consistency
+1. **Choose your deployment method** (Docker recommended for production)
+2. **Follow the setup instructions** for your chosen method
+3. **Configure LDAP settings** using environment variables
+4. **Test your installation** and verify functionality
+5. **Review security settings** and adjust as needed
 
-Choose the deployment method that best fits your infrastructure, expertise, and requirements!
+For Docker deployment, see [DOCKER-SETUP.md](../DOCKER-SETUP.md).
+For direct deployment, use the setup script in this directory.

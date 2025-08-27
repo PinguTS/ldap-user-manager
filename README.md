@@ -32,10 +32,9 @@ cd ldap-user-manager
 - [Docker Setup](DOCKER-SETUP.md) - Container deployment guide
 - [Web Server Deployment](web-servers/README.md) - Apache, Nginx, and direct deployment
 - [Configuration Variables](CONFIGURATION_VARIABLES.md) - Environment variables
-- [Role Conflict Fixes](ROLE_CONFLICT_FIXES.md) - Access control configuration
+- [Role Configuration](ROLE_CONFIGURATION.md) - Access control configuration
 - [URL Routing](docs/URL_ROUTING.md) - Clean URLs and routing system
 - [Apache Configuration](apache/README.md) - Server configuration and optimization
-- [Apache Migration](docs/APACHE_MIGRATION.md) - Migration from .htaccess to Apache config
 
 ***
 
@@ -111,7 +110,7 @@ Organization users have additional fields for organizational context:
 ## Screenshots
 
 **Account Management:**
-![account_overview](https://user-images.githubusercontent.com/17613683/59344255-9c692480-8d05-11e9-9207-051291bafd91.png)
+![account_overview](https://user-images.githubusercontent.com/17613683/59344255-9c692480-8d05-11e9-8607-051291bafd91.png)
 
 **Group Management:**
 ![group_membership](https://user-images.githubusercontent.com/17613683/59344247-97a47080-8d05-11e9-8606-0bcc40471458.png)

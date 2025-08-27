@@ -6,34 +6,41 @@
 # =============================================================================
 
 # Application name
-APP_NAME := ldap-user-manager
+APP_NAME ?= ldap-user-manager
 
 # Docker registry configuration
-REGISTRY_HOST ?= localhost
-REGISTRY_PORT ?= 5000
-REGISTRY_USER ?= admin
-REGISTRY_PASS ?= admin
-LOCAL_REGISTRY := $(REGISTRY_HOST):$(REGISTRY_PORT)
+REGISTRY_HOST ?= $(shell git config --get registry.host)
+REGISTRY_USER ?= $(shell git config --get registry.user)
+LOCAL_REGISTRY := $(REGISTRY_HOST)
 
 # Docker Hub repository
-DOCKERHUB_REPO ?= your-username/ldap-user-manager
+DOCKERHUB_USER ?= $(shell git config --get dockerhub.user)
+DOCKERHUB_REPO ?= $(DOCKERHUB_USER)/$(APP_NAME)
+
+# GitHub repository
+GITHUB_USER ?= $(shell git config --get github.user)
+GITHUB_REPO ?= $(GITHUB_USER)/$(APP_NAME)
 
 # Git information
+DATE_UTC := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 GIT_SHA := $(shell git rev-parse --short HEAD)
 GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+GIT_REV  ?= $(GIT_SHA)
+GIT_URL  ?= $(GITHUB_REPO)
+
 
 # Version (set via VERSION=1.2.3)
 VERSION ?= 0.0.0
 
 # Build platforms
-PLATFORMS := linux/amd64,linux/arm64
+PLATFORMS ?= linux/amd64,linux/arm64
 
 # BuildKit configuration
-BUILDKIT_CONFIG := $(HOME)/.docker/buildkitd.toml
-BUILDER_NAME := ldap-user-manager-builder
+BUILDKIT_CONFIG := .buildkit.toml
+BUILDER_NAME ?= $(APP_NAME)-builder
 
 # Portainer webhook for notifications
-PORTAINER_STACK_WEBHOOK ?= http://localhost:9000/api/webhooks/your-webhook-id
+PORTAINER_STACK_WEBHOOK ?= $(shell git config --get registry.webhook)
 
 # =============================================================================
 # Docker Build Commands
@@ -42,7 +49,8 @@ PORTAINER_STACK_WEBHOOK ?= http://localhost:9000/api/webhooks/your-webhook-id
 # Set up Docker buildx builder
 .PHONY: builder
 builder:
-	@docker buildx create --name $(BUILDER_NAME) --driver docker-container --config "$(BUILDKIT_CONFIG)" --use
+	@docker buildx inspect $(BUILDER_NAME) >/dev/null 2>&1 || \
+		docker buildx create --name $(BUILDER_NAME) --driver docker-container --config "$(BUILDKIT_CONFIG)" --use
 	@docker buildx use $(BUILDER_NAME)
 	@docker buildx inspect --bootstrap >/dev/null
 
@@ -56,6 +64,12 @@ dev: builder
 		--platform $(PLATFORMS) \
 		-t $(LOCAL_REGISTRY)/$(APP_NAME):dev \
 		-t $(LOCAL_REGISTRY)/$(APP_NAME):dev-$(GIT_SHA) \
+		--label org.opencontainers.image.created=$(DATE_UTC) \
+		--label org.opencontainers.image.revision=$(GIT_REV) \
+		--label org.opencontainers.image.source=$(GIT_URL) \
+		--label org.opencontainers.image.version=dev-$(GIT_SHA) \
+		--output=type=image,name=$(LOCAL_REGISTRY)/$(APP_NAME):dev,push=true,oci-mediatypes=false \
+		--provenance=false \
 		--push \
 		.
 
