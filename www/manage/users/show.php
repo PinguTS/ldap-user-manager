@@ -151,10 +151,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile']) && 
     // Handle password change
     if (!empty($_POST['new_password'])) {
         if ($_POST['new_password'] !== $_POST['confirm_new_password']) {
-            $mismatched_passwords = TRUE;
             $errors[] = "New passwords do not match.";
         } else {
-            $update_data['userPassword'] = $_POST['new_password'];
+            // Hash the password before storing it
+            $update_data['userPassword'] = ldap_hashed_password($_POST['new_password']);
         }
     }
     

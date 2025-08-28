@@ -1,58 +1,97 @@
 # Configuration Variables Reference
 
-This document lists all the configurable variables available in the LDAP User Manager system.
+This document explains all the configurable settings available in the LDAP User Manager system. These settings allow you to customize the system for your organization's needs without modifying any code.
 
 ## Environment Variables
 
 ### LDAP Server Configuration
-- `LDAP_URI` - LDAP server URI (required)
-- `LDAP_BASE_DN` - Base DN for the LDAP tree (required)
-- `LDAP_ADMIN_BIND_DN` - Admin bind DN for LDAP operations (required)
-- `LDAP_ADMIN_BIND_PWD` - Admin bind password (required)
-- `LDAP_REQUIRE_STARTTLS` - Whether to require STARTTLS (default: FALSE)
+These settings connect the system to your LDAP directory server:
+- `LDAP_URI` - LDAP server address (required)
+- `LDAP_BASE_DN` - Base directory path in your LDAP tree (required)
+- `LDAP_ADMIN_BIND_DN` - Administrator account for LDAP operations (required)
+- `LDAP_ADMIN_BIND_PWD` - Administrator password (required)
+- `LDAP_REQUIRE_STARTTLS` - Whether to require encrypted connections (default: FALSE)
 - `LDAP_IGNORE_CERT_ERRORS` - Whether to ignore SSL certificate errors (default: FALSE)
 
+### Password Security Configuration
+These settings control how strong passwords must be in your system:
+
+#### **Password Strength Requirements**
+- `PASSWORD_STRENGTH_MIN_SCORE` - Minimum password strength level (default: 2)
+  - **0**: Very Weak (any password accepted)
+  - **1**: Weak (basic passwords allowed)
+  - **2**: Fair (moderate security required) ← **Recommended for most organizations**
+  - **3**: Good (strong security required)
+  - **4**: Strong (excellent security required)
+
+- `PASSWORD_STRENGTH_MIN_LENGTH` - Minimum password length (default: 8 characters)
+- `PASSWORD_STRENGTH_REQUIRE_UPPERCASE` - Require capital letters (default: TRUE)
+- `PASSWORD_STRENGTH_REQUIRE_LOWERCASE` - Require small letters (default: TRUE)
+- `PASSWORD_STRENGTH_REQUIRE_NUMBERS` - Require numbers (default: TRUE)
+- `PASSWORD_STRENGTH_REQUIRE_SYMBOLS` - Require special characters (default: FALSE)
+
+#### **Legacy Password Settings**
+- `PASSWORD_HASH` - Password encryption method (default: 'SSHA')
+- `ACCEPT_WEAK_PASSWORDS` - Allow very weak passwords (default: FALSE)
+  - **Note**: If set to TRUE, this overrides the minimum score requirement
+
+#### **Password Configuration Examples**
+
+**Development/Testing Environment (Lenient):**
+```bash
+export PASSWORD_STRENGTH_MIN_SCORE=0      # Allow any password
+export PASSWORD_STRENGTH_MIN_LENGTH=4     # Minimum 4 characters
+export ACCEPT_WEAK_PASSWORDS=TRUE        # Allow very weak passwords
+```
+
+**Production Environment (Strict):**
+```bash
+export PASSWORD_STRENGTH_MIN_SCORE=3      # Require Good or higher
+export PASSWORD_STRENGTH_MIN_LENGTH=12    # Minimum 12 characters
+export PASSWORD_STRENGTH_REQUIRE_SYMBOLS=TRUE  # Require special characters
+```
+
+**Balanced Environment (Recommended):**
+```bash
+export PASSWORD_STRENGTH_MIN_SCORE=2      # Require Fair or higher
+export PASSWORD_STRENGTH_MIN_LENGTH=8     # Minimum 8 characters
+export PASSWORD_STRENGTH_REQUIRE_UPPERCASE=TRUE
+export PASSWORD_STRENGTH_REQUIRE_LOWERCASE=TRUE
+export PASSWORD_STRENGTH_REQUIRE_NUMBERS=TRUE
+export PASSWORD_STRENGTH_REQUIRE_SYMBOLS=FALSE
+```
+
 ### Role Configuration
-- `LDAP_ADMIN_ROLE` - Role name for system administrators (default: 'administrators' - same as admin group name)
-- `LDAP_MAINTAINER_ROLE` - Role name for system maintainers (default: 'maintainers' - same as maintainer group name)
+These settings define the names of different user roles in your system:
+- `LDAP_ADMIN_ROLE` - Role name for system administrators (default: 'administrators')
+- `LDAP_MAINTAINER_ROLE` - Role name for system maintainers (default: 'maintainers')
 - `LDAP_ORG_ADMIN_ROLE` - Role name for organization administrators (default: 'org_admin')
 - `LDAP_USER_ROLE` - Role name for regular users (default: 'user')
 
-**Note**: Role values now default to group names by default to eliminate duplication. You can still override them with environment variables if needed.
-
-### Group Configuration
-- `LDAP_ADMIN_GROUP_NAME` - Group name for administrators (default: 'administrators')
-- `LDAP_MAINTAINER_GROUP_NAME` - Group name for maintainers (default: 'maintainers')
-
 ### Display Labels (Localization)
+These settings control how role names appear in the user interface:
 - `LDAP_ADMIN_DISPLAY_LABEL` - Display label for admin role (default: 'System Administrator')
 - `LDAP_MAINTAINER_DISPLAY_LABEL` - Display label for maintainer role (default: 'System Maintainer')
 - `LDAP_ORG_ADMIN_DISPLAY_LABEL` - Display label for org admin role (default: 'Organization Administrator')
 - `LDAP_USER_DISPLAY_LABEL` - Display label for user role (default: 'User')
 
 ### Error Messages (Localization)
+These settings control the text of error messages shown to users:
 - `LDAP_ERROR_MAINTAINER_CANNOT_DELETE_ADMIN` - Error message for maintainer deletion restriction (default: 'Maintainers cannot delete administrators')
 - `LDAP_ERROR_MAINTAINER_CANNOT_CREATE_ADMIN` - Error message for maintainer creation restriction (default: 'Maintainers cannot create users with administrator roles')
 - `LDAP_ERROR_CANNOT_DELETE_SELF` - Error message for self-deletion prevention (default: 'You cannot delete your own account')
 
-### Role Hierarchy and Conflict Prevention
-- `LDAP_PREVENT_ROLE_CONFLICTS` - Whether to prevent role configuration conflicts (default: 'TRUE')
-- **Role Hierarchy Levels** (built-in, not configurable):
-  - `global_admin` = 100 (highest - can do everything)
-  - `maintainer` = 80 (high - can manage users and orgs)
-  - `org_admin` = 60 (medium - can manage their org)
-  - `user` = 10 (lowest - basic user)
+### Role Hierarchy and Access Control
+The system automatically manages user permissions based on these built-in role levels:
+- **Global Administrator** (Level 100) - Can do everything in the system
+- **System Maintainer** (Level 80) - Can manage users and organizations
+- **Organization Administrator** (Level 60) - Can manage their own organization only
+- **Regular User** (Level 10) - Basic user with minimal privileges
 
-**⚠️ Role Conflict Detection**: The system automatically detects and prevents these configuration errors:
-- Admin and Maintainer roles set to the same value
-
-**When conflicts are detected**:
-1. **Setup Process**: Configuration validation blocks setup completion
-2. **Runtime Operation**: System goes into maintenance mode
-3. **Maintenance Mode**: Professional error page with clear instructions
-4. **Security Protection**: System cannot operate with broken access control
+**Important**: The system automatically prevents role conflicts that could break access control.
 
 ### LDAP Structure
+These settings define the organization of your LDAP directory:
 - `LDAP_GROUP_OU` - Groups organizational unit (default: 'groups')
 - `LDAP_USER_OU` - Users organizational unit (default: 'people')
 - `LDAP_ORG_OU` - Organizations organizational unit (default: 'organizations')
@@ -60,16 +99,16 @@ This document lists all the configurable variables available in the LDAP User Ma
 - `LDAP_GROUP_ATTRIBUTE` - Group identifier attribute (default: 'cn')
 
 ### User Account Configuration
+These settings control how new user accounts are created:
 - `DEFAULT_USER_GROUP` - Default group for new users (default: 'everybody')
 - `DEFAULT_USER_SHELL` - Default shell for new users (default: '/bin/bash')
 - `ENFORCE_SAFE_SYSTEM_NAMES` - Whether to enforce safe system names (default: TRUE)
 - `USERNAME_FORMAT` - Username format template (default: '{first_name}-{last_name}')
-- `USERNAME_REGEX` - Username validation regex (default: '^[a-z][a-zA-Z0-9\._-]{3,32}$')
-- `PASSWORD_HASH` - Password hashing algorithm (default: 'SSHA')
-- `ACCEPT_WEAK_PASSWORDS` - Whether to accept weak passwords (default: FALSE)
+- `USERNAME_REGEX` - Username validation rules (default: '^[a-z][a-zA-Z0-9\._-]{3,32}$')
 - `SHOW_POSIX_ATTRIBUTES` - Whether to show POSIX attributes (default: FALSE)
 
 ### Site Configuration
+These settings control the appearance and behavior of your website:
 - `ORGANISATION_NAME` - Organization name (default: 'LDAP')
 - `SITE_NAME` - Site name (default: '{ORGANISATION_NAME} user manager')
 - `SITE_LOGIN_LDAP_ATTRIBUTE` - LDAP attribute for login (default: 'mail')
@@ -80,6 +119,7 @@ This document lists all the configurable variables available in the LDAP User Ma
 - `NO_HTTPS` - Whether HTTPS is disabled (default: FALSE)
 
 ### Email Configuration
+These settings control how the system sends emails:
 - `SMTP_HOSTNAME` - SMTP server hostname
 - `SMTP_USERNAME` - SMTP username
 - `SMTP_PASSWORD` - SMTP password
@@ -93,10 +133,12 @@ This document lists all the configurable variables available in the LDAP User Ma
 - `PHPMailer_PATH` - PHPMailer installation path (default: '/opt/PHPMailer/src')
 
 ### Account Requests
+These settings control whether users can request new accounts:
 - `ACCOUNT_REQUESTS_ENABLED` - Whether account requests are enabled (default: FALSE)
 - `ACCOUNT_REQUESTS_EMAIL` - Email for account requests
 
-### Debugging
+### Debugging and Troubleshooting
+These settings help diagnose problems:
 - `LDAP_DEBUG` - Enable LDAP debugging (default: FALSE)
 - `LDAP_VERBOSE_CONNECTION_LOGS` - Enable verbose LDAP connection logging (default: FALSE)
 - `SESSION_DEBUG` - Enable session debugging (default: FALSE)
@@ -105,164 +147,122 @@ This document lists all the configurable variables available in the LDAP User Ma
 - `ENVIRONMENT` - Environment (development/test/production)
 
 ### File Upload
+These settings control file upload limits:
 - `FILE_UPLOAD_MAX_SIZE` - Maximum file upload size in bytes (default: 2MB)
-- `FILE_UPLOAD_ALLOWED_MIME_TYPES` - Comma-separated list of allowed MIME types
+- `FILE_UPLOAD_ALLOWED_MIME_TYPES` - Comma-separated list of allowed file types
 
-## Configuration Arrays
+## Configuration Examples
 
-### Role Display Labels
-```php
-$LDAP['role_display_labels'] = [
-    'admin_role' => 'System Administrator',
-    'maintainer_role' => 'System Maintainer',
-    'org_admin_role' => 'Organization Administrator',
-    'user_role' => 'User'
-];
+### Docker Environment
+```yaml
+# docker-compose.yml
+version: '3.8'
+services:
+  ldap-user-manager:
+    environment:
+      # LDAP Configuration
+      - LDAP_URI=ldap://ldap.example.com:389
+      - LDAP_BASE_DN=dc=example,dc=com
+      - LDAP_ADMIN_BIND_DN=cn=admin,dc=example,dc=com
+      - LDAP_ADMIN_BIND_PWD=admin_password
+      
+      # Password Security
+      - PASSWORD_STRENGTH_MIN_SCORE=2
+      - PASSWORD_STRENGTH_MIN_LENGTH=8
+      - PASSWORD_STRENGTH_REQUIRE_UPPERCASE=TRUE
+      - PASSWORD_STRENGTH_REQUIRE_LOWERCASE=TRUE
+      - PASSWORD_STRENGTH_REQUIRE_NUMBERS=TRUE
+      - PASSWORD_STRENGTH_REQUIRE_SYMBOLS=FALSE
+      - ACCEPT_WEAK_PASSWORDS=FALSE
+      
+      # Role Configuration
+      - LDAP_ADMIN_ROLE=superuser
+      - LDAP_MAINTAINER_ROLE=tech_support
+      - LDAP_ORG_ADMIN_ROLE=org_manager
+      - LDAP_USER_ROLE=member
+      
+      # Site Configuration
+      - ORGANISATION_NAME=Example Corp
+      - SITE_NAME=Example Corp User Manager
+      - SESSION_TIMEOUT=120
 ```
 
-### Error Messages
-```php
-$LDAP['error_messages'] = [
-    'maintainer_cannot_delete_admin' => 'Maintainers cannot delete administrators',
-    'maintainer_cannot_create_admin' => 'Maintainers cannot create users with administrator roles',
-    'cannot_delete_self' => 'You cannot delete your own account'
-];
-```
-
-### User Field Configuration
-```php
-$LDAP['user_required_fields'] = ['uid', 'givenname', 'sn', 'mail'];
-$LDAP['user_optional_fields'] = ['cn', 'organization', 'description', 'telephoneNumber', 'labeledURI'];
-$LDAP['user_field_mappings'] = [
-    'first_name' => 'givenname',
-    'last_name' => 'sn',
-    'email' => 'mail',
-    'common_name' => 'cn',
-    'uid' => 'uid',
-    'organization' => 'organization',
-    'user_role' => 'description',
-    'phone' => 'telephoneNumber',
-    'website' => 'labeledURI'
-];
-```
-
-### Organization Field Configuration
-```php
-$LDAP['org_required_fields'] = ['o'];
-$LDAP['org_optional_fields'] = ['telephoneNumber', 'labeledURI', 'mail', 'description', 'businessCategory', 'postalAddress'];
-$LDAP['org_field_mappings'] = [
-    'org_name' => 'o',
-    'org_phone' => 'telephoneNumber',
-    'org_website' => 'labeledURI',
-    'org_email' => 'mail',
-    'org_description' => 'description',
-    'org_category' => 'businessCategory'
-];
-```
-
-## Usage Examples
-
-### In PHP Files
-```php
-// Use configurable role names
-if ($user_role === $LDAP['admin_role']) {
-    // Handle admin user
-}
-
-// Use configurable display labels
-echo $LDAP['role_display_labels']['admin_role']; // Outputs: "System Administrator"
-
-// Use configurable error messages
-echo $LDAP['error_messages']['maintainer_cannot_delete_admin'];
-```
-
-### In Environment Files
+### Environment File (.env)
 ```bash
-# .env file example
-LDAP_ADMIN_ROLE=superuser
-LDAP_MAINTAINER_ROLE=tech_support
-LDAP_ADMIN_DISPLAY_LABEL=Super User
-LDAP_MAINTAINER_DISPLAY_LABEL=Technical Support
-LDAP_ERROR_MAINTAINER_CANNOT_DELETE_ADMIN=Technical support cannot delete super users
-```
+# LDAP Server
+LDAP_URI=ldap://ldap.example.com:389
+LDAP_BASE_DN=dc=example,dc=com
+LDAP_ADMIN_BIND_DN=cn=admin,dc=example,dc=com
+LDAP_ADMIN_BIND_PWD=admin_password
 
-## Benefits of Configuration
+# Password Security
+PASSWORD_STRENGTH_MIN_SCORE=2
+PASSWORD_STRENGTH_MIN_LENGTH=8
+PASSWORD_STRENGTH_REQUIRE_UPPERCASE=TRUE
+PASSWORD_STRENGTH_REQUIRE_LOWERCASE=TRUE
+PASSWORD_STRENGTH_REQUIRE_NUMBERS=TRUE
+PASSWORD_STRENGTH_REQUIRE_SYMBOLS=FALSE
+ACCEPT_WEAK_PASSWORDS=FALSE
 
-1. **Localization**: Easy to translate role names and error messages
-2. **Customization**: Organizations can use their own role naming conventions
-3. **Maintenance**: Centralized configuration makes updates easier
-4. **Flexibility**: Different environments can have different configurations
-5. **Standards Compliance**: Easy to adapt to different LDAP schemas
-
-## Role Configuration Best Practices
-
-### ⚠️ **Critical: Avoid Role Conflicts**
-
-**NEVER** set different role variables to the same value:
-```bash
-# ❌ WRONG - This configuration will break access control!
-LDAP_ADMIN_ROLE=admin
-LDAP_ORG_ADMIN_ROLE=admin
-
-# ✅ CORRECT - Each role has a unique value
-LDAP_ADMIN_ROLE=superuser
-LDAP_ORG_ADMIN_ROLE=org_manager
-```
-
-### **Why Role Conflicts Break Access Control:**
-
-1. **Login Logic Failure**: The system checks global admin first, then org admin
-2. **Privilege Escalation**: Users might get unintended access levels
-3. **Security Vulnerabilities**: Role-based restrictions become unreliable
-4. **Debugging Nightmares**: Hard to trace permission issues
-
-### **Safe Role Configuration Examples:**
-
-```bash
-# Example 1: Descriptive names
+# Roles
 LDAP_ADMIN_ROLE=superuser
 LDAP_MAINTAINER_ROLE=tech_support
 LDAP_ORG_ADMIN_ROLE=org_manager
 LDAP_USER_ROLE=member
 
-# Example 2: Abbreviated names
-LDAP_ADMIN_ROLE=admin
-LDAP_MAINTAINER_ROLE=maint
-LDAP_ORG_ADMIN_ROLE=org_admin
-LDAP_USER_ROLE=user
-
-# Example 3: Role-based names
-LDAP_ADMIN_ROLE=global_admin
-LDAP_MAINTAINER_ROLE=system_maintainer
-LDAP_ORG_ADMIN_ROLE=organization_admin
-LDAP_USER_ROLE=regular_user
+# Site
+ORGANISATION_NAME=Example Corp
+SITE_NAME=Example Corp User Manager
+SESSION_TIMEOUT=120
 ```
 
-### **Role Hierarchy Rules:**
+## Best Practices
 
-1. **Global Admin** (100) - Can do everything, overrides all other roles
-2. **Maintainer** (80) - Can manage users and organizations, overrides org admin
-3. **Organization Admin** (60) - Can manage their own organization only
-4. **User** (10) - Basic user with minimal privileges
+### Password Security
+1. **Production Environments**: Use minimum score 2 or higher
+2. **Development/Testing**: Use score 0 or 1 for easier testing
+3. **Length Requirements**: Minimum 8 characters for production, 4-6 for testing
+4. **Character Requirements**: Require mixed case and numbers for production
 
-### **Access Control Logic:**
+### Role Configuration
+1. **Unique Names**: Each role should have a different name
+2. **Descriptive Labels**: Use clear, understandable role names
+3. **Consistent Naming**: Follow a consistent pattern across your organization
+4. **Security First**: Don't compromise security for convenience
 
-```php
-// The system automatically handles role conflicts:
-if ($is_admin) {
-    // Global admin overrides all other roles
-    $is_maintainer = false;
-    $is_org_admin = false;
-} elseif ($is_maintainer) {
-    // Maintainer overrides org admin
-    $is_org_admin = false;
-}
-```
+### Environment Management
+1. **Separate Configurations**: Use different settings for development, testing, and production
+2. **Version Control**: Keep configuration files in version control
+3. **Documentation**: Document your configuration choices
+4. **Testing**: Test configuration changes in a safe environment first
 
-## Migration Notes
+## Troubleshooting
 
-When upgrading from older versions:
-1. New configuration variables have sensible defaults
-2. Existing functionality will continue to work
-3. Gradually replace hardcoded strings with configuration variables
-4. Test thoroughly after making configuration changes
+### Common Issues
+1. **Password Rejection**: Check password strength requirements
+2. **Login Problems**: Verify LDAP connection settings
+3. **Role Access Issues**: Check role configuration for conflicts
+4. **Email Problems**: Verify SMTP settings
+
+### Getting Help
+1. Check the error logs for specific error messages
+2. Verify all required environment variables are set
+3. Test LDAP connectivity separately
+4. Review the configuration examples above
+
+## Security Considerations
+
+### Production Security
+- Use strong password requirements (score 2+)
+- Require minimum 8-12 characters
+- Enable HTTPS (set NO_HTTPS=FALSE)
+- Use secure LDAP connections
+- Regular security updates
+
+### Development Security
+- Relaxed password requirements for testing
+- Debug logging enabled
+- Development-specific role names
+- Test environment isolation
+
+This configuration system allows you to customize the LDAP User Manager for your organization's specific needs while maintaining security and functionality.

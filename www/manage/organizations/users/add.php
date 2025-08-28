@@ -398,7 +398,13 @@ if ($errors != "") { ?>
                                 <input type="password" class="form-control" name="password" id="password" required>
                             </div>
                             <div class="col-sm-1">
-                                <button type="button" class="btn btn-sm btn-default" onclick="generatePassword()">Generate</button>
+                                <button type="button" class="btn btn-sm btn-info" onclick="generateSecurePassword({
+                                    type: 'word',
+                                    words: 4,
+                                    separator: ' ',
+                                    passwordFieldId: 'password',
+                                    confirmFieldId: 'password_match'
+                                })">Generate</button>
                             </div>
                         </div>
 
@@ -442,10 +448,23 @@ if ($errors != "") { ?>
 </div>
 
 <script src="/js/jquery-3.6.0.min.js"></script>
+<script src="/js/zxcvbn.min.js"></script>
+<script src="/js/password_utils.min.js"></script>
 <script src="/js/user_management.min.js"></script>
 <script>
     // Initialize form enhancements when page loads
     document.addEventListener('DOMContentLoaded', function() {
+        // Get password strength configuration from server
+        const passwordConfig = <?php echo get_password_strength_config_js(); ?>;
+        
+        // Initialize password strength checking with dynamic config
+        initializePasswordStrength({
+            passwordFieldId: 'password',
+            confirmFieldId: 'password_match',
+            config: passwordConfig
+        });
+        
+        // Initialize form enhancements
         initializeUserManagementForms({
             givenNameField: 'givenName',
             surnameField: 'sn',

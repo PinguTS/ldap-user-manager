@@ -141,6 +141,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
   
   // If no errors, create the account
   if (empty($errors)) {
+    // Hash the password before passing it to createUserAccount for security
+    $new_account_r['userPassword'] = ldap_hashed_password($new_account_r['userPassword']);
+    
     $result = createUserAccount($new_account_r);
     if ($result[0]) {
       render_alert_banner('User account created successfully!', 'success', 10000);
@@ -291,12 +294,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
                                             </button>
                                         </span>
                                     </div>
-                                    <div class="password-strength-meter mt-2">
-                                        <div class="progress" style="height: 8px;">
-                                            <div class="progress-bar" id="passwordStrengthBar" role="progressbar" style="width: 0%;"></div>
-                                        </div>
-                                        <small class="text-muted" id="passwordStrengthText">Password strength: Very Weak</small>
-                                    </div>
                                     <?php if ($invalid_password): ?>
                                         <span class="help-block">Password is required.</span>
                                     <?php endif; ?>
@@ -344,180 +341,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
     </div>
 </div>
 
-<script>
-// Auto-fill display name from given name and surname
-function updateDisplayName() {
-    const givenName = document.getElementById('givenName').value.trim();
-    const surname = document.getElementById('sn').value.trim();
-    const displayName = document.getElementById('cn');
+<script src="<?php print $SERVER_PATH; ?>js/zxcvbn.min.js"></script>
+<script src="<?php print $SERVER_PATH; ?>js/password_utils.min.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){
+    // Get password strength configuration from server
+    const passwordConfig = <?php echo get_password_strength_config_js(); ?>;
     
-    if (givenName && surname) {
-        displayName.value = givenName + ' ' + surname;
-    } else if (givenName) {
-        displayName.value = givenName;
-    } else if (surname) {
-        displayName.value = surname;
-    } else {
-        displayName.value = '';
-    }
-}
-
-// Add event listeners for auto-fill
-document.getElementById('givenName').addEventListener('input', updateDisplayName);
-document.getElementById('sn').addEventListener('input', updateDisplayName);
-
-// Password strength assessment using zxcvbn algorithm
-function assessPasswordStrength(password) {
-    if (!password) {
-        return { score: 0, feedback: 'Very Weak' };
-    }
+    // Initialize unified password strength checking with dynamic config
+    initializePasswordStrength({
+        passwordFieldId: 'userPassword',
+        confirmFieldId: 'confirm_password',
+        config: passwordConfig
+    });
     
-    // Simple strength assessment (you can integrate zxcvbn library for more sophisticated analysis)
-    let score = 0;
-    let feedback = '';
-    
-    if (password.length >= 8) score++;
-    if (password.length >= 12) score++;
-    if (/[a-z]/.test(password)) score++;
-    if (/[A-Z]/.test(password)) score++;
-    if (/[0-9]/.test(password)) score++;
-    if (/[^A-Za-z0-9]/.test(password)) score++;
-    
-    // Bonus for mixed case and numbers
-    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++;
-    if (/[0-9]/.test(password) && /[^0-9]/.test(password)) score++;
-    
-    // Penalty for common patterns
-    if (/(.)\1{2,}/.test(password)) score = Math.max(0, score - 1);
-    if (/123|abc|qwe|password|admin/i.test(password)) score = Math.max(0, score - 2);
-    
-    switch (score) {
-        case 0:
-        case 1:
-            feedback = 'Very Weak';
-            break;
-        case 2:
-            feedback = 'Weak';
-            break;
-        case 3:
-            feedback = 'Fair';
-            break;
-        case 4:
-            feedback = 'Good';
-            break;
-        case 5:
-            feedback = 'Strong';
-            break;
-        default:
-            feedback = 'Very Strong';
-    }
-    
-    return { score: Math.min(score, 5), feedback: feedback };
-}
-
-// Update password strength meter
-function updatePasswordStrength() {
-    const password = document.getElementById('userPassword').value;
-    const strengthBar = document.getElementById('passwordStrengthBar');
-    const strengthText = document.getElementById('passwordStrengthText');
-    
-    const strength = assessPasswordStrength(password);
-    const percentage = (strength.score / 5) * 100;
-    
-    // Update progress bar
-    strengthBar.style.width = percentage + '%';
-    
-    // Update colors based on strength
-    strengthBar.className = 'progress-bar';
-    if (strength.score <= 1) {
-        strengthBar.classList.add('progress-bar-danger');
-    } else if (strength.score <= 2) {
-        strengthBar.classList.add('progress-bar-warning');
-    } else if (strength.score <= 3) {
-        strengthBar.classList.add('progress-bar-info');
-    } else if (strength.score <= 4) {
-        strengthBar.classList.add('progress-bar-success');
-    } else {
-        strengthBar.classList.add('progress-bar-success');
-    }
-    
-    // Update text
-    strengthText.textContent = `Password strength: ${strength.feedback}`;
-    
-    // Update confirm password validation
-    const confirm = document.getElementById('confirm_password');
-    if (confirm.value) {
-        confirm.dispatchEvent(new Event('input'));
-    }
-}
-
-// Secure password generation using established standards
-function generateSecurePassword() {
-    // Word-based password generation (more memorable than random characters)
-    const adjectives = [
-        'Swift', 'Bright', 'Calm', 'Brave', 'Wise', 'Gentle', 'Noble', 'Pure',
-        'Bold', 'Clear', 'Deep', 'Fair', 'Fresh', 'Grand', 'Happy', 'Kind'
-    ];
-    
-    const nouns = [
-        'River', 'Mountain', 'Ocean', 'Forest', 'Valley', 'Meadow', 'Spring', 'Star',
-        'Moon', 'Sun', 'Cloud', 'Wind', 'Rain', 'Snow', 'Flower', 'Tree'
-    ];
-    
-    const numbers = '0123456789';
-    const symbols = '!@#$%^&*';
-    
-    // Generate password: Adjective + Noun + Number + Symbol
-    const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
-    const noun = nouns[Math.floor(Math.random() * nouns.length)];
-    const number = numbers[Math.floor(Math.random() * numbers.length)];
-    const symbol = symbols[Math.floor(Math.random() * symbols.length)];
-    
-    const password = adjective + noun + number + symbol;
-    
-    // Set the generated password
-    document.getElementById('userPassword').value = password;
-    document.getElementById('confirm_password').value = password;
-    
-    // Update strength meter
-    updatePasswordStrength();
-    
-    // Show success message
-    const generateBtn = document.getElementById('generatePassword');
-    const originalText = generateBtn.innerHTML;
-    generateBtn.innerHTML = '<i class="glyphicon glyphicon-ok"></i>';
-    generateBtn.classList.remove('btn-info');
-    generateBtn.classList.add('btn-success');
-    
-    setTimeout(() => {
-        generateBtn.innerHTML = originalText;
-        generateBtn.classList.remove('btn-success');
-        generateBtn.classList.add('btn-info');
-    }, 2000);
-}
-
-// Password confirmation validation
-document.getElementById('confirm_password').addEventListener('input', function() {
-    const password = document.getElementById('userPassword').value;
-    const confirm = this.value;
-    
-    if (password !== confirm) {
-        this.setCustomValidity('Passwords do not match');
-    } else {
-        this.setCustomValidity('');
-    }
-});
-
-// Update password strength on input
-document.getElementById('userPassword').addEventListener('input', updatePasswordStrength);
-
-// Generate password button
-document.getElementById('generatePassword').addEventListener('click', generateSecurePassword);
-
-// Initialize display name if fields have values
-document.addEventListener('DOMContentLoaded', function() {
-    updateDisplayName();
-    updatePasswordStrength();
+    // Initialize form enhancements
+    initializeUserManagementForms({
+        givenNameField: 'givenName',
+        surnameField: 'sn',
+        displayField: 'cn',
+        emailField: 'mail',
+        uidField: 'uid',
+        passwordField: 'userPassword',
+        confirmField: 'confirm_password'
+    });
 });
 </script>
 

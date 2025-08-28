@@ -16,6 +16,14 @@ include_once __DIR__ . '/security_config.inc.php';
  if (getenv('PASSWORD_HASH')) { $PASSWORD_HASH = strtoupper(getenv('PASSWORD_HASH')); }
  $ACCEPT_WEAK_PASSWORDS = ((strcasecmp(getenv('ACCEPT_WEAK_PASSWORDS') ?: 'FALSE','TRUE') == 0) ? TRUE : FALSE);
 
+ # Password strength configuration
+ $PASSWORD_STRENGTH_MIN_SCORE = (int)(getenv('PASSWORD_STRENGTH_MIN_SCORE') ?: 2);
+ $PASSWORD_STRENGTH_MIN_LENGTH = (int)(getenv('PASSWORD_STRENGTH_MIN_LENGTH') ?: 8);
+ $PASSWORD_STRENGTH_REQUIRE_UPPERCASE = ((strcasecmp(getenv('PASSWORD_STRENGTH_REQUIRE_UPPERCASE') ?: 'TRUE','FALSE') == 0) ? FALSE : TRUE);
+ $PASSWORD_STRENGTH_REQUIRE_LOWERCASE = ((strcasecmp(getenv('PASSWORD_STRENGTH_REQUIRE_LOWERCASE') ?: 'TRUE','FALSE') == 0) ? FALSE : TRUE);
+ $PASSWORD_STRENGTH_REQUIRE_NUMBERS = ((strcasecmp(getenv('PASSWORD_STRENGTH_REQUIRE_NUMBERS') ?: 'TRUE','FALSE') == 0) ? FALSE : TRUE);
+ $PASSWORD_STRENGTH_REQUIRE_SYMBOLS = ((strcasecmp(getenv('PASSWORD_STRENGTH_REQUIRE_SYMBOLS') ?: 'FALSE','TRUE') == 0) ? TRUE : FALSE);
+
  $min_uid = 2000;
  $min_gid = 2000;
 
@@ -160,17 +168,8 @@ $LDAP['org_admin_role'] = getenv('LDAP_ORG_ADMIN_ROLE') ?: 'org_admin';
 $LDAP['user_role'] = getenv('LDAP_USER_ROLE') ?: 'user';
 
 # Group names for role-based access control
-$LDAP['admin_group_name'] = getenv('LDAP_ADMIN_GROUP_NAME') ?: 'administrators';
-$LDAP['maintainer_group_name'] = getenv('LDAP_MAINTAINER_GROUP_NAME') ?: 'maintainers';
-
-# Ensure role values and group names are synchronized by default
-# This eliminates confusion and duplication while maintaining flexibility
-if (getenv('LDAP_ADMIN_ROLE') === false) {
-    $LDAP['admin_role'] = $LDAP['admin_group_name'];
-}
-if (getenv('LDAP_MAINTAINER_ROLE') === false) {
-    $LDAP['maintainer_role'] = $LDAP['maintainer_group_name'];
-}
+$LDAP['admin_group_name'] = $LDAP['admin_role'];
+$LDAP['maintainer_group_name'] = $LDAP['maintainer_role'];
 
  # Display labels for UI (human-readable role names)
  $LDAP['role_display_labels'] = [
@@ -424,32 +423,11 @@ $PHPMailer_PATH = (getenv('PHPMailer_PATH') ? getenv('PHPMailer_PATH') : '/opt/P
          'user_role' => $LDAP['user_role']
      ];
      
-     $unique_values = array_unique($role_values);
-     if (count($role_values) !== count($unique_values)) {
-         $duplicates = array_diff_assoc($role_values, array_unique($role_values));
-         $duplicate_roles = array_keys($duplicates);
-         $errors .= "<div class='alert alert-danger'><p class='text-center'>Role configuration conflict detected! The following roles have duplicate values: " . implode(', ', $duplicate_roles) . "</p><p class='text-center'>This will break access control. Please ensure all role values are unique.</p></div>\n";
-     }
-     
      // Check for group name conflicts
      $group_values = [
          'admin_group_name' => $LDAP['admin_group_name'],
          'maintainer_group_name' => $LDAP['maintainer_group_name']
      ];
-     
-     $unique_groups = array_unique($group_values);
-     if (count($group_values) !== count($unique_groups)) {
-         $duplicates = array_diff_assoc($group_values, array_unique($group_values));
-         $duplicate_groups = array_keys($duplicates);
-         $errors .= "<div class='alert alert-danger'><p class='text-center'>Group configuration conflict detected! The following groups have duplicate values: " . implode(', ', $duplicate_groups) . "</p><p class='text-center'>This will break access control. Please ensure all group values are unique.</p></div>\n";
-     }
-     
-     if ($errors != "") {
-         render_header("Configuration conflicts detected", false);
-         print $errors;
-         render_footer();
-         exit(1);
-     }
  }
 
  /**
@@ -493,18 +471,6 @@ $PHPMailer_PATH = (getenv('PHPMailer_PATH') ? getenv('PHPMailer_PATH') : '/opt/P
      
      if ($LDAP['admin_role'] === $LDAP['maintainer_role']) {
          $conflicts[] = "Admin and Maintainer roles are both set to '{$LDAP['admin_role']}'";
-     }
-     
-     if ($LDAP['admin_group_name'] === $LDAP['maintainer_group_name']) {
-         $conflicts[] = "Admin and Maintainer group names are both set to '{$LDAP['admin_group_name']}'";
-     }
-     
-     if ($LDAP['admin_role'] === $LDAP['maintainer_group_name']) {
-         $conflicts[] = "Admin role '{$LDAP['admin_role']}' conflicts with Maintainer group '{$LDAP['maintainer_group_name']}'";
-     }
-     
-     if ($LDAP['maintainer_role'] === $LDAP['admin_group_name']) {
-         $conflicts[] = "Maintainer role '{$LDAP['maintainer_role']}' conflicts with Admin group '{$LDAP['admin_group_name']}'";
      }
      
      echo '<!DOCTYPE html>
@@ -557,20 +523,7 @@ $PHPMailer_PATH = (getenv('PHPMailer_PATH') ? getenv('PHPMailer_PATH') : '/opt/P
                      # Example 1: Different role values
                      LDAP_ADMIN_ROLE=administrator
                      LDAP_MAINTAINER_ROLE=maintainer
-                     LDAP_ADMIN_GROUP_NAME=administrators
-                     LDAP_MAINTAINER_GROUP_NAME=maintainers
                      
-                     # Example 2: Different group names
-                     LDAP_ADMIN_ROLE=admin
-                     LDAP_MAINTAINER_ROLE=maintainer
-                     LDAP_ADMIN_GROUP_NAME=global_admins
-                     LDAP_MAINTAINER_GROUP_NAME=system_maintainers
-                     
-                     # Example 3: Use synchronized defaults (recommended)
-                     # LDAP_ADMIN_ROLE=administrators (defaults to admin_group_name)
-                     # LDAP_MAINTAINER_ROLE=maintainers (defaults to maintainer_group_name)
-                     LDAP_ADMIN_GROUP_NAME=administrators
-                     LDAP_MAINTAINER_GROUP_NAME=maintainers
                  </div>
                  
                  <p><strong>Important:</strong> After fixing the configuration, restart the application for changes to take effect.</p>
@@ -581,8 +534,6 @@ $PHPMailer_PATH = (getenv('PHPMailer_PATH') ? getenv('PHPMailer_PATH') : '/opt/P
                  <div class="code-block">
                      Admin Role: ' . htmlspecialchars($LDAP['admin_role']) . '
                      Maintainer Role: ' . htmlspecialchars($LDAP['maintainer_role']) . '
-                     Admin Group: ' . htmlspecialchars($LDAP['admin_group_name']) . '
-                     Maintainer Group: ' . htmlspecialchars($LDAP['maintainer_group_name']) . '
                  </div>
              </div>
          </div>

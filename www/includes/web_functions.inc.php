@@ -1375,3 +1375,36 @@ function record_login_attempt($identifier, $success = false) {
     
     file_put_contents($rate_limit_file, json_encode($attempts));
 }
+
+######################################################
+
+/**
+ * Generates JavaScript configuration object for password strength requirements
+ * based on environment variables and current configuration.
+ * 
+ * @return string JavaScript configuration object as JSON
+ */
+function get_password_strength_config_js() {
+    global $PASSWORD_STRENGTH_MIN_SCORE, $PASSWORD_STRENGTH_MIN_LENGTH;
+    global $PASSWORD_STRENGTH_REQUIRE_UPPERCASE, $PASSWORD_STRENGTH_REQUIRE_LOWERCASE;
+    global $PASSWORD_STRENGTH_REQUIRE_NUMBERS, $PASSWORD_STRENGTH_REQUIRE_SYMBOLS;
+    global $ACCEPT_WEAK_PASSWORDS;
+    
+    // If weak passwords are accepted, allow score 0
+    $minScore = $ACCEPT_WEAK_PASSWORDS ? 0 : $PASSWORD_STRENGTH_MIN_SCORE;
+    
+    $config = [
+        'minScore' => $minScore,
+        'minLength' => $PASSWORD_STRENGTH_MIN_LENGTH,
+        'requireUppercase' => $PASSWORD_STRENGTH_REQUIRE_UPPERCASE,
+        'requireLowercase' => $PASSWORD_STRENGTH_REQUIRE_LOWERCASE,
+        'requireNumbers' => $PASSWORD_STRENGTH_REQUIRE_NUMBERS,
+        'requireSymbols' => $PASSWORD_STRENGTH_REQUIRE_SYMBOLS,
+        'showStrengthMeter' => true,
+        'showScore' => true,
+        'updateHiddenField' => true,
+        'hiddenFieldId' => 'pass_score'
+    ];
+    
+    return json_encode($config, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
+}

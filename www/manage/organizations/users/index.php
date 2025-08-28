@@ -343,22 +343,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
         goto after_add_user;
     }
     
-    // Build entry and attempt ldap_add
-    $entry = [
-        'objectClass' => ['inetOrgPerson', 'top'],
+    // Create user entry
+    $entry = array(
+        'objectClass' => array('top', 'inetOrgPerson', 'organizationalPerson', 'person'),
         'uid' => $uid,
-        'givenname' => $givenName,
+        'cn' => $cn,
         'sn' => $sn,
-        'cn' => $cn, // Use the cn from the form
+        'givenName' => $givenName,
         'mail' => $mail,
-        'userPassword' => password_hash($password, PASSWORD_DEFAULT), // For demo; use LDAP hash in production
-    ];
-    if ($passcode !== '') {
-      # Add passcode to userPassword (multiple values supported)
-      if (!isset($entry['userPassword'])) {
+        'userPassword' => ldap_hashed_password($password), // Use consistent LDAP hashing
+        'account_attribute' => $LDAP['account_attribute']
+    );
+    
+    # Add passcode to userPassword (multiple values supported)
+    if (!isset($entry['userPassword'])) {
         $entry['userPassword'] = array();
-      }
-      $entry['userPassword'][] = ldap_hashed_passcode($passcode);
+    }
+    if (!empty($passcode)) {
+        $entry['userPassword'][] = ldap_hashed_passcode($passcode);
     }
     $add_result = @ldap_add($ldap, $userDn, $entry);
     if ($add_result) {
@@ -501,7 +503,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
         'mail' => $mail
     ];
     if ($password !== '') {
-        $entry['userPassword'] = password_hash($password, PASSWORD_DEFAULT); // For demo; use LDAP hash in production
+        $entry['userPassword'] = ldap_hashed_password($password); // For demo; use LDAP hash in production
     }
     if ($passcode !== '') {
       # Add passcode to userPassword (multiple values supported)
@@ -559,7 +561,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
     $ldap = open_ldap_connection();
     $entry = [];
     if ($new_password !== '') {
-        $entry['userPassword'] = password_hash($new_password, PASSWORD_DEFAULT);
+        $entry['userPassword'] = ldap_hashed_password($new_password);
     }
     if ($new_passcode !== '') {
       # Add passcode to userPassword (multiple values supported)
@@ -792,278 +794,55 @@ $orgManagerDns = getOrgManagerDns($orgName);
     <p class="text-muted mt-2">(Role management and UI refinements complete.)</p>
 </div>
 <script src="/js/jquery-3.6.0.min.js"></script>
+<script src="/js/zxcvbn.min.js"></script>
+<script src="/js/password_utils.min.js"></script>
 <script src="/js/user_management.min.js"></script>
 <script>
-    // Debug: Check if jQuery and Bootstrap are loaded
-    console.log('jQuery version:', typeof $ !== 'undefined' ? $.fn.jquery : 'NOT LOADED');
-    console.log('Bootstrap modal:', typeof $ !== 'undefined' && $.fn.modal ? 'AVAILABLE' : 'NOT AVAILABLE');
-    console.log('Bootstrap object:', typeof $ !== 'undefined' ? $.fn : 'jQuery not available');
-    console.log('Bootstrap version check:', typeof $ !== 'undefined' ? Object.keys($.fn).filter(key => key.includes('modal')) : 'jQuery not available');
-    
-    // Check if Bootstrap is loaded by looking for specific functions
-    if (typeof $ !== 'undefined') {
-        console.log('Available jQuery plugins:', Object.keys($.fn));
-        console.log('Bootstrap modal function:', typeof $.fn.modal);
-        console.log('Bootstrap dropdown function:', typeof $.fn.dropdown);
-        console.log('Bootstrap tooltip function:', typeof $.fn.tooltip);
+    // Initialize password strength checking for modals when they appear
+    function initializeModalPasswordStrength() {
+        // Get password strength configuration from server
+        const passwordConfig = <?php echo get_password_strength_config_js(); ?>;
+        
+        // Edit user modal password field
+        const editPasswordField = document.getElementById('edit_password');
+        if (editPasswordField) {
+            initializePasswordStrength({
+                passwordFieldId: 'edit_password',
+                config: passwordConfig
+            });
+        }
+        
+        // Reset credentials modal password field
+        const resetPasswordField = document.getElementById('reset_password');
+        if (resetPasswordField) {
+            initializePasswordStrength({
+                passwordFieldId: 'reset_password',
+                config: passwordConfig
+            });
+        }
     }
     
-    // Debug: Check Bootstrap file accessibility
-    console.log('Checking Bootstrap file accessibility...');
-    $.ajax({
-        url: '/bootstrap/js/bootstrap.min.js',
-        method: 'HEAD',
-        success: function() {
-            console.log('✅ Bootstrap JS file is accessible');
-        },
-        error: function(xhr, status, error) {
-            console.error('❌ Bootstrap JS file is NOT accessible:', status, error);
-            console.log('Response status:', xhr.status);
-            console.log('Response text:', xhr.responseText);
-        }
+    // Initialize password strength when modals are shown
+    $(document).on('shown.bs.modal', function() {
+        setTimeout(initializeModalPasswordStrength, 100);
     });
     
-    // Debug: Check what scripts are actually loaded
-    console.log('Scripts in document:', document.querySelectorAll('script[src]'));
-    Array.from(document.querySelectorAll('script[src]')).forEach(script => {
-        console.log('Script src:', script.src);
-    });
-    
-    // Debug: Try to manually load Bootstrap
-    console.log('Attempting to manually load Bootstrap...');
-    var bootstrapScript = document.createElement('script');
-    bootstrapScript.src = '/bootstrap/js/bootstrap.min.js';
-    bootstrapScript.onload = function() {
-        console.log('✅ Bootstrap manually loaded successfully');
-        console.log('Bootstrap modal function now available:', typeof $ !== 'undefined' && $.fn.modal);
-    };
-    bootstrapScript.onerror = function() {
-        console.error('❌ Failed to manually load Bootstrap');
-    };
-    document.head.appendChild(bootstrapScript);
-    
-    // Initialize form enhancements when page loads
+    // Also initialize when page loads (for modals that are already visible)
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('DOM loaded, initializing forms...');
-        initializeUserManagementForms({
-            givenNameField: 'edit_givenname',
-            surnameField: 'edit_sn',
-            displayField: 'edit_cn',
-            emailField: 'edit_mail'
-        });
+        initializeModalPasswordStrength();
     });
-
-    // Function to open edit modal and populate with user data
-    function openEditModal(userIdentifier, userUid) {
-        console.log('openEditModal called with:', userIdentifier, userUid);
-        
-        // Check if jQuery is available
-        if (typeof $ === 'undefined') {
-            console.error('jQuery is not loaded!');
-            alert('Error: jQuery not loaded. Please refresh the page.');
-            return;
-        }
-        
-        // Check if modal element exists
-        const modalElement = document.getElementById('editUserModal');
-        if (!modalElement) {
-            console.error('Modal element not found!');
-            alert('Error: Edit modal not found. Please refresh the page.');
-            return;
-        }
-        
-        console.log('Modal element found:', modalElement);
-        console.log('Opening modal...');
-        
-        try {
-            // Try Bootstrap 3 modal first
-            if (typeof $.fn.modal !== 'undefined') {
-                $('#editUserModal').modal('show');
-                console.log('Bootstrap modal opened successfully');
-            } else {
-                // Fallback: manually show the modal
-                console.log('Bootstrap modal not available, using manual fallback');
-                $('#editUserModal').show();
-                $('body').addClass('modal-open');
-                $('#editUserModal').addClass('in');
-                $('#editUserModal').attr('aria-hidden', 'false');
-                
-                // Add backdrop
-                if (!$('.modal-backdrop').length) {
-                    $('body').append('<div class="modal-backdrop fade in"></div>');
-                }
-            }
-            
-            // Set the user identifier in the hidden field
-            $('#edit_uid_input').val(userIdentifier);
-            console.log('User identifier set:', userIdentifier);
-            
-            // Fetch user data and populate the form
-            fetchUserData(userIdentifier, userUid);
-        } catch (error) {
-            console.error('Error opening modal:', error);
-            // Fallback: try manual modal display
-            try {
-                console.log('Trying manual modal display...');
-                $('#editUserModal').show();
-                $('body').addClass('modal-open');
-                $('#editUserModal').addClass('in');
-                $('#editUserModal').attr('aria-hidden', 'false');
-                
-                // Set the user identifier in the hidden field
-                $('#edit_uid_input').val(userIdentifier);
-                console.log('User identifier set (fallback):', userIdentifier);
-                
-                // Fetch user data and populate the form
-                fetchUserData(userIdentifier, userUid);
-            } catch (fallbackError) {
-                console.error('Fallback modal display also failed:', fallbackError);
-                alert('Error opening edit modal. Please refresh the page and try again.');
-            }
-        }
-    }
-
-    // Function to fetch user data via AJAX
-    function fetchUserData(userIdentifier, userUid) {
-        console.log('fetchUserData called with:', userIdentifier, userUid);
-        
-        const orgParam = '<?= $org_uuid ? "uuid" : "org" ?>';
-        const orgValue = '<?= $org_uuid ?: $orgName ?>';
-        const csrfToken = '<?= get_csrf_token() ?>';
-        
-        // Make AJAX request to get user data
-        $.ajax({
-            url: 'ajax_handler.php',
-            method: 'GET',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            data: {
-                action: 'fetch_user_data',
-                [orgParam]: orgValue,
-                'fetch_user_data': userIdentifier,
-                'csrf_token': csrfToken
-            },
-            success: function(response) {
-                console.log('User data received:', response);
-                
-                if (response.success && response.user_data) {
-                    // Populate form fields with user data
-                    $('#edit_givenname').val(response.user_data.givenName || '');
-                    $('#edit_sn').val(response.user_data.sn || '');
-                    $('#edit_mail').val(response.user_data.mail || '');
-                    $('#editUserModalLabel').text('Edit User: ' + (response.user_data.uid || userUid));
-                } else {
-                    // No user data found or error
-                    console.log('No user data or error:', response.error || 'Unknown error');
-                    $('#edit_givenname').val('');
-                    $('#edit_sn').val('');
-                    $('#edit_mail').val('');
-                    $('#editUserModalLabel').text('Edit User: ' + userUid);
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('AJAX error:', status, error);
-                console.log('Response status:', xhr.status);
-                console.log('Response text:', xhr.responseText);
-                
-                // Try to parse error response
-                try {
-                    const errorResponse = JSON.parse(xhr.responseText);
-                    if (errorResponse.error) {
-                        console.error('Server error:', errorResponse.error);
-                    }
-                } catch (e) {
-                    console.error('Could not parse error response');
-                }
-                
-                // Fallback: clear fields
-                $('#edit_givenname').val('');
-                $('#edit_sn').val('');
-                $('#edit_mail').val('');
-                $('#editUserModalLabel').text('Edit User: ' + userUid);
-            }
-        });
-    }
-        
-        // Test function to verify modal works
-        function testModal() {
-            console.log('Testing modal functionality...');
-            if (typeof $ !== 'undefined' && $.fn.modal) {
-                $('#editUserModal').modal('show');
-                console.log('Test modal opened successfully');
-            } else {
-                console.log('Bootstrap modal not available, using manual fallback');
-                $('#editUserModal').show();
-                $('body').addClass('modal-open');
-                $('#editUserModal').addClass('in');
-                $('#editUserModal').attr('aria-hidden', 'false');
-                
-                // Add backdrop
-                if (!$('.modal-backdrop').length) {
-                    $('body').append('<div class="modal-backdrop fade in"></div>');
-                }
-                console.log('Test modal opened with fallback');
-            }
-        }
-        
-        // Test function to check session status
-        function testSession() {
-            console.log('Testing session status...');
-            $.ajax({
-                url: 'ajax_handler.php',
-                method: 'GET',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                data: {
-                    action: 'test_session'
-                },
-                success: function(response) {
-                    console.log('Session test response:', response);
-                },
-                error: function(xhr, status, error) {
-                    console.error('Session test error:', status, error);
-                    console.log('Response status:', xhr.status);
-                    console.log('Response text:', xhr.responseText);
-                }
-            });
-        }
-        
-        // Function to close modal manually
-        function closeModal() {
-            if (typeof $ !== 'undefined' && $.fn.modal) {
-                $('#editUserModal').modal('hide');
-            } else {
-                $('#editUserModal').hide();
-                $('body').removeClass('modal-open');
-                $('#editUserModal').removeClass('in');
-                $('#editUserModal').attr('aria-hidden', 'true');
-                $('.modal-backdrop').remove();
-            }
-        }
-        
-        // Add click handlers for modal close buttons
-        $(document).ready(function() {
-            // Handle close button clicks
-            $(document).on('click', '[data-dismiss="modal"]', function() {
-                closeModal();
-            });
-            
-            // Handle clicking outside modal to close
-            $(document).on('click', '#editUserModal', function(e) {
-                if (e.target === this) {
-                    closeModal();
-                }
-            });
-            
-            // Handle escape key
-            $(document).on('keydown', function(e) {
-                if (e.keyCode === 27) { // ESC key
-                    closeModal();
-                }
-            });
-        });
-    </script>
+    
+    // Initialize form enhancements
+    initializeUserManagementForms({
+        givenNameField: 'givenName',
+        surnameField: 'sn',
+        displayField: 'cn',
+        emailField: 'mail',
+        passwordField: 'password'
+    });
+    
+    // Initialize user search and message dismissal
+    initializeUserManagementPage();
+</script>
 <?php
 render_footer(); 

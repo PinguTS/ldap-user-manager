@@ -582,7 +582,7 @@ function createSystemUser($ldap, $userData) {
         'cn' => $userData['cn'],
         'givenName' => $userData['givenName'],
         'sn' => $userData['sn'],
-        'userPassword' => ldap_hashed_password($userData['userPassword']),
+        'userPassword' => $userData['userPassword'], // Password is already hashed
         'description' => $userData['userRole'] // Role is stored in description
     ];
     

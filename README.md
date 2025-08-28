@@ -28,11 +28,18 @@ cd ldap-user-manager
 
 ## 📚 **Documentation**
 
-- [LDAP Configuration](LDAP-CONFIGURATION.md) - LDAP schema and setup
+### **Getting Started**
+- [Configuration Quick Reference](CONFIGURATION_QUICK_REFERENCE.md) - **Start here for quick setup**
 - [Docker Setup](DOCKER-SETUP.md) - Container deployment guide
 - [Web Server Deployment](web-servers/README.md) - Apache, Nginx, and direct deployment
-- [Configuration Variables](CONFIGURATION_VARIABLES.md) - Environment variables
+
+### **Configuration**
+- [Configuration Variables](CONFIGURATION_VARIABLES.md) - Complete environment variables reference
+- [Password Strength Configuration](PASSWORD_STRENGTH_CONFIGURATION.md) - Password security settings
 - [Role Configuration](ROLE_CONFIGURATION.md) - Access control configuration
+
+### **Advanced Topics**
+- [LDAP Configuration](LDAP-CONFIGURATION.md) - LDAP schema and setup
 - [URL Routing](docs/URL_ROUTING.md) - Clean URLs and routing system
 - [Apache Configuration](apache/README.md) - Server configuration and optimization
 
@@ -97,6 +104,29 @@ System users are administrators and maintainers with simplified field requiremen
 - **Auto-generated**: Common Name (from First + Last), UID (from email)
 - **Optional**: Phone, Website
 - **No address fields** - System users don't need location information
+
+### Password Strength Configuration
+Password requirements are fully configurable via environment variables:
+
+```bash
+# Development/Testing (lenient)
+export PASSWORD_STRENGTH_MIN_SCORE=0      # Allow any password
+export PASSWORD_STRENGTH_MIN_LENGTH=4     # Minimum 4 characters
+export ACCEPT_WEAK_PASSWORDS=TRUE        # Allow very weak passwords
+
+# Production (strict)
+export PASSWORD_STRENGTH_MIN_SCORE=3      # Require Good or higher
+export PASSWORD_STRENGTH_MIN_LENGTH=12    # Minimum 12 characters
+export PASSWORD_STRENGTH_REQUIRE_SYMBOLS=TRUE  # Require symbols
+```
+
+**Available Settings:**
+- **Strength Score**: 0 (Very Weak) to 4 (Strong)
+- **Length**: Minimum character count
+- **Character Types**: Uppercase, lowercase, numbers, symbols
+- **Environment-specific**: Different policies per deployment
+
+For complete configuration options, see [Password Strength Configuration](PASSWORD_STRENGTH_CONFIGURATION.md).
 
 ### Organization Users (ou=people,o=OrgName)
 Organization users have additional fields for organizational context:
