@@ -291,7 +291,7 @@ if ($no_errors == TRUE) {
             print "$li_good ✓ Admin user <strong>{$admin_email}</strong> is properly member of administrators group</li>\n";
         } else {
             print "$li_warn ⚠ Admin user <strong>{$admin_email}</strong> is not in administrators group - adding now</li>\n";
-            $member_add = @ldap_modify($ldap_connection, $admin_group_dn, array('member' => $admin_member_dn));
+            $member_add = @ldap_mod_add($ldap_connection, $admin_group_dn, array('member' => $admin_member_dn));
             if ($member_add) {
                 print "$li_good ✓ Successfully added admin user to administrators group</li>\n";
             } else {
@@ -338,7 +338,7 @@ if ($no_errors == TRUE) {
             print "$li_good ✓ Maintainer user <strong>{$maintainer_email}</strong> is properly member of maintainers group</li>\n";
         } else {
             print "$li_warn ⚠ Maintainer user <strong>{$maintainer_email}</strong> is not in maintainers group - adding now</li>\n";
-            $member_add = @ldap_modify($ldap_connection, $maintainer_group_dn, array('member' => $maintainer_member_dn));
+            $member_add = @ldap_mod_add($ldap_connection, $maintainer_group_dn, array('member' => $maintainer_member_dn));
             if ($member_add) {
                 print "$li_good ✓ Successfully added maintainer user to maintainers group</li>\n";
             } else {

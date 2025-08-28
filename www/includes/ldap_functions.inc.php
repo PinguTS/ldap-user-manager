@@ -1834,7 +1834,7 @@ function ldap_add_member_to_group($ldap_connection, $role_name, $username) {
   }
   
   // Add the user to the group
-  $modify = @ldap_modify($ldap_connection, $group_dn, array('member' => $user_dn));
+  $modify = @ldap_mod_add($ldap_connection, $group_dn, array('member' => $user_dn));
   if (!$modify) {
     error_log("Failed to add user $username to group $role_name: " . ldap_error($ldap_connection));
     return FALSE;
@@ -1926,7 +1926,7 @@ function ldap_delete_member_from_group($ldap_connection, $role_name, $username) 
   }
   
   // Remove the user from the group (there are other members)
-  $modify = @ldap_modify($ldap_connection, $group_dn, array('member' => $user_dn));
+  $modify = @ldap_mod_del($ldap_connection, $group_dn, array('member' => $user_dn));
   if (!$modify) {
     error_log("Failed to remove user $username from group $role_name: " . ldap_error($ldap_connection));
     return FALSE;
@@ -2042,7 +2042,7 @@ function ldap_remove_user_from_all_groups($ldap_connection, $user_dn) {
       }
     } else {
       // Remove the user from the group (there are other members)
-      $modify = @ldap_modify($ldap_connection, $group_dn, array('member' => $user_dn));
+      $modify = @ldap_mod_del($ldap_connection, $group_dn, array('member' => $user_dn));
       if (!$modify) {
         error_log("Failed to remove user from group $group_dn: " . ldap_error($ldap_connection));
         $success = FALSE;

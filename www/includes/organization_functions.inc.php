@@ -600,7 +600,7 @@ function createSystemUser($ldap, $userData) {
     
     // Add user to the appropriate role group
     $role_group_dn = "cn={$userData['userRole']}," . $LDAP['roles_dn'];
-    $modify = @ldap_modify($ldap, $role_group_dn, ['member' => $user_dn]);
+    $modify = @ldap_mod_add($ldap, $role_group_dn, ['member' => $user_dn]);
     if (!$modify) {
         // Log the warning but don't fail the user creation
         error_log("Warning: Failed to add user to role group {$userData['userRole']}: " . ldap_error($ldap));
@@ -696,7 +696,7 @@ function createOrganizationUser($ldap, $userData) {
             @ldap_add($ldap, $org_admin_group_dn, $groupEntry);
         } else {
             // Add user to existing org_admin group
-            @ldap_modify($ldap, $org_admin_group_dn, ['member' => $user_dn]);
+            @ldap_mod_add($ldap, $org_admin_group_dn, ['member' => $user_dn]);
         }
     }
     
