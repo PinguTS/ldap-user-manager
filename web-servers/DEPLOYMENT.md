@@ -4,10 +4,10 @@ This guide covers all deployment methods for the LDAP User Manager, from Docker 
 
 ## 🚀 **Deployment Options**
 
-### **1. Docker (Recommended)**
+### **1. Docker with OIDC (Recommended)**
 - **Best for**: Production, development, consistent environments
-- **Benefits**: Optimized performance, security, easy deployment
-- **Files**: `Dockerfile`, `docker-compose.*.yml`, `apache/ldap-user-manager.conf`
+- **Benefits**: Optimized performance, security, easy deployment, OIDC integration
+- **Files**: `Dockerfile`, `docker-compose.yml`, `apache/ldap-user-manager.conf`
 
 ### **2. Direct Web Server Deployment**
 - **Best for**: Apache or Nginx servers, both root and sub-path deployment
@@ -23,8 +23,11 @@ This guide covers all deployment methods for the LDAP User Manager, from Docker 
 git clone https://github.com/your-repo/ldap-user-manager.git
 cd ldap-user-manager
 
-# Start with Docker Compose
-docker-compose -f docker-compose.app.yml up -d
+# Generate SSL certificates and OIDC client secrets
+./setup-oidc.sh
+
+# Start with Docker Compose (includes Dex OIDC provider)
+docker-compose up -d
 ```
 
 ### **Custom Build**

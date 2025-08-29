@@ -1,0 +1,27 @@
+# GitLab Gemfile with OIDC Support
+# Add this to your existing GitLab Gemfile
+
+source 'https://rubygems.org'
+
+# GitLab Core (adjust version as needed)
+gem 'gitlab', '~> 16.0'
+
+# OmniAuth OIDC Strategy
+gem 'omniauth-openid-connect'
+
+# Additional OmniAuth strategies (optional)
+gem 'omniauth-google-oauth2'
+gem 'omniauth-github'
+
+# Development and test gems
+group :development, :test do
+  gem 'rspec-rails'
+  gem 'factory_bot_rails'
+  gem 'faker'
+end
+
+group :development do
+  gem 'brakeman'
+  gem 'rubocop'
+  gem 'rubocop-rails'
+end

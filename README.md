@@ -6,14 +6,14 @@ A PHP-based web interface for managing LDAP user accounts, organizations, and ro
 
 ## 🚀 **Quick Start**
 
-### **Option 1: Docker (Recommended)**
+### **Option 1: Docker with OIDC (Recommended)**
 ```bash
 # Clone repository
 git clone https://github.com/your-repo/ldap-user-manager.git
 cd ldap-user-manager
 
-# Start with Docker Compose
-docker-compose -f docker-compose.app.yml up -d
+# Start with Docker Compose (includes Dex OIDC provider)
+docker-compose up -d
 ```
 
 ### **Option 2: Direct Web Server Deployment**
@@ -30,6 +30,7 @@ cd ldap-user-manager
 
 ### **Getting Started**
 - [Configuration Quick Reference](CONFIGURATION_QUICK_REFERENCE.md) - **Start here for quick setup**
+- [Identity & OIDC Setup](docs/identity.md) - **Start here for OIDC integration**
 - [Docker Setup](DOCKER-SETUP.md) - Container deployment guide
 - [Web Server Deployment](web-servers/README.md) - Apache, Nginx, and direct deployment
 
@@ -42,6 +43,7 @@ cd ldap-user-manager
 - [LDAP Configuration](LDAP-CONFIGURATION.md) - LDAP schema and setup
 - [URL Routing](docs/URL_ROUTING.md) - Clean URLs and routing system
 - [Apache Configuration](apache/README.md) - Server configuration and optimization
+- [Identity & OIDC](docs/identity.md) - OpenID Connect integration with Dex
 
 ***
 

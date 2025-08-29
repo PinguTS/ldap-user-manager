@@ -1,0 +1,86 @@
+issuer: https://id.example.org
+
+storage:
+  type: memory
+
+web:
+  http: 0.0.0.0:5556
+  allowed_origins:
+    - https://app.example.org
+
+# OAuth2 configuration
+oauth2:
+  skip_approval_screen: true
+  always_show_login_screen: true
+
+# Expiry configuration
+expiry:
+  signing_keys: "6h"
+  id_tokens: "15m"
+  refresh_tokens: "24h"
+
+# Frontend configuration
+frontend:
+  theme: light
+  dir: /usr/share/dex/web
+
+# Static clients
+staticClients:
+  - id: ldap-user-manager
+    redirectURIs:
+      - https://app.example.org/oidc/callback
+    name: "LDAP User Manager"
+    secret: your-client-secret-here
+    public: false
+    trustedPeers: []
+    applicationType: web
+  - id: typo3
+    redirectURIs:
+      - https://typo3.example.org/index.php?eID=oidc
+    name: "TYPO3 CMS"
+    secret: ${TYPO3_CLIENT_SECRET}
+    public: false
+    trustedPeers: []
+    applicationType: web
+  - id: gitlab
+    redirectURIs:
+      - https://gitlab.example.org/users/auth/openid_connect/callback
+    name: "GitLab"
+    secret: ${GITLAB_CLIENT_SECRET}
+    public: false
+    trustedPeers: []
+    applicationType: web
+  - id: nextcloud
+    redirectURIs:
+      - https://nextcloud.example.org/index.php/apps/oidc_login/oidc
+    name: "Nextcloud"
+    secret: ${NEXTCLOUD_CLIENT_SECRET}
+    public: false
+    trustedPeers: []
+    applicationType: web
+
+# LDAP connector
+connectors:
+  - type: ldap
+    id: ldap
+    name: LDAP
+    config:
+      host: ldap-server:636
+      insecureNoSSL: false
+      insecureSkipVerify: true
+      bindDN: cn=admin,dc=example,dc=com
+      bindPW: admin123
+      userSearch:
+        baseDN: dc=example,dc=com
+        filter: "(objectClass=inetOrgPerson)"
+        username: uid
+        idAttr: uid
+        emailAttr: mail
+        nameAttr: cn
+      groupSearch:
+        baseDN: dc=example,dc=com
+        filter: "(objectClass=groupOfNames)"
+        userMatchers:
+          - userAttr: uid
+            groupAttr: member
+        nameAttr: cn

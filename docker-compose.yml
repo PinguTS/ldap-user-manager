@@ -1,0 +1,160 @@
+version: '3.8'
+
+services:
+  # LDAP Server
+  ldap:
+    image: osixia/openldap:latest
+    container_name: ldap-server
+    hostname: ldap-server
+    environment:
+      LDAP_ORGANISATION: "Example Organization"
+      LDAP_DOMAIN: "example.com"
+      LDAP_ADMIN_PASSWORD: "admin123"
+      LDAP_CONFIG_PASSWORD: "config123"
+      LDAP_READONLY_USER: "false"
+      LDAP_RFC2307BIS_SCHEMA: "false"
+      LDAP_BACKEND: "mdb"
+      LDAP_TLS: "true"
+      LDAP_TLS_CRT_FILENAME: "server.crt"
+      LDAP_TLS_KEY_FILENAME: "server.key"
+      LDAP_TLS_CA_CRT_FILENAME: "ca.crt"
+    volumes:
+      - ldap_data:/var/lib/ldap
+      - ldap_config:/etc/ldap/slapd.d
+      - ./ldif:/ldif:ro
+      - ./certs:/container/service/slapd/assets/certs:ro
+    command: ["--copy-service"]
+    restart: unless-stopped
+    networks:
+      - ldap-network
+    healthcheck:
+      test: ["CMD", "ldapsearch", "-x", "-H", "ldaps://localhost:636", "-b", "dc=example,dc=com", "-D", "cn=admin,dc=example,dc=com", "-w", "admin123", "-o", "tls_reqcert=never"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Dex OIDC Provider
+  dex:
+    image: ghcr.io/dexidp/dex:latest
+    container_name: dex
+    hostname: dex
+    ports:
+      - "5556:5556"
+    volumes:
+      - ./dex:/etc/dex:ro
+    environment:
+      - DEX_CONFIG_PATH=/etc/dex/config.yaml
+    restart: unless-stopped
+    networks:
+      - ldap-network
+    depends_on:
+      ldap:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5556/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # LDAP User Manager Web Application
+  ldap-user-manager:
+    build: .
+    container_name: ldap-user-manager
+    hostname: ldap-user-manager
+    environment:
+      # LDAP Connection Settings
+      LDAP_URI: "ldaps://ldap-server:636"
+      LDAP_BASE_DN: "dc=example,dc=com"
+      LDAP_ADMIN_BIND_DN: "cn=admin,dc=example,dc=com"
+      LDAP_ADMIN_BIND_PWD: "admin123"
+      
+      # Application Settings
+      ORGANISATION_NAME: "LDAP User Manager"
+      SITE_NAME: "LDAP User Manager"
+      SERVER_HOSTNAME: "app.example.org"
+      SERVER_PATH: "/"
+      
+      # OIDC Configuration
+      OIDC_ENABLED: "true"
+      OIDC_ISSUER: "https://id.example.org"
+      OIDC_CLIENT_ID: "ldap-user-manager"
+      OIDC_CLIENT_SECRET: "your-client-secret-here"
+      OIDC_REDIRECT_URI: "https://app.example.org/oidc/callback"
+      OIDC_SCOPES: "openid profile email groups"
+      
+      # Security Settings
+      LDAP_REQUIRE_STARTTLS: "false"
+      LDAP_IGNORE_CERT_ERRORS: "true"
+      NO_HTTPS: "true"
+      
+      # User Management Settings
+      DEFAULT_USER_GROUP: "everybody"
+      USERNAME_FORMAT: "{first_name}-{last_name}"
+      PASSWORD_HASH: "SSHA"
+      ACCEPT_WEAK_PASSWORDS: "false"
+      
+      # Account Requests
+      ACCOUNT_REQUESTS_ENABLED: "true"
+      
+      # Debug Settings
+      LDAP_DEBUG: "false"
+      SESSION_DEBUG: "false"
+      SETUP_DEBUG: "false"
+    depends_on:
+      ldap:
+        condition: service_healthy
+      dex:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - ldap-network
+      - web-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/setup/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Caddy Reverse Proxy
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    hostname: caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - ./certs:/certs:ro
+    restart: unless-stopped
+    networks:
+      - web-network
+    depends_on:
+      - ldap-user-manager
+      - dex
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:2019/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  ldap_data:
+    driver: local
+  ldap_config:
+    driver: local
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+
+networks:
+  ldap-network:
+    driver: bridge
+    internal: true
+  web-network:
+    driver: bridge

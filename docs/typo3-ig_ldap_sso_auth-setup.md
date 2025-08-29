@@ -57,6 +57,8 @@ cn=administrators,ou=roles,dc=example,dc=com
 
 This guide explains how to connect TYPO3 to an OpenLDAP directory using the `ig_ldap_sso_auth` extension, enabling single sign-on (SSO) and LDAP-based authentication for TYPO3 users. The instructions are tailored for the LDAP structure and schema described in this project.
 
+**Note**: For OIDC authentication (recommended), see the [TYPO3 OIDC Configuration](../services/typo3/) in the services directory.
+
 ---
 
 ## Prerequisites

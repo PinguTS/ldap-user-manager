@@ -1,0 +1,84 @@
+# Global settings
+{
+  admin off
+  auto_https disable_redirects
+}
+
+# HTTP to HTTPS redirect
+:80 {
+  redir https://{host}{uri} permanent
+}
+
+# Main application
+app.example.org {
+  # TLS configuration
+  tls /certs/server.crt /certs/server.key {
+    protocols tls1.2 tls1.3
+  }
+
+  # Security headers
+  header {
+    # Security headers
+    X-Frame-Options "DENY"
+    X-Content-Type-Options "nosniff"
+    X-XSS-Protection "1; mode=block"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none';"
+    Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    
+    # Remove server information
+    -Server
+    -X-Powered-By
+  }
+
+  # Rate limiting
+  rate_limit {
+    zone app
+    rate 100r/m
+    burst 200
+  }
+
+  # Proxy to web application
+  reverse_proxy ldap-user-manager:80 {
+    header_up X-Real-IP {remote_host}
+    header_up X-Forwarded-For {remote_host}
+    header_up X-Forwarded-Proto {scheme}
+    header_up Host {host}
+  }
+}
+
+
+
+# Dex OIDC provider
+id.example.org {
+  # TLS configuration
+  tls /certs/server.crt /certs/server.key {
+    protocols tls1.2 tls1.3
+  }
+
+  # Security headers
+  header {
+    X-Frame-Options "DENY"
+    X-Content-Type-Options "nosniff"
+    X-XSS-Protection "1; mode=block"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    -Server
+    -X-Powered-By
+  }
+
+  # Rate limiting
+  rate_limit {
+    zone dex
+    rate 200r/m
+    burst 400
+  }
+
+  # Proxy to Dex
+  reverse_proxy dex:5556 {
+    header_up X-Real-IP {remote_host}
+    header_up X-Forwarded-For {remote_host}
+    header_up X-Forwarded-Proto {scheme}
+    header_up Host {host}
+  }
+}

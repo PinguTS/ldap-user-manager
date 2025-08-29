@@ -43,6 +43,47 @@ BUILDER_NAME ?= $(APP_NAME)-builder
 PORTAINER_STACK_WEBHOOK ?= $(shell git config --get registry.webhook)
 
 # =============================================================================
+# Docker Compose Commands
+# =============================================================================
+
+# Start all services
+.PHONY: up
+up:
+	docker-compose up -d
+
+# Stop all services
+.PHONY: down
+down:
+	docker-compose down
+
+# View logs
+.PHONY: logs
+logs:
+	docker-compose logs -f
+
+# Restart services
+.PHONY: restart
+restart:
+	docker-compose restart
+
+# Check service status
+.PHONY: status
+status:
+	docker-compose ps
+
+# Validate configuration
+.PHONY: validate
+validate:
+	@echo "Validating Docker Compose configuration..."
+	docker-compose config
+	@echo "Configuration is valid!"
+
+# Clean up volumes and networks
+.PHONY: clean
+clean:
+	docker-compose down -v --remove-orphans
+
+# =============================================================================
 # Docker Build Commands
 # =============================================================================
 
@@ -187,18 +228,18 @@ clean: ## Clean up generated files
 	rm -rf vendor/
 	rm -f composer.lock
 
-# Docker commands (additional to original ones)
+# Docker commands (OIDC setup)
 docker-build: ## Build Docker containers
-	docker-compose -f docker-compose.ldap.yml -f docker-compose.app.yml build
+	docker-compose build
 
 docker-run: ## Start Docker containers
-	docker-compose -f docker-compose.ldap.yml -f docker-compose.app.yml up -d
+	docker-compose up -d
 
 docker-stop: ## Stop Docker containers
-	docker-compose -f docker-compose.ldap.yml -f docker-compose.app.yml down
+	docker-compose down
 
 docker-logs: ## Show Docker logs
-	docker-compose -f docker-compose.ldap.yml -f docker-compose.app.yml logs -f
+	docker-compose logs -f
 
 # Development setup
 setup-dev: ## Set up development environment

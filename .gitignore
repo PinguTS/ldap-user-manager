@@ -1,5 +1,27 @@
+# IDE files
 .idea
 ldap-user-manager.iml
+
+# Local development
 local.dev
+
+# Build configuration
 buildkit.toml
 .buildkit.toml
+
+# OIDC and security
+.env
+certs/
+*.pem
+*.key
+*.crt
+
+# Docker volumes
+ldap_data/
+ldap_config/
+caddy_data/
+caddy_config/
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,21 @@
+{
+  "name": "typo3/oidc-setup",
+  "description": "TYPO3 CMS with OIDC authentication setup",
+  "type": "project",
+  "require": {
+    "typo3/cms-core": "^12.0",
+    "causal/oidc": "^1.0",
+    "ichhabrecht/ig-ldap-sso-auth": "^3.0"
+  },
+  "config": {
+    "allow-plugins": {
+      "typo3/class-alias-loader": true,
+      "typo3/cms-composer-installers": true
+    }
+  },
+  "extra": {
+    "typo3/cms": {
+      "web-dir": "public"
+    }
+  }
+}

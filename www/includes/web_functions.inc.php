@@ -12,6 +12,7 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 include_once 'ldap_functions.inc.php';
+include_once 'oidc_functions.inc.php';
 
 # Security level vars
 
@@ -62,10 +63,18 @@ $DEFAULT_COOKIE_OPTIONS = [
     'samesite' => 'strict'
 ];
 
+// Initialize OIDC if enabled
+init_oidc_config();
+
 if ($REMOTE_HTTP_HEADERS_LOGIN) {
     login_via_headers();
 } else {
-    validate_passkey_cookie();
+    // Check OIDC authentication first
+    if (require_oidc_auth()) {
+        redirect_to_oidc_if_required();
+    } else {
+        validate_passkey_cookie();
+    }
 }
 
 ######################################################

@@ -1,28 +1,41 @@
-# Docker Setup Guide for LDAP User Manager
+# Docker Setup Guide for LDAP User Manager with OIDC
 
-This guide provides step-by-step instructions for setting up LDAP User Manager using Docker Compose or Portainer stacks, with separate containers for LDAP and the user management application.
+This guide provides step-by-step instructions for setting up LDAP User Manager with OpenID Connect (OIDC) using Docker Compose. The setup includes Dex as an OIDC provider, LDAP server, and the user management application, all orchestrated with Caddy as a reverse proxy.
 
 ---
 
 ## 🏗️ Architecture Overview
 
 ```
-┌─────────────────┐    ┌─────────────────────┐
-│   Portainer     │    │   Docker Host       │
-│   (Web UI)      │    │                     │
-└─────────────────┘    └─────────────────────┘
-         │                       │
-         │                       │
-         ▼                       ▼
-┌─────────────────┐    ┌─────────────────────┐
-│  Stack:         │    │  Stack:             │
-│  ldap-server    │    │  ldap-user-manager  │
-│                 │    │                     │
-│  ┌───────────┐  │    │  ┌──────────────┐   │
-│  │   LDAP    │◄─┼────┼─►│  Web App     │   │
-│  │  Server   │  │    │  │              │   │
-│  └───────────┘  │    │  └──────────────┘   │
-└─────────────────┘    └─────────────────────┘
+┌───────────────────────────────────────────────────────────┐
+│                    External Services                      │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
+│  │    TYPO3    │  │    GitLab   │  │  Nextcloud  │        │
+│  │   Server    │  │   Server    │  │   Server    │        │
+│  └─────────────┘  └─────────────┘  └─────────────┘        │
+└───────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                    ┌─────────────────┐
+                    │   OIDC Auth     │
+                    │   (HTTPS)       │
+                    └─────────────────┘
+                              │
+                              ▼
+┌───────────────────────────────────────────────────────────┐
+│                   Local Infrastructure                    │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
+│  │    Caddy    │  │     Dex     │  │     LDAP    │        │
+│  │   Reverse   │  │   OIDC      │  │   Server    │        │
+│  │    Proxy    │  │  Provider   │  │             │        │
+│  └─────────────┘  └─────────────┘  └─────────────┘        │
+│                              │                            │
+│  ┌─────────────┐             │                            │
+│  │     LDAP    │             │                            │
+│  │    User     │             │                            │
+│  │   Manager   │             │                            │
+│  └─────────────┘             │                            │
+└───────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -30,15 +43,16 @@ This guide provides step-by-step instructions for setting up LDAP User Manager u
 ## 📋 Prerequisites
 
 - Docker and Docker Compose installed
-- Portainer (optional, but recommended)
 - Access to the Docker host
-- Basic knowledge of LDAP concepts
+- Basic knowledge of LDAP and OIDC concepts
+- Valid SSL certificates for your domains (or self-signed for development)
+- DNS records configured for your domains
 
 ---
 
 ## 🚀 Quick Start
 
-### Option 1: Automated Setup (Recommended)
+### Automated Setup (Recommended)
 
 1. **Clone the repository**
    ```bash
@@ -46,23 +60,33 @@ This guide provides step-by-step instructions for setting up LDAP User Manager u
    cd ldap-user-manager
    ```
 
-2. **Create the LDAP server stack**
+2. **Generate SSL certificates and OIDC client secrets**
    ```bash
-   docker-compose -f docker-compose.ldap.yml up -d
+   ./setup-oidc.sh
    ```
 
-3. **Wait for LDAP to be ready, then start user manager**
+3. **Start all services**
    ```bash
-   docker-compose -f docker-compose.app.yml up -d
+   docker-compose up -d
    ```
 
-4. **Complete web setup**
-   - Navigate to `http://localhost:8080/setup/`
+4. **Verify services are running**
+   ```bash
+   docker-compose ps
+   ```
+
+5. **Test OIDC discovery**
+   ```bash
+   curl -k https://id.example.org/.well-known/openid_configuration
+   ```
+
+6. **Complete web setup**
+   - Navigate to `https://app.example.org/setup/`
    - Follow the setup wizard to automatically create LDAP structure
 
-### Option 2: Manual Portainer Setup
+### External Services Integration
 
-Follow the detailed steps below for manual setup in Portainer.
+For detailed configuration of external services (TYPO3, GitLab, Nextcloud), see the [Services Directory](../services/).
 
 ---
 
