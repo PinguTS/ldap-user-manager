@@ -74,6 +74,18 @@ if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["pas
     exit;
   }
 
+  // Check if user account is locked/disabled
+  if (ldap_user_is_locked($ldap_connection, $user_dn)) {
+    // Record failed login attempt for locked account
+    record_login_attempt($_POST["user_id"], false);
+    
+    ldap_close($ldap_connection);
+    
+    // Redirect with locked account message
+    header("Location: //{$_SERVER['HTTP_HOST']}{$THIS_MODULE_PATH}/index.php?account_locked");
+    exit;
+  }
+
   // Get user UUID for internal use
   $user_uuid = ldap_user_get_uuid($ldap_connection, $user_dn);
   if (!$user_uuid) {
@@ -276,17 +288,23 @@ render_header("$ORGANISATION_NAME account manager - log in");
    </div>
    <?php } ?>
 
-   <?php if (isset($_GET["invalid"])) { ?>
-   <div class="alert alert-warning">
-    The username and/or password are unrecognised.
-   </div>
-   <?php } ?>
-
-   <?php if (isset($_GET["rate_limited"])) { ?>
-   <div class="alert alert-danger">
-    Too many login attempts. Please wait 5 minutes before trying again.
-   </div>
-   <?php } ?>
+   <?php if (isset($_GET['invalid'])): ?>
+            <div class="alert alert-danger">
+                <strong>Login Failed:</strong> Invalid username or password. Please try again.
+            </div>
+        <?php endif; ?>
+        
+        <?php if (isset($_GET['account_locked'])): ?>
+            <div class="alert alert-danger">
+                <strong>Account Disabled:</strong> Your account has been locked by an administrator. Please contact your system administrator for assistance.
+            </div>
+        <?php endif; ?>
+        
+        <?php if (isset($_GET['rate_limited'])): ?>
+            <div class="alert alert-warning">
+                <strong>Too Many Attempts:</strong> You have exceeded the maximum login attempts. Please wait before trying again.
+            </div>
+        <?php endif; ?>
 
    <form class="form-horizontal" action='' method='post'>
     <?php if (isset($redirect_to) and ($redirect_to != "")) { ?><input type="hidden" name="redirect_to" value="<?php print htmlspecialchars($redirect_to); ?>"><?php } ?>

@@ -203,6 +203,115 @@ The application:
 
 ---
 
+## 4. Account Locking Implementation
+
+### 4.1 Standard LDAP Account Locking
+
+LDAP User Manager implements **RFC-compliant account locking** using the standard `pwdAccountLockedTime` attribute:
+
+**Lock Value:**
+- **Standard Value**: `000001010000Z` (January 1, 1970 00:00:00 UTC)
+- **RFC Compliance**: Follows LDAP standards for account locking
+- **No Schema Changes**: Uses existing LDAP attributes
+
+**Implementation:**
+```ldif
+# Locked user account
+dn: uid=user@org.com,ou=people,o=OrgName,ou=organizations,dc=example,dc=com
+objectClass: inetOrgPerson
+objectClass: top
+uid: user@org.com
+cn: User Name
+sn: Name
+givenName: User
+mail: user@org.com
+pwdAccountLockedTime: 000001010000Z  # Account is locked
+userPassword: {SSHA}hashed_password
+
+# Locked organization
+dn: o=OrgName,ou=organizations,dc=example,dc=com
+objectClass: top
+objectClass: organization
+objectClass: extensibleObject
+o: OrgName
+pwdAccountLockedTime: 000001010000Z  # Organization is locked
+```
+
+### 4.2 Account Locking Features
+
+**User Account Locking:**
+- **Individual Lock**: Lock specific user accounts
+- **Permission-Based**: Only authorized users can lock/unlock accounts
+- **Self-Protection**: Users cannot lock their own accounts
+- **Role Restrictions**: Maintainers cannot lock administrator accounts
+
+**Organization Locking:**
+- **Bulk Lock**: Lock entire organizations and all their users
+- **Cascade Effect**: When an organization is locked, all users are automatically locked
+- **Permission-Based**: Only global admins and maintainers can lock organizations
+- **Self-Protection**: Organization admins cannot lock their own organization
+
+**Authentication Integration:**
+- **Login Prevention**: Locked accounts cannot authenticate
+- **Clear Messages**: Users see specific error messages for locked accounts
+- **Audit Trail**: All lock/unlock actions are logged
+
+### 4.3 Access Control for Account Locking
+
+**User Lock/Unlock Permissions:**
+- **Global Administrators**: Can lock/unlock any user account
+- **Maintainers**: Can lock/unlock users (except administrators)
+- **Organization Administrators**: Can lock/unlock users in their organization only
+
+**Organization Lock/Unlock Permissions:**
+- **Global Administrators**: Can lock/unlock any organization
+- **Maintainers**: Can lock/unlock any organization
+- **Organization Administrators**: Cannot lock/unlock their own organization
+
+**Lock Status Viewing:**
+- **Administrators, Maintainers, Organization Admins**: Can view lock status
+- **Regular Users**: Cannot view lock status of other accounts
+
+### 4.4 Technical Implementation
+
+**LDAP Functions:**
+```php
+// Check if user is locked
+ldap_user_is_locked($ldap_connection, $user_dn)
+
+// Check if organization is locked
+ldap_organization_is_locked($ldap_connection, $org_name)
+
+// Lock user account
+ldap_lock_user_account($ldap_connection, $user_dn)
+
+// Unlock user account
+ldap_unlock_user_account($ldap_connection, $user_dn)
+
+// Lock organization and all users
+ldap_lock_organization($ldap_connection, $org_name)
+
+// Unlock organization and all users
+ldap_unlock_organization($ldap_connection, $org_name)
+```
+
+**Authentication Flow:**
+1. User attempts login
+2. System checks `pwdAccountLockedTime` attribute
+3. If locked, login is denied with clear error message
+4. If organization is locked, user login is also denied
+5. Failed login attempts are logged for security
+
+**Benefits:**
+- ✅ **Standard Compliance**: Uses RFC-compliant LDAP attributes
+- ✅ **No Schema Changes**: Works with existing LDAP infrastructure
+- ✅ **Security Enhancement**: Immediate access control without deletion
+- ✅ **Audit Trail**: Complete logging of all lock/unlock operations
+- ✅ **Permission-Based**: Granular access control for lock operations
+- ✅ **Reversible**: Easy to unlock accounts when needed
+
+---
+
 ## 4. Setup Process
 
 ### 4.1 Web-Based Setup (Recommended)

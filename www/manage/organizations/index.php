@@ -9,6 +9,66 @@ include_once "access_functions.inc.php";
 include_once dirname(__DIR__) . "/module_functions.inc.php";
 include_once "organization_functions.inc.php";
 
+// Handle form submissions
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    $ldap_connection = open_ldap_connection();
+    
+    switch ($_POST['action']) {
+        case 'lock_organization':
+            if (isset($_POST['org_name']) && currentUserCanDisableOrganization($_POST['org_name'])) {
+                $org_name = trim($_POST['org_name']);
+                if (ldap_lock_organization($ldap_connection, $org_name)) {
+                    $message = "Organization '$org_name' has been locked successfully. All users in this organization are now disabled.";
+                    $message_type = 'success';
+                } else {
+                    $message = "Failed to lock organization '$org_name'. Please check the logs for details.";
+                    $message_type = 'danger';
+                }
+            } else {
+                $message = "Permission denied or invalid organization name.";
+                $message_type = 'danger';
+            }
+            break;
+            
+        case 'unlock_organization':
+            if (isset($_POST['org_name']) && currentUserCanEnableOrganization($_POST['org_name'])) {
+                $org_name = trim($_POST['org_name']);
+                if (ldap_unlock_organization($ldap_connection, $org_name)) {
+                    $message = "Organization '$org_name' has been unlocked successfully. All users in this organization are now enabled.";
+                    $message_type = 'success';
+                } else {
+                    $message = "Failed to unlock organization '$org_name'. Please check the logs for details.";
+                    $message_type = 'danger';
+                }
+            } else {
+                $message = "Permission denied or invalid organization name.";
+                $message_type = 'danger';
+            }
+            break;
+            
+        case 'delete_organization':
+            // Existing delete logic
+            if (isset($_POST['org_name']) && currentUserCanDeleteOrganization($_POST['org_name'])) {
+                $org_name = trim($_POST['org_name']);
+                $org_uuid = isset($_POST['org_uuid']) ? trim($_POST['org_uuid']) : '';
+                
+                if (ldap_delete_organization($ldap_connection, $org_name, $org_uuid)) {
+                    $message = "Organization '$org_name' has been deleted successfully.";
+                    $message_type = 'success';
+                } else {
+                    $message = "Failed to delete organization '$org_name'. Please check the logs for details.";
+                    $message_type = 'danger';
+                }
+            } else {
+                $message = "Permission denied or invalid organization name.";
+                $message_type = 'danger';
+            }
+            break;
+    }
+    
+    ldap_close($ldap_connection);
+}
+
 // Use the enhanced access control function
 set_page_access(["admin", "maintainer", "org_admin"]);
 
@@ -96,8 +156,12 @@ if (!is_array($organizations)) {
                                                 <strong>Phone:</strong> <?php echo htmlspecialchars($org['telephoneNumber']); ?><br>
                                             <?php endif; ?>
                                             <?php if (isset($org['description']) && !empty($org['description'])): ?>
-                                                <strong>Status:</strong> <?php echo htmlspecialchars($org['description']); ?>
+                                                <strong>Status:</strong> <?php echo htmlspecialchars($org['description']); ?><br>
                                             <?php endif; ?>
+                                            <strong>Account Status:</strong> 
+                                            <span class="badge badge-<?php echo ldap_organization_is_locked($ldap_connection, $org_name) ? 'danger' : 'success'; ?>">
+                                                <?php echo ldap_organization_is_locked($ldap_connection, $org_name) ? 'Locked' : 'Active'; ?>
+                                            </span>
                                         </p>
                                         <div class="btn-group btn-group-sm">
                                             <?php if ($LDAP['use_uuid_identification'] && isset($org['entryUUID'])): ?>
@@ -106,11 +170,25 @@ if (!is_array($organizations)) {
                                                 <?php if (currentUserCanDeleteOrganization($org_name)): ?>
                                                     <button type="button" class="btn btn-danger" onclick="confirmDelete('<?php echo $org_name_safe; ?>', '<?php echo $org['entryUUID']; ?>')">Delete</button>
                                                 <?php endif; ?>
+                                                <?php if (currentUserCanDisableOrganization($org_name)): ?>
+                                                    <?php if (ldap_organization_is_locked($ldap_connection, $org_name)): ?>
+                                                        <button type="button" class="btn btn-success" onclick="confirmUnlockOrganization('<?php echo $org_name_safe; ?>', '<?php echo $org['entryUUID']; ?>')">Unlock</button>
+                                                    <?php else: ?>
+                                                        <button type="button" class="btn btn-warning" onclick="confirmLockOrganization('<?php echo $org_name_safe; ?>', '<?php echo $org['entryUUID']; ?>')">Lock</button>
+                                                    <?php endif; ?>
+                                                <?php endif; ?>
                                             <?php else: ?>
                                                 <a href="/manage/organizations/show/index.php?org=<?php echo $org_name_url; ?>" class="btn btn-info">View</a>
                                                 <a href="/manage/organizations/users/index.php?org=<?php echo $org_name_url; ?>" class="btn btn-primary">Users</a>
                                                 <?php if (currentUserCanDeleteOrganization($org_name)): ?>
                                                     <button type="button" class="btn btn-danger" onclick="confirmDelete('<?php echo $org_name_safe; ?>')">Delete</button>
+                                                <?php endif; ?>
+                                                <?php if (currentUserCanDisableOrganization($org_name)): ?>
+                                                    <?php if (ldap_organization_is_locked($ldap_connection, $org_name)): ?>
+                                                        <button type="button" class="btn btn-success" onclick="confirmUnlockOrganization('<?php echo $org_name_safe; ?>')">Unlock</button>
+                                                    <?php else: ?>
+                                                        <button type="button" class="btn btn-warning" onclick="confirmLockOrganization('<?php echo $org_name_safe; ?>')">Lock</button>
+                                                    <?php endif; ?>
                                                 <?php endif; ?>
                                             <?php endif; ?>
                                         </div>
@@ -153,6 +231,63 @@ if (!is_array($organizations)) {
     </div>
 </div>
 
+<!-- Lock Organization Modal -->
+<div class="modal fade" id="lockModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title">Confirm Organization Lock</h4>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to lock the organization "<span id="lockOrgName"></span>"?</p>
+                <p class="text-warning"><strong>Warning:</strong> This will disable all user accounts in this organization. Users will not be able to log in until the organization is unlocked.</p>
+                <p><strong>Note:</strong> This action is reversible. You can unlock the organization at any time.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                <form method="post" action="" style="display: inline;">
+                    <?php echo csrf_token_field(); ?>
+                    <input type="hidden" name="action" value="lock_organization">
+                    <input type="hidden" name="org_name" id="lockOrgNameInput">
+                    <input type="hidden" name="org_uuid" id="lockOrgUuidInput">
+                    <button type="submit" class="btn btn-warning">Lock Organization</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Unlock Organization Modal -->
+<div class="modal fade" id="unlockModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+                <h4 class="modal-title">Confirm Organization Unlock</h4>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to unlock the organization "<span id="unlockOrgName"></span>"?</p>
+                <p class="text-success"><strong>Effect:</strong> This will re-enable all user accounts in this organization. Users will be able to log in again.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+                <form method="post" action="" style="display: inline;">
+                    <?php echo csrf_token_field(); ?>
+                    <input type="hidden" name="action" value="unlock_organization">
+                    <input type="hidden" name="org_name" id="unlockOrgNameInput">
+                    <input type="hidden" name="org_uuid" id="unlockOrgUuidInput">
+                    <button type="submit" class="btn btn-success">Unlock Organization</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="/js/jquery-3.6.0.min.js"></script>
 <script src="/js/user_management.min.js"></script>
 <script>
@@ -164,6 +299,34 @@ if (!is_array($organizations)) {
             messageId: 'msgbox'
         });
     });
+    
+    // Organization lock/unlock functions
+    function confirmLockOrganization(orgName, orgUuid = '') {
+        document.getElementById('lockOrgName').textContent = orgName;
+        document.getElementById('lockOrgNameInput').value = orgName;
+        if (orgUuid) {
+            document.getElementById('lockOrgUuidInput').value = orgUuid;
+        }
+        $('#lockModal').modal('show');
+    }
+    
+    function confirmUnlockOrganization(orgName, orgUuid = '') {
+        document.getElementById('unlockOrgName').textContent = orgName;
+        document.getElementById('unlockOrgNameInput').value = orgName;
+        if (orgUuid) {
+            document.getElementById('unlockOrgUuidInput').value = orgUuid;
+        }
+        $('#unlockModal').modal('show');
+    }
+    
+    function confirmDelete(orgName, orgUuid = '') {
+        document.getElementById('deleteOrgName').textContent = orgName;
+        document.getElementById('deleteOrgNameInput').value = orgName;
+        if (orgUuid) {
+            document.getElementById('deleteOrgUuidInput').value = orgUuid;
+        }
+        $('#deleteModal').modal('show');
+    }
 </script>
 
 <?php

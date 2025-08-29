@@ -544,3 +544,163 @@ function validateRoleConfiguration() {
     
     return [empty($conflicts), $conflicts];
 }
+
+/**
+ * Checks if the current user can disable/lock a specific user account
+ * 
+ * @param string $target_user_identifier User identifier to check permissions for
+ * @return bool True if user can disable the target user, false otherwise
+ */
+function currentUserCanDisableUser($target_user_identifier) {
+    global $LDAP, $USER_DN, $USER_ID;
+    
+    // Global administrators can disable any user
+    if (currentUserIsGlobalAdmin()) {
+        return true;
+    }
+    
+    // Maintainers can disable users (except administrators)
+    if (currentUserIsMaintainer()) {
+        $ldap = open_ldap_connection();
+        if (!$ldap) {
+            return false;
+        }
+        
+        // Find the target user's DN
+        $target_user_dn = null;
+        
+        // Search in system users first
+        $search = @ldap_search($ldap, $LDAP['people_dn'], 
+            "({$LDAP['account_attribute']}=$target_user_identifier)", ['dn']);
+        if ($search) {
+            $result = ldap_get_entries($ldap, $search);
+            if ($result['count'] > 0) {
+                $target_user_dn = $result[0]['dn'];
+            }
+        }
+        
+        // If not found in system users, search in organizations
+        if (!$target_user_dn) {
+            $search = @ldap_search($ldap, $LDAP['org_dn'], 
+                "({$LDAP['account_attribute']}=$target_user_identifier)", ['dn']);
+            if ($search) {
+                $result = ldap_get_entries($ldap, $search);
+                if ($result['count'] > 0) {
+                    $target_user_dn = $result[0]['dn'];
+                }
+            }
+        }
+        
+        ldap_close($ldap);
+        
+        if ($target_user_dn) {
+            // Check if target user is an administrator
+            $ldap = open_ldap_connection();
+            $is_admin = ldap_is_group_member($ldap, $LDAP['roles_dn'], $LDAP['admin_group_name'], $target_user_dn);
+            ldap_close($ldap);
+            
+            // Maintainers cannot disable administrators
+            return !$is_admin;
+        }
+        
+        return false;
+    }
+    
+    // Organization administrators can disable users in their organization
+    if (currentUserIsOrgAdmin()) {
+        $ldap = open_ldap_connection();
+        if (!$ldap) {
+            return false;
+        }
+        
+        $current_user_org = currentUserGetOrgName();
+        $target_user_org = null;
+        
+        // Find the target user's organization
+        $search = @ldap_search($ldap, $LDAP['org_dn'], 
+            "({$LDAP['account_attribute']}=$target_user_identifier)", ['dn']);
+        if ($search) {
+            $result = ldap_get_entries($ldap, $search);
+            if ($result['count'] > 0) {
+                $target_user_org = ldap_user_get_organization($ldap, $result[0]['dn']);
+            }
+        }
+        
+        ldap_close($ldap);
+        
+        // Organization admins can only disable users in their own organization
+        return ($target_user_org === $current_user_org);
+    }
+    
+    return false;
+}
+
+/**
+ * Checks if the current user can enable/unlock a specific user account
+ * 
+ * @param string $target_user_identifier User identifier to check permissions for
+ * @return bool True if user can enable the target user, false otherwise
+ */
+function currentUserCanEnableUser($target_user_identifier) {
+    // Same permissions as disable - if you can disable, you can enable
+    return currentUserCanDisableUser($target_user_identifier);
+}
+
+/**
+ * Checks if the current user can disable/lock a specific organization
+ * 
+ * @param string $org_name Organization name to check permissions for
+ * @return bool True if user can disable the organization, false otherwise
+ */
+function currentUserCanDisableOrganization($org_name) {
+    global $LDAP, $USER_DN, $USER_ID;
+    
+    // Global administrators can disable any organization
+    if (currentUserIsGlobalAdmin()) {
+        return true;
+    }
+    
+    // Maintainers can disable organizations
+    if (currentUserIsMaintainer()) {
+        return true;
+    }
+    
+    // Organization administrators cannot disable their own organization
+    if (currentUserIsOrgAdmin()) {
+        $current_user_org = currentUserGetOrgName();
+        return ($org_name !== $current_user_org);
+    }
+    
+    return false;
+}
+
+/**
+ * Checks if the current user can enable/unlock a specific organization
+ * 
+ * @param string $org_name Organization name to check permissions for
+ * @return bool True if user can enable the organization, false otherwise
+ */
+function currentUserCanEnableOrganization($org_name) {
+    // Same permissions as disable - if you can disable, you can enable
+    return currentUserCanDisableOrganization($org_name);
+}
+
+/**
+ * Checks if the current user can view lock status information
+ * 
+ * @return bool True if user can view lock status, false otherwise
+ */
+function currentUserCanViewLockStatus() {
+    // Administrators, maintainers, and organization admins can view lock status
+    return (currentUserIsGlobalAdmin() || currentUserIsMaintainer() || currentUserIsOrgAdmin());
+}
+
+/**
+ * Checks if the current user can perform bulk lock/unlock operations
+ * 
+ * @return bool True if user can perform bulk operations, false otherwise
+ */
+function currentUserCanPerformBulkLockOperations() {
+    // Only global administrators and maintainers can perform bulk operations
+    return (currentUserIsGlobalAdmin() || currentUserIsMaintainer());
+}
