@@ -2153,15 +2153,30 @@ function ldap_organization_is_locked($ldap_connection, $org_name) {
     }
     
     $org_dn = "o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
-    $org_attrs = @ldap_read($ldap_connection, $org_dn, "(objectClass=*)", ['pwdAccountLockedTime']);
+    $org_attrs = @ldap_read($ldap_connection, $org_dn, "(objectClass=*)", ['pwdAccountLockedTime', 'description']);
     
     if ($org_attrs) {
         $org_entry = ldap_get_entries($ldap_connection, $org_attrs);
-        if ($org_entry['count'] > 0 && isset($org_entry[0]['pwdaccountlockedtime'])) {
-            if ($LDAP_DEBUG) {
-                error_log("$log_prefix Organization $org_name has pwdAccountLockedTime: " . $org_entry[0]['pwdaccountlockedtime'][0]);
+        if ($org_entry['count'] > 0) {
+            // Check for pwdAccountLockedTime lock
+            if (isset($org_entry[0]['pwdaccountlockedtime'])) {
+                if ($LDAP_DEBUG) {
+                    error_log("$log_prefix Organization $org_name has pwdAccountLockedTime: " . $org_entry[0]['pwdaccountlockedtime'][0]);
+                }
+                return true;
             }
-            return true;
+            
+            // Check for description-based lock
+            if (isset($org_entry[0]['description'])) {
+                foreach ($org_entry[0]['description'] as $desc) {
+                    if ($desc === 'ORGANIZATION_LOCKED') {
+                        if ($LDAP_DEBUG) {
+                            error_log("$log_prefix Organization $org_name has description lock: $desc");
+                        }
+                        return true;
+                    }
+                }
+            }
         }
     }
     
@@ -2293,16 +2308,36 @@ function ldap_lock_organization($ldap_connection, $org_name) {
     
     $org_dn = "o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
     
-    // Standard RFC-compliant lock value: January 1, 1970 00:00:00 UTC
+    // Try standard pwdAccountLockedTime first
     $lock_value = '000001010000Z';
-    
-    // Lock the organization itself
     $org_lock_attrs = ['pwdAccountLockedTime' => $lock_value];
     $org_result = @ldap_modify($ldap_connection, $org_dn, $org_lock_attrs);
     
-    if (!$org_result) {
-        error_log("$log_prefix Failed to lock organization $org_name: " . ldap_error($ldap_connection));
-        return false;
+    if ($org_result) {
+        if ($LDAP_DEBUG) {
+            error_log("$log_prefix Successfully locked organization using pwdAccountLockedTime: $org_name");
+        }
+    } else {
+        // If pwdAccountLockedTime fails, try alternative method using description
+        $ldap_error = ldap_error($ldap_connection);
+        if ($LDAP_DEBUG) {
+            error_log("$log_prefix pwdAccountLockedTime failed for organization $org_name: $ldap_error");
+            error_log("$log_prefix Trying alternative locking method using description attribute");
+        }
+        
+        // Alternative: Use description attribute to mark organization as locked
+        $alt_lock_attrs = ['description' => 'ORGANIZATION_LOCKED'];
+        $alt_result = @ldap_modify($ldap_connection, $org_dn, $alt_lock_attrs);
+        
+        if ($alt_result) {
+            if ($LDAP_DEBUG) {
+                error_log("$log_prefix Successfully locked organization using description: $org_name");
+            }
+        } else {
+            $alt_ldap_error = ldap_error($ldap_connection);
+            error_log("$log_prefix Failed to lock organization $org_name using both methods. pwdAccountLockedTime error: $ldap_error, description error: $alt_ldap_error");
+            return false;
+        }
     }
     
     // Lock all users in the organization
@@ -2347,13 +2382,38 @@ function ldap_unlock_organization($ldap_connection, $org_name) {
     
     $org_dn = "o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
     
-    // Unlock the organization itself
-    $org_unlock_attrs = ['pwdAccountLockedTime' => []];
-    $org_result = @ldap_modify($ldap_connection, $org_dn, $org_unlock_attrs);
+    $success = false;
     
-    if (!$org_result) {
-        error_log("$log_prefix Failed to unlock organization $org_name: " . ldap_error($ldap_connection));
-        return false;
+    // Try to remove pwdAccountLockedTime first
+    $unlock_attrs = ['pwdAccountLockedTime' => []];
+    $result = @ldap_modify($ldap_connection, $org_dn, $unlock_attrs);
+    
+    if ($result) {
+        if ($LDAP_DEBUG) {
+            error_log("$log_prefix Successfully unlocked organization by removing pwdAccountLockedTime: $org_name");
+        }
+        $success = true;
+    } else {
+        if ($LDAP_DEBUG) {
+            $ldap_error = ldap_error($ldap_connection);
+            error_log("$log_prefix pwdAccountLockedTime removal failed for organization $org_name: $ldap_error");
+        }
+    }
+    
+    // Also try to remove description-based lock
+    $desc_unlock_attrs = ['description' => []];
+    $desc_result = @ldap_modify($ldap_connection, $org_dn, $desc_unlock_attrs);
+    
+    if ($desc_result) {
+        if ($LDAP_DEBUG) {
+            error_log("$log_prefix Successfully unlocked organization by removing description lock: $org_name");
+        }
+        $success = true;
+    } else {
+        if ($LDAP_DEBUG) {
+            $desc_ldap_error = ldap_error($ldap_connection);
+            error_log("$log_prefix Description lock removal failed for organization $org_name: $desc_ldap_error");
+        }
     }
     
     // Unlock all users in the organization
@@ -2376,7 +2436,7 @@ function ldap_unlock_organization($ldap_connection, $org_name) {
         }
     }
     
-    return true;
+    return $success;
 }
 
 ##################################
