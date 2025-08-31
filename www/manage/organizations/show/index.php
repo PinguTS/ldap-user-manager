@@ -243,15 +243,10 @@ if ($orgExists) {
    </ol>
   </nav>
 
-  <div class="d-flex justify-content-between align-items-center mb-3">
-   <h2>Organization: <?php print htmlspecialchars($org_name); ?></h2>
-   <a href="/manage/organizations/" class="btn btn-default pull-right">Back to Organizations</a>
-  </div>
-
   <div class="panel panel-default">
    <div class="panel-heading clearfix">
     <span class="panel-title pull-left"><h3><?php print htmlspecialchars($org_name); ?></h3></span>
-    <a href="<?php print $THIS_MODULE_PATH; ?>/organizations.php" class="btn btn-default pull-right">Back to Organizations</a>
+    <a href="<?php print $THIS_MODULE_PATH; ?>/organizations" class="btn btn-default pull-right">Back to Organizations</a>
    </div>
    <div class="panel-body">
     
@@ -447,16 +442,6 @@ if ($orgExists) {
     <form class="form-horizontal" action="" method="post">
      <?= csrf_token_field() ?>
      <input type="hidden" name="update_organization">
-     
-     <!-- Debug info (remove in production) -->
-     <?php if (isset($_GET['debug_csrf'])): ?>
-     <div class="alert alert-info">
-      <strong>CSRF Debug Info:</strong><br>
-      Session Token: <?php echo htmlspecialchars(substr($_SESSION['csrf_token'] ?? 'NOT_SET', 0, 16)) . '...'; ?><br>
-      Session ID: <?php echo htmlspecialchars(session_id()); ?><br>
-      Session Status: <?php echo session_status(); ?>
-     </div>
-     <?php endif; ?>
      
      <?php
      // Generate form fields dynamically using configuration

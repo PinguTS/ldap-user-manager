@@ -771,7 +771,7 @@ $ldap_connection = open_ldap_connection();
                     </td>
                     <td>
                         <div class="btn-group btn-group-sm">
-                            <button type="button" class="btn btn-secondary btn-sm" onclick="openEditModal('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')">Edit</button>
+                            <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&edit_user=<?= urlencode($user_identifier) ?>" class="btn btn-secondary btn-sm">Edit</a>
                             <?php if (currentUserCanDisableUser($user_identifier)): ?>
                                 <?php if (ldap_user_is_locked($ldap_connection, $user['dn'])): ?>
                                     <button type="button" class="btn btn-success btn-sm" onclick="confirmUnlockUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')">Unlock</button>
@@ -828,6 +828,48 @@ $ldap_connection = open_ldap_connection();
     </form>
 
     <!-- Edit User Modal -->
+    <?php if ($editUser): ?>
+    <div class="modal show" tabindex="-1" style="display:block; background:rgba(0,0,0,0.3); z-index:1050;">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <form method="post" action="">
+            <?= csrf_token_field() ?>
+            <div class="modal-header">
+              <h5 class="modal-title" id="editUserModalLabel">Edit User</h5>
+              <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="close">&times;</a>
+            </div>
+            <div class="modal-body">
+              <input type="hidden" name="edit_uid" id="edit_uid_input" value="<?= htmlspecialchars(get_ldap_attribute($editUser, 'uid')) ?>">
+              <div class="form-group">
+                <label for="edit_givenname">First Name</label>
+                <input type="text" class="form-control" name="edit_givenname" id="edit_givenname" value="<?= htmlspecialchars(get_ldap_attribute($editUser, 'givenName')) ?>" required>
+              </div>
+              <div class="form-group">
+                <label for="edit_sn">Last Name</label>
+                <input type="text" class="form-control" name="edit_sn" id="edit_sn" value="<?= htmlspecialchars(get_ldap_attribute($editUser, 'sn')) ?>" required>
+              </div>
+              <div class="form-group">
+                <label for="edit_mail">Email</label>
+                <input type="email" class="form-control" name="edit_mail" id="edit_mail" value="<?= htmlspecialchars(get_ldap_attribute($editUser, 'mail')) ?>" required>
+              </div>
+              <div class="form-group">
+                <label for="edit_password">Password (leave blank to keep unchanged)</label>
+                <input type="password" class="form-control" name="edit_password" id="edit_password">
+              </div>
+              <div class="form-group">
+                <label for="edit_passcode">Passcode (leave blank to keep unchanged)</label>
+                <input type="text" class="form-control" name="edit_passcode" id="edit_passcode">
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="submit" name="save_user" class="btn btn-primary">Save Changes</button>
+              <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="btn btn-default">Cancel</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    <?php else: ?>
     <div class="modal fade" id="editUserModal" tabindex="-1" role="dialog" aria-labelledby="editUserModalLabel" aria-hidden="true">
       <div class="modal-dialog" role="document">
         <div class="modal-content">
@@ -870,6 +912,7 @@ $ldap_connection = open_ldap_connection();
         </div>
       </div>
     </div>
+    <?php endif; ?>
     
     <!-- Lock User Modal -->
     <div class="modal fade" id="lockUserModal" tabindex="-1" role="dialog" aria-labelledby="lockUserModalLabel" aria-hidden="true">
@@ -1138,29 +1181,6 @@ $ldap_connection = open_ldap_connection();
         $('#deleteUserModal').modal('show');
     }
     
-    // Edit user modal function
-    function openEditModal(userIdentifier, userName) {
-        console.log('openEditModal called with:', userIdentifier, userName);
-        
-        // Check if jQuery and modal are available
-        if (typeof $ === 'undefined') {
-            console.error('jQuery is not loaded');
-            alert('Error: jQuery is not loaded. Please refresh the page.');
-            return;
-        }
-        
-        if (typeof $.fn.modal === 'undefined') {
-            console.error('Bootstrap modal is not available');
-            alert('Error: Bootstrap modal is not available. Please refresh the page.');
-            return;
-        }
-        
-        // Set the user identifier in the modal
-        document.getElementById('edit_uid_input').value = userIdentifier;
-        
-        // Show the modal
-        $('#editUserModal').modal('show');
-    }
 </script>
 <?php
 // Close LDAP connection
