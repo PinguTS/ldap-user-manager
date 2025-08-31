@@ -259,7 +259,7 @@ if ($no_errors == TRUE) {
     print "$li_good <strong>Verifying admin role membership...</strong></li>\n";
     
     # Check if administrators group exists
-    $admin_group_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['admin_group_name']}))";
+    $admin_group_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['admin_role']}))";
     $admin_group_search = ldap_search($ldap_connection, $LDAP['roles_dn'], $admin_group_filter);
     $admin_group_exists = ($admin_group_search && ldap_count_entries($ldap_connection, $admin_group_search) > 0);
     
@@ -270,12 +270,12 @@ if ($no_errors == TRUE) {
         $admin_member_dn = "uid={$admin_email},ou=people,{$LDAP['base_dn']}";
         $admin_role = array(
             'objectClass' => array('top', 'groupOfNames'),
-            'cn' => $LDAP['admin_group_name'],
+            'cn' => $LDAP['admin_role'],
             'description' => $LDAP['admin_role'],
             'member' => $admin_member_dn
         );
         
-        $role_add = @ldap_add($ldap_connection, "cn={$LDAP['admin_group_name']},{$LDAP['roles_dn']}", $admin_role);
+        $role_add = @ldap_add($ldap_connection, "cn={$LDAP['admin_role']},{$LDAP['roles_dn']}", $admin_role);
         if ($role_add) {
             print "$li_good ✓ Created administrators group with admin user as first member</li>\n";
         } else {
@@ -306,7 +306,7 @@ if ($no_errors == TRUE) {
     print "$li_good <strong>Verifying maintainer role membership...</strong></li>\n";
     
     # Check if maintainers group exists
-    $maintainer_group_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['maintainer_group_name']}))";
+    $maintainer_group_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['maintainer_role']}))";
     $maintainer_group_search = ldap_search($ldap_connection, $LDAP['roles_dn'], $maintainer_group_filter);
     $maintainer_group_exists = ($maintainer_group_search && ldap_count_entries($ldap_connection, $maintainer_group_search) > 0);
     
@@ -317,12 +317,12 @@ if ($no_errors == TRUE) {
         $maintainer_member_dn = "uid={$maintainer_email},ou=people,{$LDAP['base_dn']}";
         $maintainer_role = array(
             'objectClass' => array('top', 'groupOfNames'),
-            'cn' => $LDAP['maintainer_group_name'],
+            'cn' => $LDAP['maintainer_role'],
             'description' => 'System maintainer with limited privileges',
             'member' => $maintainer_member_dn
         );
         
-        $role_add = @ldap_add($ldap_connection, "cn={$LDAP['maintainer_group_name']},{$LDAP['roles_dn']}", $maintainer_role);
+        $role_add = @ldap_add($ldap_connection, "cn={$LDAP['maintainer_role']},{$LDAP['roles_dn']}", $maintainer_role);
         if ($role_add) {
             print "$li_good ✓ Created maintainers group with maintainer user as first member</li>\n";
         } else {

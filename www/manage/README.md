@@ -8,7 +8,6 @@ This directory contains the management interface for the LDAP User Manager syste
 /manage/
 ├── index.php                    # Main management dashboard
 ├── download.php                 # File download functionality
-├── module_functions.inc.php     # Submenu navigation functions
 ├── users/                       # User management
 │   ├── index.php               # System users management
 │   ├── new.php                 # Create new system user

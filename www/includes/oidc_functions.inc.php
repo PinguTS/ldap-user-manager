@@ -408,7 +408,7 @@ function check_oidc_user_admin_status($user_dn, $groups) {
     }
     
     // Fall back to LDAP group membership check
-    return ldap_is_group_member(open_ldap_connection(), $LDAP['roles_dn'], $LDAP['admin_group_name'], $user_dn);
+    return ldap_is_group_member(open_ldap_connection(), $LDAP['roles_dn'], $LDAP['admin_role'], $user_dn);
 }
 
 /**
@@ -423,7 +423,7 @@ function check_oidc_user_maintainer_status($user_dn, $groups) {
     }
     
     // Fall back to LDAP group membership check
-    return ldap_is_group_member(open_ldap_connection(), $LDAP['roles_dn'], $LDAP['maintainer_group_name'], $user_dn);
+    return ldap_is_group_member(open_ldap_connection(), $LDAP['roles_dn'], $LDAP['maintainer_role'], $user_dn);
 }
 
 /**

@@ -167,10 +167,6 @@ $LDAP['maintainer_role'] = getenv('LDAP_MAINTAINER_ROLE') ?: 'maintainers';
 $LDAP['org_admin_role'] = getenv('LDAP_ORG_ADMIN_ROLE') ?: 'org_admin';
 $LDAP['user_role'] = getenv('LDAP_USER_ROLE') ?: 'user';
 
-# Group names for role-based access control
-$LDAP['admin_group_name'] = $LDAP['admin_role'];
-$LDAP['maintainer_group_name'] = $LDAP['maintainer_role'];
-
  # Display labels for UI (human-readable role names)
  $LDAP['role_display_labels'] = [
      'admin_role' => getenv('LDAP_ADMIN_DISPLAY_LABEL') ?: 'System Administrator',
@@ -395,23 +391,23 @@ $PHPMailer_PATH = (getenv('PHPMailer_PATH') ? getenv('PHPMailer_PATH') : '/opt/P
      }
      
      // Check for admin/maintainer group name conflicts
-     if ($LDAP['admin_group_name'] === $LDAP['maintainer_group_name']) {
+     if ($LDAP['admin_role'] === $LDAP['maintainer_role']) {
          $errors .= "<div class='alert alert-danger'><p class='text-center'><strong>CRITICAL ERROR: Admin and Maintainer group names cannot be the same!</strong></p>";
-         $errors .= "<p class='text-center'>Current values: admin_group_name = '{$LDAP['admin_group_name']}', maintainer_group_name = '{$LDAP['maintainer_group_name']}'</p>";
+         $errors .= "<p class='text-center'>Current values: admin_group_name = '{$LDAP['admin_role']}', maintainer_group_name = '{$LDAP['maintainer_role']}'</p>";
          $errors .= "<p class='text-center'>This configuration will completely break the access control system.</p>";
          $errors .= "<p class='text-center'>Please set different values for LDAP_ADMIN_GROUP_NAME and LDAP_MAINTAINER_GROUP_NAME.</p></div>\n";
      }
      
      // Check for role value conflicts with group names
-     if ($LDAP['admin_role'] === $LDAP['maintainer_group_name']) {
+     if ($LDAP['admin_role'] === $LDAP['maintainer_role']) {
          $errors .= "<div class='alert alert-danger'><p class='text-center'><strong>CRITICAL ERROR: Admin role conflicts with Maintainer group!</strong></p>";
-         $errors .= "<p class='text-center'>Current values: admin_role = '{$LDAP['admin_role']}', maintainer_group_name = '{$LDAP['maintainer_group_name']}'</p>";
+         $errors .= "<p class='text-center'>Current values: admin_role = '{$LDAP['admin_role']}', maintainer_group_name = '{$LDAP['maintainer_role']}'</p>";
          $errors .= "<p class='text-center'>This will cause access control confusion.</p></div>\n";
      }
      
-     if ($LDAP['maintainer_role'] === $LDAP['admin_group_name']) {
+     if ($LDAP['maintainer_role'] === $LDAP['admin_role']) {
          $errors .= "<div class='alert alert-danger'><p class='text-center'><strong>CRITICAL ERROR: Maintainer role conflicts with Admin group!</strong></p>";
-         $errors .= "<p class='text-center'>Current values: maintainer_role = '{$LDAP['maintainer_role']}', admin_group_name = '{$LDAP['admin_group_name']}'</p>";
+         $errors .= "<p class='text-center'>Current values: maintainer_role = '{$LDAP['maintainer_role']}', admin_group_name = '{$LDAP['admin_role']}'</p>";
          $errors .= "<p class='text-center'>This will cause access control confusion.</p></div>\n";
      }
      
@@ -425,8 +421,8 @@ $PHPMailer_PATH = (getenv('PHPMailer_PATH') ? getenv('PHPMailer_PATH') : '/opt/P
      
      // Check for group name conflicts
      $group_values = [
-         'admin_group_name' => $LDAP['admin_group_name'],
-         'maintainer_group_name' => $LDAP['maintainer_group_name']
+         'admin_group_name' => $LDAP['admin_role'],
+         'maintainer_group_name' => $LDAP['maintainer_role']
      ];
  }
 
@@ -444,16 +440,16 @@ $PHPMailer_PATH = (getenv('PHPMailer_PATH') ? getenv('PHPMailer_PATH') : '/opt/P
          return true;
      }
      
-     if ($LDAP['admin_group_name'] === $LDAP['maintainer_group_name']) {
+     if ($LDAP['admin_role'] === $LDAP['maintainer_role']) {
          return true;
      }
      
      // Check for role/group cross-conflicts
-     if ($LDAP['admin_role'] === $LDAP['maintainer_group_name']) {
+     if ($LDAP['admin_role'] === $LDAP['maintainer_role']) {
          return true;
      }
      
-     if ($LDAP['maintainer_role'] === $LDAP['admin_group_name']) {
+     if ($LDAP['maintainer_role'] === $LDAP['admin_role']) {
          return true;
      }
      

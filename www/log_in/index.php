@@ -102,12 +102,12 @@ if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["pas
   // Check if user is a administrator
   $is_admin = false;
   // IMPORTANT: Check global admin role independently, regardless of role value conflicts
-  $is_admin = ldap_is_group_member($ldap_connection, $LDAP['roles_dn'], $LDAP['admin_group_name'], $user_dn);
+  $is_admin = ldap_is_group_member($ldap_connection, $LDAP['roles_dn'], $LDAP['admin_role'], $user_dn);
 
   // Check if user is a maintainer
   $is_maintainer = false;
   // IMPORTANT: Check global maintainer role independently, regardless of role value conflicts
-  $is_maintainer = ldap_is_group_member($ldap_connection, $LDAP['roles_dn'], $LDAP['maintainer_group_name'], $user_dn);
+  $is_maintainer = ldap_is_group_member($ldap_connection, $LDAP['roles_dn'], $LDAP['maintainer_role'], $user_dn);
  
   // Get user organization information first
   $user_org_name = null;

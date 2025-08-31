@@ -6,7 +6,7 @@ set_include_path( ".:" . __DIR__ . "/../../includes/");
 include_once "web_functions.inc.php";
 include_once "ldap_functions.inc.php";
 include_once "access_functions.inc.php";
-include_once dirname(__DIR__) . "/module_functions.inc.php";
+include_once "module_functions.inc.php";
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
@@ -263,7 +263,7 @@ $people = ldap_get_system_users($ldap_connection);
                             if ($user_dn) {
                                 // Use LDAP_ESCAPE_FILTER if available, otherwise use 0 (PHP < 7.3 compatibility)
                                 $escape_flag = defined('LDAP_ESCAPE_FILTER') ? LDAP_ESCAPE_FILTER : 0;
-                                $admin_role_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['admin_group_name']})(member=" . ldap_escape($user_dn, "", $escape_flag) . "))";
+                                $admin_role_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['admin_role']})(member=" . ldap_escape($user_dn, "", $escape_flag) . "))";
                                 $ldap_search = @ldap_search($ldap_connection, $LDAP['roles_dn'], $admin_role_filter, ['cn']);
                                 if ($ldap_search) {
                                     $result = ldap_get_entries($ldap_connection, $ldap_search);

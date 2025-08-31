@@ -6,7 +6,7 @@ set_include_path( ".:" . __DIR__ . "/../../../includes/");
 include_once "web_functions.inc.php";
 include_once "ldap_functions.inc.php";
 include_once "access_functions.inc.php";
-include_once dirname(dirname(__DIR__)) . "/module_functions.inc.php";
+include_once "module_functions.inc.php";
 include_once "organization_functions.inc.php";
 include_once "user_functions.inc.php";
 
@@ -293,18 +293,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
             $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
             $user_by_uuid = ldap_get_entry_by_uuid($ldap_connection, $user_identifier, $usersDn);
-            ldap_close($ldap_connection);
             
             if ($user_by_uuid) {
                 $user_dn = $user_by_uuid['dn'];
             } else {
                 $message = 'User not found with UUID: ' . $user_identifier;
                 $message_type = 'danger';
+                ldap_close($ldap_connection);
                 goto after_lock_user;
             }
         } else {
             // Legacy uid-based lookup
             $user_dn = getUserDn($orgName, $user_identifier);
+            $ldap_connection = open_ldap_connection();
         }
         
         if (ldap_lock_user_account($ldap_connection, $user_dn)) {
@@ -315,6 +316,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = "Failed to lock user. LDAP Error: $ldap_error";
             $message_type = 'danger';
         }
+        ldap_close($ldap_connection);
         after_lock_user:
     } elseif (isset($_POST['unlock_user']) && currentUserCanEnableUser($_POST['unlock_user'])) {
         $user_identifier = trim($_POST['unlock_user']);
@@ -328,18 +330,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
             $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
             $user_by_uuid = ldap_get_entry_by_uuid($ldap_connection, $user_identifier, $usersDn);
-            ldap_close($ldap_connection);
             
             if ($user_by_uuid) {
                 $user_dn = $user_by_uuid['dn'];
             } else {
                 $message = 'User not found with UUID: ' . $user_identifier;
                 $message_type = 'danger';
+                ldap_close($ldap_connection);
                 goto after_unlock_user;
             }
         } else {
             // Legacy uid-based lookup
             $user_dn = getUserDn($orgName, $user_identifier);
+            $ldap_connection = open_ldap_connection();
         }
         
         if (ldap_unlock_user_account($ldap_connection, $user_dn)) {
@@ -350,6 +353,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = "Failed to unlock user. LDAP Error: $ldap_error";
             $message_type = 'danger';
         }
+        ldap_close($ldap_connection);
         after_unlock_user:
     }
 }

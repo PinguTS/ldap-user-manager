@@ -73,8 +73,8 @@ foreach ($user_tests as $filter => $user_name) {
 print "<li class='list-group-item'><strong>Test 3: Role Groups</strong></li>\n";
 
 $role_tests = array(
-            "(&(objectclass=groupOfNames)(cn={$LDAP['admin_group_name']}))" => "Administrators Group",
-            "(&(objectclass=groupOfNames)(cn={$LDAP['maintainer_group_name']}))" => "Maintainers Group"
+            "(&(objectclass=groupOfNames)(cn={$LDAP['admin_role']}))" => "Administrators Group",
+            "(&(objectclass=groupOfNames)(cn={$LDAP['maintainer_role']}))" => "Maintainers Group"
 );
 
 foreach ($role_tests as $filter => $role_name) {
@@ -91,7 +91,7 @@ foreach ($role_tests as $filter => $role_name) {
 print "<li class='list-group-item'><strong>Test 4: Role Memberships</strong></li>\n";
 
 # Check administrators group membership
-$admin_group_search = ldap_search($ldap_connection, $LDAP['roles_dn'], "(&(objectclass=groupOfNames)(cn={$LDAP['admin_group_name']}))");
+$admin_group_search = ldap_search($ldap_connection, $LDAP['roles_dn'], "(&(objectclass=groupOfNames)(cn={$LDAP['admin_role']}))");
 if ($admin_group_search && ldap_count_entries($ldap_connection, $admin_group_search) > 0) {
     $admin_group_entries = ldap_get_entries($ldap_connection, $admin_group_search);
     $admin_group = $admin_group_entries[0];

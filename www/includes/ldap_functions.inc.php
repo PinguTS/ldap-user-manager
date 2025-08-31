@@ -902,8 +902,8 @@ function ldap_user_group_membership($ldap_connection,$user_dn) {
 
   # Check global roles (administrator, maintainer)
   # IMPORTANT: Check global roles independently, regardless of role value conflicts
-  $global_admin_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['admin_group_name']})(member=" . ldap_escape($user_dn, "", LDAP_ESCAPE_FILTER) . "))";
-  $global_maintainer_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['maintainer_group_name']})(member=" . ldap_escape($user_dn, "", LDAP_ESCAPE_FILTER) . "))";
+  $global_admin_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['admin_role']})(member=" . ldap_escape($user_dn, "", LDAP_ESCAPE_FILTER) . "))";
+  $global_maintainer_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['maintainer_role']})(member=" . ldap_escape($user_dn, "", LDAP_ESCAPE_FILTER) . "))";
 
   $global_admin_search = @ldap_search($ldap_connection, $LDAP['roles_dn'], $global_admin_filter, ['cn']);
   $global_maintainer_search = @ldap_search($ldap_connection, $LDAP['roles_dn'], $global_maintainer_filter, ['cn']);
