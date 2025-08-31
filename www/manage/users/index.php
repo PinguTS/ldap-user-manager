@@ -16,14 +16,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         case 'lock_user':
             if (isset($_POST['user_identifier']) && currentUserCanDisableUser($_POST['user_identifier'])) {
                 $user_identifier = trim($_POST['user_identifier']);
-                $user_dn = get_user_dn_from_identifier($ldap_connection, $user_identifier);
+                
+                // Get user DN from the user data we already have
+                $user_dn = null;
+                if (isset($people[$user_identifier]['dn'])) {
+                    $user_dn = $people[$user_identifier]['dn'];
+                } else {
+                    // Fallback to searching if not found in current data
+                    $user_dn = get_user_dn_from_identifier($ldap_connection, $user_identifier);
+                }
                 
                 if ($user_dn && ldap_lock_user_account($ldap_connection, $user_dn)) {
                     $message = "User '$user_identifier' has been locked successfully.";
                     $message_type = 'success';
                 } else {
-                    $message = "Failed to lock user '$user_identifier'. Please check the logs for details.";
+                    // Get the actual LDAP error for debugging
+                    $ldap_error = ldap_error($ldap_connection);
+                    $message = "Failed to lock user '$user_identifier'. LDAP Error: $ldap_error";
                     $message_type = 'danger';
+                    
+                    // Log additional debugging information
+                    error_log("Lock user failed - User: $user_identifier, DN: $user_dn, LDAP Error: $ldap_error");
                 }
             } else {
                 $message = "Permission denied or invalid user identifier.";
@@ -34,14 +47,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         case 'unlock_user':
             if (isset($_POST['user_identifier']) && currentUserCanEnableUser($_POST['user_identifier'])) {
                 $user_identifier = trim($_POST['user_identifier']);
-                $user_dn = get_user_dn_from_identifier($ldap_connection, $user_identifier);
+                
+                // Get user DN from the user data we already have
+                $user_dn = null;
+                if (isset($people[$user_identifier]['dn'])) {
+                    $user_dn = $people[$user_identifier]['dn'];
+                } else {
+                    // Fallback to searching if not found in current data
+                    $user_dn = get_user_dn_from_identifier($ldap_connection, $user_identifier);
+                }
                 
                 if ($user_dn && ldap_unlock_user_account($ldap_connection, $user_dn)) {
                     $message = "User '$user_identifier' has been unlocked successfully.";
                     $message_type = 'success';
                 } else {
-                    $message = "Failed to unlock user '$user_identifier'. Please check the logs for details.";
+                    // Get the actual LDAP error for debugging
+                    $ldap_error = ldap_error($ldap_connection);
+                    $message = "Failed to unlock user '$user_identifier'. LDAP Error: $ldap_error";
                     $message_type = 'danger';
+                    
+                    // Log additional debugging information
+                    error_log("Unlock user failed - User: $user_identifier, DN: $user_dn, LDAP Error: $ldap_error");
                 }
             } else {
                 $message = "Permission denied or invalid user identifier.";
