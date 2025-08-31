@@ -447,32 +447,126 @@ if ($errors != "") { ?>
     </div>
 </div>
 
-<script src="/js/jquery-3.6.0.min.js"></script>
 <script src="/js/zxcvbn.min.js"></script>
-<script src="/js/password_utils.min.js"></script>
-<script src="/js/user_management.min.js"></script>
+<script src="/bootstrap/js/bootstrap.min.js"></script>
 <script>
+    // Debug: Check what's loaded
+    console.log('jQuery loaded:', typeof $ !== 'undefined');
+    console.log('Bootstrap loaded:', typeof $.fn !== 'undefined' && typeof $.fn.modal !== 'undefined');
+    console.log('jQuery version:', typeof $ !== 'undefined' ? $.fn.jquery : 'not loaded');
+    
     // Initialize form enhancements when page loads
     document.addEventListener('DOMContentLoaded', function() {
-        // Get password strength configuration from server
-        const passwordConfig = <?php echo get_password_strength_config_js(); ?>;
-        
-        // Initialize password strength checking with dynamic config
-        initializePasswordStrength({
-            passwordFieldId: 'password',
-            confirmFieldId: 'password_match',
-            config: passwordConfig
-        });
-        
         // Initialize form enhancements
-        initializeUserManagementForms({
-            givenNameField: 'givenName',
-            surnameField: 'sn',
-            displayField: 'cn',
-            emailField: 'mail',
-            passwordField: 'password'
-        });
+        const givenNameField = document.getElementById('givenName');
+        const surnameField = document.getElementById('sn');
+        const displayField = document.getElementById('cn');
+        const emailField = document.getElementById('mail');
+        const passwordField = document.getElementById('password');
+        
+        // Auto-generate display name from first and last name
+        if (givenNameField && surnameField && displayField) {
+            function updateDisplayName() {
+                const givenName = givenNameField.value.trim();
+                const surname = surnameField.value.trim();
+                if (givenName && surname) {
+                    displayField.value = givenName + ' ' + surname;
+                }
+            }
+            
+            givenNameField.addEventListener('input', updateDisplayName);
+            surnameField.addEventListener('input', updateDisplayName);
+        }
+        
+        // Auto-generate account ID from email
+        if (emailField && document.getElementById('<?php echo $LDAP["account_attribute"]; ?>')) {
+            emailField.addEventListener('input', function() {
+                const accountField = document.getElementById('<?php echo $LDAP["account_attribute"]; ?>');
+                if (accountField) {
+                    accountField.value = this.value.trim();
+                }
+            });
+        }
+        
+        // Password strength checking
+        const passwordField = document.getElementById('password');
+        const confirmField = document.getElementById('password_match');
+        
+        if (passwordField && confirmField) {
+            passwordField.addEventListener('input', function() {
+                const password = this.value;
+                const strength = zxcvbn(password);
+                
+                // Update password strength indicator
+                const strengthBar = document.getElementById('password_strength');
+                if (strengthBar) {
+                    const score = strength.score;
+                    const colors = ['#d9534f', '#f0ad4e', '#f0ad4e', '#5bc0de', '#5cb85c'];
+                    const labels = ['Very Weak', 'Weak', 'Fair', 'Good', 'Strong'];
+                    
+                    strengthBar.style.width = ((score + 1) * 20) + '%';
+                    strengthBar.className = 'progress-bar';
+                    strengthBar.style.backgroundColor = colors[score];
+                    strengthBar.textContent = labels[score];
+                }
+                
+                // Check if passwords match
+                if (confirmField.value) {
+                    if (password === confirmField.value) {
+                        confirmField.setCustomValidity('');
+                    } else {
+                        confirmField.setCustomValidity('Passwords do not match');
+                    }
+                }
+            });
+            
+            confirmField.addEventListener('input', function() {
+                if (passwordField.value === this.value) {
+                    this.setCustomValidity('');
+                } else {
+                    this.setCustomValidity('Passwords do not match');
+                }
+            });
+        }
     });
+    
+    // Generate secure password function
+    function generateSecurePassword(options) {
+        const words = ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot', 'golf', 'hotel', 'india', 'juliet', 'kilo', 'lima', 'mike', 'november', 'oscar', 'papa', 'quebec', 'romeo', 'sierra', 'tango', 'uniform', 'victor', 'whiskey', 'xray', 'yankee', 'zulu'];
+        
+        let password = '';
+        for (let i = 0; i < options.words; i++) {
+            if (i > 0) password += options.separator;
+            password += words[Math.floor(Math.random() * words.length)];
+        }
+        
+        // Add a random number
+        password += Math.floor(Math.random() * 100);
+        
+        // Set the password
+        const passwordField = document.getElementById(options.passwordFieldId);
+        if (passwordField) {
+            passwordField.value = password;
+            passwordField.dispatchEvent(new Event('input'));
+        }
+        
+        // Set the confirm field if it exists
+        if (options.confirmFieldId) {
+            const confirmField = document.getElementById(options.confirmFieldId);
+            if (confirmField) {
+                confirmField.value = password;
+                confirmField.dispatchEvent(new Event('input'));
+            }
+        }
+    }
+    
+    // Update account UID function
+    function updateAccountUid(email) {
+        const accountField = document.getElementById('<?php echo $LDAP["account_attribute"]; ?>');
+        if (accountField) {
+            accountField.value = email.trim();
+        }
+    }
 </script>
 
 <?php render_footer(); ?>

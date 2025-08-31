@@ -942,9 +942,14 @@ $ldap_connection = open_ldap_connection();
     <?php endif; ?>
     <p class="text-muted mt-2">(Role management and UI refinements complete.)</p>
 </div>
-<script src="/js/jquery-3.6.0.min.js"></script>
 <script src="/js/zxcvbn.min.js"></script>
+<script src="/bootstrap/js/bootstrap.min.js"></script>
 <script>
+    // Debug: Check what's loaded
+    console.log('jQuery loaded:', typeof $ !== 'undefined');
+    console.log('Bootstrap loaded:', typeof $.fn !== 'undefined' && typeof $.fn.modal !== 'undefined');
+    console.log('jQuery version:', typeof $ !== 'undefined' ? $.fn.jquery : 'not loaded');
+    
     // Initialize organization user search functionality
     document.addEventListener('DOMContentLoaded', function() {
         const searchInput = document.getElementById('user_search_input');
