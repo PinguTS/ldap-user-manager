@@ -944,66 +944,133 @@ $ldap_connection = open_ldap_connection();
 </div>
 <script src="/js/jquery-3.6.0.min.js"></script>
 <script src="/js/zxcvbn.min.js"></script>
-<script src="/js/password_utils.min.js"></script>
-<script src="/js/user_management.min.js"></script>
 <script>
-    // Initialize password strength checking for modals when they appear
-    function initializeModalPasswordStrength() {
-        // Get password strength configuration from server
-        const passwordConfig = <?php echo get_password_strength_config_js(); ?>;
-        
-        // Edit user modal password field
-        const editPasswordField = document.getElementById('edit_password');
-        if (editPasswordField) {
-            initializePasswordStrength({
-                passwordFieldId: 'edit_password',
-                config: passwordConfig
-            });
-        }
-        
-        // Reset credentials modal password field
-        const resetPasswordField = document.getElementById('reset_password');
-        if (resetPasswordField) {
-            initializePasswordStrength({
-                passwordFieldId: 'reset_password',
-                config: passwordConfig
-            });
-        }
-    }
-    
-    // Initialize password strength when modals are shown
-    $(document).on('shown.bs.modal', function() {
-        setTimeout(initializeModalPasswordStrength, 100);
-    });
-    
-    // Also initialize when page loads (for modals that are already visible)
+    // Initialize organization user search functionality
     document.addEventListener('DOMContentLoaded', function() {
-        initializeModalPasswordStrength();
+        const searchInput = document.getElementById('user_search_input');
+        const userTable = document.getElementById('user_table');
+        
+        if (searchInput && userTable) {
+            searchInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                const rows = userTable.querySelectorAll('tbody tr');
+                
+                rows.forEach(function(row) {
+                    const text = row.textContent.toLowerCase();
+                    if (text.includes(searchTerm)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            });
+        }
+        
+        // Auto-dismiss messages after 5 seconds
+        const messageBox = document.getElementById('msgbox');
+        if (messageBox) {
+            setTimeout(function() {
+                messageBox.style.display = 'none';
+            }, 5000);
+        }
+        
+        // Initialize form enhancements
+        const givenNameField = document.getElementById('givenName');
+        const surnameField = document.getElementById('sn');
+        const displayField = document.getElementById('cn');
+        const emailField = document.getElementById('mail');
+        const passwordField = document.getElementById('password');
+        
+        // Auto-generate display name from first and last name
+        if (givenNameField && surnameField && displayField) {
+            function updateDisplayName() {
+                const givenName = givenNameField.value.trim();
+                const surname = surnameField.value.trim();
+                if (givenName && surname) {
+                    displayField.value = givenName + ' ' + surname;
+                }
+            }
+            
+            givenNameField.addEventListener('input', updateDisplayName);
+            surnameField.addEventListener('input', updateDisplayName);
+        }
+        
+        // Auto-generate account ID from email
+        if (emailField && document.getElementById('<?php echo $LDAP["account_attribute"]; ?>')) {
+            emailField.addEventListener('input', function() {
+                const accountField = document.getElementById('<?php echo $LDAP["account_attribute"]; ?>');
+                if (accountField) {
+                    accountField.value = this.value.trim();
+                }
+            });
+        }
     });
-    
-    // Initialize form enhancements
-    initializeUserManagementForms({
-        givenNameField: 'givenName',
-        surnameField: 'sn',
-        displayField: 'cn',
-        emailField: 'mail',
-        passwordField: 'password'
-    });
-    
-    // Initialize user search and message dismissal
-    initializeUserManagementPage();
     
     // Lock/Unlock user functions
     function confirmLockUser(userIdentifier, userName) {
+        console.log('confirmLockUser called with:', userIdentifier, userName);
         document.getElementById('lockUserIdentifier').value = userIdentifier;
         document.getElementById('lockUserName').textContent = userName;
+        
+        // Check if jQuery and modal are available
+        if (typeof $ === 'undefined') {
+            console.error('jQuery is not loaded');
+            alert('Error: jQuery is not loaded. Please refresh the page.');
+            return;
+        }
+        
+        if (typeof $.fn.modal === 'undefined') {
+            console.error('Bootstrap modal is not available');
+            alert('Error: Bootstrap modal is not available. Please refresh the page.');
+            return;
+        }
+        
         $('#lockUserModal').modal('show');
     }
     
     function confirmUnlockUser(userIdentifier, userName) {
+        console.log('confirmUnlockUser called with:', userIdentifier, userName);
         document.getElementById('unlockUserIdentifier').value = userIdentifier;
         document.getElementById('unlockUserName').textContent = userName;
+        
+        // Check if jQuery and modal are available
+        if (typeof $ === 'undefined') {
+            console.error('jQuery is not loaded');
+            alert('Error: jQuery is not loaded. Please refresh the page.');
+            return;
+        }
+        
+        if (typeof $.fn.modal === 'undefined') {
+            console.error('Bootstrap modal is not available');
+            alert('Error: Bootstrap modal is not available. Please refresh the page.');
+            return;
+        }
+        
         $('#unlockUserModal').modal('show');
+    }
+    
+    // Edit user modal function
+    function openEditModal(userIdentifier, userName) {
+        console.log('openEditModal called with:', userIdentifier, userName);
+        
+        // Check if jQuery and modal are available
+        if (typeof $ === 'undefined') {
+            console.error('jQuery is not loaded');
+            alert('Error: jQuery is not loaded. Please refresh the page.');
+            return;
+        }
+        
+        if (typeof $.fn.modal === 'undefined') {
+            console.error('Bootstrap modal is not available');
+            alert('Error: Bootstrap modal is not available. Please refresh the page.');
+            return;
+        }
+        
+        // Set the user identifier in the modal
+        document.getElementById('edit_uid_input').value = userIdentifier;
+        
+        // Show the modal
+        $('#editUserModal').modal('show');
     }
 </script>
 <?php
