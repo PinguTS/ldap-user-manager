@@ -279,6 +279,81 @@ if (isset($_GET['toggle_manager']) && isset($_GET['uid'])) {
     after_toggle_manager:
 }
 
+// Handle user lock/unlock
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['lock_user']) && currentUserCanDisableUser($_POST['lock_user'])) {
+        $user_identifier = trim($_POST['lock_user']);
+        
+        // Check if this is a UUID or uid
+        $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $user_identifier);
+        
+        if ($is_uuid) {
+            // UUID-based lookup
+            $ldap_connection = open_ldap_connection();
+            $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
+            $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
+            $user_by_uuid = ldap_get_entry_by_uuid($ldap_connection, $user_identifier, $usersDn);
+            ldap_close($ldap_connection);
+            
+            if ($user_by_uuid) {
+                $user_dn = $user_by_uuid['dn'];
+            } else {
+                $message = 'User not found with UUID: ' . $user_identifier;
+                $message_type = 'danger';
+                goto after_lock_user;
+            }
+        } else {
+            // Legacy uid-based lookup
+            $user_dn = getUserDn($orgName, $user_identifier);
+        }
+        
+        if (ldap_lock_user_account($ldap_connection, $user_dn)) {
+            $message = "User has been locked successfully.";
+            $message_type = 'success';
+        } else {
+            $ldap_error = ldap_error($ldap_connection);
+            $message = "Failed to lock user. LDAP Error: $ldap_error";
+            $message_type = 'danger';
+        }
+        after_lock_user:
+    } elseif (isset($_POST['unlock_user']) && currentUserCanEnableUser($_POST['unlock_user'])) {
+        $user_identifier = trim($_POST['unlock_user']);
+        
+        // Check if this is a UUID or uid
+        $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $user_identifier);
+        
+        if ($is_uuid) {
+            // UUID-based lookup
+            $ldap_connection = open_ldap_connection();
+            $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
+            $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
+            $user_by_uuid = ldap_get_entry_by_uuid($ldap_connection, $user_identifier, $usersDn);
+            ldap_close($ldap_connection);
+            
+            if ($user_by_uuid) {
+                $user_dn = $user_by_uuid['dn'];
+            } else {
+                $message = 'User not found with UUID: ' . $user_identifier;
+                $message_type = 'danger';
+                goto after_unlock_user;
+            }
+        } else {
+            // Legacy uid-based lookup
+            $user_dn = getUserDn($orgName, $user_identifier);
+        }
+        
+        if (ldap_unlock_user_account($ldap_connection, $user_dn)) {
+            $message = "User has been unlocked successfully.";
+            $message_type = 'success';
+        } else {
+            $ldap_error = ldap_error($ldap_connection);
+            $message = "Failed to unlock user. LDAP Error: $ldap_error";
+            $message_type = 'danger';
+        }
+        after_unlock_user:
+    }
+}
+
 // Message handling
 $message = '';
 $message_type = '';
@@ -592,6 +667,9 @@ if (!is_array($users)) {
     $users = [];
 }
 $orgManagerDns = getOrgManagerDns($orgName);
+
+// Open LDAP connection for display and operations
+$ldap_connection = open_ldap_connection();
 ?>
 <div class="container">
     <nav aria-label="breadcrumb">
@@ -621,6 +699,7 @@ $orgManagerDns = getOrgManagerDns($orgName);
                 <th>Username/Email</th>
                 <th>Full Name</th>
                 <th>Email</th>
+                <th>Status</th>
                 <th>Org Manager</th>
                 <th>Actions</th>
             </tr>
@@ -637,6 +716,12 @@ $orgManagerDns = getOrgManagerDns($orgName);
                     <td><?= safe_display_name($user, 'cn', 'givenName', 'sn') ?></td>
                     <td><?= htmlspecialchars(get_ldap_attribute($user, 'mail')) ?></td>
                     <td>
+                        <?php
+                        $is_locked = ldap_user_is_locked($ldap_connection, $user['dn']);
+                        echo $is_locked ? '<span class="badge bg-danger">Locked</span>' : '<span class="badge bg-success">Active</span>';
+                        ?>
+                    </td>
+                    <td>
                         <form method="get" style="display:inline">
                             <input type="hidden" name="<?= $org_uuid ? 'uuid' : 'org' ?>" value="<?= htmlspecialchars($org_uuid ?: $orgName) ?>">
                             <input type="hidden" name="uid" value="<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>">
@@ -647,6 +732,13 @@ $orgManagerDns = getOrgManagerDns($orgName);
                     <td>
                         <div class="btn-group btn-group-sm">
                             <button type="button" class="btn btn-secondary btn-sm" onclick="openEditModal('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')">Edit</button>
+                            <?php if (currentUserCanDisableUser($user_identifier)): ?>
+                                <?php if (ldap_user_is_locked($ldap_connection, $user['dn'])): ?>
+                                    <button type="button" class="btn btn-success btn-sm" onclick="confirmUnlockUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')">Unlock</button>
+                                <?php else: ?>
+                                    <button type="button" class="btn btn-warning btn-sm" onclick="confirmLockUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')">Lock</button>
+                                <?php endif; ?>
+                            <?php endif; ?>
                             <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&delete_user=<?= urlencode($user_identifier) ?>" onclick="return confirm('Are you sure you want to delete this user?')" class="btn btn-danger btn-sm">Delete</a>
                             <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&reset_user=<?= urlencode($user_identifier) ?>" class="btn btn-warning btn-sm">Reset</a>
                         </div>
@@ -738,6 +830,59 @@ $orgManagerDns = getOrgManagerDns($orgName);
         </div>
       </div>
     </div>
+    
+    <!-- Lock User Modal -->
+    <div class="modal fade" id="lockUserModal" tabindex="-1" role="dialog" aria-labelledby="lockUserModalLabel" aria-hidden="true">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <form method="post" action="">
+            <?= csrf_token_field() ?>
+            <div class="modal-header bg-warning text-dark">
+              <h5 class="modal-title" id="lockUserModalLabel">Lock User Account</h5>
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <div class="modal-body">
+              <p>Are you sure you want to lock the user account for <strong><span id="lockUserName"></span></strong>?</p>
+              <p class="text-warning"><strong>Warning:</strong> This will prevent the user from logging in until the account is unlocked.</p>
+              <input type="hidden" name="lock_user" id="lockUserIdentifier" value="">
+            </div>
+            <div class="modal-footer">
+              <button type="submit" class="btn btn-warning">Lock Account</button>
+              <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Unlock User Modal -->
+    <div class="modal fade" id="unlockUserModal" tabindex="-1" role="dialog" aria-labelledby="unlockUserModalLabel" aria-hidden="true">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <form method="post" action="">
+            <?= csrf_token_field() ?>
+            <div class="modal-header bg-success text-white">
+              <h5 class="modal-title" id="unlockUserModalLabel">Unlock User Account</h5>
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <div class="modal-body">
+              <p>Are you sure you want to unlock the user account for <strong><span id="unlockUserName"></span></strong>?</p>
+              <p class="text-success">This will allow the user to log in again.</p>
+              <input type="hidden" name="unlock_user" id="unlockUserIdentifier" value="">
+            </div>
+            <div class="modal-footer">
+              <button type="submit" class="btn btn-success">Unlock Account</button>
+              <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    
     <?php if (isset($_GET['reset_user'])): 
         $resetUserParam = $_GET['reset_user'];
         $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $resetUserParam);
@@ -843,6 +988,23 @@ $orgManagerDns = getOrgManagerDns($orgName);
     
     // Initialize user search and message dismissal
     initializeUserManagementPage();
+    
+    // Lock/Unlock user functions
+    function confirmLockUser(userIdentifier, userName) {
+        document.getElementById('lockUserIdentifier').value = userIdentifier;
+        document.getElementById('lockUserName').textContent = userName;
+        $('#lockUserModal').modal('show');
+    }
+    
+    function confirmUnlockUser(userIdentifier, userName) {
+        document.getElementById('unlockUserIdentifier').value = userIdentifier;
+        document.getElementById('unlockUserName').textContent = userName;
+        $('#unlockUserModal').modal('show');
+    }
 </script>
 <?php
-render_footer(); 
+// Close LDAP connection
+ldap_close($ldap_connection);
+
+render_footer();
+?> 
