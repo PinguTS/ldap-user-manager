@@ -6,7 +6,7 @@ set_include_path( ".:" . __DIR__ . "/../../includes/");
 include_once "web_functions.inc.php";
 include_once "ldap_functions.inc.php";
 include_once "access_functions.inc.php";
-include_once dirname(__DIR__) . "/module_functions.inc.php";
+include_once "module_functions.inc.php";
 include_once "organization_functions.inc.php";
 
 // Handle form submissions
@@ -139,6 +139,9 @@ if (!$ldap_connection) {
                     <?php if (empty($organizations)): ?>
                         <p class="text-muted">No organizations found.</p>
                     <?php else: ?>
+                        <div class="form-group">
+                            <input class="form-control" id="org_search_input" type="text" placeholder="Search organizations..." style="margin-bottom: 15px;">
+                        </div>
                         <div class="list-group">
                             <?php 
                             // Filter organizations based on user permissions
@@ -317,15 +320,35 @@ if (!$ldap_connection) {
 </div>
 
 <script src="/js/jquery-3.6.0.min.js"></script>
-<script src="/js/user_management.min.js"></script>
 <script>
-    // Initialize common user management page functionality
+    // Initialize organization search functionality
     document.addEventListener('DOMContentLoaded', function() {
-        initializeUserManagementPage({
-            searchInputId: 'org_search_input',
-            tableId: 'org_table',
-            messageId: 'msgbox'
-        });
+        const searchInput = document.getElementById('org_search_input');
+        const orgList = document.querySelector('.list-group');
+        
+        if (searchInput && orgList) {
+            searchInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                const items = orgList.querySelectorAll('.list-group-item');
+                
+                items.forEach(function(item) {
+                    const text = item.textContent.toLowerCase();
+                    if (text.includes(searchTerm)) {
+                        item.style.display = '';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+            });
+        }
+        
+        // Auto-dismiss messages after 5 seconds
+        const messageBox = document.getElementById('msgbox');
+        if (messageBox) {
+            setTimeout(function() {
+                messageBox.style.display = 'none';
+            }, 5000);
+        }
     });
     
     // Organization lock/unlock functions
