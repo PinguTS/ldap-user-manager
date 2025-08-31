@@ -382,8 +382,8 @@ if ($orgExists) {
                          <td><?php print htmlspecialchars(ucfirst(str_replace('_', ' ', $user['role'] ?? 'user'))); ?></td>
                          <td>
                                 <div class="btn-group btn-group-sm">
-                                    <a href="/manage/organizations/users/index.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>&edit_user=<?php echo urlencode($user['uid'][0] ?? $user['mail'][0] ?? $user['cn'][0]); ?>" class="btn btn-secondary btn-sm">Edit</a>
-                                    <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteUser('<?php echo htmlspecialchars($user['uid'][0] ?? $user['mail'][0] ?? $user['cn'][0]); ?>')">Delete</button>
+                                    <a href="/manage/organizations/users/index.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>&edit_user=<?php echo urlencode($user['entryUUID'] ?? $user['mail'] ?? $user['cn']); ?>" class="btn btn-secondary btn-sm">Edit</a>
+                                    <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteUser('<?php echo htmlspecialchars($user['entryUUID'] ?? $user['mail'] ?? $user['cn']); ?>')">Delete</button>
                                 </div>
                          </td>
                        </tr>
