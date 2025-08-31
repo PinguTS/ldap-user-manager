@@ -319,10 +319,12 @@ if (!$ldap_connection) {
     </div>
 </div>
 
-<script src="/js/jquery-3.6.0.min.js"></script>
 <script>
-    // Initialize organization search functionality
+    // Debug: Check if jQuery and Bootstrap are loaded
     document.addEventListener('DOMContentLoaded', function() {
+        console.log('jQuery version:', typeof $ !== 'undefined' ? $.fn.jquery : 'not loaded');
+        console.log('Bootstrap modal:', typeof $ !== 'undefined' && $.fn.modal ? 'available' : 'not available');
+        
         const searchInput = document.getElementById('org_search_input');
         const orgList = document.querySelector('.list-group');
         
@@ -353,29 +355,74 @@ if (!$ldap_connection) {
     
     // Organization lock/unlock functions
     function confirmLockOrganization(orgName, orgUuid = '') {
+        console.log('confirmLockOrganization called with:', orgName, orgUuid);
         document.getElementById('lockOrgName').textContent = orgName;
         document.getElementById('lockOrgNameInput').value = orgName;
         if (orgUuid) {
             document.getElementById('lockOrgUuidInput').value = orgUuid;
         }
+        
+        // Check if jQuery and modal are available
+        if (typeof $ === 'undefined') {
+            console.error('jQuery is not loaded');
+            alert('Error: jQuery is not loaded. Please refresh the page.');
+            return;
+        }
+        
+        if (typeof $.fn.modal === 'undefined') {
+            console.error('Bootstrap modal is not available');
+            alert('Error: Bootstrap modal is not available. Please refresh the page.');
+            return;
+        }
+        
         $('#lockModal').modal('show');
     }
     
     function confirmUnlockOrganization(orgName, orgUuid = '') {
+        console.log('confirmUnlockOrganization called with:', orgName, orgUuid);
         document.getElementById('unlockOrgName').textContent = orgName;
         document.getElementById('unlockOrgNameInput').value = orgName;
         if (orgUuid) {
             document.getElementById('unlockOrgUuidInput').value = orgUuid;
         }
+        
+        // Check if jQuery and modal are available
+        if (typeof $ === 'undefined') {
+            console.error('jQuery is not loaded');
+            alert('Error: jQuery is not loaded. Please refresh the page.');
+            return;
+        }
+        
+        if (typeof $.fn.modal === 'undefined') {
+            console.error('Bootstrap modal is not available');
+            alert('Error: Bootstrap modal is not available. Please refresh the page.');
+            return;
+        }
+        
         $('#unlockModal').modal('show');
     }
     
     function confirmDelete(orgName, orgUuid = '') {
+        console.log('confirmDelete called with:', orgName, orgUuid);
         document.getElementById('deleteOrgName').textContent = orgName;
         document.getElementById('deleteOrgNameInput').value = orgName;
         if (orgUuid) {
             document.getElementById('deleteOrgUuidInput').value = orgUuid;
         }
+        
+        // Check if jQuery and modal are available
+        if (typeof $ === 'undefined') {
+            console.error('jQuery is not loaded');
+            alert('Error: jQuery is not loaded. Please refresh the page.');
+            return;
+        }
+        
+        if (typeof $.fn.modal === 'undefined') {
+            console.error('Bootstrap modal is not available');
+            alert('Error: Bootstrap modal is not available. Please refresh the page.');
+            return;
+        }
+        
         $('#deleteModal').modal('show');
     }
 </script>
