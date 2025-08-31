@@ -1,6 +1,14 @@
 <?php
 declare(strict_types=1);
 
+// Define LDAP escape constants for PHP < 7.3 compatibility
+if (!defined('LDAP_ESCAPE_FILTER')) {
+    define('LDAP_ESCAPE_FILTER', 0);
+}
+if (!defined('LDAP_ESCAPE_DN')) {
+    define('LDAP_ESCAPE_DN', 0);
+}
+
 set_include_path( ".:" . __DIR__ . "/../../includes/");
 
 include_once "web_functions.inc.php";

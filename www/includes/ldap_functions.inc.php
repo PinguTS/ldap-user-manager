@@ -1,6 +1,14 @@
 <?php
 declare(strict_types=1);
 
+// Define LDAP escape constants for PHP < 7.3 compatibility
+if (!defined('LDAP_ESCAPE_FILTER')) {
+    define('LDAP_ESCAPE_FILTER', 0);
+}
+if (!defined('LDAP_ESCAPE_DN')) {
+    define('LDAP_ESCAPE_DN', 0);
+}
+
 /**
  * LDAP connection and authentication functions
  * 
@@ -971,22 +979,36 @@ function ldap_organization_get_uuid($ldap_connection, $organization_name) {
 }
 
 function ldap_user_get_uuid($ldap_connection, $user_dn) {
-  global $log_prefix, $LDAP, $LDAP_DEBUG;
-
-  // Search for the user by DN to get UUID
-  $ldap_search = @ldap_search($ldap_connection, $LDAP['base_dn'], "(dn=$user_dn)", array($LDAP['uuid_attribute']));
-  if (!$ldap_search) {
-    return FALSE;
-  }
-  
-  $result = ldap_get_entries($ldap_connection, $ldap_search);
-  if ($result['count'] > 0) {
-    return $result[0][strtolower($LDAP['uuid_attribute'])][0];
-  }
-
-  return FALSE;
-
+    global $LDAP;
+    
+    if ($org_dn) {
+        // Search in specific organization
+        return ldap_get_entry_by_uuid($ldap_connection, $uuid, $org_dn);
+    } else {
+        // Search in system users first (most common case)
+        $user = ldap_get_entry_by_uuid($ldap_connection, $uuid, $LDAP['people_dn']);
+        if ($user) {
+            return $user;
+        }
+        
+        // Search in organizations by scanning the org_dn structure
+        $org_search = @ldap_search($ldap_connection, $LDAP['org_dn'], "(objectClass=organization)", ['o']);
+        if ($org_search) {
+            $orgs = ldap_get_entries($ldap_connection, $org_search);
+            for ($i = 0; $i < $orgs['count']; $i++) {
+                $org_name = $orgs[$i]['o'][0];
+                $org_people_dn = "ou=people,o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
+                $user = ldap_get_entry_by_uuid($ldap_connection, $uuid, $org_people_dn);
+                if ($user) {
+                    return $user;
+                }
+            }
+        }
+    }
+    
+    return false;
 }
+
 ##################################
 
 function ldap_complete_attribute_array($default_attributes,$additional_attributes) {
@@ -1554,20 +1576,24 @@ function ldap_get_user_by_uuid($ldap_connection, $uuid, $org_dn = null) {
         // Search in specific organization
         return ldap_get_entry_by_uuid($ldap_connection, $uuid, $org_dn);
     } else {
-        // Search in all organizations
-        $orgs = listOrganizations();
-        foreach ($orgs as $org) {
-            $org_people_dn = "ou=people,o=" . ldap_escape($org['name'], '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
-            $user = ldap_get_entry_by_uuid($ldap_connection, $uuid, $org_people_dn);
-            if ($user) {
-                return $user;
-            }
-        }
-        
-        // Also search in system users
+        // Search in system users first (most common case)
         $user = ldap_get_entry_by_uuid($ldap_connection, $uuid, $LDAP['people_dn']);
         if ($user) {
             return $user;
+        }
+        
+        // Search in organizations by scanning the org_dn structure
+        $org_search = @ldap_search($ldap_connection, $LDAP['org_dn'], "(objectClass=organization)", ['o']);
+        if ($org_search) {
+            $orgs = ldap_get_entries($ldap_connection, $org_search);
+            for ($i = 0; $i < $orgs['count']; $i++) {
+                $org_name = $orgs[$i]['o'][0];
+                $org_people_dn = "ou=people,o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
+                $user = ldap_get_entry_by_uuid($ldap_connection, $uuid, $org_people_dn);
+                if ($user) {
+                    return $user;
+                }
+            }
         }
     }
     
