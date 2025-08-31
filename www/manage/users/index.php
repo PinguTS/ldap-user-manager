@@ -128,6 +128,15 @@ $people = ldap_get_system_users($ldap_connection);
         <div class="col-md-12">
             <h2>System User Management</h2>
             
+            <?php if (isset($message)): ?>
+                <div class="alert alert-<?php echo $message_type; ?> alert-dismissible" role="alert">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                    <?php echo htmlspecialchars($message); ?>
+                </div>
+            <?php endif; ?>
+            
             <div class="row mb-3">
                 <div class="col-md-6">
                     <?php if (currentUserIsGlobalAdmin() || currentUserIsMaintainer()): ?>
@@ -154,10 +163,10 @@ $people = ldap_get_system_users($ldap_connection);
             </div>
             
             <div class="form-group">
-                <input class="form-control" id="search_input" type="text" placeholder="Search system users...">
+                <input class="form-control" id="user_search_input" type="text" placeholder="Search system users...">
             </div>
             
-            <table class="table table-striped">
+            <table class="table table-striped" id="user_table">
                 <thead>
                     <tr>
                         <th>Account ID</th>
@@ -226,7 +235,9 @@ $people = ldap_get_system_users($ldap_connection);
                         elseif (currentUserIsMaintainer()) {
                             // Maintainers can only delete maintainer users, not admins
                             if ($user_dn) {
-                                $admin_role_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['admin_group_name']})(member=" . ldap_escape($user_dn, "", LDAP_ESCAPE_FILTER) . "))";
+                                // Use LDAP_ESCAPE_FILTER if available, otherwise use 0 (PHP < 7.3 compatibility)
+                                $escape_flag = defined('LDAP_ESCAPE_FILTER') ? LDAP_ESCAPE_FILTER : 0;
+                                $admin_role_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['admin_group_name']})(member=" . ldap_escape($user_dn, "", $escape_flag) . "))";
                                 $ldap_search = @ldap_search($ldap_connection, $LDAP['roles_dn'], $admin_role_filter, ['cn']);
                                 if ($ldap_search) {
                                     $result = ldap_get_entries($ldap_connection, $ldap_search);
