@@ -366,16 +366,28 @@ $people = ldap_get_system_users($ldap_connection);
     </div>
 </div>
 
-    <script src="/js/jquery-3.6.0.min.js"></script>
-    <script src="/js/user_management.min.js"></script>
     <script>
         // Initialize common user management page functionality
         document.addEventListener('DOMContentLoaded', function() {
-            initializeUserManagementPage({
-                searchInputId: 'user_search_input',
-                tableId: 'user_table',
-                messageId: 'msgbox'
-            });
+            // Initialize search functionality
+            const searchInput = document.getElementById('user_search_input');
+            const userTable = document.getElementById('user_table');
+            
+            if (searchInput && userTable) {
+                searchInput.addEventListener('input', function() {
+                    const searchTerm = this.value.toLowerCase();
+                    const rows = userTable.querySelectorAll('tbody tr');
+                    
+                    rows.forEach(function(row) {
+                        const text = row.textContent.toLowerCase();
+                        if (text.includes(searchTerm)) {
+                            row.style.display = '';
+                        } else {
+                            row.style.display = 'none';
+                        }
+                    });
+                });
+            }
         });
         
         // User lock/unlock functions
