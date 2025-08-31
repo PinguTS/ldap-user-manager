@@ -98,12 +98,28 @@ if (!is_array($organizations)) {
     $organizations = [];
 }
 
+// Establish LDAP connection for status checks
+$ldap_connection = open_ldap_connection();
+if (!$ldap_connection) {
+    $message = "Failed to connect to LDAP server. Please check the logs for details.";
+    $message_type = 'danger';
+}
+
 ?>
 
 <div class="container">
     <div class="row">
         <div class="col-md-12">
             <h2>Organization Management</h2>
+            
+            <?php if (isset($message)): ?>
+                <div class="alert alert-<?php echo $message_type; ?> alert-dismissible" role="alert">
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                    <?php echo htmlspecialchars($message); ?>
+                </div>
+            <?php endif; ?>
             
             <?php if (currentUserCanCreateOrganization()): ?>
             <div class="row mb-3">
@@ -159,8 +175,20 @@ if (!is_array($organizations)) {
                                                 <strong>Status:</strong> <?php echo htmlspecialchars($org['description']); ?><br>
                                             <?php endif; ?>
                                             <strong>Account Status:</strong> 
-                                            <span class="badge badge-<?php echo ldap_organization_is_locked($ldap_connection, $org_name) ? 'danger' : 'success'; ?>">
-                                                <?php echo ldap_organization_is_locked($ldap_connection, $org_name) ? 'Locked' : 'Active'; ?>
+                                            <span class="badge badge-<?php 
+                                                if ($ldap_connection && ldap_organization_is_locked($ldap_connection, $org_name)) {
+                                                    echo 'danger';
+                                                } else {
+                                                    echo 'success';
+                                                }
+                                            ?>">
+                                                <?php 
+                                                if ($ldap_connection && ldap_organization_is_locked($ldap_connection, $org_name)) {
+                                                    echo 'Locked';
+                                                } else {
+                                                    echo 'Active';
+                                                }
+                                                ?>
                                             </span>
                                         </p>
                                         <div class="btn-group btn-group-sm">
@@ -171,10 +199,10 @@ if (!is_array($organizations)) {
                                                     <button type="button" class="btn btn-danger" onclick="confirmDelete('<?php echo $org_name_safe; ?>', '<?php echo $org['entryUUID']; ?>')">Delete</button>
                                                 <?php endif; ?>
                                                 <?php if (currentUserCanDisableOrganization($org_name)): ?>
-                                                    <?php if (ldap_organization_is_locked($ldap_connection, $org_name)): ?>
-                                                        <button type="button" class="btn btn-success" onclick="confirmUnlockOrganization('<?php echo $org_name_safe; ?>', '<?php echo $org['entryUUID']; ?>')">Unlock</button>
+                                                    <?php if ($ldap_connection && ldap_organization_is_locked($ldap_connection, $org_name)): ?>
+                                                        <button type="button" class="btn btn-success" onclick="confirmUnlockOrganization('<?php echo $org_name_safe; ?>')">Unlock</button>
                                                     <?php else: ?>
-                                                        <button type="button" class="btn btn-warning" onclick="confirmLockOrganization('<?php echo $org_name_safe; ?>', '<?php echo $org['entryUUID']; ?>')">Lock</button>
+                                                        <button type="button" class="btn btn-warning" onclick="confirmLockOrganization('<?php echo $org_name_safe; ?>')">Lock</button>
                                                     <?php endif; ?>
                                                 <?php endif; ?>
                                             <?php else: ?>
@@ -330,5 +358,10 @@ if (!is_array($organizations)) {
 </script>
 
 <?php
+// Clean up LDAP connection
+if (isset($ldap_connection) && $ldap_connection) {
+    ldap_close($ldap_connection);
+}
+
 render_footer();
 ?> 
