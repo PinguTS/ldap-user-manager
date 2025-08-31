@@ -355,6 +355,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         ldap_close($ldap_connection);
         after_unlock_user:
+    } elseif (isset($_POST['delete_user']) && currentUserCanDisableUser($_POST['delete_user'])) {
+        $user_identifier = trim($_POST['delete_user']);
+        
+        // Check if this is a UUID or uid
+        $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $user_identifier);
+        
+        if ($is_uuid) {
+            // UUID-based lookup
+            $ldap_connection = open_ldap_connection();
+            $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
+            $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
+            $user_by_uuid = ldap_get_entry_by_uuid($ldap_connection, $user_identifier, $usersDn);
+            
+            if ($user_by_uuid) {
+                $user_dn = $user_by_uuid['dn'];
+            } else {
+                $message = 'User not found with UUID: ' . $user_identifier;
+                $message_type = 'danger';
+                ldap_close($ldap_connection);
+                goto after_delete_user;
+            }
+        } else {
+            // Legacy uid-based lookup
+            $user_dn = getUserDn($orgName, $user_identifier);
+            $ldap_connection = open_ldap_connection();
+        }
+        
+        if (ldap_delete($ldap_connection, $user_dn)) {
+            $message = "User has been deleted successfully.";
+            $message_type = 'success';
+        } else {
+            $ldap_error = ldap_error($ldap_connection);
+            $message = "Failed to delete user. LDAP Error: $ldap_error";
+            $message_type = 'danger';
+        }
+        ldap_close($ldap_connection);
+        after_delete_user:
     }
 }
 
@@ -743,7 +780,7 @@ $ldap_connection = open_ldap_connection();
                                     <button type="button" class="btn btn-warning btn-sm" onclick="confirmLockUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')">Lock</button>
                                 <?php endif; ?>
                             <?php endif; ?>
-                            <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&delete_user=<?= urlencode($user_identifier) ?>" onclick="return confirm('Are you sure you want to delete this user?')" class="btn btn-danger btn-sm">Delete</a>
+                            <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')">Delete</button>
                             <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&reset_user=<?= urlencode($user_identifier) ?>" class="btn btn-warning btn-sm">Reset</a>
                         </div>
                     </td>
@@ -880,6 +917,33 @@ $ldap_connection = open_ldap_connection();
             </div>
             <div class="modal-footer">
               <button type="submit" class="btn btn-success">Unlock Account</button>
+              <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Delete User Modal -->
+    <div class="modal fade" id="deleteUserModal" tabindex="-1" role="dialog" aria-labelledby="deleteUserModalLabel" aria-hidden="true">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <form method="post">
+            <?= csrf_token_field() ?>
+            <div class="modal-header">
+              <h5 class="modal-title" id="deleteUserModalLabel">Delete User Account</h5>
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <div class="modal-body">
+              <p>Are you sure you want to delete the user "<span id="deleteUserName"></span>"?</p>
+              <p class="text-danger"><strong>Warning:</strong> This action cannot be undone and will remove all associated data.</p>
+              <p class="text-warning"><strong>Note:</strong> This will permanently delete the user account from this organization.</p>
+              <input type="hidden" name="delete_user" id="deleteUserIdentifier" value="">
+            </div>
+            <div class="modal-footer">
+              <button type="submit" class="btn btn-danger">Delete Account</button>
               <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
             </div>
           </form>
@@ -1052,6 +1116,27 @@ $ldap_connection = open_ldap_connection();
         }
         
         $('#unlockUserModal').modal('show');
+    }
+
+    function confirmDeleteUser(userIdentifier, userName) {
+        console.log('confirmDeleteUser called with:', userIdentifier, userName);
+        document.getElementById('deleteUserName').textContent = userName;
+        document.getElementById('deleteUserIdentifier').value = userIdentifier;
+
+        // Check if jQuery and modal are available
+        if (typeof $ === 'undefined') {
+            console.error('jQuery is not loaded');
+            alert('Error: jQuery is not loaded. Please refresh the page.');
+            return;
+        }
+
+        if (typeof $.fn.modal === 'undefined') {
+            console.error('Bootstrap modal is not available');
+            alert('Error: Bootstrap modal is not available. Please refresh the page.');
+            return;
+        }
+
+        $('#deleteUserModal').modal('show');
     }
     
     // Edit user modal function
