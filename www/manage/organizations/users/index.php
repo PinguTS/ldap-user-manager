@@ -391,7 +391,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message_type = 'danger';
         }
         ldap_close($ldap_connection);
-        after_delete_user:
     }
 }
 
