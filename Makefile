@@ -79,9 +79,9 @@ validate:
 	@echo "Configuration is valid!"
 
 # Clean up volumes and networks
-.PHONY: clean
-clean:
-	docker-compose down -v --remove-orphans
+#.PHONY: clean
+#clean:
+#	docker-compose down -v --remove-orphans
 
 # =============================================================================
 # Docker Build Commands
@@ -227,6 +227,7 @@ clean: ## Clean up generated files
 	rm -f .php-cs-fixer.cache
 	rm -rf vendor/
 	rm -f composer.lock
+	docker-compose down -v --remove-orphans
 
 # Docker commands (OIDC setup)
 docker-build: ## Build Docker containers

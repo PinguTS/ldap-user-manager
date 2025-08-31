@@ -196,6 +196,11 @@ ldap_close($ldap_connection);
         <div class="col-md-12">
             <h2>User Profile: <?php echo htmlspecialchars(get_ldap_attribute($user_data, 'cn') ?: get_ldap_attribute($user_data, $LDAP['account_attribute']) ?: 'Unknown User'); ?></h2>
             
+            <?php 
+            // Reopen LDAP connection for role lookup in display
+            $ldap_connection = open_ldap_connection();
+            ?>
+            
             <?php if ($can_edit): ?>
             <div class="panel panel-primary">
                 <div class="panel-heading">
@@ -218,10 +223,15 @@ ldap_close($ldap_connection);
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="userRole">User Role</label>
-                                    <input type="text" class="form-control" id="userRole" name="userRole" 
-                                           value="<?php echo htmlspecialchars(get_ldap_attribute($user_data, 'userRole')); ?>" readonly>
-                                    <small class="form-text text-muted">User role cannot be changed from this interface.</small>
+                                    <label for="userRoles">User Roles</label>
+                                    <?php
+                                    // Get user's role memberships
+                                    $user_roles = ldap_user_group_membership($ldap_connection, $user_data['dn']);
+                                    $role_display = !empty($user_roles) ? implode(', ', $user_roles) : 'No roles assigned';
+                                    ?>
+                                    <input type="text" class="form-control" id="userRoles" name="userRoles" 
+                                           value="<?php echo htmlspecialchars($role_display); ?>" readonly>
+                                    <small class="form-text text-muted">User roles are managed through group memberships and cannot be changed from this interface.</small>
                                 </div>
                             </div>
                         </div>
@@ -267,19 +277,6 @@ ldap_close($ldap_connection);
                                     <label for="telephoneNumber">Phone Number</label>
                                     <input type="tel" class="form-control" id="telephoneNumber" name="telephoneNumber" 
                                            value="<?php echo htmlspecialchars(get_ldap_attribute($user_data, 'telephoneNumber')); ?>">
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Organization -->
-                        <h4>Organization</h4>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="o">Organization</label>
-                                    <input type="text" class="form-control" id="o" name="o" 
-                                           value="<?php echo htmlspecialchars(get_ldap_attribute($user_data, 'o')); ?>" readonly>
-                                    <small class="form-text text-muted">Organization cannot be changed from this interface.</small>
                                 </div>
                             </div>
                         </div>
@@ -364,8 +361,18 @@ ldap_close($ldap_connection);
                                 <dt>Surname:</dt>
                                 <dd><?php echo htmlspecialchars(get_ldap_attribute($user_data, 'sn')); ?></dd>
                                 
-                                <dt>User Role:</dt>
-                                <dd><?php echo htmlspecialchars(get_ldap_attribute($user_data, 'userRole')); ?></dd>
+                                <dt>User Roles:</dt>
+                                <dd>
+                                    <?php
+                                    // Get user's role memberships for display
+                                    $user_roles = ldap_user_group_membership($ldap_connection, $user_data['dn']);
+                                    if (!empty($user_roles)) {
+                                        echo htmlspecialchars(implode(', ', $user_roles));
+                                    } else {
+                                        echo '<span class="text-muted">No roles assigned</span>';
+                                    }
+                                    ?>
+                                </dd>
                             </dl>
                         </div>
                         <div class="col-md-6">
@@ -375,9 +382,6 @@ ldap_close($ldap_connection);
                                 
                                 <dt>Phone:</dt>
                                 <dd><?php echo htmlspecialchars(get_ldap_attribute($user_data, 'telephoneNumber')); ?></dd>
-                                
-                                <dt>Organization:</dt>
-                                <dd><?php echo htmlspecialchars(get_ldap_attribute($user_data, 'o')); ?></dd>
                                 
                                 <dt>Location:</dt>
                                 <dd><?php echo ucfirst($user_location); ?> User</dd>
@@ -415,5 +419,8 @@ document.getElementById('new_password').addEventListener('input', function() {
 </script>
 
 <?php
+// Close LDAP connection
+ldap_close($ldap_connection);
+
 render_footer();
 ?>
