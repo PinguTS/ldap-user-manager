@@ -20,7 +20,7 @@ This guide covers all deployment methods for the LDAP User Manager, from Docker 
 ### **Quick Start**
 ```bash
 # Clone repository
-git clone https://github.com/your-repo/ldap-user-manager.git
+git clone https://github.com/pinguts/ldap-user-manager.git
 cd ldap-user-manager
 
 # Generate SSL certificates and OIDC client secrets
@@ -69,7 +69,7 @@ Direct deployment allows you to install the LDAP User Manager directly on your A
 ### **Quick Start**
 ```bash
 # Clone repository
-git clone https://github.com/your-repo/ldap-user-manager.git
+git clone https://github.com/pinguts/ldap-user-manager.git
 cd ldap-user-manager
 
 # Run the setup script

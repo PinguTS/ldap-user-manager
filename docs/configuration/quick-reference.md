@@ -8,10 +8,11 @@ This guide shows you the most common configuration settings to get your LDAP Use
 
 ```bash
 # Required - Your LDAP server details
-export LDAP_URI=ldap://your-ldap-server.com:389
+export LDAP_URI=ldaps://ldap-server:636          # LDAPS for Docker setup
 export LDAP_BASE_DN=dc=yourcompany,dc=com
 export LDAP_ADMIN_BIND_DN=cn=admin,dc=yourcompany,dc=com
 export LDAP_ADMIN_BIND_PWD=your_admin_password
+export LDAP_IGNORE_CERT_ERRORS=true              # For development
 ```
 
 ## 🔒 **Password Security (Choose One)**
@@ -66,10 +67,11 @@ services:
     image: your-registry/ldap-user-manager:latest
     environment:
       # LDAP
-      - LDAP_URI=ldap://your-ldap-server.com:389
+      - LDAP_URI=ldaps://ldap-server:636          # LDAPS for Docker setup
       - LDAP_BASE_DN=dc=yourcompany,dc=com
       - LDAP_ADMIN_BIND_DN=cn=admin,dc=yourcompany,dc=com
       - LDAP_ADMIN_BIND_PWD=your_admin_password
+      - LDAP_IGNORE_CERT_ERRORS=true              # For development
       
       # Password Security (choose one option above)
       - PASSWORD_STRENGTH_MIN_SCORE=2

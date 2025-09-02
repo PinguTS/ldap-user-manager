@@ -56,7 +56,7 @@ This guide provides step-by-step instructions for setting up LDAP User Manager w
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-repo/ldap-user-manager.git
+   git clone https://github.com/pinguts/ldap-user-manager.git
    cd ldap-user-manager
    ```
 

@@ -35,29 +35,86 @@ graph TB
     end
 ```
 
-### Authentication Flow
-
-#### LDAP User Manager Flow
-1. **User Access**: User visits the application
-2. **OIDC Redirect**: If not authenticated, redirect to Dex
-3. **LDAP Authentication**: Dex authenticates against LDAP
-4. **Token Generation**: Dex generates ID token with user claims
-5. **Callback**: User returns to app with authorization code
-6. **Token Exchange**: App exchanges code for tokens
-7. **User Creation**: App creates/updates user in LDAP
-8. **Session Creation**: App creates local session
-
 ## OIDC Authentication Flow
 
-### Local Services (LDAP User Manager)
-1. **User Access**: User visits the local LDAP User Manager application
-2. **OIDC Redirect**: If not authenticated, redirect to Dex
-3. **LDAP Authentication**: Dex authenticates against local LDAP
-4. **Token Generation**: Dex generates ID token with user claims
-5. **Callback**: User returns to app with authorization code
-6. **Token Exchange**: App exchanges code for tokens
-7. **User Creation**: App creates/updates user in LDAP
-8. **Session Creation**: App creates local session
+### LDAP User Manager Authentication Process
+
+The LDAP User Manager uses **session-based authentication** with OIDC integration, not JWT tokens. Here's the actual flow:
+
+#### 1. User Access and OIDC Redirect
+```mermaid
+sequenceDiagram
+    participant User
+    participant App as LDAP User Manager
+    participant Dex as Dex OIDC Provider
+    participant LDAP as Local LDAP
+    
+    User->>App: Visit application
+    App->>App: Check session authentication
+    alt Not authenticated
+        App->>Dex: Redirect to OIDC authorization
+        Dex->>User: Show login form
+        User->>Dex: Submit credentials
+        Dex->>LDAP: Authenticate user
+        LDAP->>Dex: User verified
+        Dex->>App: Redirect with auth code
+    else Already authenticated
+        App->>User: Show application
+    end
+```
+
+#### 2. OIDC Callback and User Management
+```mermaid
+sequenceDiagram
+    participant App as LDAP User Manager
+    participant Dex as Dex OIDC Provider
+    participant LDAP as Local LDAP
+    
+    App->>Dex: Exchange code for tokens
+    Dex->>App: ID token + access token
+    App->>Dex: Get user info
+    Dex->>App: User information
+    App->>LDAP: Find or create user
+    LDAP->>App: User DN
+    App->>App: Create session
+    App->>App: Set passkey cookie
+```
+
+#### 3. Session Management
+- **Session-based**: Uses PHP sessions, not JWT tokens
+- **Cookie-based**: Sets `passkey` cookie for authentication
+- **Role-based**: Determines admin/maintainer status from LDAP groups
+- **Organization-based**: Links users to their organizations
+
+### Implementation Details
+
+#### OIDC Configuration (`www/includes/oidc_functions.inc.php`)
+```php
+$OIDC_CONFIG = [
+    'enabled' => getenv('OIDC_ENABLED') === 'true',
+    'issuer' => getenv('OIDC_ISSUER') ?: 'https://id.example.org',
+    'client_id' => getenv('OIDC_CLIENT_ID') ?: 'ldap-user-manager',
+    'client_secret' => getenv('OIDC_CLIENT_SECRET') ?: '',
+    'redirect_uri' => getenv('OIDC_REDIRECT_URI') ?: 'https://app.example.org/oidc/callback',
+    'scopes' => getenv('OIDC_SCOPES') ?: 'openid profile email groups'
+];
+```
+
+#### Key Functions
+- `init_oidc_config()` - Discovers OIDC endpoints
+- `generate_oidc_auth_url()` - Creates authorization URL with PKCE
+- `exchange_code_for_tokens()` - Exchanges code for tokens
+- `validate_id_token()` - Validates JWT ID token
+- `get_oidc_user_info()` - Retrieves user information
+- `handle_oidc_callback()` - Main callback handler
+- `find_or_create_oidc_user()` - Manages user in LDAP
+
+#### User Creation Process
+1. **Search existing user** by `uid` in LDAP
+2. **Update attributes** if user exists
+3. **Create new user** if not found
+4. **Set role permissions** based on OIDC groups
+5. **Create session** with user information
 
 ### External Services OIDC Flow
 ```mermaid
@@ -134,7 +191,7 @@ sequenceDiagram
 #### Quick Start
 ```bash
 # Clone the repository
-git clone <your-repo>
+git clone https://github.com/pinguts/ldap-user-manager.git
 cd ldap-user-manager
 
 # Create certificates directory

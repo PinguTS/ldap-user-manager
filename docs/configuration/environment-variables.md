@@ -7,11 +7,14 @@ This document explains all the configurable settings available in the LDAP User 
 ### LDAP Server Configuration
 These settings connect the system to your LDAP directory server:
 - `LDAP_URI` - LDAP server address (required)
+  - **Default**: `ldaps://ldap-server:636` (LDAPS for Docker setup)
+  - **Development**: `ldap://localhost:389` (plain LDAP)
+  - **Production**: `ldaps://your-ldap-server.com:636` (LDAPS)
 - `LDAP_BASE_DN` - Base directory path in your LDAP tree (required)
 - `LDAP_ADMIN_BIND_DN` - Administrator account for LDAP operations (required)
 - `LDAP_ADMIN_BIND_PWD` - Administrator password (required)
 - `LDAP_REQUIRE_STARTTLS` - Whether to require encrypted connections (default: FALSE)
-- `LDAP_IGNORE_CERT_ERRORS` - Whether to ignore SSL certificate errors (default: FALSE)
+- `LDAP_IGNORE_CERT_ERRORS` - Whether to ignore SSL certificate errors (default: TRUE for development)
 
 ### Password Security Configuration
 These settings control how strong passwords must be in your system:
@@ -97,6 +100,40 @@ These settings define the organization of your LDAP directory:
 - `LDAP_ORG_OU` - Organizations organizational unit (default: 'organizations')
 - `LDAP_ACCOUNT_ATTRIBUTE` - Primary account identifier attribute (default: 'mail')
 - `LDAP_GROUP_ATTRIBUTE` - Group identifier attribute (default: 'cn')
+
+### Security Configuration
+These settings control security features and access control:
+
+#### **Session Security**
+- `SESSION_TIMEOUT` - Session timeout in seconds (default: 3600 - 1 hour)
+- `SESSION_REGENERATE_ID` - Regenerate session ID on login (default: TRUE)
+- `SESSION_SECURE_COOKIES` - Use secure cookies (default: TRUE)
+- `SESSION_HTTP_ONLY` - HTTP-only cookies (default: TRUE)
+- `SESSION_SAME_SITE` - SameSite cookie policy (default: 'strict')
+
+#### **Rate Limiting**
+- `RATE_LIMIT_MAX_ATTEMPTS` - Maximum login attempts (default: 5)
+- `RATE_LIMIT_TIME_WINDOW` - Time window for attempts in seconds (default: 300 - 5 minutes)
+- `RATE_LIMIT_LOCKOUT_DURATION` - Lockout duration in seconds (default: 900 - 15 minutes)
+
+#### **File Upload Security**
+- `FILE_UPLOAD_MAX_SIZE` - Maximum file upload size in bytes (default: 2097152 - 2MB)
+- `FILE_UPLOAD_ALLOWED_TYPES` - Comma-separated list of allowed MIME types (default: 'image/jpeg,image/png,image/gif,application/pdf,text/plain')
+- `FILE_UPLOAD_SCAN_VIRUS` - Enable virus scanning (default: FALSE)
+
+#### **Security Headers**
+The system automatically sets security headers:
+- `X-Frame-Options: DENY` - Prevent clickjacking
+- `X-Content-Type-Options: nosniff` - Prevent MIME type sniffing
+- `X-XSS-Protection: 1; mode=block` - XSS protection
+- `Referrer-Policy: strict-origin-when-cross-origin` - Control referrer information
+- `Content-Security-Policy` - Restrict resource loading
+- `Strict-Transport-Security` - Enforce HTTPS (when enabled)
+
+#### **Audit Logging**
+- `AUDIT_LOG_ENABLED` - Enable audit logging (default: TRUE)
+- `AUDIT_LOG_LEVEL` - Log level (DEBUG, INFO, WARN, ERROR) (default: INFO)
+- `AUDIT_LOG_FILE` - Audit log file path (default: '/var/log/ldap_user_manager/audit.log')
 
 ### User Account Configuration
 These settings control how new user accounts are created:

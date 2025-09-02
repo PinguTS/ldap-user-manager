@@ -1,194 +1,88 @@
 # LDAP User Manager
 
-A PHP-based web interface for managing LDAP user accounts, organizations, and role-based access control. Designed to work with OpenLDAP and containerized deployments.
+A PHP-based web interface for managing LDAP user accounts, organizations, and role-based access control. Perfect for small to medium organizations that need centralized user management with Docker deployment.
 
-***
+## What It Does
 
-## 🚀 **Quick Start**
+- **User Management**: Create, edit, and delete user accounts
+- **Organization Management**: Manage multiple organizations with separate user pools
+- **Role-based Access**: Assign users to roles with different permission levels
+- **Self-service**: Users can change their own passwords
+- **OIDC Integration**: Works with external services like TYPO3, GitLab, and Nextcloud
 
-### **Option 1: Docker with OIDC (Recommended)**
+## Quick Start
+
+### Option 1: Docker (Recommended)
 ```bash
-# Clone repository
-git clone https://github.com/your-repo/ldap-user-manager.git
+git clone https://github.com/pinguts/ldap-user-manager.git
 cd ldap-user-manager
-
-# Start with Docker Compose (includes Dex OIDC provider)
 docker-compose up -d
 ```
+Visit `http://localhost:8080/setup/` to complete configuration.
 
-### **Option 2: Direct Web Server Deployment**
+### Option 2: Web Server Deployment
 ```bash
-# Clone repository
-git clone https://github.com/your-repo/ldap-user-manager.git
+git clone https://github.com/pinguts/ldap-user-manager.git
 cd ldap-user-manager
-
-# Single setup script for all scenarios
 ./web-servers/setup.sh
 ```
 
-## 📚 **Documentation**
+## Success Checklist
 
-### **Getting Started**
-- [Configuration Quick Reference](CONFIGURATION_QUICK_REFERENCE.md) - **Start here for quick setup**
-- [Identity & OIDC Setup](docs/identity.md) - **Start here for OIDC integration**
-- [Docker Setup](DOCKER-SETUP.md) - Container deployment guide
-- [Web Server Deployment](web-servers/README.md) - Apache, Nginx, and direct deployment
-
-### **Configuration**
-- [Configuration Variables](CONFIGURATION_VARIABLES.md) - Complete environment variables reference
-- [Password Strength Configuration](PASSWORD_STRENGTH_CONFIGURATION.md) - Password security settings
-- [Role Configuration](ROLE_CONFIGURATION.md) - Access control configuration
-
-### **Advanced Topics**
-- [LDAP Configuration](LDAP-CONFIGURATION.md) - LDAP schema and setup
-- [URL Routing](docs/URL_ROUTING.md) - Clean URLs and routing system
-- [Apache Configuration](apache/README.md) - Server configuration and optimization
-- [Identity & OIDC](docs/identity.md) - OpenID Connect integration with Dex
-
-***
-
-## LDAP Structure
-
-LDAP User Manager uses a unified and intuitive structure with UUID-based identification:
-
-```
-dc=example,dc=com
-├── ou=people                           # System-level users (admins, maintainers)
-│   ├── uid=admin@example.com          # entryUUID: 550e8400-e29b-41d4-a716-446655440000
-│   └── uid=maintainer@example.com     # entryUUID: 550e8400-e29b-41d4-a716-446655440001
-├── ou=organizations
-│   └── o=Example Company              # entryUUID: 550e8400-e29b-41d4-a716-446655440002
-│       ├── ou=people                   # Organization users (same naming!)
-│       │   ├── uid=user1@examplecompany.com
-│       │   └── uid=user2@examplecompany.com
-│       └── ou=roles                    # Organization-specific roles
-│           └── cn=org_admin            # Organization administrators (groupOfNames)
-├── ou=roles                            # Global system roles only
-│   ├── cn=administrators
-│   └── cn=maintainers
-```
-
-### Benefits of Unified Structure
-- **Consistent Naming**: `ou=people` everywhere means the same thing
-- **Intuitive Structure**: Users are always under `ou=people`, regardless of context
-- **Easier to Understand**: LDAP administrators will immediately know where to find users
-- **Follows Standards**: `ou=people` is the de facto standard for user containers
-- **Clean Organization Structure**: Roles properly organized under `ou=roles`
-- **UUID Security**: Uses `entryUUID` for secure, immutable identification
-
-***
-
-## LDAP Requirements
-
-LDAP User Manager works with standard OpenLDAP schemas and uses existing attributes for maximum compatibility:
-
-- **Standard schemas**: core, cosine, inetorgperson, organization, locality
-- **Role storage**: Uses LDAP groups with `groupOfNames` object class
-- **Passcode storage**: Uses existing `userPassword` attribute for both passwords and passcodes
-- **Compatibility**: Works with any LDAP server that supports standard schemas
-
-For detailed LDAP setup instructions, see [LDAP-CONFIGURATION.md](LDAP-CONFIGURATION.md).
-
-***
-
-## Role-based Access Control
-
-- **Administrators**: Full system access
-- **Maintainers**: Can manage organizations and users
-- **Organization Managers**: Manage users within their organization
-- **Regular Users**: Self-service account management
-
-## User Management
-
-### System Users (ou=people)
-System users are administrators and maintainers with simplified field requirements:
-- **Required**: First Name, Last Name, Email
-- **Auto-generated**: Common Name (from First + Last), UID (from email)
-- **Optional**: Phone, Website
-- **No address fields** - System users don't need location information
-
-### Password Strength Configuration
-Password requirements are fully configurable via environment variables:
-
-```bash
-# Development/Testing (lenient)
-export PASSWORD_STRENGTH_MIN_SCORE=0      # Allow any password
-export PASSWORD_STRENGTH_MIN_LENGTH=4     # Minimum 4 characters
-export ACCEPT_WEAK_PASSWORDS=TRUE        # Allow very weak passwords
-
-# Production (strict)
-export PASSWORD_STRENGTH_MIN_SCORE=3      # Require Good or higher
-export PASSWORD_STRENGTH_MIN_LENGTH=12    # Minimum 12 characters
-export PASSWORD_STRENGTH_REQUIRE_SYMBOLS=TRUE  # Require symbols
-```
-
-**Available Settings:**
-- **Strength Score**: 0 (Very Weak) to 4 (Strong)
-- **Length**: Minimum character count
-- **Character Types**: Uppercase, lowercase, numbers, symbols
-- **Environment-specific**: Different policies per deployment
-
-For complete configuration options, see [Password Strength Configuration](PASSWORD_STRENGTH_CONFIGURATION.md).
-
-### Organization Users (ou=people,o=OrgName)
-Organization users have additional fields for organizational context:
-- **Required**: First Name, Last Name, Email, Organization
-- **Auto-generated**: Common Name (from First + Last), UID (from email)
-- **Optional**: Phone, Website, User Role
-- **No address fields** - Address information is stored at organization level
-
-***
+After setup, verify these items:
+- [ ] Web interface accessible at `http://localhost:8080`
+- [ ] Setup wizard completes without errors
+- [ ] Can create and manage users
+- [ ] Can create and manage organizations
+- [ ] Role-based access control works
 
 ## Screenshots
 
-**Account Management:**
-![account_overview](https://user-images.githubusercontent.com/17613683/59344255-9c692480-8d05-11e9-8607-051291bafd91.png)
+**User Management Dashboard:**
+![User Management](docs/images/ui-screenshots/user-management.png)
 
-**Group Management:**
-![group_membership](https://user-images.githubusercontent.com/17613683/59344247-97a47080-8d05-11e9-8606-0bcc40471458.png)
+**Organization Overview:**
+![Organization Management](docs/images/ui-screenshots/organization-management.png)
 
-**Self-service Password Change:**
-![self_service_password_change](https://user-images.githubusercontent.com/17613683/59344258-9ffcab80-8d05-11e9-8606-0bcc40471458.png)
+**Role Assignment Interface:**
+![Role Management](docs/images/ui-screenshots/role-management.png)
 
-***
+## Documentation
 
-## ✅ Success Checklist
+### Getting Started
+- [Quick Start](docs/getting-started/quick-start.md) - Get up and running in under 10 minutes
+- [Prerequisites](docs/getting-started/prerequisites.md) - What you need before starting
+- [Verification](docs/getting-started/verification.md) - How to verify your installation
 
-After setup, verify these items:
+### Configuration
+- [Quick Reference](docs/configuration/quick-reference.md) - Essential configuration settings
+- [Environment Variables](docs/configuration/environment-variables.md) - Complete configuration reference
+- [Password Policy](docs/configuration/password-policy.md) - Password security settings
+- [Role Configuration](docs/configuration/roles.md) - Role-based access control setup
 
-- [ ] LDAP server is running and accessible
-- [ ] Base structure (OUs) exists with unified `ou=people` naming
-- [ ] Web interface is accessible at `http://localhost:8080`
-- [ ] Setup wizard completes without errors at `/setup/`
-- [ ] Users can be created and managed
-- [ ] Role-based access control works
-- [ ] Passcode functionality works alongside regular passwords
+### Deployment
+- [Docker Setup](DOCKER-SETUP.md) - Container deployment guide
+- [Web Server Deployment](web-servers/README.md) - Apache and Nginx setup
+- [Troubleshooting](docs/deployment/troubleshooting.md) - Common issues and solutions
+- [Monitoring](docs/deployment/monitoring.md) - System monitoring and alerting
 
----
+### Advanced Topics
+- [OIDC Integration](docs/identity.md) - OpenID Connect setup with Dex
+- [Service Integrations](services/) - TYPO3, GitLab, Nextcloud setup
+- [LDAP Structure](docs/ldap-structure.md) - Directory structure and examples
+- [Security Best Practices](docs/security/best-practices.md) - Security recommendations
 
-## Configuration
+### User Guides
+- [User Management](docs/user-guide/user-management.md) - How to manage users
+- [Organization Management](docs/user-guide/organization-management.md) - How to manage organizations
+- [Role Management](docs/user-guide/role-management.md) - How to manage roles and permissions
 
-### Environment Variables
-
-- `LDAP_URI`: LDAP server URI
-- `LDAP_BASE_DN`: Base DN for the LDAP directory
-- `LDAP_ADMIN_BIND_DN`: Admin user DN
-- `LDAP_ADMIN_BIND_PWD`: Admin password
-- `SERVER_HOSTNAME`: Server hostname for the application
-- `ORGANISATION_NAME`: Organization name displayed in the UI
-- `SITE_NAME`: Site name displayed in the UI
-
-### File Upload Settings
-
-- `FILE_UPLOAD_MAX_SIZE`: Maximum file upload size in bytes (default: 2MB)
-- `FILE_UPLOAD_ALLOWED_MIME_TYPES`: Comma-separated list of allowed MIME types
-
-For complete configuration options, see [LDAP-CONFIGURATION.md](LDAP-CONFIGURATION.md).
-
-***
+### Development
+- [Development Setup](docs/contributing/development.md) - Local development environment
+- [Code Quality](docs/contributing/code-quality.md) - Coding standards and practices
 
 ## Support
 
 - **Documentation**: See the documentation files above
-- **Issues**: Report problems in the project issue tracker
-- **Setup Help**: Start with [DOCKER-SETUP.md](DOCKER-SETUP.md) for Docker deployments
+- **Issues**: Report problems in the [GitHub issue tracker](https://github.com/pinguts/ldap-user-manager/issues)
+- **Setup Help**: Start with [Docker Setup](DOCKER-SETUP.md) for Docker deployments

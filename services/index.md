@@ -71,6 +71,44 @@ bundle install
 occ config:app:set oidc_login provider-url --value="https://id.example.org"
 ```
 
+### [WordPress](./wordpress/)
+**Authentication Method**: OpenID Connect Plugin  
+**Key Features**: Blog/CMS authentication, user provisioning, role mapping  
+**Configuration**: wp-config.php + plugin settings  
+**Files**: `wp-config.php`, `README.md`
+
+**Quick Setup**:
+```bash
+# Install OIDC plugin from WordPress admin
+# Configure in wp-config.php
+define('OIDC_CLIENT_ID', 'wordpress');
+```
+
+### [Joomla](./joomla/)
+**Authentication Method**: OIDC Authentication Plugin  
+**Key Features**: CMS authentication, user provisioning, group mapping  
+**Configuration**: configuration.php + plugin XML  
+**Files**: `configuration.php`, `README.md`
+
+**Quick Setup**:
+```bash
+# Install OIDC plugin from Joomla admin
+# Configure in configuration.php
+$oidc_client_id = 'joomla';
+```
+
+### [Custom Applications](./custom-applications/)
+**Authentication Method**: OIDC/LDAP Client Libraries  
+**Key Features**: Custom integration, flexible configuration  
+**Configuration**: Language-specific config files  
+**Files**: `README.md` with examples for PHP, Python, Node.js
+
+**Quick Setup**:
+```bash
+# Choose your platform and follow the configuration examples
+# Copy the relevant config files to your application
+```
+
 ## 🔧 **Common Configuration Requirements**
 
 All external services require these OIDC settings:

@@ -10,15 +10,29 @@ services/
 ├── typo3/                      # TYPO3 CMS configuration
 │   ├── README.md              # TYPO3 setup guide
 │   ├── composer.json          # Required extensions
-│   └── oidc-config.yaml      # OIDC configuration example
+│   ├── oidc-config.yaml      # OIDC configuration example
+│   ├── install.sh             # Automated installation script
+│   ├── testing.md             # Testing procedures
+│   └── troubleshooting.md     # Troubleshooting guide
 ├── gitlab/                     # GitLab configuration
 │   ├── README.md              # GitLab setup guide
 │   ├── gitlab.rb              # OmniAuth OIDC configuration
 │   └── Gemfile                # Required gems
-└── nextcloud/                  # Nextcloud configuration
-    ├── README.md              # Nextcloud setup guide
-    ├── config.php             # OIDC configuration example
-    └── occ-commands.md        # OCC command examples
+├── nextcloud/                  # Nextcloud configuration
+│   ├── README.md              # Nextcloud setup guide
+│   ├── config.php             # OIDC configuration example
+│   ├── occ-commands.md        # OCC command examples
+│   ├── install.sh             # Automated installation script
+│   ├── testing.md             # Testing procedures
+│   └── troubleshooting.md     # Troubleshooting guide
+├── wordpress/                  # WordPress configuration
+│   ├── README.md              # WordPress setup guide
+│   └── wp-config.php          # WordPress configuration with OIDC
+├── joomla/                     # Joomla configuration
+│   ├── README.md              # Joomla setup guide
+│   └── configuration.php      # Joomla configuration with OIDC
+└── custom-applications/        # Custom applications configuration
+    └── README.md              # Custom application setup guide
 ```
 
 ## Overview
