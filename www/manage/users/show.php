@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 // Define LDAP escape constants for PHP < 7.3 compatibility
@@ -9,13 +10,9 @@ if (!defined('LDAP_ESCAPE_DN')) {
     define('LDAP_ESCAPE_DN', 0);
 }
 
-set_include_path( ".:" . __DIR__ . "/../../includes/");
-
-include_once "web_functions.inc.php";
-include_once "ldap_functions.inc.php";
-include_once "access_functions.inc.php";
-include_once "module_functions.inc.php";
-include_once "user_functions.inc.php";
+set_include_path(".:" . __DIR__ . "/../../includes/");
+require_once "bootstrap_manage.inc.php";
+bootstrap_manage(['ldap', 'user']);
 
 // Ensure CSRF token is generated early
 get_csrf_token();
@@ -25,20 +22,26 @@ set_page_access(["admin", "user"]); // Allow both admin and user roles
 render_header("$ORGANISATION_NAME - User Profile");
 render_submenu();
 
-$invalid_password = FALSE;
-$mismatched_passwords = FALSE;
-$invalid_username = FALSE;
-$weak_password = FALSE;
+$invalid_password = false;
+$mismatched_passwords = false;
+$invalid_username = false;
+$weak_password = false;
 $to_update = array();
 
-if ($SMTP['host'] != "") { $can_send_email = TRUE; } else { $can_send_email = FALSE; }
+if ($SMTP['host'] != "") {
+    $can_send_email = true;
+} else {
+    $can_send_email = false;
+}
 
 $LDAP['default_attribute_map']["mail"]  = array("label" => "Email", "onkeyup" => "check_if_we_should_enable_sending_email();");
 
 $attribute_map = $LDAP['default_attribute_map'];
-if (isset($LDAP['account_additional_attributes'])) { $attribute_map = ldap_complete_attribute_map($attribute_map,$LDAP['account_additional_attributes']); }
+if (isset($LDAP['account_additional_attributes'])) {
+    $attribute_map = ldap_complete_attribute_map($attribute_map, $LDAP['account_additional_attributes']);
+}
 if (! array_key_exists($LDAP['account_attribute'], $attribute_map)) {
-  $attribute_r = array_merge($attribute_map, array($LDAP['account_attribute'] => array("label" => "Account UID")));
+    $attribute_r = array_merge($attribute_map, array($LDAP['account_attribute'] => array("label" => "Account UID")));
 }
 
 // Check if user parameter is provided (support both UUID and legacy account_identifier)
@@ -53,22 +56,21 @@ if (isset($_GET['uuid']) && !empty($_GET['uuid'])) {
         render_footer();
         exit(0);
     }
-    
+
     // Get user by UUID
     $ldap_connection = open_ldap_connection();
     $user_by_uuid = ldap_get_user_by_uuid($ldap_connection, $user_uuid);
     ldap_close($ldap_connection);
-    
+
     if (!$user_by_uuid) {
         render_alert_banner("User with UUID '$user_uuid' not found.", "warning");
         error_log("show_user.php: UUID lookup failed for UUID: $user_uuid");
         render_footer();
         exit(0);
     }
-    
+
     // Use the primary identifier from the user entry
     $account_identifier = $user_by_uuid[$LDAP['account_attribute']][0] ?? $user_by_uuid['mail'][0] ?? $user_by_uuid['uid'][0];
-    
 } elseif (isset($_POST['account_identifier']) || isset($_GET['account_identifier'])) {
     // Legacy account_identifier lookup
     $account_identifier = (isset($_POST['account_identifier']) ? $_POST['account_identifier'] : $_GET['account_identifier']);
@@ -92,7 +94,7 @@ if ($user_uuid) {
     $user = [];
     $user[0] = $user_by_uuid;
     $user['count'] = 1;
-    
+
     // Determine user location based on DN
     if (strpos($user_by_uuid['dn'], $LDAP['org_dn']) !== false) {
         $user_location = 'organization';
@@ -101,19 +103,19 @@ if ($user_uuid) {
     }
 } else {
     // Legacy account_identifier-based lookup
-    $ldap_search_query="({$LDAP['account_attribute']}=". ldap_escape($account_identifier, "", LDAP_ESCAPE_FILTER) . ")";
+    $ldap_search_query = "({$LDAP['account_attribute']}=" . ldap_escape($account_identifier, "", LDAP_ESCAPE_FILTER) . ")";
 
     // First try to find in organizations
-    $ldap_search = ldap_search( $ldap_connection, $LDAP['org_dn'], $ldap_search_query);
+    $ldap_search = ldap_search($ldap_connection, $LDAP['org_dn'], $ldap_search_query);
     $user = null;
     $user_location = '';
-    
+
     if ($ldap_search && ldap_count_entries($ldap_connection, $ldap_search) > 0) {
         $user = ldap_get_entries($ldap_connection, $ldap_search);
         $user_location = 'organization';
     } else {
         // Try system users
-        $ldap_search = ldap_search( $ldap_connection, $LDAP['people_dn'], $ldap_search_query);
+        $ldap_search = ldap_search($ldap_connection, $LDAP['people_dn'], $ldap_search_query);
         if ($ldap_search && ldap_count_entries($ldap_connection, $ldap_search) > 0) {
             $user = ldap_get_entries($ldap_connection, $ldap_search);
             $user_location = 'system';
@@ -148,14 +150,14 @@ if (currentUserIsGlobalAdmin() || currentUserIsMaintainer()) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile']) && $can_edit) {
     $update_data = [];
     $errors = [];
-    
+
     // Collect form data
     foreach ($attribute_map as $attr => $config) {
         if (isset($_POST[$attr]) && !empty(trim($_POST[$attr]))) {
             $update_data[$attr] = trim($_POST[$attr]);
         }
     }
-    
+
     // Handle password change
     if (!empty($_POST['new_password'])) {
         if ($_POST['new_password'] !== $_POST['confirm_new_password']) {
@@ -165,7 +167,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile']) && 
             $update_data['userPassword'] = ldap_hashed_password($_POST['new_password']);
         }
     }
-    
+
     // If no errors, update the user
     if (empty($errors)) {
         $result = updateUser($user_data['dn'], $update_data);
@@ -196,17 +198,17 @@ ldap_close($ldap_connection);
         <div class="col-md-12">
             <h2>User Profile: <?php echo htmlspecialchars(get_ldap_attribute($user_data, 'cn') ?: get_ldap_attribute($user_data, $LDAP['account_attribute']) ?: 'Unknown User'); ?></h2>
             
-            <?php 
+            <?php
             // Reopen LDAP connection for role lookup in display
             $ldap_connection = open_ldap_connection();
             ?>
             
-            <?php if ($can_edit): ?>
-            <div class="panel panel-primary">
-                <div class="panel-heading">
-                    <h3 class="panel-title">Edit User Profile</h3>
+            <?php if ($can_edit) : ?>
+            <div class="card border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="card-title">Edit User Profile</h3>
                 </div>
-                <div class="panel-body">
+                <div class="card-body">
                     <form method="post" action="" enctype="multipart/form-data">
                         <?php echo csrf_token_field(); ?>
                         
@@ -285,10 +287,10 @@ ldap_close($ldap_connection);
                         <h4>Change Password</h4>
                         <div class="row">
                             <div class="col-md-6">
-                                <div class="form-group <?php echo $mismatched_passwords ? 'has-error' : ''; ?>">
+                                <div class="form-group <?php echo $mismatched_passwords ? 'is-invalid' : ''; ?>">
                                     <label for="new_password">New Password</label>
                                     <input type="password" class="form-control" id="new_password" name="new_password">
-                                    <?php if ($mismatched_passwords): ?>
+                                    <?php if ($mismatched_passwords) : ?>
                                         <span class="help-block">Passwords do not match.</span>
                                     <?php endif; ?>
                                 </div>
@@ -302,16 +304,16 @@ ldap_close($ldap_connection);
                         </div>
                         
                         <!-- Additional Attributes -->
-                        <?php if (isset($LDAP['account_additional_attributes'])): ?>
+                        <?php if (isset($LDAP['account_additional_attributes'])) : ?>
                         <h4>Additional Information</h4>
                         <div class="row">
-                            <?php foreach ($LDAP['account_additional_attributes'] as $attr_name => $attr_config): ?>
+                            <?php foreach ($LDAP['account_additional_attributes'] as $attr_name => $attr_config) : ?>
                                 <div class="col-md-6">
                                     <div class="form-group">
                                         <label for="<?php echo htmlspecialchars($attr_name); ?>"><?php echo htmlspecialchars($attr_config['label'] ?? ucfirst(str_replace('_', ' ', $attr_name))); ?></label>
-                                        <?php if (isset($attr_config['type']) && $attr_config['type'] === 'textarea'): ?>
+                                        <?php if (isset($attr_config['type']) && $attr_config['type'] === 'textarea') : ?>
                                             <textarea class="form-control" id="<?php echo htmlspecialchars($attr_name); ?>" name="<?php echo htmlspecialchars($attr_name); ?>" rows="3"><?php echo htmlspecialchars(get_ldap_attribute($user_data, $attr_name)); ?></textarea>
-                                        <?php else: ?>
+                                        <?php else : ?>
                                             <input type="<?php echo htmlspecialchars($attr_config['type'] ?? 'text'); ?>" class="form-control" id="<?php echo htmlspecialchars($attr_name); ?>" name="<?php echo htmlspecialchars($attr_name); ?>" 
                                                    value="<?php echo htmlspecialchars(get_ldap_attribute($user_data, $attr_name)); ?>">
                                         <?php endif; ?>
@@ -323,29 +325,29 @@ ldap_close($ldap_connection);
                         
                         <div class="form-group">
                             <button type="submit" name="update_profile" class="btn btn-success">Update Profile</button>
-                            <a href="/manage/users/" class="btn btn-default">Back to Users</a>
+                            <a href="/manage/users/" class="btn btn-secondary">Back to Users</a>
                         </div>
                     </form>
                 </div>
             </div>
-            <?php else: ?>
-            <div class="panel panel-info">
-                <div class="panel-heading">
-                    <h3 class="panel-title">User Information (Read Only)</h3>
+            <?php else : ?>
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h3 class="card-title">User Information (Read Only)</h3>
                 </div>
-                <div class="panel-body">
+                <div class="card-body">
                     <p class="text-muted">You do not have permission to edit this user profile.</p>
-                    <a href="/manage/users/" class="btn btn-default">Back to Users</a>
+                    <a href="/manage/users/" class="btn btn-secondary">Back to Users</a>
                 </div>
             </div>
             <?php endif; ?>
             
             <!-- User Details Display -->
-            <div class="panel panel-default">
-                <div class="panel-heading">
-                    <h3 class="panel-title">User Details</h3>
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">User Details</h3>
                 </div>
-                <div class="panel-body">
+                <div class="card-body">
                     <div class="row">
                         <div class="col-md-6">
                             <dl class="dl-horizontal">

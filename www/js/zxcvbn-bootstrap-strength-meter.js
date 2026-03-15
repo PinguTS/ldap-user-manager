@@ -8,14 +8,14 @@
 			passwordInput: '#Password',
 			userInputs: [],
 			ratings: ["Very poor", "Poor", "Lukewarm", "Good", "Great"],
-			//all progress bar classes removed before adding score specific css class
-			allProgressBarClasses: "progress-bar-danger progress-bar-warning progress-bar-success progress-bar-striped active",
-			//bootstrap css classes (0-4 corresponds with zxcvbn score)
-			progressBarClass0: "progress-bar-danger progress-bar-striped active",
-			progressBarClass1: "progress-bar-danger progress-bar-striped active",
-			progressBarClass2: "progress-bar-warning progress-bar-striped active",
-			progressBarClass3: "progress-bar-success",
-			progressBarClass4: "progress-bar-success"
+			//all progress bar classes removed before adding score specific css class (Bootstrap 5)
+			allProgressBarClasses: "bg-danger bg-warning bg-success progress-bar-striped progress-bar-animated",
+			//bootstrap 5 progress bar classes (0-4 corresponds with zxcvbn score)
+			progressBarClass0: "bg-danger progress-bar-striped progress-bar-animated",
+			progressBarClass1: "bg-danger progress-bar-striped progress-bar-animated",
+			progressBarClass2: "bg-warning progress-bar-striped progress-bar-animated",
+			progressBarClass3: "bg-success",
+			progressBarClass4: "bg-success"
 		}, options);
 
 		return this.each(function () {

@@ -35,10 +35,11 @@ userPassword: {SSHA}dummyhash
 ```
 
 ### Example Organization Admin Group LDIF
+Default group CN is `org_admin` (configurable via `LDAP_ORG_ADMIN_ROLE`):
 ```ldif
-dn: cn=orgManagers,o=OrgA,ou=organizations,dc=example,dc=com
+dn: cn=org_admin,ou=roles,o=OrgA,ou=organizations,dc=example,dc=com
 objectClass: groupOfNames
-cn: orgManagers
+cn: org_admin
 member: uid=jane.doe,ou=people,o=OrgA,ou=organizations,dc=example,dc=com
 ```
 
@@ -72,9 +73,9 @@ access to dn.regex="^uid=.+,ou=people,o=.*,ou=organizations,dc=example,dc=com$"
 access to dn.regex="^uid=admin.*,ou=people,o=.*,ou=organizations,dc=example,dc=com$"
   by group.exact="cn=maintainers,ou=roles,dc=example,dc=com" none
 
-# 3. Org Managers: Manage users in their own org
+# 3. Org admins: Manage users in their own org (default cn=org_admin)
 access to dn.regex="^uid=.+,ou=people,o=([^,]+),ou=organizations,dc=example,dc=com$"
-  by group.exact="cn=orgManagers,ou=roles,o=$1,ou=organizations,dc=example,dc=com" write
+  by group.exact="cn=org_admin,ou=roles,o=$1,ou=organizations,dc=example,dc=com" write
 
 # 4. Users: Self-management (e.g., change their own password)
 access to dn.regex="^uid=([^,]+),ou=people,o=.*,ou=organizations,dc=example,dc=com$"
@@ -105,24 +106,28 @@ dc=example,dc=com
 |    |    |    |-- uid=user1
 |    |    |    |-- uid=user2
 |    |    |-- ou=roles
-|    |    |    |-- cn=orgManagers            # Organization administrators (direct group)
+|    |    |    |-- cn=org_admin                  # Organization administrators (default; LDAP_ORG_ADMIN_ROLE)
 |    |-- o=OrgB
 |    |    |-- ou=people                 # Organization users
 |    |    |    |-- uid=user3
 |    |    |-- ou=roles
-|    |    |    |-- cn=orgManagers            # Organization administrators (direct group)
+|    |    |    |-- cn=org_admin                  # Organization administrators (default; LDAP_ORG_ADMIN_ROLE)
 |
-|-- ou=roles                            # Global system roles only
+|-- ou=roles                            # Global system roles and status groups
 |    |-- cn=administrators
 |    |-- cn=maintainers
+|    |-- cn=memberOrganizations          # Orgs with active membership (LDAP_GROUP_MEMBER_ORGS)
+|    |-- cn=disabledOrganizations        # Deactivated orgs (LDAP_GROUP_DISABLED_ORGS)
+|    |-- cn=disabledUsers                # App-level disabled users (LDAP_GROUP_DISABLED_USERS)
 ```
 
 - **System Users**: Stored under `ou=people,dc=example,dc=com` (administrators, maintainers)
 - **Email Customization**: Admin and maintainer email addresses can be customized during setup
 - **Organizations**: Each as an `organization` entry under `ou=organizations`
 - **Organization Users**: Under `ou=people` within their org (consistent naming)
-- **Organization Administrators**: Group entries under `ou=roles` within their org  (`cn=orgManagers`)
-- **Global Roles**: Under `ou=roles,dc=example,dc=com` (system-wide roles only)
+- **Organization Administrators**: Group entries under `ou=roles` within their org (default `cn=org_admin`, configurable via `LDAP_ORG_ADMIN_ROLE`)
+- **Global Roles**: Under `ou=roles,dc=example,dc=com` (system-wide roles)
+- **Global status groups**: `cn=memberOrganizations` (organizations with active membership), `cn=disabledOrganizations` (deactivated organizations), `cn=disabledUsers` (application-level disabled user accounts). Group membership is the authoritative flag. CNs are configurable via `LDAP_GROUP_MEMBER_ORGS`, `LDAP_GROUP_DISABLED_ORGS`, `LDAP_GROUP_DISABLED_USERS`.
 
 ---
 
@@ -145,13 +150,24 @@ dc=example,dc=com
 ### Users
 - **Object Classes**: `inetOrgPerson`, `top`
 - **Required Attributes**: `uid`, `cn`, `sn`, `mail`
-- **Password Attributes**: `userPassword`, `loginPasscode`
+- **Password Attributes**: `userPassword` (stores both password and passcode hashes)
 - **Operational Attributes**:
   - `entryUUID`: Unique identifier for URL parameters and API calls
 
 ### Groups
 - **Object Classes**: `groupOfNames`
 - **Required Attributes**: `cn`, `member`
+
+### Global status groups (membership and disabled flags)
+Under `ou=roles,dc=example,dc=com` the application uses three global `groupOfNames` entries whose **membership is the authoritative flag** (not boolean attributes on entries):
+
+| Group CN (default)        | Purpose | ENV variable |
+|---------------------------|---------|--------------|
+| `memberOrganizations`     | Organizations with active membership status | `LDAP_GROUP_MEMBER_ORGS` |
+| `disabledOrganizations`   | Organizations that have been deactivated | `LDAP_GROUP_DISABLED_ORGS` |
+| `disabledUsers`           | User accounts disabled at the application level (supplement to `pwdAccountLockedTime`) | `LDAP_GROUP_DISABLED_USERS` |
+
+Each group requires at least one `member`; use a placeholder DN (e.g. `cn=placeholder,ou=roles,dc=example,dc=com`) when the group is empty.
 
 ---
 
@@ -238,11 +254,11 @@ userPassword: {SSHA}...
 entryUUID: 6ba7b810-9dad-11d1-80b4-00c04fd430c8
 ```
 
-### Org Manager Group
+### Org admin group (default cn=org_admin)
 ```ldif
-dn: cn=orgManagers,ou=roles,o=OrgA,ou=organizations,dc=example,dc=com
+dn: cn=org_admin,ou=roles,o=OrgA,ou=organizations,dc=example,dc=com
 objectClass: groupOfNames
-cn: orgManagers
+cn: org_admin
 member: uid=jane.doe,ou=people,o=OrgA,ou=organizations,dc=example,dc=com
 ```
 
@@ -355,9 +371,9 @@ access to dn.regex="^uid=.+,ou=people,o=.*,ou=organizations,dc=example,dc=com$"
 access to dn.regex="^uid=admin.*,ou=people,o=.*,ou=organizations,dc=example,dc=com$"
   by group.exact="cn=maintainers,ou=roles,dc=example,dc=com" none
 
-# 3. Org Managers: Manage users in their own org
+# 3. Org admins: Manage users in their own org (default cn=org_admin)
 access to dn.regex="^uid=.+,ou=people,o=([^,]+),ou=organizations,dc=example,dc=com$"
-  by group.exact="cn=orgManagers,ou=roles,o=$1,ou=organizations,dc=example,dc=com" write
+  by group.exact="cn=org_admin,ou=roles,o=$1,ou=organizations,dc=example,dc=com" write
 
 # 4. Users: Self-management (e.g., change their own password)
 access to dn.regex="^uid=([^,]+),ou=people,o=.*,ou=organizations,dc=example,dc=com$"
@@ -377,7 +393,7 @@ access to *
 
 ### Required LDAP Server Configuration
 
-- **Groups:** Ensure your `administrators`, `maintainers`, and per-org `orgManagers` groups exist and are populated with the correct user DNs.
+- **Groups:** Ensure your `administrators`, `maintainers`, and per-org org admin groups (default `org_admin`) exist and are populated with the correct user DNs.
 - **Schema:** The above ACLs assume you use `groupOfNames` for groups, with the `member` attribute.
 - **DIT:** The DIT structure must match the patterns in the ACLs (see above in this document).
 - **Restart slapd:** After updating ACLs, restart the LDAP server or reload the configuration.

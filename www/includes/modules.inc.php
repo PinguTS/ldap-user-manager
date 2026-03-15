@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
  #Modules and how they can be accessed.
@@ -15,9 +16,9 @@ declare(strict_types=1);
                     'manage'          => 'admin_maintainer_org_admin',
                   );
 
-if ($ACCOUNT_REQUESTS_ENABLED == TRUE) {
-  $MODULES['request_account'] = 'hidden_on_login';
-}
-if (!$REMOTE_HTTP_HEADERS_LOGIN) {
-  $MODULES['log_out'] = 'auth';
-}
+ if ($ACCOUNT_REQUESTS_ENABLED == true) {
+     $MODULES['request_account'] = 'hidden_on_login';
+ }
+ if (!$REMOTE_HTTP_HEADERS_LOGIN) {
+     $MODULES['log_out'] = 'auth';
+ }

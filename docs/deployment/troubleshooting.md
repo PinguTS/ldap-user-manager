@@ -84,6 +84,29 @@ The system uses the following URL patterns for different features:
    - Ensure port 8080 is open
    - Check local firewall rules
 
+#### Login Succeeds but Next Page Shows "Corrupted Content" or Redirects Back to Login
+**Symptoms:**
+- Logging in works, but the browser then shows "Beschädigter Inhalt" / "network protocol violated" or you are sent back to the login page with "unauthorised"
+- Server log shows: `Session: orf_cookie was sent by the client but the session file wasn't found at /tmp/session_...`
+
+**Cause:** The app stores session data in files. If you run **multiple app instances** (e.g. several Docker containers behind a load balancer), each instance has its own filesystem. The instance that handled the login wrote the session file to its local `/tmp`; the next request may hit a different instance, which does not have that file, so the user appears logged out.
+
+**Solutions:**
+1. **Use a shared session directory** (recommended when scaling):
+   - Set `SESSION_SAVE_PATH` to a path that is **the same on all instances** and writable (e.g. `/sessions`).
+   - In Docker: mount a **shared volume** at that path on every app container. Example:
+     ```yaml
+     environment:
+       SESSION_SAVE_PATH: /sessions
+     volumes:
+       - app-sessions:/sessions
+     ```
+   - Ensure the directory exists and is writable by the web server user (e.g. `www-data`).
+2. **Single instance:** If you only run one app container/process:
+   - Check server logs right after login for: **`Session: failed to write session file to ...`**. If present, the session directory is missing or not writable by the web server (e.g. `SESSION_SAVE_PATH` or `/tmp`). Fix permissions or set `SESSION_SAVE_PATH` to a writable path and ensure the directory exists.
+   - Verify the session file is created: after a login, list session files (e.g. `docker exec <container> ls -la /tmp/session_*` or `ls -la $SESSION_SAVE_PATH/session_*`). If no file appears, the write is failing (permissions, read-only filesystem, or `open_basedir`).
+   - Ensure requests are not load-balanced to different hosts; otherwise use option 1.
+
 #### Setup Wizard Not Working
 **Symptoms:**
 - Setup wizard shows errors
@@ -305,12 +328,8 @@ The system uses the following URL patterns for different features:
 
 **Solutions:**
 1. **Check session authentication:**
-   ```bash
-   # Test session status
-   curl -X GET "https://app.example.org/manage/organizations/users/ajax_handler.php?action=test_session" \
-     -H "X-Requested-With: XMLHttpRequest" \
-     -H "Cookie: PHPSESSID=your_session_id"
-   ```
+   - Ensure you are logged in and the session cookie is sent with requests.
+   - For detailed AJAX debug logs (session, CSRF, roles), set `ENVIRONMENT=development` and check application logs (e.g. `docker-compose logs ldap-user-manager | grep "AJAX Handler"`). Do not use development mode in production.
 
 2. **Verify CSRF token:**
    - Check if CSRF token is included in AJAX requests

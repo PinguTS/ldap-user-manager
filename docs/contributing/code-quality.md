@@ -6,6 +6,8 @@ This document describes the code quality standards and tools used in the LDAP Us
 
 The project has been updated to follow modern PHP coding standards and includes automated tools for maintaining code quality.
 
+**AI-assisted development:** The file [.cursorrules.md](../../.cursorrules.md) at the project root is the authoritative single source of truth for all AI-assisted code generation. When you add or change architecture (e.g. new roles, status groups, or endpoints), update `.cursorrules.md` and mention it in your PR so the rules stay in sync with the codebase.
+
 ## Standards Applied
 
 ### PSR-12 Compliance

@@ -1,54 +1,23 @@
 <?php
+
 declare(strict_types=1);
 
-set_include_path( ".:" . __DIR__ . "/../../../includes/");
-
-include_once "web_functions.inc.php";
-include_once "ldap_functions.inc.php";
-include_once "access_functions.inc.php";
-include_once "module_functions.inc.php";
-include_once "organization_functions.inc.php";
-include_once "user_functions.inc.php";
+set_include_path(".:" . __DIR__ . "/../../../includes/");
+require_once "bootstrap_manage.inc.php";
+bootstrap_manage(['ldap', 'organization', 'user']);
 
 // Ensure CSRF token is generated early
 get_csrf_token();
 
-// Check if organization parameter is provided (support both UUID and name-based lookup)
-$orgName = null;
-$org_uuid = null;
-
-if (isset($_GET['uuid']) && !empty($_GET['uuid'])) {
-    // UUID-based lookup
-    $org_uuid = $_GET['uuid'];
-    if (!is_valid_uuid($org_uuid)) {
-        render_header('Organization User Management');
-        echo "<div class='alert alert-warning'>Invalid organization UUID provided.</div>";
-        render_footer();
-        exit;
-    }
-    
-    // Get organization by UUID
-    $ldap_connection = open_ldap_connection();
-    $organization_by_uuid = ldap_get_organization_by_uuid($ldap_connection, $org_uuid);
-    ldap_close($ldap_connection);
-    
-    if (!$organization_by_uuid) {
-        render_header('Organization User Management');
-        echo "<div class='alert alert-warning'>Organization with UUID '$org_uuid' not found.</div>";
-        render_footer();
-        exit;
-    }
-    
-    $orgName = $organization_by_uuid['o'][0];
-} elseif (isset($_GET['org']) && !empty($_GET['org'])) {
-    // Legacy name-based lookup
-    $orgName = $_GET['org'];
-} else {
+$res = resolve_organization_from_request();
+if ($res['error'] !== null) {
     render_header('Organization User Management');
-    echo "<div class='alert alert-warning'>Organization identifier (UUID or name) is required.</div>";
+    echo "<div class='alert alert-warning'>" . htmlspecialchars($res['error']) . "</div>";
     render_footer();
     exit;
 }
+$orgName = $res['org_name'] ?? '';
+$org_uuid = $res['org_uuid'] ?? '';
 
 // Access control: only admins, maintainers, or org managers for this org
 set_page_access(["admin", "maintainer", "org_admin"]);
@@ -75,7 +44,7 @@ foreach ($orgs as $org) {
         // Extract from DN attribute
         $current_org_name = preg_replace('/^o=([^,]+).*$/', '$1', $org['dn']);
     }
-    
+
     if (strtolower($current_org_name) === strtolower($orgName)) {
         $orgExists = true;
         $orgDisplay = $current_org_name;
@@ -104,14 +73,16 @@ if (!$orgName || !$orgExists) {
             // Extract from DN attribute
             $orgNameVal = preg_replace('/^o=([^,]+).*$/', '$1', $org['dn']);
         }
-        
-        if ($orgNameVal === '') continue;
+
+        if ($orgNameVal === '') {
+            continue;
+        }
         // Get UUID for this organization if available
         $org_uuid_val = '';
         if (isset($org['entryUUID']) && !empty($org['entryUUID'])) {
             $org_uuid_val = $org['entryUUID'];
         }
-        
+
         $link_param = $org_uuid_val ? 'uuid=' . urlencode($org_uuid_val) : 'org=' . urlencode($orgNameVal);
         echo '<li><a href="org_users.php?' . $link_param . '">' . htmlspecialchars($orgNameVal) . '</a></li>';
     }
@@ -121,12 +92,13 @@ if (!$orgName || !$orgExists) {
 }
 
 // Fetch users in the organization
-function getUsersInOrg($orgName) {
+function getUsersInOrg($orgName)
+{
     global $LDAP;
     $ldap = open_ldap_connection();
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
     $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
-    
+
     // First check if the users DN exists before searching
     $dnExists = @ldap_read($ldap, $usersDn, '(objectClass=*)', ['dn']);
     if (!$dnExists) {
@@ -134,7 +106,7 @@ function getUsersInOrg($orgName) {
         ldap_close($ldap);
         return [];
     }
-    
+
     $filter = '(objectClass=inetOrgPerson)';
     $attributes = ['uid', 'cn', 'sn', 'mail', 'entryUUID'];
     $result = @ldap_search($ldap, $usersDn, $filter, $attributes);
@@ -144,7 +116,7 @@ function getUsersInOrg($orgName) {
         ldap_close($ldap);
         return [];
     }
-    
+
     $entries = ldap_get_entries($ldap, $result);
     ldap_close($ldap);
     $users = [];
@@ -155,7 +127,8 @@ function getUsersInOrg($orgName) {
 }
 
 // Helper: get DN for a user in an org
-function getUserDn($orgName, $uid) {
+function getUserDn($orgName, $uid)
+{
     global $LDAP;
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
     $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
@@ -163,13 +136,16 @@ function getUserDn($orgName, $uid) {
 }
 
 // Helper: get org manager DNs
-function getOrgManagerDns($orgName) {
+function getOrgManagerDns($orgName)
+{
     global $LDAP;
     $ldap = open_ldap_connection();
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
     $groupDn = "cn={$LDAP['org_admin_role']},ou=roles,o={$orgRDN}," . $LDAP['org_dn'];
     $result = @ldap_read($ldap, $groupDn, '(objectClass=groupOfNames)', ['member']);
-    if (!$result) return [];
+    if (!$result) {
+        return [];
+    }
     $entries = ldap_get_entries($ldap, $result);
     $dns = [];
     if ($entries['count'] > 0 && isset($entries[0]['member'])) {
@@ -183,10 +159,10 @@ function getOrgManagerDns($orgName) {
 // Handle org manager role toggle
 if (isset($_GET['toggle_manager']) && isset($_GET['uid'])) {
     $toggleUserParam = $_GET['uid'];
-    
+
     // Check if this is a UUID or uid
     $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $toggleUserParam);
-    
+
     if ($is_uuid) {
         // UUID-based lookup - get user DN from UUID
         $ldap_connection = open_ldap_connection();
@@ -194,7 +170,7 @@ if (isset($_GET['toggle_manager']) && isset($_GET['uid'])) {
         $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
         $user_by_uuid = ldap_get_entry_by_uuid($ldap_connection, $toggleUserParam, $usersDn);
         ldap_close($ldap_connection);
-        
+
         if ($user_by_uuid) {
             $userDn = $user_by_uuid['dn'];
         } else {
@@ -206,12 +182,12 @@ if (isset($_GET['toggle_manager']) && isset($_GET['uid'])) {
         // Legacy uid-based lookup
         $userDn = getUserDn($orgName, $toggleUserParam);
     }
-    
+
     $orgManagerDns = getOrgManagerDns($orgName);
     $ldap = open_ldap_connection();
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
     $orgAdminsDn = "cn={$LDAP['org_admin_role']},ou=roles,o={$orgRDN}," . $LDAP['org_dn'];
-    
+
     // First, ensure the roles directory exists
     $rolesDN = "ou=roles,o={$orgRDN}," . $LDAP['org_dn'];
     $rolesDirExists = @ldap_read($ldap, $rolesDN, '(objectClass=*)', ['dn']);
@@ -222,7 +198,7 @@ if (isset($_GET['toggle_manager']) && isset($_GET['uid'])) {
             'ou' => 'roles',
             'description' => 'Roles for organization ' . $orgName
         ];
-        
+
         $createRolesDir = @ldap_add($ldap, $rolesDN, $rolesDirEntry);
         if (!$createRolesDir) {
             $ldap_err = ldap_error($ldap);
@@ -233,7 +209,7 @@ if (isset($_GET['toggle_manager']) && isset($_GET['uid'])) {
             goto after_toggle_manager;
         }
     }
-    
+
     // Ensure OrgAdmins group exists
     $orgAdmins_search = @ldap_read($ldap, $orgAdminsDn, '(objectClass=groupOfNames)', ['cn']);
     $orgAdmins_exists = false;
@@ -283,17 +259,17 @@ if (isset($_GET['toggle_manager']) && isset($_GET['uid'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['lock_user']) && currentUserCanDisableUser($_POST['lock_user'])) {
         $user_identifier = trim($_POST['lock_user']);
-        
+
         // Check if this is a UUID or uid
         $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $user_identifier);
-        
+
         if ($is_uuid) {
             // UUID-based lookup
             $ldap_connection = open_ldap_connection();
             $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
             $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
             $user_by_uuid = ldap_get_entry_by_uuid($ldap_connection, $user_identifier, $usersDn);
-            
+
             if ($user_by_uuid) {
                 $user_dn = $user_by_uuid['dn'];
             } else {
@@ -307,7 +283,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user_dn = getUserDn($orgName, $user_identifier);
             $ldap_connection = open_ldap_connection();
         }
-        
+
         if (ldap_lock_user_account($ldap_connection, $user_dn)) {
             $message = "User has been locked successfully.";
             $message_type = 'success';
@@ -320,17 +296,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         after_lock_user:
     } elseif (isset($_POST['unlock_user']) && currentUserCanEnableUser($_POST['unlock_user'])) {
         $user_identifier = trim($_POST['unlock_user']);
-        
+
         // Check if this is a UUID or uid
         $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $user_identifier);
-        
+
         if ($is_uuid) {
             // UUID-based lookup
             $ldap_connection = open_ldap_connection();
             $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
             $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
             $user_by_uuid = ldap_get_entry_by_uuid($ldap_connection, $user_identifier, $usersDn);
-            
+
             if ($user_by_uuid) {
                 $user_dn = $user_by_uuid['dn'];
             } else {
@@ -344,7 +320,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user_dn = getUserDn($orgName, $user_identifier);
             $ldap_connection = open_ldap_connection();
         }
-        
+
         if (ldap_unlock_user_account($ldap_connection, $user_dn)) {
             $message = "User has been unlocked successfully.";
             $message_type = 'success';
@@ -357,17 +333,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         after_unlock_user:
     } elseif (isset($_POST['delete_user']) && currentUserCanDisableUser($_POST['delete_user'])) {
         $user_identifier = trim($_POST['delete_user']);
-        
+
         // Check if this is a UUID or uid
         $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $user_identifier);
-        
+
         if ($is_uuid) {
             // UUID-based lookup
             $ldap_connection = open_ldap_connection();
             $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
             $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
             $user_by_uuid = ldap_get_entry_by_uuid($ldap_connection, $user_identifier, $usersDn);
-            
+
             if ($user_by_uuid) {
                 $user_dn = $user_by_uuid['dn'];
             } else {
@@ -381,7 +357,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user_dn = getUserDn($orgName, $user_identifier);
             $ldap_connection = open_ldap_connection();
         }
-        
+
         if (ldap_delete($ldap_connection, $user_dn)) {
             $message = "User has been deleted successfully.";
             $message_type = 'success';
@@ -413,10 +389,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
     $cn = trim($_POST['cn']);
     $password = $_POST['password'];
     $passcode = $_POST['passcode'];
-    
+
     // Use email as username since that's how the system is configured
     $uid = $mail;
-    
+
     if ($givenName === '' || $sn === '' || $mail === '' || $password === '') {
         $message = 'All fields are required.';
         $message_type = 'danger';
@@ -427,7 +403,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
     $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
     $userDn = "uid=" . ldap_escape($uid, '', LDAP_ESCAPE_DN) . "," . $usersDn;
     $ldap = open_ldap_connection();
-    
+
     // Ensure the users directory exists before trying to add a user
     $usersDirExists = @ldap_read($ldap, $usersDn, '(objectClass=*)', ['dn']);
     if (!$usersDirExists) {
@@ -437,7 +413,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
             'ou' => 'people',
             'description' => 'Users for organization ' . $orgName
         ];
-        
+
         $createUsersDir = @ldap_add($ldap, $usersDn, $usersDirEntry);
         if (!$createUsersDir) {
             $ldap_err = ldap_error($ldap);
@@ -448,7 +424,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
             goto after_add_user;
         }
     }
-    
+
     $search = @ldap_search($ldap, $usersDn, "(uid=" . ldap_escape($uid, '', LDAP_ESCAPE_FILTER) . ")");
     $entries = $search ? ldap_get_entries($ldap, $search) : false;
     if ($entries && $entries['count'] > 0) {
@@ -457,7 +433,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
         ldap_close($ldap);
         goto after_add_user;
     }
-    
+
     // Create user entry
     $entry = array(
         'objectClass' => array('top', 'inetOrgPerson', 'organizationalPerson', 'person'),
@@ -469,7 +445,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
         'userPassword' => ldap_hashed_password($password), // Use consistent LDAP hashing
         'account_attribute' => $LDAP['account_attribute']
     );
-    
+
     # Add passcode to userPassword (multiple values supported)
     if (!isset($entry['userPassword'])) {
         $entry['userPassword'] = array();
@@ -486,7 +462,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
         $message = 'Failed to add user: ' . htmlspecialchars($ldap_err);
         $message_type = 'danger';
     }
-    
+
     ldap_close($ldap);
 }
 after_add_user:
@@ -494,10 +470,10 @@ after_add_user:
 // Handle delete user
 if (isset($_GET['delete_user'])) {
     $deleteUserParam = $_GET['delete_user'];
-    
+
     // Check if this is a UUID or uid
     $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $deleteUserParam);
-    
+
     if ($is_uuid) {
         // UUID-based lookup - get user DN from UUID
         $ldap_connection = open_ldap_connection();
@@ -505,7 +481,7 @@ if (isset($_GET['delete_user'])) {
         $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
         $user_by_uuid = ldap_get_entry_by_uuid($ldap_connection, $deleteUserParam, $usersDn);
         ldap_close($ldap_connection);
-        
+
         if ($user_by_uuid) {
             $userDn = $user_by_uuid['dn'];
         } else {
@@ -519,16 +495,16 @@ if (isset($_GET['delete_user'])) {
         $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
         $userDn = "uid=" . ldap_escape($deleteUserParam, '', LDAP_ESCAPE_DN) . ",$usersDn";
     }
-    
+
     $ldap = open_ldap_connection();
-    
+
     // Remove user from all groups before deletion
     $group_cleanup_success = ldap_remove_user_from_all_groups($ldap, $userDn);
     if (!$group_cleanup_success) {
         error_log("Warning: Failed to remove user from some groups before deletion");
         // Continue with deletion even if group cleanup failed
     }
-    
+
     try {
         ldap_delete($ldap, $userDn);
         $message = 'User deleted successfully.';
@@ -545,10 +521,10 @@ after_delete_user:
 $editUser = null;
 if (isset($_GET['edit_user'])) {
     $editUserParam = $_GET['edit_user'];
-    
+
     // Check if this is a UUID or uid
     $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $editUserParam);
-    
+
     if ($is_uuid) {
         // UUID-based lookup
         $ldap_connection = open_ldap_connection();
@@ -556,7 +532,7 @@ if (isset($_GET['edit_user'])) {
         $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
         $user_by_uuid = ldap_get_entry_by_uuid($ldap_connection, $editUserParam, $usersDn);
         ldap_close($ldap_connection);
-        
+
         if ($user_by_uuid) {
             $editUser = $user_by_uuid;
         }
@@ -584,10 +560,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
     $mail = trim($_POST['edit_mail']);
     $password = $_POST['edit_password'];
     $passcode = $_POST['edit_passcode'];
-    
+
     // Check if the edit_uid is a UUID or uid
     $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $uid);
-    
+
     if ($is_uuid) {
         // UUID-based lookup - get user DN from UUID
         $ldap_connection = open_ldap_connection();
@@ -595,7 +571,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
         $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
         $user_by_uuid = ldap_get_entry_by_uuid($ldap_connection, $uid, $usersDn);
         ldap_close($ldap_connection);
-        
+
         if ($user_by_uuid) {
             $userDn = $user_by_uuid['dn'];
         } else {
@@ -609,7 +585,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
         $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
         $userDn = "uid=" . ldap_escape($uid, '', LDAP_ESCAPE_DN) . ",$usersDn";
     }
-    
+
     $ldap = open_ldap_connection();
     $entry = [
         'givenname' => $givenName,
@@ -622,10 +598,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
     }
     if ($passcode !== '') {
       # Add passcode to userPassword (multiple values supported)
-      if (!isset($entry['userPassword'])) {
-        $entry['userPassword'] = array();
-      }
-      $entry['userPassword'][] = ldap_hashed_passcode($passcode);
+        if (!isset($entry['userPassword'])) {
+            $entry['userPassword'] = array();
+        }
+        $entry['userPassword'][] = ldap_hashed_passcode($passcode);
     }
     try {
         ldap_modify($ldap, $userDn, $entry);
@@ -645,10 +621,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
         validate_csrf_token();
     }
     $resetUserParam = $_POST['reset_uid'];
-    
+
     // Check if this is a UUID or uid
     $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $resetUserParam);
-    
+
     if ($is_uuid) {
         // UUID-based lookup - get user DN from UUID
         $ldap_connection = open_ldap_connection();
@@ -656,7 +632,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
         $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
         $user_by_uuid = ldap_get_entry_by_uuid($ldap_connection, $resetUserParam, $usersDn);
         ldap_close($ldap_connection);
-        
+
         if ($user_by_uuid) {
             $userDn = $user_by_uuid['dn'];
         } else {
@@ -670,7 +646,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
         $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
         $userDn = "uid=" . ldap_escape($resetUserParam, '', LDAP_ESCAPE_DN) . ",$usersDn";
     }
-    
+
     $new_password = $_POST['reset_password'];
     $new_passcode = $_POST['reset_passcode'];
     $ldap = open_ldap_connection();
@@ -680,10 +656,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
     }
     if ($new_passcode !== '') {
       # Add passcode to userPassword (multiple values supported)
-      if (!isset($entry['userPassword'])) {
-        $entry['userPassword'] = array();
-      }
-      $entry['userPassword'][] = ldap_hashed_passcode($new_passcode);
+        if (!isset($entry['userPassword'])) {
+            $entry['userPassword'] = array();
+        }
+        $entry['userPassword'][] = ldap_hashed_passcode($new_passcode);
     }
     if (!empty($entry)) {
         try {
@@ -724,12 +700,10 @@ $ldap_connection = open_ldap_connection();
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2>Users in <?= htmlspecialchars($orgDisplay) ?></h2>
         <div>
-            <button type="button" class="btn btn-info btn-sm me-2" onclick="testModal()">Test Modal</button>
-            <button type="button" class="btn btn-warning btn-sm me-2" onclick="testSession()">Test Session</button>
             <a href="/manage/organizations/show/index.php?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="btn btn-secondary mb-3">&larr; Back to Organization</a>
         </div>
     </div>
-    <?php if ($message): ?>
+    <?php if ($message) : ?>
         <div class="alert alert-<?= $message_type ?>" id="msgbox"> <?= $message ?> </div>
     <?php endif; ?>
     <input class="form-control mb-2" id="user_search_input" type="text" placeholder="Search users..">
@@ -745,12 +719,12 @@ $ldap_connection = open_ldap_connection();
             </tr>
         </thead>
         <tbody>
-            <?php foreach ($users as $user): 
+            <?php foreach ($users as $user) :
                 $isManager = in_array(getUserDn($orgName, get_ldap_attribute($user, 'uid')), $orgManagerDns);
                 // Use robust UUID extraction for user actions
                 $user_uuid = get_user_uuid($user);
                 $user_identifier = $user_uuid ?: get_ldap_attribute($user, 'uid');
-            ?>
+                ?>
                 <tr<?= $isManager ? ' class="table-success"' : '' ?>>
                     <td><?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?></td>
                     <td><?= safe_display_name($user, 'cn', 'givenName', 'sn') ?></td>
@@ -772,10 +746,10 @@ $ldap_connection = open_ldap_connection();
                     <td>
                         <div class="btn-group btn-group-sm">
                             <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&edit_user=<?= urlencode($user_identifier) ?>" class="btn btn-secondary btn-sm">Edit</a>
-                            <?php if (currentUserCanDisableUser($user_identifier)): ?>
-                                <?php if (ldap_user_is_locked($ldap_connection, $user['dn'])): ?>
+                            <?php if (currentUserCanDisableUser($user_identifier)) : ?>
+                                <?php if (ldap_user_is_locked($ldap_connection, $user['dn'])) : ?>
                                     <button type="button" class="btn btn-success btn-sm" onclick="confirmUnlockUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')">Unlock</button>
-                                <?php else: ?>
+                                <?php else : ?>
                                     <button type="button" class="btn btn-warning btn-sm" onclick="confirmLockUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')">Lock</button>
                                 <?php endif; ?>
                             <?php endif; ?>
@@ -806,7 +780,7 @@ $ldap_connection = open_ldap_connection();
         </div>
         <div class="form-group">
             <label for="mail">Email (Username)</label>
-            <input type="email" class="form-control" name="mail" id="mail" onchange="updateAccountUid(this.value)" required>
+            <input type="email" class="form-control" name="mail" id="mail" required>
             <small class="text-muted">Email will be used as the username for login</small>
         </div>
         
@@ -828,7 +802,7 @@ $ldap_connection = open_ldap_connection();
     </form>
 
     <!-- Edit User Modal -->
-    <?php if ($editUser): ?>
+    <?php if ($editUser) : ?>
     <div class="modal show" tabindex="-1" style="display:block; background:rgba(0,0,0,0.3); z-index:1050;">
       <div class="modal-dialog" role="document">
         <div class="modal-content">
@@ -836,7 +810,7 @@ $ldap_connection = open_ldap_connection();
             <?= csrf_token_field() ?>
             <div class="modal-header">
               <h5 class="modal-title" id="editUserModalLabel">Edit User</h5>
-              <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="close">&times;</a>
+              <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="btn-close" aria-label="Close"></a>
             </div>
             <div class="modal-body">
               <input type="hidden" name="edit_uid" id="edit_uid_input" value="<?= htmlspecialchars(get_ldap_attribute($editUser, 'uid')) ?>">
@@ -863,13 +837,13 @@ $ldap_connection = open_ldap_connection();
             </div>
             <div class="modal-footer">
               <button type="submit" name="save_user" class="btn btn-primary">Save Changes</button>
-              <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="btn btn-default">Cancel</a>
+              <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="btn btn-secondary">Cancel</a>
             </div>
           </form>
         </div>
       </div>
     </div>
-    <?php else: ?>
+    <?php else : ?>
     <div class="modal fade" id="editUserModal" tabindex="-1" role="dialog" aria-labelledby="editUserModalLabel" aria-hidden="true">
       <div class="modal-dialog" role="document">
         <div class="modal-content">
@@ -877,9 +851,7 @@ $ldap_connection = open_ldap_connection();
             <?= csrf_token_field() ?>
             <div class="modal-header">
               <h5 class="modal-title" id="editUserModalLabel">Edit User</h5>
-              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-              </button>
+<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
               <input type="hidden" name="edit_uid" id="edit_uid_input" value="">
@@ -906,7 +878,7 @@ $ldap_connection = open_ldap_connection();
             </div>
             <div class="modal-footer">
               <button type="submit" name="save_user" class="btn btn-primary">Save Changes</button>
-              <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
             </div>
           </form>
         </div>
@@ -914,89 +886,36 @@ $ldap_connection = open_ldap_connection();
     </div>
     <?php endif; ?>
     
-    <!-- Lock User Modal -->
-    <div class="modal fade" id="lockUserModal" tabindex="-1" role="dialog" aria-labelledby="lockUserModalLabel" aria-hidden="true">
-      <div class="modal-dialog" role="document">
-        <div class="modal-content">
-          <form method="post" action="">
-            <?= csrf_token_field() ?>
-            <div class="modal-header bg-warning text-dark">
-              <h5 class="modal-title" id="lockUserModalLabel">Lock User Account</h5>
-              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-              </button>
-            </div>
-            <div class="modal-body">
-              <p>Are you sure you want to lock the user account for <strong><span id="lockUserName"></span></strong>?</p>
-              <p class="text-warning"><strong>Warning:</strong> This will prevent the user from logging in until the account is unlocked.</p>
-              <input type="hidden" name="lock_user" id="lockUserIdentifier" value="">
-            </div>
-            <div class="modal-footer">
-              <button type="submit" class="btn btn-warning">Lock Account</button>
-              <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-    
-    <!-- Unlock User Modal -->
-    <div class="modal fade" id="unlockUserModal" tabindex="-1" role="dialog" aria-labelledby="unlockUserModalLabel" aria-hidden="true">
-      <div class="modal-dialog" role="document">
-        <div class="modal-content">
-          <form method="post" action="">
-            <?= csrf_token_field() ?>
-            <div class="modal-header bg-success text-white">
-              <h5 class="modal-title" id="unlockUserModalLabel">Unlock User Account</h5>
-              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-              </button>
-            </div>
-            <div class="modal-body">
-              <p>Are you sure you want to unlock the user account for <strong><span id="unlockUserName"></span></strong>?</p>
-              <p class="text-success">This will allow the user to log in again.</p>
-              <input type="hidden" name="unlock_user" id="unlockUserIdentifier" value="">
-            </div>
-            <div class="modal-footer">
-              <button type="submit" class="btn btn-success">Unlock Account</button>
-              <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-    
-    <!-- Delete User Modal -->
-    <div class="modal fade" id="deleteUserModal" tabindex="-1" role="dialog" aria-labelledby="deleteUserModalLabel" aria-hidden="true">
-      <div class="modal-dialog" role="document">
-        <div class="modal-content">
-          <form method="post">
-            <?= csrf_token_field() ?>
-            <div class="modal-header">
-              <h5 class="modal-title" id="deleteUserModalLabel">Delete User Account</h5>
-              <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-              </button>
-            </div>
-            <div class="modal-body">
-              <p>Are you sure you want to delete the user "<span id="deleteUserName"></span>"?</p>
-              <p class="text-danger"><strong>Warning:</strong> This action cannot be undone and will remove all associated data.</p>
-              <p class="text-warning"><strong>Note:</strong> This will permanently delete the user account from this organization.</p>
-              <input type="hidden" name="delete_user" id="deleteUserIdentifier" value="">
-            </div>
-            <div class="modal-footer">
-              <button type="submit" class="btn btn-danger">Delete Account</button>
-              <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-    
-    <?php if (isset($_GET['reset_user'])): 
+    <?php
+    render_confirm_modal(
+        'lockUserModal',
+        'Lock User Account',
+        '<p>Are you sure you want to lock the user account for <strong><span id="lockUserName"></span></strong>?</p><p class="text-warning"><strong>Warning:</strong> This will prevent the user from logging in until the account is unlocked.</p>',
+        [['name' => 'lock_user', 'id' => 'lockUserIdentifier']],
+        'Lock Account',
+        'btn-warning'
+    );
+    render_confirm_modal(
+        'unlockUserModal',
+        'Unlock User Account',
+        '<p>Are you sure you want to unlock the user account for <strong><span id="unlockUserName"></span></strong>?</p><p class="text-success">This will allow the user to log in again.</p>',
+        [['name' => 'unlock_user', 'id' => 'unlockUserIdentifier']],
+        'Unlock Account',
+        'btn-success'
+    );
+    render_confirm_modal(
+        'deleteUserModal',
+        'Delete User Account',
+        '<p>Are you sure you want to delete the user "<span id="deleteUserName"></span>"?</p><p class="text-danger"><strong>Warning:</strong> This action cannot be undone and will remove all associated data.</p><p class="text-warning"><strong>Note:</strong> This will permanently delete the user account from this organization.</p>',
+        [['name' => 'delete_user', 'id' => 'deleteUserIdentifier']],
+        'Delete Account',
+        'btn-danger'
+    );
+    ?>
+    <?php if (isset($_GET['reset_user'])) :
         $resetUserParam = $_GET['reset_user'];
         $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $resetUserParam);
-        
+
         // Get user information for display
         $resetUserDisplay = '';
         if ($is_uuid) {
@@ -1006,7 +925,7 @@ $ldap_connection = open_ldap_connection();
             $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
             $user_by_uuid = ldap_get_entry_by_uuid($ldap_connection, $resetUserParam, $usersDn);
             ldap_close($ldap_connection);
-            
+
             if ($user_by_uuid) {
                 $resetUserDisplay = get_ldap_attribute($user_by_uuid, 'uid') ?: $resetUserParam;
             } else {
@@ -1016,7 +935,7 @@ $ldap_connection = open_ldap_connection();
             // Legacy uid-based lookup
             $resetUserDisplay = $resetUserParam;
         }
-    ?>
+        ?>
     <div class="modal show" tabindex="-1" style="display:block; background:rgba(0,0,0,0.3); z-index:1050;">
       <div class="modal-dialog">
         <div class="modal-content border-warning">
@@ -1024,7 +943,7 @@ $ldap_connection = open_ldap_connection();
             <?= csrf_token_field() ?>
             <div class="modal-header bg-warning text-dark">
               <h5 class="modal-title">Reset Credentials for <?= htmlspecialchars($resetUserDisplay) ?></h5>
-              <a href="/manage/organizations/users/index.php?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="close text-dark">&times;</a>
+              <a href="/manage/organizations/users/index.php?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="btn-close text-dark" aria-label="Close"></a>
             </div>
             <div class="modal-body">
               <input type="hidden" name="reset_uid" value="<?= htmlspecialchars($resetUserParam) ?>">
@@ -1048,14 +967,10 @@ $ldap_connection = open_ldap_connection();
     <?php endif; ?>
     <p class="text-muted mt-2">(Role management and UI refinements complete.)</p>
 </div>
-<script src="/js/zxcvbn.min.js"></script>
-<script src="/bootstrap/js/bootstrap.min.js"></script>
+<script src="<?php print get_asset_base(); ?>js/modals.js"></script>
+<script src="<?php print get_asset_base(); ?>js/form-sync.js"></script>
+<script src="<?php print get_asset_base(); ?>js/zxcvbn.min.js"></script>
 <script>
-    // Debug: Check what's loaded
-    console.log('jQuery loaded:', typeof $ !== 'undefined');
-    console.log('Bootstrap loaded:', typeof $.fn !== 'undefined' && typeof $.fn.modal !== 'undefined');
-    console.log('jQuery version:', typeof $ !== 'undefined' ? $.fn.jquery : 'not loaded');
-    
     // Initialize organization user search functionality
     document.addEventListener('DOMContentLoaded', function() {
         const searchInput = document.getElementById('user_search_input');
@@ -1085,102 +1000,27 @@ $ldap_connection = open_ldap_connection();
             }, 5000);
         }
         
-        // Initialize form enhancements
-        const givenNameField = document.getElementById('givenName');
-        const surnameField = document.getElementById('sn');
-        const displayField = document.getElementById('cn');
-        const emailField = document.getElementById('mail');
-        const passwordField = document.getElementById('password');
-        
-        // Auto-generate display name from first and last name
-        if (givenNameField && surnameField && displayField) {
-            function updateDisplayName() {
-                const givenName = givenNameField.value.trim();
-                const surname = surnameField.value.trim();
-                if (givenName && surname) {
-                    displayField.value = givenName + ' ' + surname;
-                }
-            }
-            
-            givenNameField.addEventListener('input', updateDisplayName);
-            surnameField.addEventListener('input', updateDisplayName);
-        }
-        
-        // Auto-generate account ID from email
-        if (emailField && document.getElementById('<?php echo $LDAP["account_attribute"]; ?>')) {
-            emailField.addEventListener('input', function() {
-                const accountField = document.getElementById('<?php echo $LDAP["account_attribute"]; ?>');
-                if (accountField) {
-                    accountField.value = this.value.trim();
-                }
+        // Form sync: display name from givenName+sn, email -> account attribute
+        if (typeof initFormSync === 'function') {
+            initFormSync({
+                givenNameId: 'givenName',
+                snId: 'sn',
+                cnId: 'cn',
+                emailId: 'mail',
+                accountAttributeId: '<?php echo $LDAP["account_attribute"]; ?>'
             });
         }
     });
-    
-    // Lock/Unlock user functions
+
     function confirmLockUser(userIdentifier, userName) {
-        console.log('confirmLockUser called with:', userIdentifier, userName);
-        document.getElementById('lockUserIdentifier').value = userIdentifier;
-        document.getElementById('lockUserName').textContent = userName;
-        
-        // Check if jQuery and modal are available
-        if (typeof $ === 'undefined') {
-            console.error('jQuery is not loaded');
-            alert('Error: jQuery is not loaded. Please refresh the page.');
-            return;
-        }
-        
-        if (typeof $.fn.modal === 'undefined') {
-            console.error('Bootstrap modal is not available');
-            alert('Error: Bootstrap modal is not available. Please refresh the page.');
-            return;
-        }
-        
-        $('#lockUserModal').modal('show');
+        confirmAction('lockUserModal', { lockUserIdentifier: userIdentifier, lockUserName: userName });
     }
-    
     function confirmUnlockUser(userIdentifier, userName) {
-        console.log('confirmUnlockUser called with:', userIdentifier, userName);
-        document.getElementById('unlockUserIdentifier').value = userIdentifier;
-        document.getElementById('unlockUserName').textContent = userName;
-        
-        // Check if jQuery and modal are available
-        if (typeof $ === 'undefined') {
-            console.error('jQuery is not loaded');
-            alert('Error: jQuery is not loaded. Please refresh the page.');
-            return;
-        }
-        
-        if (typeof $.fn.modal === 'undefined') {
-            console.error('Bootstrap modal is not available');
-            alert('Error: Bootstrap modal is not available. Please refresh the page.');
-            return;
-        }
-        
-        $('#unlockUserModal').modal('show');
+        confirmAction('unlockUserModal', { unlockUserIdentifier: userIdentifier, unlockUserName: userName });
     }
-
     function confirmDeleteUser(userIdentifier, userName) {
-        console.log('confirmDeleteUser called with:', userIdentifier, userName);
-        document.getElementById('deleteUserName').textContent = userName;
-        document.getElementById('deleteUserIdentifier').value = userIdentifier;
-
-        // Check if jQuery and modal are available
-        if (typeof $ === 'undefined') {
-            console.error('jQuery is not loaded');
-            alert('Error: jQuery is not loaded. Please refresh the page.');
-            return;
-        }
-
-        if (typeof $.fn.modal === 'undefined') {
-            console.error('Bootstrap modal is not available');
-            alert('Error: Bootstrap modal is not available. Please refresh the page.');
-            return;
-        }
-
-        $('#deleteUserModal').modal('show');
+        confirmAction('deleteUserModal', { deleteUserName: userName, deleteUserIdentifier: userIdentifier });
     }
-    
 </script>
 <?php
 // Close LDAP connection

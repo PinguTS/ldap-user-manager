@@ -95,11 +95,11 @@ builder:
 	@docker buildx use $(BUILDER_NAME)
 	@docker buildx inspect --bootstrap >/dev/null
 
-# Build and push dev version to private registry
+# Build and push dev version to private registry (dev branch only unless DEV_ANY_BRANCH=1)
 .PHONY: dev
 dev: builder
-	@if [ "$(GIT_BRANCH)" != "dev" ]; then \
-		echo "Aborted. This task is only for the dev branch. Current: $(GIT_BRANCH)"; exit 1; \
+	@if [ "$(DEV_ANY_BRANCH)" != "1" ] && [ "$(GIT_BRANCH)" != "dev" ]; then \
+		echo "Aborted. This task is only for the dev branch. Current: $(GIT_BRANCH). Use DEV_ANY_BRANCH=1 make dev to override."; exit 1; \
 	fi
 	docker buildx build \
 		--platform $(PLATFORMS) \
@@ -150,6 +150,14 @@ notify:
 # =============================================================================
 # Code Quality Commands (New additions)
 # =============================================================================
+# When PHP/Composer are not installed locally, use Docker (composer:2, php:8.2-cli).
+# Set USE_LOCAL=1 to force local PHP/Composer (avoid Docker); set USE_DOCKER=1 to force Docker.
+COMPOSER_IMAGE ?= composer:2
+PHP_IMAGE ?= php:8.2-cli
+DOCKER_COMPOSER = docker run --rm -v "$$(pwd)":/app -w /app $(COMPOSER_IMAGE)
+DOCKER_PHP = docker run --rm -v "$$(pwd)":/app -w /app $(PHP_IMAGE)
+# PHPStan memory limit (default 128M in php.ini is often too low for large codebases)
+PHPSTAN_MEMORY_LIMIT ?= 512M
 
 .PHONY: help install test cs cs-fix stan fix rector clean docker-build docker-run docker-stop
 
@@ -165,58 +173,104 @@ help: ## Show this help message
 	@echo "  check        Show registry configuration"
 	@echo "  notify       Send notification to Portainer webhook"
 	@echo ""
-	@echo "Code Quality Commands:"
+	@echo "Code Quality Commands (no local PHP needed; uses Docker when php not in PATH):"
+	@echo "  Use USE_LOCAL=1 to force local PHP only; USE_DOCKER=1 to force one Docker run."
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -v "help:" | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-install: ## Install Composer dependencies
-	composer install
+install: ## Install Composer dependencies (uses Docker if composer not in PATH)
+	@if command -v composer >/dev/null 2>&1; then \
+		composer install; \
+	else \
+		echo "Composer not in PATH; running via Docker..."; \
+		$(DOCKER_COMPOSER) install; \
+	fi
 
-test: ## Run tests (if available)
-	@if [ -f "vendor/bin/phpunit" ]; then \
+update: ## Update composer.lock from composer.json (run after adding/removing deps)
+	@if command -v composer >/dev/null 2>&1; then \
+		composer update; \
+	else \
+		echo "Composer not in PATH; running via Docker..."; \
+		$(DOCKER_COMPOSER) update; \
+	fi
+
+test: ## Run tests (if available; uses Docker if php not in PATH)
+	@if [ ! -f "vendor/bin/phpunit" ]; then \
+		echo "PHPUnit not available. Run 'make install' first."; exit 1; \
+	fi; \
+	if command -v php >/dev/null 2>&1; then \
 		vendor/bin/phpunit; \
 	else \
-		echo "PHPUnit not available. Run 'make install' first."; \
+		$(DOCKER_PHP) ./vendor/bin/phpunit; \
 	fi
 
-cs: ## Check coding standards with PHPCS
-	@if [ -f "vendor/bin/phpcs" ]; then \
-		vendor/bin/phpcs --standard=.phpcs.xml; \
+cs: ## Check coding standards with PHPCS (uses Docker if php not in PATH; USE_LOCAL=1 or USE_DOCKER=1 to override)
+	@if [ ! -f "vendor/bin/phpcs" ]; then \
+		echo "PHPCS not available. Run 'make install' first."; exit 1; \
+	fi; \
+	if [ "$(USE_DOCKER)" = "1" ]; then \
+		$(DOCKER_PHP) sh -c './vendor/bin/phpcs --standard=.phpcs.xml < /dev/null'; \
+	elif [ "$(USE_LOCAL)" = "1" ] || command -v php >/dev/null 2>&1; then \
+		vendor/bin/phpcs --standard=.phpcs.xml < /dev/null; \
 	else \
-		echo "PHPCS not available. Run 'make install' first."; \
+		$(DOCKER_PHP) sh -c './vendor/bin/phpcs --standard=.phpcs.xml < /dev/null'; \
 	fi
 
-cs-fix: ## Auto-fix coding standards with PHPCBF
-	@if [ -f "vendor/bin/phpcbf" ]; then \
+cs-fix: ## Auto-fix coding standards with PHPCBF (uses Docker if php not in PATH)
+	@if [ ! -f "vendor/bin/phpcbf" ]; then \
+		echo "PHPCBF not available. Run 'make install' first."; exit 1; \
+	fi; \
+	if command -v php >/dev/null 2>&1; then \
 		vendor/bin/phpcbf --standard=.phpcs.xml; \
 	else \
-		echo "PHPCBF not available. Run 'make install' first."; \
+		$(DOCKER_PHP) ./vendor/bin/phpcbf --standard=.phpcs.xml; \
 	fi
 
-stan: ## Run static analysis with PHPStan
-	@if [ -f "vendor/bin/phpstan" ]; then \
-		vendor/bin/phpstan analyse --configuration=phpstan.neon; \
+stan: ## Run static analysis with PHPStan (uses Docker if php not in PATH; USE_LOCAL=1 or USE_DOCKER=1 to override)
+	@if [ ! -f "vendor/bin/phpstan" ]; then \
+		echo "PHPStan not available. Run 'make install' first."; exit 1; \
+	fi; \
+	if [ "$(USE_DOCKER)" = "1" ]; then \
+		$(DOCKER_PHP) ./vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=$(PHPSTAN_MEMORY_LIMIT); \
+	elif [ "$(USE_LOCAL)" = "1" ] || command -v php >/dev/null 2>&1; then \
+		vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=$(PHPSTAN_MEMORY_LIMIT); \
 	else \
-		echo "PHPStan not available. Run 'make install' first."; \
+		$(DOCKER_PHP) ./vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=$(PHPSTAN_MEMORY_LIMIT); \
 	fi
 
-fix: ## Auto-fix code style with PHP-CS-Fixer
-	@if [ -f "vendor/bin/php-cs-fixer" ]; then \
+fix: ## Auto-fix code style with PHP-CS-Fixer (uses Docker if php not in PATH)
+	@if [ ! -f "vendor/bin/php-cs-fixer" ]; then \
+		echo "PHP-CS-Fixer not available. Run 'make install' first."; exit 1; \
+	fi; \
+	if command -v php >/dev/null 2>&1; then \
 		vendor/bin/php-cs-fixer fix --config=.php-cs-fixer.dist.php; \
 	else \
-		echo "PHP-CS-Fixer not available. Run 'make install' first."; \
+		$(DOCKER_PHP) ./vendor/bin/php-cs-fixer fix --config=.php-cs-fixer.dist.php; \
 	fi
 
-rector: ## Run Rector for code modernization (dry-run)
-	@if [ -f "vendor/bin/rector" ]; then \
+rector: ## Run Rector for code modernization (dry-run; uses Docker if php not in PATH)
+	@if [ ! -f "vendor/bin/rector" ]; then \
+		echo "Rector not available. Run 'make install' first."; exit 1; \
+	fi; \
+	if command -v php >/dev/null 2>&1; then \
 		vendor/bin/rector process www/ --dry-run; \
 	else \
-		echo "Rector not available. Run 'make install' first."; \
+		$(DOCKER_PHP) ./vendor/bin/rector process www/ --dry-run; \
 	fi
 
-quality: ## Run all quality checks
-	@echo "Running all quality checks..."
-	@make cs
-	@make stan
+quality: ## Run all quality checks (single Docker run when using Docker to avoid recursion)
+	@if [ ! -f "vendor/bin/phpcs" ] || [ ! -f "vendor/bin/phpstan" ]; then \
+		echo "Run 'make install' first."; exit 1; \
+	fi; \
+	if [ "$(USE_DOCKER)" = "1" ]; then \
+		echo "Running all quality checks (Docker)..."; \
+		$(DOCKER_PHP) sh -c './vendor/bin/phpcs --standard=.phpcs.xml < /dev/null && ./vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=$(PHPSTAN_MEMORY_LIMIT)'; \
+	elif [ "$(USE_LOCAL)" = "1" ] || command -v php >/dev/null 2>&1; then \
+		echo "Running all quality checks..."; \
+		vendor/bin/phpcs --standard=.phpcs.xml < /dev/null && vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=$(PHPSTAN_MEMORY_LIMIT); \
+	else \
+		echo "Running all quality checks (Docker)..."; \
+		$(DOCKER_PHP) sh -c './vendor/bin/phpcs --standard=.phpcs.xml < /dev/null && ./vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=$(PHPSTAN_MEMORY_LIMIT)'; \
+	fi
 
 fix-all: ## Fix all code style issues
 	@echo "Fixing all code style issues..."

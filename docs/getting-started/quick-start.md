@@ -52,7 +52,7 @@ After setup, test these features:
 
 ## What's Next?
 
-- **Configure OIDC**: See [OIDC Integration](../integrations/oidc.md) for external service setup
+- **Configure OIDC**: See [OIDC Integration](../identity.md) for external service setup
 - **Customize Settings**: See [Configuration](../configuration/environment-variables.md) for advanced options
 - **User Guide**: See [User Management](../user-guide/user-management.md) for daily operations
 

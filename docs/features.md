@@ -89,29 +89,30 @@ postalAddress: 123 Main St$10001$New York$NY$USA
 
 ---
 
-### 5. Role Value Synchronization
+### 5. Role Configuration
 **Status**: ✅ **Available**
 
 **What It Provides:**
-- Role values automatically default to group names
-- Eliminates duplication between role values and group names
-- Maintains full flexibility for custom configurations
+- Four role levels with configurable group CNs via environment variables
+- Role hierarchy enforcement and conflict detection
 
-**Default Behavior:**
-```php
-// Role values automatically sync to group names
-$LDAP['admin_role'] = 'administrators';          // Defaults to admin_group_name
-$LDAP['maintainer_role'] = 'maintainers';        // Defaults to maintainer_group_name
-```
-
-**Configuration Options:**
-- Use synchronized defaults (recommended)
-- Override with environment variables if needed
-- System automatically prevents conflicts
+**Configuration:** Role names (and thus LDAP group CNs under `ou=roles`) are set via:
+- `LDAP_ADMIN_ROLE`, `LDAP_MAINTAINER_ROLE`, `LDAP_ORG_ADMIN_ROLE`, `LDAP_USER_ROLE` (all must be unique)
 
 ---
 
-### 6. Error Handling
+### 6. Account and Organization Status
+**Status**: ✅ **Available**
+
+**What It Provides:**
+- **Disable / re-enable user accounts** (via `pwdAccountLockedTime`; admins and maintainers only)
+- **Disable / re-enable organizations** (via status group `LDAP_GROUP_DISABLED_ORGS`)
+- **Grant / revoke organization membership** (via status group `LDAP_GROUP_MEMBER_ORGS`); optional metadata (e.g. memberNumber, memberSince) on organization entries
+- **Export member organizations** for TYPO3 (e.g. `tt_address`): `GET /export/organizations.php` with Bearer token; see [Export endpoint](deployment/export-endpoint.md) and status groups in [LDAP Structure](ldap-structure.md)
+
+---
+
+### 7. Error Handling
 **Status**: ✅ **Available**
 
 **What It Provides:**
@@ -131,16 +132,17 @@ $LDAP['maintainer_role'] = 'maintainers';        // Defaults to maintainer_group
 
 ### Role Configuration
 ```bash
-# Synchronized defaults (recommended)
-LDAP_ADMIN_GROUP_NAME=administrators
-LDAP_MAINTAINER_GROUP_NAME=maintainers
-# admin_role and maintainer_role automatically sync
+# Defaults (group CNs under ou=roles)
+LDAP_ADMIN_ROLE=administrators
+LDAP_MAINTAINER_ROLE=maintainers
+LDAP_ORG_ADMIN_ROLE=org_admin
+LDAP_USER_ROLE=user
 
-# Custom configuration
+# Custom configuration (all four must be unique)
 LDAP_ADMIN_ROLE=superuser
 LDAP_MAINTAINER_ROLE=tech_support
-LDAP_ADMIN_GROUP_NAME=global_admins
-LDAP_MAINTAINER_GROUP_NAME=system_maintainers
+LDAP_ORG_ADMIN_ROLE=org_manager
+LDAP_USER_ROLE=member
 ```
 
 ### Address Configuration

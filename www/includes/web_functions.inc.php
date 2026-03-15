@@ -1,14 +1,16 @@
 <?php
-declare(strict_types=1);
 
 /**
  * Web interface utility functions
- * 
+ *
  * This file contains functions for rendering HTML, managing sessions,
  * and handling web-specific functionality.
  */
 
+declare(strict_types=1);
+
 if (session_status() === PHP_SESSION_NONE) {
+    session_set_cookie_params(['path' => '/', 'samesite' => 'Lax']);
     session_start();
 }
 include_once 'ldap_functions.inc.php';
@@ -16,15 +18,16 @@ include_once 'oidc_functions.inc.php';
 
 # Security level vars
 
-$VALIDATED = FALSE;
-$IS_ADMIN = FALSE;
-$IS_MAINTAINER = FALSE;
-$IS_SETUP_ADMIN = FALSE;
+$VALIDATED = false;
+$IS_ADMIN = false;
+$IS_MAINTAINER = false;
+$IS_SETUP_ADMIN = false;
 $ACCESS_LEVEL_NAME = ['account', 'admin'];
 unset($USER_ID);
+$USER_DISPLAY_NAME = null;
 $CURRENT_PAGE = htmlentities($_SERVER['PHP_SELF']);
-$SENT_HEADERS = FALSE;
-$SESSION_TIMED_OUT = FALSE;
+$SENT_HEADERS = false;
+$SESSION_TIMED_OUT = false;
 
 $paths = explode('/', getcwd());
 $THIS_MODULE = end($paths);
@@ -36,31 +39,41 @@ $INFO_ICON = "&#8505;";
 
 $JS_EMAIL_REGEX = '/^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;';
 
-if (isset($_SERVER['HTTPS']) and
+if (
+    isset($_SERVER['HTTPS']) and
     ($_SERVER['HTTPS'] === 'on' || $_SERVER['HTTPS'] === 1) or
     isset($_SERVER['HTTP_X_FORWARDED_PROTO']) and
-    ($_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')) {
+    ($_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
+) {
     $SITE_PROTOCOL = 'https://';
 } else {
     $SITE_PROTOCOL = 'http://';
 }
 
-include_once ("config.inc.php");    # get local settings
-include_once ("modules.inc.php");   # module definitions
+// Load from same directory as this file so config/modules are found regardless of include_path/cwd
+include_once __DIR__ . "/config.inc.php";
+include_once __DIR__ . "/modules.inc.php";
 
-if (substr($SERVER_PATH, -1) != "/") {
-    $SERVER_PATH .= "/";
+// When this file is included from inside a function (e.g. bootstrap_manage()), config vars are in global scope
+global $SERVER_PATH, $SESSION_TIMEOUT, $NO_HTTPS, $REMOTE_HTTP_HEADERS_LOGIN, $COOKIE_PATH, $THIS_MODULE_PATH, $DEFAULT_COOKIE_OPTIONS;
+
+$SERVER_PATH = (string) ($SERVER_PATH ?? '/');
+if (substr($SERVER_PATH, -1) !== '/') {
+    $SERVER_PATH .= '/';
 }
+// Cookie path must be / or a path prefix so the cookie is sent for all app URLs (e.g. /manage/users/)
+$COOKIE_PATH = (rtrim($SERVER_PATH, '/') === '') ? '/' : rtrim($SERVER_PATH, '/');
 $THIS_MODULE_PATH = "{$SERVER_PATH}{$THIS_MODULE}";
 
-$DEFAULT_COOKIE_OPTIONS = [ 
+$DEFAULT_COOKIE_OPTIONS = [
     'expires' => time() + (60 * $SESSION_TIMEOUT),
-    'path' => $SERVER_PATH,
+    'path' => $COOKIE_PATH,
     'domain' => '',
     // Allow Secure=false if $NO_HTTPS is true (e.g., behind a proxy)
-    'secure' => $NO_HTTPS ? FALSE : TRUE,
-    'httponly' => TRUE,
-    'samesite' => 'strict'
+    'secure' => $NO_HTTPS ? false : true,
+    'httponly' => true,
+    // Lax so cookie is sent when browser follows redirect after login (e.g. to /manage/users/)
+    'samesite' => 'Lax'
 ];
 
 // Initialize OIDC if enabled
@@ -73,6 +86,10 @@ if ($REMOTE_HTTP_HEADERS_LOGIN) {
     if (require_oidc_auth()) {
         redirect_to_oidc_if_required();
     } else {
+        // One-time URL token: when cookies are not sent on redirect, this authenticates and sets cookies
+        if (!empty($_GET['auth_tok'])) {
+            try_consume_one_time_auth_token();
+        }
         validate_passkey_cookie();
     }
 }
@@ -81,23 +98,137 @@ if ($REMOTE_HTTP_HEADERS_LOGIN) {
 
 /**
  * Generates a random passkey for session management
- * 
+ *
  * @return string Random hexadecimal passkey
  */
-function generate_passkey() {
+function generate_passkey()
+{
 
     $rnd1 = mt_rand(10000000, mt_getrandmax());
     $rnd2 = mt_rand(10000000, mt_getrandmax());
     $rnd3 = mt_rand(10000000, mt_getrandmax());
     return sprintf("%0x", $rnd1) . sprintf("%0x", $rnd2) . sprintf("%0x", $rnd3);
-
 }
 
 ######################################################
 
 /**
+ * Returns the filesystem path for a session file by hash.
+ *
+ * @param string $session_hash SHA-256 hash of the user identifier
+ * @return string Full path to the session file
+ */
+function get_session_file_path(string $session_hash): string
+{
+    global $SESSION_SAVE_PATH;
+    return $SESSION_SAVE_PATH . '/session_' . $session_hash;
+}
+
+/**
+ * Store auth in PHP session so the next request can restore login when orf_cookie is not sent (e.g. after 302).
+ */
+function set_lum_session_auth($user_id, $is_admin, $is_maintainer, $is_org_admin, $org_name, $org_uuid, $display_name = null): void
+{
+    global $SESSION_TIMEOUT;
+    $expiry = time() + (60 * (int) $SESSION_TIMEOUT);
+    $_SESSION['lum_user_id'] = $user_id;
+    $_SESSION['lum_is_admin'] = $is_admin ? 1 : 0;
+    $_SESSION['lum_is_maintainer'] = $is_maintainer ? 1 : 0;
+    $_SESSION['lum_is_org_admin'] = $is_org_admin ? 1 : 0;
+    $_SESSION['lum_org_name'] = $org_name;
+    $_SESSION['lum_org_uuid'] = $org_uuid;
+    $_SESSION['lum_display_name'] = $display_name;
+    $_SESSION['lum_expiry'] = $expiry;
+}
+
+/**
+ * Create a one-time auth token and return it. Used in redirect URLs so the next request can authenticate without cookies.
+ * @param string|null $display_name Optional display name (mail/cn) for menu; stored in token so menu shows it after redirect.
+ */
+function create_one_time_auth_token($user_id, $is_admin, $is_maintainer, $is_org_admin, $org_name = null, $org_uuid = null, $display_name = null): string
+{
+    global $SESSION_SAVE_PATH;
+    $token = bin2hex(random_bytes(24));
+    $expiry = time() + 120;
+    // LDAP may return false for "no org"; only encode strings to avoid base64_encode(bool) TypeError
+    $enc_org_name = (is_string($org_name) && $org_name !== '') ? base64_encode($org_name) : '';
+    $enc_org_uuid = (is_string($org_uuid) && $org_uuid !== '') ? base64_encode($org_uuid) : '';
+    $enc_display = (is_string($display_name) && $display_name !== '') ? base64_encode($display_name) : '';
+    $line = implode('|', [
+        $user_id,
+        $is_admin ? '1' : '0',
+        $is_maintainer ? '1' : '0',
+        $is_org_admin ? '1' : '0',
+        $enc_org_name,
+        $enc_org_uuid,
+        (string) $expiry,
+        $enc_display
+    ]);
+    $path = $SESSION_SAVE_PATH . '/auth_tok_' . $token;
+    @file_put_contents($path, $line);
+    return $token;
+}
+
+/**
+ * If auth_tok is in GET and valid, restore auth, set cookies/session, redirect to same URL without token. Exits on success.
+ */
+function try_consume_one_time_auth_token(): void
+{
+    global $SESSION_SAVE_PATH, $SERVER_PATH, $VALIDATED, $USER_ID, $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $USER_ORG_NAME, $USER_ORG_UUID, $USER_DISPLAY_NAME;
+    $token = $_GET['auth_tok'] ?? '';
+    if (!is_string($token) || strlen($token) !== 48 || !ctype_xdigit($token)) {
+        return;
+    }
+    $path = $SESSION_SAVE_PATH . '/auth_tok_' . $token;
+    if (!is_file($path)) {
+        return;
+    }
+    $line = @file_get_contents($path);
+    @unlink($path);
+    if ($line === false || $line === '') {
+        return;
+    }
+    $parts = explode('|', $line, 8);
+    if (count($parts) < 7) {
+        return;
+    }
+    $expiry = (int) $parts[6];
+    if (time() >= $expiry) {
+        return;
+    }
+    $user_id = $parts[0];
+    $IS_ADMIN = ($parts[1] === '1');
+    $IS_MAINTAINER = ($parts[2] === '1');
+    $IS_ORG_ADMIN = ($parts[3] === '1');
+    $USER_ORG_NAME = $parts[4] !== '' ? base64_decode($parts[4], true) : null;
+    $USER_ORG_UUID = $parts[5] !== '' ? base64_decode($parts[5], true) : null;
+    $USER_ORG_NAME = ($USER_ORG_NAME !== false) ? $USER_ORG_NAME : null;
+    $USER_ORG_UUID = ($USER_ORG_UUID !== false) ? $USER_ORG_UUID : null;
+    $display_name = (isset($parts[7]) && $parts[7] !== '') ? base64_decode($parts[7], true) : null;
+    $USER_DISPLAY_NAME = (is_string($display_name) && $display_name !== false) ? $display_name : null;
+    $USER_ID = $user_id;
+    $VALIDATED = true;
+    set_passkey_cookie($user_id, $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $USER_ORG_NAME, $USER_ORG_UUID);
+    set_lum_session_auth($user_id, $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $USER_ORG_NAME, $USER_ORG_UUID, $USER_DISPLAY_NAME);
+    // Redirect to same path/query without auth_tok (get_base_url() already includes app path)
+    $uri = $_SERVER['REQUEST_URI'];
+    $basePath = rtrim($SERVER_PATH, '/');
+    $relative = ($basePath !== '' && strpos($uri, $basePath) === 0)
+        ? substr($uri, strlen($basePath)) : ('/' . ltrim($uri, '/'));
+    $relative = ltrim($relative, '/');
+    $q = strpos($relative, '?');
+    if ($q !== false) {
+        parse_str(substr($relative, $q + 1), $params);
+        unset($params['auth_tok']);
+        $relative = substr($relative, 0, $q) . (count($params) ? '?' . http_build_query($params) : '');
+    }
+    header('Location: ' . get_base_url() . $relative);
+    exit;
+}
+
+/**
  * Sets a passkey cookie for user authentication
- * 
+ *
  * @param string $user_id User identifier
  * @param bool $is_admin Whether user is admin
  * @param bool $is_maintainer Whether user is maintainer
@@ -106,11 +237,12 @@ function generate_passkey() {
  * @param string|null $org_uuid Organization UUID
  * @return void
  */
-function set_passkey_cookie($user_id, $is_admin, $is_maintainer = false, $is_org_admin = false, $org_name = null, $org_uuid = null) {
+function set_passkey_cookie($user_id, $is_admin, $is_maintainer = false, $is_org_admin = false, $org_name = null, $org_uuid = null)
+{
 
     # Create a random value, store it locally and set it in a cookie.
 
-    global $SESSION_TIMEOUT, $VALIDATED, $USER_ID, $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $USER_ORG_NAME, $USER_ORG_UUID, $log_prefix, $SESSION_DEBUG, $DEFAULT_COOKIE_OPTIONS;
+    global $SESSION_TIMEOUT, $VALIDATED, $USER_ID, $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $USER_ORG_NAME, $USER_ORG_UUID, $log_prefix, $SESSION_DEBUG, $DEFAULT_COOKIE_OPTIONS, $SESSION_SAVE_PATH;
 
     $passkey = generate_passkey();
     $this_time = time();
@@ -118,19 +250,19 @@ function set_passkey_cookie($user_id, $is_admin, $is_maintainer = false, $is_org
     $maintainer_val = 0;
     $org_admin_val = 0;
 
-    if ($is_admin === TRUE) {
+    if ($is_admin === true) {
         $admin_val = 1;
-        $IS_ADMIN = TRUE;
-    }
-    
-    if ($is_maintainer === TRUE) {
-        $maintainer_val = 1;
-        $IS_MAINTAINER = TRUE;
+        $IS_ADMIN = true;
     }
 
-    if ($is_org_admin === TRUE) {
+    if ($is_maintainer === true) {
+        $maintainer_val = 1;
+        $IS_MAINTAINER = true;
+    }
+
+    if ($is_org_admin === true) {
         $org_admin_val = 1;
-        $IS_ORG_ADMIN = TRUE;
+        $IS_ORG_ADMIN = true;
     }
 
     if ($org_name) {
@@ -140,15 +272,15 @@ function set_passkey_cookie($user_id, $is_admin, $is_maintainer = false, $is_org
     if ($org_uuid) {
         $USER_ORG_UUID = $org_uuid;
     }
-    
+
     // Clean up any existing session files for this user
     // Use a hash of the user_id to avoid filesystem issues with special characters
     $session_hash = hash('sha256', $user_id ?? '');
-    $old_session_file = "/tmp/session_{$session_hash}";
+    $old_session_file = get_session_file_path($session_hash);
     if (file_exists($old_session_file)) {
         unlink($old_session_file);
     }
-    
+
     // Store session data: passkey:admin:maintainer:org_admin:time:org_name:org_uuid
     $session_data = "$passkey:$admin_val:$maintainer_val:$org_admin_val:$this_time";
     if ($org_name) {
@@ -157,21 +289,41 @@ function set_passkey_cookie($user_id, $is_admin, $is_maintainer = false, $is_org
     if ($org_uuid) {
         $session_data .= ":" . base64_encode($org_uuid);
     }
-    
-    @ file_put_contents($old_session_file, $session_data);
-    setcookie('orf_cookie', "$user_id:$passkey", $DEFAULT_COOKIE_OPTIONS);
-    $sessto_cookie_opts = $DEFAULT_COOKIE_OPTIONS;
+
+    // Ensure session directory exists and is writable (e.g. when SESSION_SAVE_PATH is not /tmp)
+    if (!is_dir($SESSION_SAVE_PATH)) {
+        @mkdir($SESSION_SAVE_PATH, 0700, true);
+    }
+    $written = @file_put_contents($old_session_file, $session_data);
+    if ($written === false) {
+        error_log("$log_prefix Session: failed to write session file to {$old_session_file} (check SESSION_SAVE_PATH={$SESSION_SAVE_PATH} exists and is writable by the web server)");
+    }
+    $cookie_opts = is_array($DEFAULT_COOKIE_OPTIONS) ? $DEFAULT_COOKIE_OPTIONS : [
+        'expires' => time() + (60 * (int) ($SESSION_TIMEOUT ?? 60)),
+        'path' => '/',
+        'domain' => '',
+        'secure' => true,
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ];
+    setcookie('orf_cookie', "$user_id:$passkey", $cookie_opts);
+    $sessto_cookie_opts = $cookie_opts;
     $sessto_cookie_opts['expires'] = $this_time + 7200;
     setcookie('sessto_cookie', (string)($this_time + (60 * $SESSION_TIMEOUT)), $sessto_cookie_opts);
-    
-    if ( $SESSION_DEBUG == TRUE) {  error_log("$log_prefix Session: user $user_id validated (IS_ADMIN={$IS_ADMIN}, IS_MAINTAINER={$IS_MAINTAINER}, IS_ORG_ADMIN={$IS_ORG_ADMIN}, ORG={$org_name}, ORG_UUID={$org_uuid}), sent orf_cookie to the browser.",0); }
-    $VALIDATED = TRUE;
+
+    if ($SESSION_DEBUG == true) {
+        error_log("$log_prefix Session: user $user_id validated (IS_ADMIN={$IS_ADMIN}, IS_MAINTAINER={$IS_MAINTAINER}, IS_ORG_ADMIN={$IS_ORG_ADMIN}, ORG={$org_name}, ORG_UUID={$org_uuid}), sent orf_cookie to the browser.", 0);
+    }
+    $VALIDATED = true;
 
     // Regenerate session ID on login to prevent session fixation
     if (session_status() === PHP_SESSION_ACTIVE) {
         session_regenerate_id(true);
     }
-    
+
+    // Store auth in PHP session so next request can restore if orf_cookie is not sent (e.g. after 302)
+    set_lum_session_auth($user_id, $is_admin, $is_maintainer, $is_org_admin, $org_name, $org_uuid, null);
+
     // Store user info in session for additional security
     $_SESSION['user_id'] = $user_id;
     $_SESSION['is_admin'] = $is_admin;
@@ -181,331 +333,415 @@ function set_passkey_cookie($user_id, $is_admin, $is_maintainer = false, $is_org
     $_SESSION['org_uuid'] = $org_uuid;
     $_SESSION['login_time'] = $this_time;
     $_SESSION['last_activity'] = $this_time;
-
 }
 
 ######################################################
 
-function login_via_headers() {
+function login_via_headers()
+{
 
-  global $IS_ADMIN, $USER_ID, $VALIDATED, $LDAP, $currentUserGroups;
+    global $IS_ADMIN, $USER_ID, $VALIDATED, $LDAP, $currentUserGroups;
   //['admins_group'];
-  $USER_ID = $_SERVER['HTTP_REMOTE_USER'];
-  $remote_groups = explode(',',$_SERVER['HTTP_REMOTE_GROUPS']);
-          $IS_ADMIN = in_array($LDAP['admin_role'],$remote_groups);
+    $USER_ID = $_SERVER['HTTP_REMOTE_USER'];
+    $remote_groups = explode(',', $_SERVER['HTTP_REMOTE_GROUPS']);
+          $IS_ADMIN = in_array($LDAP['admin_role'], $remote_groups);
   // users are always validated as we assume, that the auth server does this
-  $VALIDATED = true;
+    $VALIDATED = true;
   // Populate currentUserGroups from LDAP
-  $ldap_connection = open_ldap_connection();
-  $currentUserGroups = ldap_user_group_membership($ldap_connection, $USER_ID);
-  ldap_close($ldap_connection);
+    $ldap_connection = open_ldap_connection();
+    $currentUserGroups = ldap_user_group_membership($ldap_connection, $USER_ID);
+    ldap_close($ldap_connection);
 }
 
 ######################################################
 
-function validate_passkey_cookie() {
+function validate_passkey_cookie()
+{
 
-  global $SESSION_TIMEOUT, $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $USER_ORG_NAME, $USER_ORG_UUID, $USER_ID, $USER_DN, $VALIDATED, $log_prefix, $SESSION_TIMED_OUT, $SESSION_DEBUG, $LDAP, $currentUserGroups;
+    global $SESSION_TIMEOUT, $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $USER_ORG_NAME, $USER_ORG_UUID, $USER_ID, $USER_DN, $USER_DISPLAY_NAME, $VALIDATED, $log_prefix, $SESSION_TIMED_OUT, $SESSION_DEBUG, $LDAP, $currentUserGroups;
 
-  $this_time = time();
-  $VALIDATED = FALSE;
-  $IS_ADMIN = FALSE;
-  $IS_MAINTAINER = FALSE;
-  $IS_ORG_ADMIN = FALSE;
-  $USER_ORG_NAME = null;
-  $USER_ORG_UUID = null;
-  $USER_DN = null;
+    $this_time = time();
+    $VALIDATED = false;
+    $IS_ADMIN = false;
+    $IS_MAINTAINER = false;
+    $IS_ORG_ADMIN = false;
+    $USER_ORG_NAME = null;
+    $USER_ORG_UUID = null;
+    $USER_DN = null;
+    $USER_DISPLAY_NAME = null;
 
-  if (isset($_COOKIE['orf_cookie'])) {
-
-    list($user_id,$c_passkey) = explode(":",$_COOKIE['orf_cookie']);
-    
-    // Validate user_id format - allow UUIDs and standard usernames
-    if (!preg_match('/^[a-zA-Z0-9@._-]+$/', $user_id) && !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $user_id)) {
-      if ($SESSION_DEBUG == TRUE) { error_log("$log_prefix Session: Invalid user_id format in cookie",0); }
-      return;
-    }
-    
-    // Use a hash of the user_id to find the session file
-    $session_hash = hash('sha256', $user_id ?? '');
-    $session_file = @ file_get_contents("/tmp/session_{$session_hash}");
-    if (!$session_file) {
-      if ($SESSION_DEBUG == TRUE) {  error_log("$log_prefix Session: orf_cookie was sent by the client but the session file wasn't found at /tmp/session_{$session_hash}",0); }
-    }
-    else {
-      $session_fields = explode(":",$session_file);
-      $field_count = count($session_fields);
-      
-      // Handle backward compatibility for different session formats
-      if ($field_count === 3) {
-        // Old format: passkey:admin:time
-        list($f_passkey,$f_is_admin,$f_time) = $session_fields;
-        $f_is_maintainer = 0; // Default to not maintainer for old sessions
-        $f_is_org_admin = 0; // Default to not org admin for old sessions
-        $f_org_name = null; // No org name in old format
-        $f_org_uuid = null; // No org uuid in old format
-      } elseif ($field_count === 4) {
-        // Format: passkey:admin:maintainer:time
-        list($f_passkey,$f_is_admin,$f_is_maintainer,$f_time) = $session_fields;
-        $f_is_org_admin = 0; // Default to not org admin for this format
-        $f_org_name = null; // No org name in this format
-        $f_org_uuid = null; // No org uuid in this format
-      } elseif ($field_count === 5) {
-        // Format: passkey:admin:maintainer:org_admin:time
-        list($f_passkey,$f_is_admin,$f_is_maintainer,$f_is_org_admin,$f_time) = $session_fields;
-        $f_org_name = null; // No org name in this format
-        $f_org_uuid = null; // No org uuid in this format
-      } elseif ($field_count === 6) {
-        // Format: passkey:admin:maintainer:org_admin:time:org_name
-        list($f_passkey,$f_is_admin,$f_is_maintainer,$f_is_org_admin,$f_time,$f_org_name_encoded) = $session_fields;
-        $f_org_name = base64_decode($f_org_name_encoded);
-        $f_org_uuid = null; // No org uuid in this format
-      } elseif ($field_count === 7) {
-        // New format: passkey:admin:maintainer:org_admin:time:org_name:org_uuid
-        list($f_passkey,$f_is_admin,$f_is_maintainer,$f_is_org_admin,$f_time,$f_org_name_encoded,$f_org_uuid_encoded) = $session_fields;
-        $f_org_name = base64_decode($f_org_name_encoded);
-        $f_org_uuid = base64_decode($f_org_uuid_encoded);
-      } else {
-        // Invalid format
-        if ($SESSION_DEBUG == TRUE) { error_log("$log_prefix Session: Invalid session file format for user $user_id - expected 3-7 fields, got $field_count",0); }
-        @unlink("/tmp/session_{$session_hash}");
-        return;
-      }
-      
-      // Validate session data format
-      if (!is_numeric($f_time) || !is_numeric($f_is_admin) || !is_numeric($f_is_maintainer) || !is_numeric($f_is_org_admin)) {
-        if ($SESSION_DEBUG == TRUE) { error_log("$log_prefix Session: Invalid session file data types for user $user_id",0); }
-        // Clean up corrupted session file
-        @unlink("/tmp/session_{$session_hash}");
-        return;
-      }
-      
-      // Check if session has expired
-      if ($this_time >= $f_time + (60 * $SESSION_TIMEOUT)) {
-        if ($SESSION_DEBUG == TRUE) { error_log("$log_prefix Session: Session expired for user $user_id",0); }
-        @unlink("/tmp/session_{$session_hash}");
-        $SESSION_TIMED_OUT = TRUE;
-        return;
-      }
-      
-      // Validate passkey
-      if (!empty($c_passkey) and $f_passkey == $c_passkey) {
-        if ($f_is_admin == 1) { $IS_ADMIN = TRUE; }
-        if ($f_is_maintainer == 1) { $IS_MAINTAINER = TRUE; }
-        if ($f_is_org_admin == 1) { $IS_ORG_ADMIN = TRUE; }
-        if ($f_org_name) { $USER_ORG_NAME = $f_org_name; }
-        if ($f_org_uuid) { $USER_ORG_UUID = $f_org_uuid; }
-        $VALIDATED = TRUE;
-        $USER_ID = $user_id;
-        
-        // Update last activity time and maintain all session data
-        $new_session_data = "$f_passkey:$f_is_admin:$f_is_maintainer:$f_is_org_admin:$f_time";
-        if ($f_org_name) {
-            $new_session_data .= ":" . base64_encode($f_org_name);
+    // Fallback: restore auth from PHP session when orf_cookie was not sent (e.g. after 302 to /manage/users/)
+    if (!empty($_SESSION['lum_user_id']) && !empty($_SESSION['lum_expiry']) && $this_time < (int) $_SESSION['lum_expiry']) {
+        $USER_ID = $_SESSION['lum_user_id'];
+        $VALIDATED = true;
+        $IS_ADMIN = !empty($_SESSION['lum_is_admin']);
+        $IS_MAINTAINER = !empty($_SESSION['lum_is_maintainer']);
+        $IS_ORG_ADMIN = !empty($_SESSION['lum_is_org_admin']);
+        $USER_ORG_NAME = $_SESSION['lum_org_name'] ?? null;
+        $USER_ORG_UUID = $_SESSION['lum_org_uuid'] ?? null;
+        $USER_DISPLAY_NAME = $_SESSION['lum_display_name'] ?? null;
+        if ($SESSION_DEBUG) {
+            error_log("$log_prefix Session: restored from PHP session for user {$USER_ID}");
         }
-        if ($f_org_uuid) {
-            $new_session_data .= ":" . base64_encode($f_org_uuid);
+        return;
+    }
+
+    if (isset($_COOKIE['orf_cookie'])) {
+        list($user_id,$c_passkey) = explode(":", $_COOKIE['orf_cookie']);
+
+      // Validate user_id format - allow UUIDs and standard usernames
+        if (!preg_match('/^[a-zA-Z0-9@._-]+$/', $user_id) && !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $user_id)) {
+            if ($SESSION_DEBUG == true) {
+                error_log("$log_prefix Session: Invalid user_id format in cookie", 0);
+            }
+            return;
         }
-        @ file_put_contents("/tmp/session_{$session_hash}", $new_session_data);
-        
-        if ($SESSION_DEBUG == TRUE) {  error_log("$log_prefix Setup session: Cookie and session file values match for user {$user_id} - VALIDATED (ADMIN = {$IS_ADMIN}, MAINTAINER = {$IS_MAINTAINER}, ORG_ADMIN = {$IS_ORG_ADMIN}, ORG = {$f_org_name}, ORG_UUID = {$f_org_uuid})",0); }
-        set_passkey_cookie($USER_ID,$IS_ADMIN,$IS_MAINTAINER,$IS_ORG_ADMIN,$USER_ORG_NAME,$USER_ORG_UUID);
-        // Populate currentUserGroups from LDAP
-        $ldap_connection = open_ldap_connection();
-        $user_dn = get_user_dn_from_identifier($ldap_connection, $USER_ID);
-        if ($user_dn) {
-          $currentUserGroups = ldap_user_group_membership($ldap_connection, $user_dn);
-          $USER_DN = $user_dn; // Set the global USER_DN variable
+
+      // Use a hash of the user_id to find the session file
+        $session_hash = hash('sha256', $user_id ?? '');
+        $session_file_path = get_session_file_path($session_hash);
+        $session_file = @ file_get_contents($session_file_path);
+        if (!$session_file) {
+            if ($SESSION_DEBUG == true) {
+                error_log("$log_prefix Session: orf_cookie was sent by the client but the session file wasn't found at {$session_file_path}", 0);
+            }
         } else {
-          $currentUserGroups = array();
-        }
-        ldap_close($ldap_connection);
-      }
-      else {
-        if ($SESSION_DEBUG == TRUE) {
-          $this_error = "$log_prefix Session: orf_cookie was sent by the client and the session file was found at /tmp/session_{$session_hash}, but";
-          if (empty($c_passkey)) { $this_error .= " the cookie passkey wasn't set;"; }
-          if ($c_passkey != $f_passkey) { $this_error .= " the session file passkey didn't match the cookie passkey;"; }
-          $this_error .= " Cookie: {$_COOKIE['orf_cookie']} - Session file contents: $session_file";
-          error_log($this_error,0);
-        }
-      }
-    }
+            $session_fields = explode(":", $session_file);
+            $field_count = count($session_fields);
 
-  }
-  else {
-    if ($SESSION_DEBUG == TRUE) { error_log("$log_prefix Session: orf_cookie wasn't sent by the client.",0); }
-    if (isset($_COOKIE['sessto_cookie'])) {
-      $this_session_timeout = $_COOKIE['sessto_cookie'];
-      if ($this_time >= $this_session_timeout) {
-        $SESSION_TIMED_OUT = TRUE;
-        if ($SESSION_DEBUG == TRUE) { error_log("$log_prefix Session: The session had timed-out (over $SESSION_TIMEOUT mins idle).",0); }
-      }
-    }
-  }
+          // Handle backward compatibility for different session formats
+            if ($field_count === 3) {
+              // Old format: passkey:admin:time
+                list($f_passkey,$f_is_admin,$f_time) = $session_fields;
+                $f_is_maintainer = 0; // Default to not maintainer for old sessions
+                $f_is_org_admin = 0; // Default to not org admin for old sessions
+                $f_org_name = null; // No org name in old format
+                $f_org_uuid = null; // No org uuid in old format
+            } elseif ($field_count === 4) {
+              // Format: passkey:admin:maintainer:time
+                list($f_passkey,$f_is_admin,$f_is_maintainer,$f_time) = $session_fields;
+                $f_is_org_admin = 0; // Default to not org admin for this format
+                $f_org_name = null; // No org name in this format
+                $f_org_uuid = null; // No org uuid in this format
+            } elseif ($field_count === 5) {
+              // Format: passkey:admin:maintainer:org_admin:time
+                list($f_passkey,$f_is_admin,$f_is_maintainer,$f_is_org_admin,$f_time) = $session_fields;
+                $f_org_name = null; // No org name in this format
+                $f_org_uuid = null; // No org uuid in this format
+            } elseif ($field_count === 6) {
+              // Format: passkey:admin:maintainer:org_admin:time:org_name
+                list($f_passkey,$f_is_admin,$f_is_maintainer,$f_is_org_admin,$f_time,$f_org_name_encoded) = $session_fields;
+                $f_org_name = base64_decode($f_org_name_encoded);
+                $f_org_uuid = null; // No org uuid in this format
+            } elseif ($field_count === 7) {
+              // New format: passkey:admin:maintainer:org_admin:time:org_name:org_uuid
+                list($f_passkey,$f_is_admin,$f_is_maintainer,$f_is_org_admin,$f_time,$f_org_name_encoded,$f_org_uuid_encoded) = $session_fields;
+                $f_org_name = base64_decode($f_org_name_encoded);
+                $f_org_uuid = base64_decode($f_org_uuid_encoded);
+            } else {
+              // Invalid format
+                if ($SESSION_DEBUG == true) {
+                    error_log("$log_prefix Session: Invalid session file format for user $user_id - expected 3-7 fields, got $field_count", 0);
+                }
+                @unlink(get_session_file_path($session_hash));
+                return;
+            }
 
+          // Validate session data format
+            if (!is_numeric($f_time) || !is_numeric($f_is_admin) || !is_numeric($f_is_maintainer) || !is_numeric($f_is_org_admin)) {
+                if ($SESSION_DEBUG == true) {
+                    error_log("$log_prefix Session: Invalid session file data types for user $user_id", 0);
+                }
+              // Clean up corrupted session file
+                @unlink(get_session_file_path($session_hash));
+                return;
+            }
+
+          // Check if session has expired
+            if ($this_time >= $f_time + (60 * $SESSION_TIMEOUT)) {
+                if ($SESSION_DEBUG == true) {
+                    error_log("$log_prefix Session: Session expired for user $user_id", 0);
+                }
+                @unlink(get_session_file_path($session_hash));
+                $SESSION_TIMED_OUT = true;
+                return;
+            }
+
+          // Validate passkey
+            if (!empty($c_passkey) and $f_passkey == $c_passkey) {
+                if ($f_is_admin == 1) {
+                    $IS_ADMIN = true;
+                }
+                if ($f_is_maintainer == 1) {
+                    $IS_MAINTAINER = true;
+                }
+                if ($f_is_org_admin == 1) {
+                    $IS_ORG_ADMIN = true;
+                }
+                if ($f_org_name) {
+                    $USER_ORG_NAME = $f_org_name;
+                }
+                if ($f_org_uuid) {
+                    $USER_ORG_UUID = $f_org_uuid;
+                }
+                $VALIDATED = true;
+                $USER_ID = $user_id;
+
+              // Update last activity time and maintain all session data
+                $new_session_data = "$f_passkey:$f_is_admin:$f_is_maintainer:$f_is_org_admin:$f_time";
+                if ($f_org_name) {
+                    $new_session_data .= ":" . base64_encode($f_org_name);
+                }
+                if ($f_org_uuid) {
+                    $new_session_data .= ":" . base64_encode($f_org_uuid);
+                }
+                @ file_put_contents(get_session_file_path($session_hash), $new_session_data);
+
+                if ($SESSION_DEBUG == true) {
+                    error_log("$log_prefix Setup session: Cookie and session file values match for user {$user_id} - VALIDATED (ADMIN = {$IS_ADMIN}, MAINTAINER = {$IS_MAINTAINER}, ORG_ADMIN = {$IS_ORG_ADMIN}, ORG = {$f_org_name}, ORG_UUID = {$f_org_uuid})", 0);
+                }
+                set_passkey_cookie($USER_ID, $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $USER_ORG_NAME, $USER_ORG_UUID);
+              // Populate currentUserGroups and display name from LDAP
+                $ldap_connection = open_ldap_connection();
+                $user_dn = get_user_dn_from_identifier($ldap_connection, $USER_ID);
+                if ($user_dn) {
+                    $currentUserGroups = ldap_user_group_membership($ldap_connection, $user_dn);
+                    $USER_DN = $user_dn;
+                    // Resolve display name (mail or cn) for menu when USER_ID is a UUID
+                    $read = @ldap_read($ldap_connection, $user_dn, '(objectClass=*)', ['mail', 'cn']);
+                    if ($read) {
+                        $entries = ldap_get_entries($ldap_connection, $read);
+                        if (!empty($entries[0])) {
+                            $e = $entries[0];
+                            if (!empty($e['mail'][0])) {
+                                $USER_DISPLAY_NAME = $e['mail'][0];
+                            } elseif (!empty($e['cn'][0])) {
+                                $USER_DISPLAY_NAME = $e['cn'][0];
+                            }
+                        }
+                    }
+                } else {
+                    $currentUserGroups = array();
+                }
+                ldap_close($ldap_connection);
+                // Store in PHP session so next request can restore auth if orf_cookie is not sent (e.g. after 302)
+                set_lum_session_auth($USER_ID, $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $USER_ORG_NAME, $USER_ORG_UUID, $USER_DISPLAY_NAME);
+            } else {
+                if ($SESSION_DEBUG == true) {
+                    $this_error = "$log_prefix Session: orf_cookie was sent by the client and the session file was found at {$session_file_path}, but";
+                    if (empty($c_passkey)) {
+                        $this_error .= " the cookie passkey wasn't set;";
+                    }
+                    if ($c_passkey != $f_passkey) {
+                        $this_error .= " the session file passkey didn't match the cookie passkey;";
+                    }
+                    $this_error .= " Cookie: {$_COOKIE['orf_cookie']} - Session file contents: $session_file";
+                    error_log($this_error, 0);
+                }
+            }
+        }
+    } else {
+        if ($SESSION_DEBUG == true) {
+            error_log("$log_prefix Session: orf_cookie wasn't sent by the client.", 0);
+        }
+        if (isset($_COOKIE['sessto_cookie'])) {
+            $this_session_timeout = $_COOKIE['sessto_cookie'];
+            if ($this_time >= $this_session_timeout) {
+                $SESSION_TIMED_OUT = true;
+                if ($SESSION_DEBUG == true) {
+                    error_log("$log_prefix Session: The session had timed-out (over $SESSION_TIMEOUT mins idle).", 0);
+                }
+            }
+        }
+    }
 }
 
 ######################################################
 
-function set_setup_cookie() {
+function set_setup_cookie()
+{
 
  # Create a random value, store it locally and set it in a cookie.
 
- global $SESSION_TIMEOUT, $IS_SETUP_ADMIN, $log_prefix, $SESSION_DEBUG, $DEFAULT_COOKIE_OPTIONS;
+    global $SESSION_TIMEOUT, $IS_SETUP_ADMIN, $log_prefix, $SESSION_DEBUG, $DEFAULT_COOKIE_OPTIONS;
 
- $passkey = generate_passkey();
- $this_time = time();
+    $passkey = generate_passkey();
+    $this_time = time();
 
- $IS_SETUP_ADMIN = TRUE;
+    $IS_SETUP_ADMIN = true;
 
- @ file_put_contents("/tmp/ldap_setup","$passkey:$this_time");
+    @ file_put_contents("/tmp/ldap_setup", "$passkey:$this_time");
 
- setcookie('setup_cookie', $passkey, $DEFAULT_COOKIE_OPTIONS);
+    setcookie('setup_cookie', $passkey, $DEFAULT_COOKIE_OPTIONS);
 
- if ( $SESSION_DEBUG == TRUE) {  error_log("$log_prefix Setup session: sent setup_cookie to the client.",0); }
+    if ($SESSION_DEBUG == true) {
+        error_log("$log_prefix Setup session: sent setup_cookie to the client.", 0);
+    }
 
  // Regenerate session ID on setup login to prevent session fixation
- if (session_status() === PHP_SESSION_ACTIVE) {
-     session_regenerate_id(true);
- }
-
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_regenerate_id(true);
+    }
 }
 
 ######################################################
 
-function validate_setup_cookie() {
+function validate_setup_cookie()
+{
 
- global $SESSION_TIMEOUT, $IS_SETUP_ADMIN, $log_prefix, $SESSION_DEBUG;
+    global $SESSION_TIMEOUT, $IS_SETUP_ADMIN, $log_prefix, $SESSION_DEBUG;
 
- if (isset($_COOKIE['setup_cookie'])) {
-
-  $c_passkey = $_COOKIE['setup_cookie'];
-  $session_file = file_get_contents("/tmp/ldap_setup");
-  if (!$session_file) {
-   $IS_SETUP_ADMIN = FALSE;
-   if ( $SESSION_DEBUG == TRUE) {  error_log("$log_prefix Setup session: setup_cookie was sent by the client but the session file wasn't found at /tmp/ldap_setup",0); }
-  }
-  list($f_passkey,$f_time) = explode(":",$session_file);
-  $this_time = time();
-  if (!empty($c_passkey) and $f_passkey == $c_passkey and $this_time < $f_time + (60 * $SESSION_TIMEOUT)) {
-   $IS_SETUP_ADMIN = TRUE;
-   if ( $SESSION_DEBUG == TRUE) {  error_log("$log_prefix Setup session: Cookie and session file values match - VALIDATED ",0); }
-   set_setup_cookie();
-  }
-  elseif ( $SESSION_DEBUG == TRUE) {
-   $this_error = "$log_prefix Setup session: setup_cookie was sent by the client and the session file was found at /tmp/ldap_setup, but";
-   if (empty($c_passkey)) { $this_error .= " the cookie passkey wasn't set;"; }
-   if ($c_passkey != $f_passkey) { $this_error .= " the session file passkey didn't match the cookie passkey;"; }
-   $this_error += " Cookie: {$_COOKIE['setup_cookie']} - Session file contents: $session_file";
-   error_log($this_error,0);
-  }
- }
- elseif ( $SESSION_DEBUG == TRUE) {
-   error_log("$log_prefix Session: setup_cookie wasn't sent by the client.",0);
- }
-
+    if (isset($_COOKIE['setup_cookie'])) {
+        $c_passkey = $_COOKIE['setup_cookie'];
+        $session_file = file_get_contents("/tmp/ldap_setup");
+        if (!$session_file) {
+            $IS_SETUP_ADMIN = false;
+            if ($SESSION_DEBUG == true) {
+                error_log("$log_prefix Setup session: setup_cookie was sent by the client but the session file wasn't found at /tmp/ldap_setup", 0);
+            }
+        }
+        list($f_passkey,$f_time) = explode(":", $session_file);
+        $this_time = time();
+        if (!empty($c_passkey) and $f_passkey == $c_passkey and $this_time < $f_time + (60 * $SESSION_TIMEOUT)) {
+            $IS_SETUP_ADMIN = true;
+            if ($SESSION_DEBUG == true) {
+                error_log("$log_prefix Setup session: Cookie and session file values match - VALIDATED ", 0);
+            }
+            set_setup_cookie();
+        } elseif ($SESSION_DEBUG == true) {
+            $this_error = "$log_prefix Setup session: setup_cookie was sent by the client and the session file was found at /tmp/ldap_setup, but";
+            if (empty($c_passkey)) {
+                $this_error .= " the cookie passkey wasn't set;";
+            }
+            if ($c_passkey != $f_passkey) {
+                $this_error .= " the session file passkey didn't match the cookie passkey;";
+            }
+            $this_error += " Cookie: {$_COOKIE['setup_cookie']} - Session file contents: $session_file";
+            error_log($this_error, 0);
+        }
+    } elseif ($SESSION_DEBUG == true) {
+        error_log("$log_prefix Session: setup_cookie wasn't sent by the client.", 0);
+    }
 }
 
 ######################################################
 
-function log_out($method='normal') {
+function log_out($method = 'normal')
+{
 
  # Delete the passkey from the database and the passkey cookie
 
- global $USER_ID, $SERVER_PATH, $DEFAULT_COOKIE_OPTIONS;
+    global $USER_ID, $SERVER_PATH, $DEFAULT_COOKIE_OPTIONS;
 
- $this_time = time();
+    $this_time = time();
 
- $orf_cookie_opts = $DEFAULT_COOKIE_OPTIONS;
- $orf_cookie_opts['expires'] = $this_time - 20000;
- $sessto_cookie_opts = $DEFAULT_COOKIE_OPTIONS;
- $sessto_cookie_opts['expires'] = $this_time - 20000;
+    $orf_cookie_opts = $DEFAULT_COOKIE_OPTIONS;
+    $orf_cookie_opts['expires'] = $this_time - 20000;
+    $sessto_cookie_opts = $DEFAULT_COOKIE_OPTIONS;
+    $sessto_cookie_opts['expires'] = $this_time - 20000;
 
- setcookie('orf_cookie', "", $DEFAULT_COOKIE_OPTIONS);
- setcookie('sessto_cookie', "", $DEFAULT_COOKIE_OPTIONS);
+    setcookie('orf_cookie', "", $DEFAULT_COOKIE_OPTIONS);
+    setcookie('sessto_cookie', "", $DEFAULT_COOKIE_OPTIONS);
 
  // Use a hash of the user_id to find the session file
- $session_hash = hash('sha256', $USER_ID ?? '');
- @ unlink("/tmp/session_{$session_hash}");
+    $session_hash = hash('sha256', $USER_ID ?? '');
+    @ unlink(get_session_file_path($session_hash));
 
- if ($method == 'auto') { $options = "?logged_out"; } else { $options = ""; }
- header("Location:  //{$_SERVER["HTTP_HOST"]}{$SERVER_PATH}index.php$options\n\n");
+    // Clear PHP session auth fallback
+    foreach (array_keys($_SESSION) as $k) {
+        if (strpos($k, 'lum_') === 0) {
+            unset($_SESSION[$k]);
+        }
+    }
 
+    if ($method == 'auto') {
+        $options = "?logged_out";
+    } else {
+        $options = "";
+    }
+    header("Location: " . get_base_url() . "index.php" . $options);
 }
 
 ######################################################
 
-function render_header($title="",$menu=TRUE) {
+function render_header($title = "", $menu = true)
+{
 
- global $SITE_NAME, $IS_ADMIN, $SENT_HEADERS, $SERVER_PATH, $CUSTOM_STYLES;
+    global $SITE_NAME, $IS_ADMIN, $SENT_HEADERS, $SERVER_PATH, $CUSTOM_STYLES;
 
- if (empty($title)) { $title = $SITE_NAME; }
+    if (empty($title)) {
+        $title = $SITE_NAME;
+    }
+
+    $asset_base = get_asset_base();
 
  # Set security headers
- set_security_headers();
+    set_security_headers();
 
  #Initialise the HTML output for the page.
 
- ?>
+    ?>
+<!DOCTYPE html>
 <HTML>
 <HEAD>
- <TITLE><?php print "$title"; ?></TITLE>
+ <TITLE><?php print htmlspecialchars((string) $title, ENT_QUOTES, 'UTF-8'); ?></TITLE>
  <meta charset="utf-8">
  <meta name="viewport" content="width=device-width, initial-scale=1">
- <link rel="stylesheet" href="<?php print $SERVER_PATH; ?>bootstrap/css/bootstrap.min.css">
- <?php if ($CUSTOM_STYLES) echo '<link rel="stylesheet" href="'.$CUSTOM_STYLES.'">' ?>
- <script src="<?php print $SERVER_PATH; ?>js/jquery-3.6.0.min.js"></script>
- <script src="<?php print $SERVER_PATH; ?>bootstrap/js/bootstrap.min.js"></script>
+ <link rel="stylesheet" href="<?php print htmlspecialchars($asset_base, ENT_QUOTES, 'UTF-8'); ?>bootstrap/css/bootstrap.min.css">
+ <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+ <style>.form-group{margin-bottom:1rem;}</style>
+    <?php if ($CUSTOM_STYLES) {
+        echo '<link rel="stylesheet" href="' . htmlspecialchars($CUSTOM_STYLES, ENT_QUOTES, 'UTF-8') . '">';
+    } ?>
+ <script src="<?php print htmlspecialchars($asset_base, ENT_QUOTES, 'UTF-8'); ?>js/jquery-3.6.0.min.js"></script>
+ <script src="<?php print htmlspecialchars($asset_base, ENT_QUOTES, 'UTF-8'); ?>bootstrap/js/bootstrap.bundle.min.js"></script>
 </HEAD>
 <BODY>
-<?php
+    <?php
 
- if ($menu == TRUE) {
-  render_menu();
- }
+    if ($menu == true) {
+        render_menu();
+    }
 
- if (isset($_GET['logged_in'])) {
-
-  ?>
+    if (isset($_GET['logged_in'])) {
+        ?>
   <script>
     window.setTimeout(function() { $(".alert").fadeTo(500, 0).slideUp(500, function(){ $(this).remove(); }); }, 10000);
   </script>
-  <div class="alert alert-success">
-    <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="TRUE">&times;</span></button>
-    <p class="text-center">You've logged in successfully.</p>
+  <div class="alert alert-success alert-dismissible fade show">
+    <p class="text-center mb-0">You've logged in successfully.</p>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
   </div>
-  <?php
-
- }
- $SENT_HEADERS = TRUE;
-
+        <?php
+    }
+    $SENT_HEADERS = true;
 }
 
 /**
  * Set security headers to prevent common web attacks
  */
-function set_security_headers() {
+function set_security_headers()
+{
     global $SECURITY_CONFIG;
-    
+
     // Set security headers from configuration
     $headers = $SECURITY_CONFIG['security_headers'];
-    
+
     // Prevent clickjacking
     header('X-Frame-Options: ' . $headers['x_frame_options']);
-    
+
     // Prevent MIME type sniffing
     header('X-Content-Type-Options: ' . $headers['x_content_type_options']);
-    
+
     // Enable XSS protection
     header('X-XSS-Protection: ' . $headers['x_xss_protection']);
-    
+
     // Referrer policy
     header('Referrer-Policy: ' . $headers['referrer_policy']);
-    
+
     // Content Security Policy
     header('Content-Security-Policy: ' . $headers['content_security_policy']);
-    
+
     // HSTS (only if HTTPS and enabled)
     if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' && $headers['strict_transport_security']) {
         header('Strict-Transport-Security: ' . $headers['strict_transport_security']);
@@ -514,93 +750,101 @@ function set_security_headers() {
 
 ######################################################
 
-function render_menu() {
+function render_menu()
+{
 
  #Render the navigation menu.
  #The menu is dynamically rendered the $MODULES hash
 
- global $SITE_NAME, $MODULES, $THIS_MODULE, $VALIDATED, $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $USER_ID, $SERVER_PATH, $CUSTOM_LOGO, $LDAP_DEBUG;
+    global $SITE_NAME, $MODULES, $THIS_MODULE, $VALIDATED, $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $USER_ID, $USER_DISPLAY_NAME, $SERVER_PATH, $CUSTOM_LOGO, $LDAP_DEBUG;
 
- if (isset($LDAP_DEBUG) && $LDAP_DEBUG) {
-   error_log("render_menu: User roles - Admin: " . ($IS_ADMIN ? 'YES' : 'NO') . ", Maintainer: " . ($IS_MAINTAINER ? 'YES' : 'NO') . ", Org Admin: " . ($IS_ORG_ADMIN ? 'YES' : 'NO') . ", Validated: " . ($VALIDATED ? 'YES' : 'NO'));
- }
+    if (isset($LDAP_DEBUG) && $LDAP_DEBUG) {
+        error_log("render_menu: User roles - Admin: " . ($IS_ADMIN ? 'YES' : 'NO') . ", Maintainer: " . ($IS_MAINTAINER ? 'YES' : 'NO') . ", Org Admin: " . ($IS_ORG_ADMIN ? 'YES' : 'NO') . ", Validated: " . ($VALIDATED ? 'YES' : 'NO'));
+    }
 
- ?>
-  <nav class="navbar navbar-default">
+    ?>
+  <nav class="navbar navbar-expand-lg navbar-light bg-light">
    <div class="container-fluid">
-   <div class="navbar-header"><?php
-      if ($CUSTOM_LOGO) echo '<span class="navbar-brand"><img src="'.$CUSTOM_LOGO.'" class="logo" alt="logo"></span>'
-     ?><a class="navbar-brand" href="/"><?php print $SITE_NAME ?></a>
-   </div>
-     <ul class="nav navbar-nav">
+    <?php if ($CUSTOM_LOGO) {
+        echo '<a class="navbar-brand d-flex align-items-center" href="/"><img src="' . $CUSTOM_LOGO . '" class="logo me-2" alt="logo"></a>';
+    }
+    ?><a class="navbar-brand" href="/"><?php print $SITE_NAME ?></a>
+     <ul class="navbar-nav me-auto">
      <?php
-     foreach ($MODULES as $module => $access) {
+        foreach (is_array($MODULES) ? $MODULES : [] as $module => $access) {
+         // Customize module names for better display
+            $this_module_name = '';
+            if ($module === 'manage') {
+                $this_module_name = 'Manage';
+            } else {
+                $module_str = (string) preg_replace('/_/', ' ', (string) ($module ?? ''));
+                $this_module_name = stripslashes(ucwords($module_str));
+            }
 
-      // Customize module names for better display
-      $this_module_name = '';
-      if ($module === 'manage') {
-        $this_module_name = 'Manage';
-      } else {
-        $this_module_name = stripslashes(ucwords(preg_replace('/_/',' ', $module ?? '')));
-      }
+            $show_this_module = true;
+            if ($VALIDATED == true) {
+                if ($access == 'hidden_on_login') {
+                    $show_this_module = false;
+                }
+                if ($access == 'admin' && $IS_ADMIN == false) {
+                    $show_this_module = false;
+                }
+                if ($access == 'admin_maintainer_org_admin' && !$IS_ADMIN && !$IS_MAINTAINER && !$IS_ORG_ADMIN) {
+                    $show_this_module = false;
+                }
+            } else {
+                if ($access != 'hidden_on_login') {
+                    $show_this_module = false;
+                }
+            }
 
-      $show_this_module = TRUE;
-      if ($VALIDATED == TRUE) {
-       if ($access == 'hidden_on_login') { $show_this_module = FALSE; }
-       if ($access == 'admin' && $IS_ADMIN == FALSE) { $show_this_module = FALSE; }
-       if ($access == 'admin_maintainer_org_admin' && !$IS_ADMIN && !$IS_MAINTAINER && !$IS_ORG_ADMIN) { $show_this_module = FALSE; }
-      }
-      else {
-       if ($access != 'hidden_on_login') { $show_this_module = FALSE; }
-      }
-      
-      if (isset($LDAP_DEBUG) && $LDAP_DEBUG) {
-        error_log("render_menu: Module '$module' (access: $access) - show: " . ($show_this_module ? 'YES' : 'NO'));
-      }
-      
-      #print "<p>$module - access is $access & show is $show_this_module</p>";
-      if ($show_this_module == TRUE ) {
-       if ($module == $THIS_MODULE) {
-        print "<li class='active'>";
-       }
-       else {
-        print '<li>';
-       }
-       print "<a href='{$SERVER_PATH}{$module}/'>$this_module_name</a></li>\n";
-      }
-     }
-     ?>
+            if (isset($LDAP_DEBUG) && $LDAP_DEBUG) {
+                error_log("render_menu: Module '$module' (access: $access) - show: " . ($show_this_module ? 'YES' : 'NO'));
+            }
+
+         #print "<p>$module - access is $access & show is $show_this_module</p>";
+            if ($show_this_module == true) {
+                $active_class = ($module == $THIS_MODULE) ? " active" : "";
+                // Use /manage/index.php for Manage so the request hits the app with cookie (avoids /manage/ redirect issues)
+                $module_href = ($module === 'manage') ? $SERVER_PATH . $module . '/index.php' : $SERVER_PATH . $module . '/';
+                print '<li class="nav-item"><a class="nav-link' . $active_class . '" href="' . $module_href . '">' . $this_module_name . '</a></li>' . "\n";
+            }
+        }
+        ?>
      </ul>
-     <ul class="nav navbar-nav navbar-right">
-      <li><a style="color:#333"><?php if(isset($USER_ID)) { print $USER_ID; } ?></a></li>
+     <ul class="navbar-nav">
+      <li class="nav-item"><span class="navbar-text"><?php if (isset($USER_ID)) {
+            print htmlspecialchars($USER_DISPLAY_NAME !== null && $USER_DISPLAY_NAME !== '' ? $USER_DISPLAY_NAME : $USER_ID);
+                                                     } ?></span></li>
      </ul>
    </div>
   </nav>
- <?php
+    <?php
 }
 
 ######################################################
 
-function render_footer() {
+function render_footer()
+{
 
 #Finish rendering an HTML page.
 
-?>
+    ?>
  </BODY>
 </HTML>
-<?php
-
+    <?php
 }
 
 ######################################################
 
-function set_page_access($allowed_levels) {
+function set_page_access($allowed_levels)
+{
 
- global $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $IS_SETUP_ADMIN, $VALIDATED, $log_prefix, $SESSION_DEBUG, $SESSION_TIMED_OUT, $SERVER_PATH, $LDAP_DEBUG;
+    global $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $IS_SETUP_ADMIN, $VALIDATED, $log_prefix, $SESSION_DEBUG, $SESSION_TIMED_OUT, $SERVER_PATH, $LDAP_DEBUG;
 
  # Enhanced access control function that accepts multiple access levels
  # and implements path-based restrictions with automatic redirects
- # 
+ #
  # Parameters:
  # $allowed_levels: string or array of allowed access levels
  #   - 'setup': Setup administrator (only allowed under /setup)
@@ -611,210 +855,236 @@ function set_page_access($allowed_levels) {
  #
  # Special paths:
  # - /change_password and below: Available to any authenticated user
- # - /log_out and below: Available to any authenticated user  
+ # - /log_out and below: Available to any authenticated user
  # - /log_in and below: Available to any non-authenticated user
 
  // Convert single level to array for consistent handling
- if (!is_array($allowed_levels)) {
-   $allowed_levels = [$allowed_levels];
- }
+    if (!is_array($allowed_levels)) {
+        $allowed_levels = [$allowed_levels];
+    }
 
- // Get current request path for path-based restrictions
- $current_path = $_SERVER['REQUEST_URI'];
- $current_path = parse_url($current_path, PHP_URL_PATH);
- $current_path = rtrim($current_path, '/');
- 
- if ($LDAP_DEBUG) {
-   error_log("$log_prefix set_page_access: Checking access for path: $current_path");
-   error_log("$log_prefix set_page_access: Allowed levels: " . implode(', ', $allowed_levels));
-   error_log("$log_prefix set_page_access: User roles - Admin: " . ($IS_ADMIN ? 'YES' : 'NO') . ", Maintainer: " . ($IS_MAINTAINER ? 'YES' : 'NO') . ", Org Admin: " . ($IS_ORG_ADMIN ? 'YES' : 'NO') . ", Setup: " . ($IS_SETUP_ADMIN ? 'YES' : 'NO'));
- }
+ // Get current request path for path-based restrictions (relative to app base when in subpath)
+    $current_path = (string) parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+    $basePath = rtrim((string) ($SERVER_PATH ?? ''), '/');
+    if ($basePath !== '' && strpos($current_path, $basePath) === 0) {
+        $current_path = substr($current_path, strlen($basePath)) ?: '/';
+    }
+    $current_path = rtrim($current_path, '/');
+
+    if ($LDAP_DEBUG) {
+        error_log("$log_prefix set_page_access: Checking access for path: $current_path");
+        error_log("$log_prefix set_page_access: Allowed levels: " . implode(', ', $allowed_levels));
+        error_log("$log_prefix set_page_access: User roles - Admin: " . ($IS_ADMIN ? 'YES' : 'NO') . ", Maintainer: " . ($IS_MAINTAINER ? 'YES' : 'NO') . ", Org Admin: " . ($IS_ORG_ADMIN ? 'YES' : 'NO') . ", Setup: " . ($IS_SETUP_ADMIN ? 'YES' : 'NO'));
+    }
 
  // Special path handling for change_password, log_out, and log_in
- if (strpos($current_path, '/change_password') === 0 || strpos($current_path, '/log_out') === 0) {
-   // These paths are available to any authenticated user
-   if ($VALIDATED == TRUE) {
-     if ($LDAP_DEBUG) {
-       error_log("$log_prefix set_page_access: Allowing access to $current_path (authenticated user)");
-     }
-     return;
-   } else {
-     // Redirect to login
-     $reason = ($SESSION_TIMED_OUT == TRUE) ? "session_timeout" : "unauthorised";
-     header("Location: //" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}log_in/index.php?$reason&redirect_to=" . base64_encode($_SERVER['REQUEST_URI']));
-     if ($SESSION_DEBUG == TRUE) {
-       error_log("$log_prefix set_page_access: Redirecting unauthenticated user to login from $current_path");
-     }
-     exit(0);
-   }
- }
+    if (strpos($current_path, '/change_password') === 0 || strpos($current_path, '/log_out') === 0) {
+      // These paths are available to any authenticated user
+        if ($VALIDATED == true) {
+            if ($LDAP_DEBUG) {
+                  error_log("$log_prefix set_page_access: Allowing access to $current_path (authenticated user)");
+            }
+            return;
+        } else {
+       // Redirect to login
+            $reason = ($SESSION_TIMED_OUT == true) ? "session_timeout" : "unauthorised";
+            header("Location: " . get_base_url() . "log_in/index.php?$reason&redirect_to=" . base64_encode($_SERVER['REQUEST_URI']));
+            if ($SESSION_DEBUG == true) {
+                error_log("$log_prefix set_page_access: Redirecting unauthenticated user to login from $current_path");
+            }
+            exit(0);
+        }
+    }
 
- if (strpos($current_path, '/log_in') === 0) {
-   // Login pages are available to any non-authenticated user
-   if ($VALIDATED == TRUE) {
-     // User is already logged in, redirect to appropriate default
-     $redirect_url = get_default_redirect_for_user();
-     if ($LDAP_DEBUG) {
-       error_log("$log_prefix set_page_access: Logged in user accessing login page, redirecting to: $redirect_url");
-     }
-     header("Location: $redirect_url");
-     exit(0);
-   } else {
-     // Allow access to login page
-     if ($LDAP_DEBUG) {
-       error_log("$log_prefix set_page_access: Allowing access to login page (non-authenticated user)");
-     }
-     return;
-   }
- }
+    if (strpos($current_path, '/log_in') === 0) {
+      // Login pages are available to any non-authenticated user
+        if ($VALIDATED == true) {
+         // User is already logged in, redirect to appropriate default
+            $redirect_url = get_default_redirect_for_user();
+            if ($LDAP_DEBUG) {
+                  error_log("$log_prefix set_page_access: Logged in user accessing login page, redirecting to: $redirect_url");
+            }
+            header("Location: $redirect_url");
+            exit(0);
+        } else {
+       // Allow access to login page
+            if ($LDAP_DEBUG) {
+                error_log("$log_prefix set_page_access: Allowing access to login page (non-authenticated user)");
+            }
+            return;
+        }
+    }
 
  // Check if user has any of the allowed access levels
- $has_access = false;
- $user_level = null;
+    $has_access = false;
+    $user_level = null;
 
- foreach ($allowed_levels as $level) {
-   switch ($level) {
-     case 'setup':
-       if ($IS_SETUP_ADMIN == TRUE) {
-         $has_access = true;
-         $user_level = 'setup';
-         break;
-       }
-       break;
-       
-     case 'admin':
-       if ($IS_ADMIN == TRUE && $VALIDATED == TRUE) {
-         $has_access = true;
-         $user_level = 'admin';
-         break;
-       }
-       break;
-       
-     case 'maintainer':
-       if ($IS_MAINTAINER == TRUE && $VALIDATED == TRUE) {
-         // Path-based restrictions for maintainers
-         if (strpos($current_path, '/setup') === 0) {
-           // Maintainers cannot access setup
-           break;
-         }
-         if (strpos($current_path, '/manage/users') === 0 || 
-             strpos($current_path, '/manage/roles') === 0) {
-           // Maintainers cannot access user and role management
-           break;
-         }
-         $has_access = true;
-         $user_level = 'maintainer';
-         break;
-       }
-       break;
-       
-     case 'org_admin':
-       if ($IS_ORG_ADMIN == TRUE && $VALIDATED == TRUE) {
-         // Check path-based restrictions for organization admins
-         if (strpos($current_path, '/setup') === 0) {
-           // Org admins cannot access setup
-           break;
-         }
-         // Org admins can access organization pages (but will only see their own org)
-         if (strpos($current_path, '/manage/organizations') === 0) {
-           $has_access = true;
-           $user_level = 'org_admin';
-           break;
-         }
-         break;
-       }
-       break;
-       
-     case 'user':
-       if ($VALIDATED == TRUE) {
-         $has_access = true;
-         $user_level = 'user';
-         break;
-       }
-       break;
-   }
-   
-   if ($has_access) {
-     break;
-   }
- }
+    foreach ($allowed_levels as $level) {
+        switch ($level) {
+            case 'setup':
+                if ($IS_SETUP_ADMIN == true) {
+                    $has_access = true;
+                    $user_level = 'setup';
+                    break;
+                }
+                break;
+
+            case 'admin':
+                if ($IS_ADMIN == true && $VALIDATED == true) {
+                    $has_access = true;
+                    $user_level = 'admin';
+                    break;
+                }
+                break;
+
+            case 'maintainer':
+                if ($IS_MAINTAINER == true && $VALIDATED == true) {
+                   // Path-based restrictions for maintainers
+                    if (strpos($current_path, '/setup') === 0) {
+                  // Maintainers cannot access setup
+                        break;
+                    }
+                    if (
+                        strpos($current_path, '/manage/users') === 0 ||
+                        strpos($current_path, '/manage/roles') === 0
+                    ) {
+                            // Maintainers cannot access user and role management
+                            break;
+                    }
+                    $has_access = true;
+                    $user_level = 'maintainer';
+                    break;
+                }
+                break;
+
+            case 'org_admin':
+                if ($IS_ORG_ADMIN == true && $VALIDATED == true) {
+                  // Check path-based restrictions for organization admins
+                    if (strpos($current_path, '/setup') === 0) {
+                     // Org admins cannot access setup
+                        break;
+                    }
+                  // Org admins can access organization pages (but will only see their own org)
+                    if (strpos($current_path, '/manage/organizations') === 0) {
+                        $has_access = true;
+                        $user_level = 'org_admin';
+                        break;
+                    }
+                    break;
+                }
+                break;
+
+            case 'user':
+                if ($VALIDATED == true) {
+                    $has_access = true;
+                    $user_level = 'user';
+                    break;
+                }
+                break;
+        }
+
+        if ($has_access) {
+            break;
+        }
+    }
 
  // If user has access, allow them to proceed
- if ($has_access) {
-   if ($LDAP_DEBUG) {
-     error_log("$log_prefix set_page_access: Access granted to $current_path for user level: $user_level");
-   }
-   return;
- }
+    if ($has_access) {
+        if ($LDAP_DEBUG) {
+            error_log("$log_prefix set_page_access: Access granted to $current_path for user level: $user_level");
+        }
+        return;
+    }
 
  // User doesn't have access, redirect to appropriate default view
- if ($LDAP_DEBUG) {
-   error_log("$log_prefix set_page_access: Access denied to $current_path, redirecting user");
- }
+    if ($LDAP_DEBUG) {
+        error_log("$log_prefix set_page_access: Access denied to $current_path, redirecting user");
+    }
 
- $redirect_url = get_default_redirect_for_user();
- header("Location: $redirect_url");
- 
- if ($SESSION_DEBUG == TRUE) {
-   error_log("$log_prefix set_page_access: UNAUTHORISED: redirecting user from $current_path to $redirect_url");
- }
- exit(0);
+    $redirect_url = get_default_redirect_for_user();
+    header("Location: $redirect_url");
+
+    if ($SESSION_DEBUG == true) {
+        error_log("$log_prefix set_page_access: UNAUTHORISED: redirecting user from $current_path to $redirect_url");
+    }
+    exit(0);
+}
+
+/**
+ * Base URL for redirects (protocol-relative). Ensures a slash between host and path.
+ */
+function get_base_url(): string
+{
+    global $SERVER_PATH;
+    $path = trim((string) $SERVER_PATH, '/');
+    return "//" . $_SERVER['HTTP_HOST'] . "/" . ($path !== '' ? $path . '/' : '');
+}
+
+/**
+ * Path prefix for static assets (CSS, JS). Always starts and ends with / so href/src work from any page.
+ */
+function get_asset_base(): string
+{
+    global $SERVER_PATH;
+    $path = rtrim((string) ($SERVER_PATH ?? ''), '/');
+    return ($path === '') ? '/' : '/' . $path . '/';
 }
 
 /**
  * Get the appropriate default redirect URL based on user's access level
  */
-function get_default_redirect_for_user() {
- global $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $IS_SETUP_ADMIN, $VALIDATED, $SERVER_PATH, $LDAP_DEBUG;
+function get_default_redirect_for_user()
+{
+    global $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $IS_SETUP_ADMIN, $VALIDATED, $LDAP_DEBUG, $SESSION_TIMED_OUT;
 
  // If user is not validated, redirect to login
- if (!$VALIDATED) {
-   $reason = ($SESSION_TIMED_OUT == TRUE) ? "session_timeout" : "unauthorised";
-   return "//" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}log_in/index.php?$reason&redirect_to=" . base64_encode($_SERVER['REQUEST_URI']);
- }
+    if (!$VALIDATED) {
+        $reason = (!empty($SESSION_TIMED_OUT)) ? "session_timeout" : "unauthorised";
+        return get_base_url() . "log_in/index.php?$reason&redirect_to=" . base64_encode($_SERVER['REQUEST_URI']);
+    }
 
  // Determine default redirect based on user's highest access level
- if ($IS_SETUP_ADMIN) {
-   return "//" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}setup/";
- } elseif ($IS_ADMIN) {
-   return "//" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}manage/users/";
- } elseif ($IS_MAINTAINER) {
-   return "//" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}manage/organizations/";
- } elseif ($IS_ORG_ADMIN) {
-   // Get organization info for org admin redirect
-   global $USER_ORG_NAME, $USER_ORG_UUID;
-   
-   if (isset($USER_ORG_UUID) && $USER_ORG_UUID) {
-     return "//" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}manage/organizations/show/index.php?uuid=" . urlencode($USER_ORG_UUID);
-   } elseif (isset($USER_ORG_NAME) && $USER_ORG_NAME) {
-     return "//" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}manage/organizations/show/index.php?org=" . urlencode($USER_ORG_NAME);
-   } else {
-     // Fallback to change password if org info not available
-     return "//" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}change_password/";
-   }
- } else {
-   // Regular user, redirect to change password
-   return "//" . $_SERVER["HTTP_HOST"] . "{$SERVER_PATH}change_password/";
- }
+    if ($IS_SETUP_ADMIN) {
+        return get_base_url() . "setup/";
+    } elseif ($IS_ADMIN) {
+        return get_base_url() . "manage/users/";
+    } elseif ($IS_MAINTAINER) {
+        return get_base_url() . "manage/organizations/";
+    } elseif ($IS_ORG_ADMIN) {
+      // Get organization info for org admin redirect
+        global $USER_ORG_NAME, $USER_ORG_UUID;
+
+        if (isset($USER_ORG_UUID) && $USER_ORG_UUID) {
+            return get_base_url() . "manage/organizations/show/index.php?uuid=" . urlencode($USER_ORG_UUID);
+        } elseif (isset($USER_ORG_NAME) && $USER_ORG_NAME) {
+            return get_base_url() . "manage/organizations/show/index.php?org=" . urlencode($USER_ORG_NAME);
+        } else {
+       // Fallback to change password if org info not available
+            return get_base_url() . "change_password/";
+        }
+    } else {
+      // Regular user, redirect to change password
+        return get_base_url() . "change_password/";
+    }
 }
 
 ######################################################
 
-function is_valid_email($email) {
+function is_valid_email($email)
+{
 
- return (!filter_var($email, FILTER_VALIDATE_EMAIL)) ? FALSE : TRUE;
-
+    return (!filter_var($email, FILTER_VALIDATE_EMAIL)) ? false : true;
 }
 
 ######################################################
 
-function render_js_username_check(){
+function render_js_username_check()
+{
 
- global $USERNAME_REGEX, $ENFORCE_SAFE_SYSTEM_NAMES;
+    global $USERNAME_REGEX, $ENFORCE_SAFE_SYSTEM_NAMES;
 
- if ($ENFORCE_SAFE_SYSTEM_NAMES == TRUE) {
-
- print <<<EoCheckJS
+    if ($ENFORCE_SAFE_SYSTEM_NAMES == true) {
+        print <<<EoCheckJS
 <script>
 
  function check_entity_name_validity(name,div_id) {
@@ -822,10 +1092,10 @@ function render_js_username_check(){
   var check_regex = /$USERNAME_REGEX/;
 
   if (! check_regex.test(name) ) {
-   document.getElementById(div_id).classList.add("has-error");
+   document.getElementById(div_id).classList.add("is-invalid");
   }
   else {
-   document.getElementById(div_id).classList.remove("has-error");
+   document.getElementById(div_id).classList.remove("is-invalid");
   }
 
  }
@@ -833,47 +1103,48 @@ function render_js_username_check(){
 </script>
 
 EoCheckJS;
- }
- else {
-  print "<script> function check_entity_name_validity(name,div_id) {} </script>";
- }
-
+    } else {
+        print "<script> function check_entity_name_validity(name,div_id) {} </script>";
+    }
 }
 
 ######################################################
 
-function generate_username($fn,$ln) {
+function generate_username($fn, $ln)
+{
 
-  global $USERNAME_FORMAT;
+    global $USERNAME_FORMAT;
 
   // Handle empty or null parameters
-  if (empty($fn) || empty($ln)) {
-    return '';
-  }
+    if (empty($fn) || empty($ln)) {
+        return '';
+    }
 
-  $username = $USERNAME_FORMAT;
-  $username = str_replace('{first_name}',strtolower($fn), $username);
-  $username = str_replace('{first_name_initial}',strtolower($fn[0]), $username);
-  $username = str_replace('{last_name}',strtolower($ln), $username);
-  $username = str_replace('{last_name_initial}',strtolower($ln[0]), $username);
+    $username = $USERNAME_FORMAT;
+    $username = str_replace('{first_name}', strtolower($fn), $username);
+    $username = str_replace('{first_name_initial}', strtolower($fn[0]), $username);
+    $username = str_replace('{last_name}', strtolower($ln), $username);
+    $username = str_replace('{last_name_initial}', strtolower($ln[0]), $username);
 
-  return $username;
-
+    return $username;
 }
 
 ######################################################
 
-function render_js_username_generator($firstname_field_id,$lastname_field_id,$username_field_id,$username_div_id) {
+function render_js_username_generator($firstname_field_id, $lastname_field_id, $username_field_id, $username_div_id)
+{
 
  #Parameters are the IDs of the input fields and username name div in the account creation form.
  #The div will be set to warning if the username is invalid.
 
- global $USERNAME_FORMAT, $ENFORCE_SAFE_SYSTEM_NAMES;
+    global $USERNAME_FORMAT, $ENFORCE_SAFE_SYSTEM_NAMES;
 
-  $remove_accents="";
-  if ($ENFORCE_SAFE_SYSTEM_NAMES == TRUE) { $remove_accents = ".normalize('NFD').replace(/[\u0300-\u036f]/g, '')"; }
+    $remove_accents = "";
+    if ($ENFORCE_SAFE_SYSTEM_NAMES == true) {
+        $remove_accents = ".normalize('NFD').replace(/[\u0300-\u036f]/g, '')";
+    }
 
-  print <<<EoRenderJS
+    print <<<EoRenderJS
 
 <script>
  function update_username() {
@@ -898,23 +1169,22 @@ function render_js_username_generator($firstname_field_id,$lastname_field_id,$us
 </script>
 
 EoRenderJS;
-
 }
 
 ######################################################
 
-function render_js_cn_generator($firstname_field_id,$lastname_field_id,$cn_field_id,$cn_div_id) {
+function render_js_cn_generator($firstname_field_id, $lastname_field_id, $cn_field_id, $cn_div_id)
+{
 
-  global $ENFORCE_SAFE_SYSTEM_NAMES;
+    global $ENFORCE_SAFE_SYSTEM_NAMES;
 
-  if ($ENFORCE_SAFE_SYSTEM_NAMES == TRUE) {
-    $gen_js = "first_name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') + last_name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')";
-  }
-  else {
-    $gen_js = "first_name + ' ' + last_name";
-  }
+    if ($ENFORCE_SAFE_SYSTEM_NAMES == true) {
+        $gen_js = "first_name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') + last_name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')";
+    } else {
+        $gen_js = "first_name + ' ' + last_name";
+    }
 
-  print <<<EoRenderCNJS
+    print <<<EoRenderCNJS
 <script>
 
  var auto_cn_update = true;
@@ -935,16 +1205,16 @@ function render_js_cn_generator($firstname_field_id,$lastname_field_id,$cn_field
 </script>
 
 EoRenderCNJS;
-
 }
 
 ######################################################
 
-function render_js_email_generator($username_field_id,$email_field_id) {
+function render_js_email_generator($username_field_id, $email_field_id)
+{
 
- global $EMAIL_DOMAIN;
+    global $EMAIL_DOMAIN;
 
-  print <<<EoRenderEmailJS
+    print <<<EoRenderEmailJS
 <script>
 
  var auto_email_update = true;
@@ -960,14 +1230,14 @@ function render_js_email_generator($username_field_id,$email_field_id) {
 </script>
 
 EoRenderEmailJS;
-
 }
 
 ######################################################
 
-function render_js_homedir_generator($username_field_id,$homedir_field_id) {
+function render_js_homedir_generator($username_field_id, $homedir_field_id)
+{
 
-  print <<<EoRenderHomedirJS
+    print <<<EoRenderHomedirJS
 <script>
 
  var auto_homedir_update = true;
@@ -983,14 +1253,14 @@ function render_js_homedir_generator($username_field_id,$homedir_field_id) {
 </script>
 
 EoRenderHomedirJS;
-
 }
 
 ######################################################
 
-function render_dynamic_field_js() {
+function render_dynamic_field_js()
+{
 
-?>
+    ?>
 <script>
 
   function add_field_to(attribute_name,value=null) {
@@ -1015,168 +1285,231 @@ function render_dynamic_field_js() {
         input_field.value = value;
 
     var button_span = document.createElement('span');
-        button_span.className = 'input-group-btn';
-
     var remove_button = document.createElement('button');
         remove_button.type = 'button';
-        remove_button.className = 'btn btn-default';
+        remove_button.className = 'btn btn-secondary';
         remove_button.onclick = function() { var div_to_remove = document.getElementById(input_div_id); div_to_remove.innerHTML = ""; }
         remove_button.innerHTML = '-';
 
     input_div.appendChild(input_field);
-    input_div.appendChild(button_span);
-    button_span.appendChild(remove_button);
+    input_div.appendChild(remove_button);
 
   }
 
 </script>
-<?php
-
+    <?php
 }
 
 ######################################################
 
-function render_attribute_fields($attribute,$label,$values_r,$resource_identifier,$onkeyup="",$inputtype="",$tabindex=null) {
+function render_attribute_fields($attribute, $label, $values_r, $resource_identifier, $onkeyup = "", $inputtype = "", $tabindex = null)
+{
 
-  global $THIS_MODULE_PATH;
+    global $THIS_MODULE_PATH;
 
-  ?>
+    ?>
 
      <div class="form-group" id="<?php print $attribute; ?>_div">
 
-       <label for="<?php print $attribute; ?>" class="col-sm-3 control-label"><?php print $label; ?></label>
+       <label for="<?php print $attribute; ?>" class="col-sm-3 form-label"><?php print $label; ?></label>
        <div class="col-sm-6" id="<?php print $attribute; ?>_input_div">
-       <?php if($inputtype == "multipleinput") {
-             ?><div class="input-group">
-                  <input type="text" class="form-control" id="<?php print $attribute; ?>" name="<?php print $attribute; ?>[]" value="<?php if (isset($values_r[0])) { print $values_r[0]; } ?>">
-                  <div class="input-group-btn"><button type="button" class="btn btn-default" onclick="add_field_to('<?php print $attribute; ?>')">+</i></button></div>
+       <?php if ($inputtype == "multipleinput") {
+            ?><div class="input-group">
+                  <input type="text" class="form-control" id="<?php print $attribute; ?>" name="<?php print $attribute; ?>[]" value="<?php if (isset($values_r[0])) {
+                        print $values_r[0];
+                                                              } ?>">
+                  <button type="button" class="btn btn-secondary" onclick="add_field_to('<?php print $attribute; ?>')">+</button>
               </div>
             <?php
-               if (isset($values_r['count']) and $values_r['count'] > 0) {
-                 unset($values_r['count']);
-                 $remaining_values = array_slice($values_r, 1);
-                 print "<script>";
-                 foreach($remaining_values as $this_value) { print "add_field_to('$attribute','$this_value');"; }
-                 print "</script>";
-               }
-             }
-             elseif ($inputtype == "binary") {
-               $button_text="Browse";
-               $file_button_action="disabled";
-               $description="Select a file to upload";
-               $mimetype="";
+            if (isset($values_r['count']) and $values_r['count'] > 0) {
+                unset($values_r['count']);
+                $remaining_values = array_slice($values_r, 1);
+                print "<script>";
+                foreach ($remaining_values as $this_value) {
+                    print "add_field_to('$attribute','$this_value');";
+                }
+                print "</script>";
+            }
+       } elseif ($inputtype == "binary") {
+           $button_text = "Browse";
+           $file_button_action = "disabled";
+           $description = "Select a file to upload";
+           $mimetype = "";
 
-               if (isset($values_r[0])) {
+           if (isset($values_r[0])) {
                  $this_file_info = new finfo(FILEINFO_MIME_TYPE);
                  $mimetype = $this_file_info->buffer($values_r[0]);
-                 if (strlen($mimetype) > 23) { $mimetype = substr($mimetype,0,19) . "..."; }
-                 $description="Download $mimetype file (" . human_readable_filesize(strlen($values_r[0])) . ")";
-                 $button_text="Replace file";
-                 if ($resource_identifier != "") {
-                   $this_url="//{$_SERVER['HTTP_HOST']}{$THIS_MODULE_PATH}/download.php?resource_identifier={$resource_identifier}&attribute={$attribute}";
-                   $file_button_action="onclick=\"window.open('$this_url','_blank');\"";
-                 }
+               if (strlen($mimetype) > 23) {
+                   $mimetype = substr($mimetype, 0, 19) . "...";
                }
-               if ($mimetype == "image/jpeg") {
-                 $this_image = base64_encode($values_r[0]);
-                 print "<img class='img-thumbnail' src='data:image/jpeg;base64,$this_image'>";
-                 $description="";
+                 $description = "Download $mimetype file (" . human_readable_filesize(strlen($values_r[0])) . ")";
+                 $button_text = "Replace file";
+               if ($resource_identifier != "") {
+                   $this_url = "//{$_SERVER['HTTP_HOST']}{$THIS_MODULE_PATH}/download.php?resource_identifier={$resource_identifier}&attribute={$attribute}";
+                   $file_button_action = "onclick=\"window.open('$this_url','_blank');\"";
                }
-               else {
-               ?>
-                 <button type="button" <?php print $file_button_action; ?> class="btn btn-default" id="<?php print $attribute; ?>-file-info"><?php print $description; ?></button>
-               <?php } ?>
-               <label class="btn btn-default">
-                 <?php print $button_text; ?><input <?php if (isset($tabindex)) { ?>tabindex="<?php print $tabindex; ?>" <?php } ?>type="file" style="display:none" onchange="$('#<?php print $attribute; ?>-file-info').text(this.files[0].name)" id="<?php print $attribute; ?>" name="<?php print $attribute; ?>">
+           }
+           if ($mimetype == "image/jpeg") {
+               $this_image = base64_encode($values_r[0]);
+               print "<img class='img-thumbnail' src='data:image/jpeg;base64,$this_image'>";
+               $description = "";
+           } else {
+                ?>
+                 <button type="button" <?php print $file_button_action; ?> class="btn btn-secondary" id="<?php print $attribute; ?>-file-info"><?php print $description; ?></button>
+           <?php } ?>
+               <label class="btn btn-secondary">
+           <?php print $button_text; ?><input <?php if (isset($tabindex)) {
+                ?>tabindex="<?php print $tabindex; ?>" <?php
+           } ?>type="file" style="display:none" onchange="$('#<?php print $attribute; ?>-file-info').text(this.files[0].name)" id="<?php print $attribute; ?>" name="<?php print $attribute; ?>">
                </label>
             <?php
-            }
-            else { ?>
-              <input <?php if (isset($tabindex)) { ?>tabindex="<?php print $tabindex; ?>" <?php } ?>type="text" class="form-control" id="<?php print $attribute; ?>" name="<?php print $attribute; ?>" value="<?php if (isset($values_r[0])) { print $values_r[0]; } ?>" <?php if ($onkeyup != "") { print "onkeyup=\"$onkeyup\""; } ?>>
-            <?php
-            }
-            ?>
+       } else { ?>
+              <input <?php if (isset($tabindex)) {
+                    ?>tabindex="<?php print $tabindex; ?>" <?php
+                     } ?>type="text" class="form-control" id="<?php print $attribute; ?>" name="<?php print $attribute; ?>" value="<?php if (isset($values_r[0])) {
+                     print $values_r[0];
+                     } ?>" <?php if ($onkeyup != "") {
+                     print "onkeyup=\"$onkeyup\"";
+                     } ?>>
+           <?php
+       }
+        ?>
        </div>
 
      </div>
 
-  <?php
+    <?php
 }
 
 ######################################################
 
-function human_readable_filesize($bytes) {
-  for($i = 0; ($bytes / 1024) > 0.9; $i++, $bytes /= 1024) {}
-  return round($bytes, [0,0,1,2,2,3,3,4,4][$i]).['B','kB','MB','GB','TB','PB','EB','ZB','YB'][$i];
+function human_readable_filesize($bytes)
+{
+    for ($i = 0; ($bytes / 1024) > 0.9; $i++, $bytes /= 1024) {
+    }
+    return round($bytes, [0,0,1,2,2,3,3,4,4][$i]) . ['B','kB','MB','GB','TB','PB','EB','ZB','YB'][$i];
 }
 
 ######################################################
 
-function render_alert_banner($message,$alert_class="success",$timeout=4000) {
+function render_alert_banner($message, $alert_class = "success", $timeout = 4000)
+{
 
-?>
-    <script>window.setTimeout(function() {$(".alert").fadeTo(500, 0).slideUp(500, function(){ $(this).remove(); }); }, $<?php print $timeout; ?>);</script>
-    <div class="alert alert-<?php print $alert_class; ?>" role="alert">
-     <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="TRUE">&times;</span></button>
-     <p class="text-center"><?php print $message; ?></p>
+    ?>
+    <script>window.setTimeout(function() {$(".alert").fadeTo(500, 0).slideUp(500, function(){ $(this).remove(); }); }, <?php print (int) $timeout; ?>);</script>
+    <div class="alert alert-<?php print $alert_class; ?> alert-dismissible fade show" role="alert">
+     <p class="text-center mb-0"><?php print $message; ?></p>
+     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
-<?php
+    <?php
+}
+
+/**
+ * Render a Bootstrap 5 confirmation modal (e.g. lock/unlock/delete).
+ *
+ * @param string $id Modal element ID
+ * @param string $title Modal title
+ * @param string $body_html Body HTML (may contain a <span id="..."> for dynamic label)
+ * @param array $hidden_inputs Array of inputs: ['name' => 'x', 'id' => 'y'] or ['name' => 'x', 'value' => 'y']
+ * @param string $submit_text Submit button label
+ * @param string $submit_class Submit button class (e.g. 'btn-danger', 'btn-warning', 'btn-success')
+ */
+function render_confirm_modal(string $id, string $title, string $body_html, array $hidden_inputs, string $submit_text, string $submit_class = 'btn-primary'): void
+{
+    ?>
+<div class="modal fade" id="<?php echo htmlspecialchars($id); ?>" tabindex="-1" role="dialog" aria-labelledby="<?php echo htmlspecialchars($id); ?>Label" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="<?php echo htmlspecialchars($id); ?>Label"><?php echo htmlspecialchars($title); ?></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body"><?php echo $body_html; ?></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="post" action="" style="display: inline;">
+                    <?php echo csrf_token_field(); ?>
+                    <?php
+                    foreach ($hidden_inputs as $input) {
+                        $name = $input['name'] ?? '';
+                        $attribs = ' name="' . htmlspecialchars($name) . '"';
+                        if (!empty($input['id'])) {
+                            $attribs .= ' id="' . htmlspecialchars($input['id']) . '"';
+                        }
+                        if (array_key_exists('value', $input)) {
+                            $attribs .= ' value="' . htmlspecialchars((string) $input['value']) . '"';
+                        }
+                        echo '<input type="hidden"' . $attribs . '>';
+                    }
+                    ?>
+                    <button type="submit" class="btn <?php echo htmlspecialchars($submit_class); ?>"><?php echo htmlspecialchars($submit_text); ?></button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+    <?php
 }
 
 ##EoFile
 
 // CSRF protection helpers
-function get_csrf_token() {
+function get_csrf_token()
+{
     // Ensure session is started
     if (session_status() === PHP_SESSION_NONE) {
         session_start();
     }
-    
+
     // Refresh session timeout to prevent premature expiration
     if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity']) > 300) {
         // Regenerate session ID every 5 minutes for security
         session_regenerate_id(true);
     }
     $_SESSION['last_activity'] = time();
-    
+
     // Generate new token if none exists or if it's too old (regenerate every hour for security)
-    if (empty($_SESSION['csrf_token']) || 
-        !isset($_SESSION['csrf_token_time']) || 
-        (time() - $_SESSION['csrf_token_time']) > 3600) {
+    if (
+        empty($_SESSION['csrf_token']) ||
+        !isset($_SESSION['csrf_token_time']) ||
+        (time() - $_SESSION['csrf_token_time']) > 3600
+    ) {
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         $_SESSION['csrf_token_time'] = time();
     }
-    
+
     return $_SESSION['csrf_token'];
 }
-function csrf_token_field() {
+function csrf_token_field()
+{
     $token = get_csrf_token();
     return '<input type="hidden" name="csrf_token" value="' . htmlspecialchars($token) . '">';
 }
-function validate_csrf_token() {
+function validate_csrf_token()
+{
     // Ensure session is started
     if (session_status() === PHP_SESSION_NONE) {
         session_start();
     }
-    
+
     // Check if CSRF token exists in session
     if (empty($_SESSION['csrf_token'])) {
         error_log("CSRF validation failed: No token in session");
         return false;
     }
-    
+
     // Check if CSRF token was posted
     if (!isset($_POST['csrf_token'])) {
         error_log("CSRF validation failed: No token posted");
         return false;
     }
-    
+
     // Validate the token
     if (!hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
         error_log("CSRF validation failed: Token mismatch. Session: " . substr($_SESSION['csrf_token'], 0, 8) . "... Posted: " . substr($_POST['csrf_token'], 0, 8) . "...");
         return false;
     }
-    
+
     return true;
 }
 
@@ -1186,62 +1519,63 @@ function validate_csrf_token() {
  * @param string $base_path The base server path
  * @return string|false Validated redirect URL or false if invalid
  */
-function validate_redirect_url($redirect_url, $base_path = '/') {
+function validate_redirect_url($redirect_url, $base_path = '/')
+{
     // Decode the base64 URL
     $decoded = base64_decode($redirect_url, true);
     if ($decoded === false) {
         return false;
     }
-    
+
     // Ensure the decoded URL is a string
     if (!is_string($decoded)) {
         return false;
     }
-    
+
     // Remove any null bytes or control characters
     $decoded = preg_replace('/[\x00-\x1F\x7F]/', '', $decoded);
-    
+
     // Check if it's a relative path (starts with /)
     if (strpos($decoded, '/') === 0) {
         // Ensure it doesn't contain directory traversal attempts
         if (strpos($decoded, '..') !== false || strpos($decoded, '//') !== false) {
             return false;
         }
-        
+
         // Ensure it doesn't contain any potentially dangerous characters
         if (preg_match('/[<>"\']/', $decoded)) {
             return false;
         }
-        
+
         // Limit the length to prevent excessive redirects
         if (strlen($decoded) > 200) {
             return false;
         }
-        
+
         return $decoded;
     }
-    
+
     // Check if it's a relative path without leading slash
     if (strpos($decoded, 'http') !== 0 && strpos($decoded, '//') !== 0) {
         // Add leading slash if missing
         $decoded = '/' . ltrim($decoded, '/');
-        
+
         // Apply the same validation as above
         if (strpos($decoded, '..') !== false || strpos($decoded, '//') !== false) {
             return false;
         }
-        
+
         if (preg_match('/[<>"\']/', $decoded)) {
             return false;
         }
-        
+
         if (strlen($decoded) > 200) {
             return false;
         }
-        
+
         return $decoded;
     }
-    
+
     // Reject absolute URLs for security
     return false;
 }
@@ -1258,7 +1592,8 @@ function validate_redirect_url($redirect_url, $base_path = '/') {
  * @param string $sn_key Key for surname (default: 'sn')
  * @return string Safe display name
  */
-function safe_display_name($user, $cn_key = 'cn', $givenname_key = 'givenName', $sn_key = 'sn') {
+function safe_display_name($user, $cn_key = 'cn', $givenname_key = 'givenName', $sn_key = 'sn')
+{
     // Try to get the common name first
     if (isset($user[$cn_key]) && !empty($user[$cn_key])) {
         if (is_array($user[$cn_key])) {
@@ -1266,11 +1601,11 @@ function safe_display_name($user, $cn_key = 'cn', $givenname_key = 'givenName', 
         }
         return htmlspecialchars($user[$cn_key]);
     }
-    
+
     // Fallback: construct from given name and surname
     $givenname = '';
     $sn = '';
-    
+
     if (isset($user[$givenname_key]) && !empty($user[$givenname_key])) {
         if (is_array($user[$givenname_key])) {
             $givenname = $user[$givenname_key][0] ?? '';
@@ -1278,7 +1613,7 @@ function safe_display_name($user, $cn_key = 'cn', $givenname_key = 'givenName', 
             $givenname = $user[$givenname_key];
         }
     }
-    
+
     if (isset($user[$sn_key]) && !empty($user[$sn_key])) {
         if (is_array($user[$sn_key])) {
             $sn = $user[$sn_key][0] ?? '';
@@ -1286,7 +1621,7 @@ function safe_display_name($user, $cn_key = 'cn', $givenname_key = 'givenName', 
             $sn = $user[$sn_key];
         }
     }
-    
+
     // Return constructed name or fallback
     if ($givenname && $sn) {
         return htmlspecialchars($givenname . ' ' . $sn);
@@ -1306,15 +1641,16 @@ function safe_display_name($user, $cn_key = 'cn', $givenname_key = 'givenName', 
  * @param string $default Default value if attribute is missing
  * @return string Safe attribute value
  */
-function safe_user_attribute($user, $key, $default = '') {
+function safe_user_attribute($user, $key, $default = '')
+{
     if (!isset($user[$key]) || empty($user[$key])) {
         return $default;
     }
-    
+
     if (is_array($user[$key])) {
         return htmlspecialchars($user[$key][0] ?? $default);
     }
-    
+
     return htmlspecialchars($user[$key]);
 }
 
@@ -1329,27 +1665,28 @@ function safe_user_attribute($user, $key, $default = '') {
  * @param int $time_window Time window in seconds
  * @return bool True if rate limited, false otherwise
  */
-function is_rate_limited($identifier, $max_attempts = 5, $time_window = 300) {
+function is_rate_limited($identifier, $max_attempts = 5, $time_window = 300)
+{
     $rate_limit_file = "/tmp/rate_limit_" . md5($identifier);
-    
+
     if (file_exists($rate_limit_file)) {
         $data = file_get_contents($rate_limit_file);
         $attempts = json_decode($data, true);
-        
+
         if ($attempts && is_array($attempts)) {
             // Remove attempts outside the time window
             $current_time = time();
-            $attempts = array_filter($attempts, function($timestamp) use ($current_time, $time_window) {
+            $attempts = array_filter($attempts, function ($timestamp) use ($current_time, $time_window) {
                 return ($current_time - $timestamp) < $time_window;
             });
-            
+
             // Check if too many attempts
             if (count($attempts) >= $max_attempts) {
                 return true;
             }
         }
     }
-    
+
     return false;
 }
 
@@ -1358,9 +1695,10 @@ function is_rate_limited($identifier, $max_attempts = 5, $time_window = 300) {
  * @param string $identifier User identifier
  * @param bool $success Whether the attempt was successful
  */
-function record_login_attempt($identifier, $success = false) {
+function record_login_attempt($identifier, $success = false)
+{
     $rate_limit_file = "/tmp/rate_limit_" . md5($identifier);
-    
+
     if ($success) {
         // Clear rate limiting on successful login
         if (file_exists($rate_limit_file)) {
@@ -1368,20 +1706,20 @@ function record_login_attempt($identifier, $success = false) {
         }
         return;
     }
-    
+
     $attempts = [];
     if (file_exists($rate_limit_file)) {
         $data = file_get_contents($rate_limit_file);
         $attempts = json_decode($data, true) ?: [];
     }
-    
+
     $attempts[] = time();
-    
+
     // Keep only last 10 attempts to prevent file bloat
     if (count($attempts) > 10) {
         $attempts = array_slice($attempts, -10);
     }
-    
+
     file_put_contents($rate_limit_file, json_encode($attempts));
 }
 
@@ -1390,18 +1728,19 @@ function record_login_attempt($identifier, $success = false) {
 /**
  * Generates JavaScript configuration object for password strength requirements
  * based on environment variables and current configuration.
- * 
+ *
  * @return string JavaScript configuration object as JSON
  */
-function get_password_strength_config_js() {
+function get_password_strength_config_js()
+{
     global $PASSWORD_STRENGTH_MIN_SCORE, $PASSWORD_STRENGTH_MIN_LENGTH;
     global $PASSWORD_STRENGTH_REQUIRE_UPPERCASE, $PASSWORD_STRENGTH_REQUIRE_LOWERCASE;
     global $PASSWORD_STRENGTH_REQUIRE_NUMBERS, $PASSWORD_STRENGTH_REQUIRE_SYMBOLS;
     global $ACCEPT_WEAK_PASSWORDS;
-    
+
     // If weak passwords are accepted, allow score 0
     $minScore = $ACCEPT_WEAK_PASSWORDS ? 0 : $PASSWORD_STRENGTH_MIN_SCORE;
-    
+
     $config = [
         'minScore' => $minScore,
         'minLength' => $PASSWORD_STRENGTH_MIN_LENGTH,
@@ -1414,6 +1753,6 @@ function get_password_strength_config_js() {
         'updateHiddenField' => true,
         'hiddenFieldId' => 'pass_score'
     ];
-    
+
     return json_encode($config, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
 }

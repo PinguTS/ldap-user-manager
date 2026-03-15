@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 set_include_path(".:" . __DIR__ . "/includes/");
@@ -23,7 +24,7 @@ if (isset($VALIDATED) && $VALIDATED) {
         error_log("Main Index: User is validated, checking role for redirect");
         error_log("Main Index: User roles - Admin: " . (isset($IS_ADMIN) && $IS_ADMIN ? 'YES' : 'NO') . ", Maintainer: " . (isset($IS_MAINTAINER) && $IS_MAINTAINER ? 'YES' : 'NO') . ", Org Admin: " . (isset($IS_ORG_ADMIN) && $IS_ORG_ADMIN ? 'YES' : 'NO'));
     }
-    
+
     if (isset($IS_ADMIN) && $IS_ADMIN) {
         // Global admin, redirect to account manager
         if (isset($LDAP_DEBUG) && $LDAP_DEBUG) {
@@ -42,11 +43,11 @@ if (isset($VALIDATED) && $VALIDATED) {
         // Organization admin, redirect to their organization page
         $org_name = currentUserGetOrgName();
         $org_uuid = currentUserGetOrgUuid();
-        
+
         if (isset($LDAP_DEBUG) && $LDAP_DEBUG) {
             error_log("Main Index: Redirecting org admin '$org_name' to organization page");
         }
-        
+
         if ($org_uuid) {
             header("Location: manage/organizations/show/index.php?uuid=" . urlencode($org_uuid));
         } elseif ($org_name) {
@@ -56,7 +57,7 @@ if (isset($VALIDATED) && $VALIDATED) {
         }
         exit;
     }
-    
+
     if (isset($LDAP_DEBUG) && $LDAP_DEBUG) {
         error_log("Main Index: User is regular user, allowing access to main index");
     }

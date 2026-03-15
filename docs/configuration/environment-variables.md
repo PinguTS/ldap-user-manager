@@ -95,17 +95,29 @@ The system automatically manages user permissions based on these built-in role l
 
 ### LDAP Structure
 These settings define the organization of your LDAP directory:
-- `LDAP_GROUP_OU` - Groups organizational unit (default: 'groups')
+- `LDAP_GROUP_OU` - Groups/roles organizational unit (default in code: 'groups'). **This project's canonical DIT uses `ou=roles`**; set `LDAP_GROUP_OU=roles` to match.
 - `LDAP_USER_OU` - Users organizational unit (default: 'people')
 - `LDAP_ORG_OU` - Organizations organizational unit (default: 'organizations')
 - `LDAP_ACCOUNT_ATTRIBUTE` - Primary account identifier attribute (default: 'mail')
 - `LDAP_GROUP_ATTRIBUTE` - Group identifier attribute (default: 'cn')
 
+### Status Group Names (Membership and Disabled Flags)
+These settings define the CNs of global status groups under `ou=roles` used for organization membership and disabled states. Group membership is the authoritative flag (not boolean attributes on entries):
+- `LDAP_GROUP_MEMBER_ORGS` - CN for organizations with active membership status (default: 'memberOrganizations')
+- `LDAP_GROUP_DISABLED_ORGS` - CN for deactivated organizations (default: 'disabledOrganizations')
+- `LDAP_GROUP_DISABLED_USERS` - CN for application-level disabled user accounts (default: 'disabledUsers')
+
+### Member Organizations Export (TYPO3)
+These settings control the export endpoint used by external systems (e.g. TYPO3) to fetch member organization data:
+- `EXPORT_SHARED_SECRET` - Shared secret for machine-to-machine auth. Send via **`Authorization: Bearer <secret>` header only** (never as a query parameter). Generate with `openssl rand -hex 32` (min 32 characters). Empty = export endpoint returns 503 (disabled).
+- `TYPO3_EXPORT_PID` - Page ID for tt_address export (default: 0)
+
 ### Security Configuration
 These settings control security features and access control:
 
 #### **Session Security**
-- `SESSION_TIMEOUT` - Session timeout in seconds (default: 3600 - 1 hour)
+- `SESSION_TIMEOUT` - Session timeout in **minutes** (default: 60 - 1 hour)
+- `SESSION_SAVE_PATH` - Directory for app session files (default: `/tmp`). When running **multiple app instances** (e.g. Docker replicas or load-balanced containers), set this to a **shared writable path** (e.g. a mounted volume) so all instances see the same sessions; otherwise login may succeed but the next request can hit another instance and fail with "session file wasn't found", causing redirects or "corrupted content" errors.
 - `SESSION_REGENERATE_ID` - Regenerate session ID on login (default: TRUE)
 - `SESSION_SECURE_COOKIES` - Use secure cookies (default: TRUE)
 - `SESSION_HTTP_ONLY` - HTTP-only cookies (default: TRUE)

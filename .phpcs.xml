@@ -34,7 +34,4 @@
     
     <!-- Show source codes -->
     <arg value="n"/>
-    
-    <!-- Show sniff codes -->
-    <arg value="a"/>
 </ruleset>

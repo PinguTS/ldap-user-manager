@@ -1,14 +1,10 @@
 <?php
+
 declare(strict_types=1);
 
-set_include_path( ".:" . __DIR__ . "/../../../includes/");
-
-include_once "web_functions.inc.php";
-include_once "ldap_functions.inc.php";
-include_once "access_functions.inc.php";
-include_once "module_functions.inc.php";
-include_once "organization_functions.inc.php";
-include_once "user_functions.inc.php";
+set_include_path(".:" . __DIR__ . "/../../../includes/");
+require_once "bootstrap_manage.inc.php";
+bootstrap_manage(['ldap', 'organization', 'user', 'mail']);
 
 // Ensure CSRF token is generated early
 get_csrf_token();
@@ -31,14 +27,14 @@ if ($org_uuid) {
         render_footer();
         exit(0);
     }
-    
+
     $organization = ldap_get_organization_by_uuid($ldap, $org_uuid);
-    
+
     // Debug: log the organization data structure
     error_log("add_org_user.php: Organization data retrieved for UUID $org_uuid: " . print_r($organization, true));
-    
+
     ldap_close($ldap);
-    
+
     if (!$organization) {
         // Debug: log the UUID and search details
         error_log("add_org_user.php: Failed to find organization with UUID: $org_uuid");
@@ -46,7 +42,7 @@ if ($org_uuid) {
         render_footer();
         exit(0);
     }
-    
+
     // Try different possible organization name attributes
     $org_name = null;
     if (isset($organization['o']) && is_array($organization['o']) && count($organization['o']) > 0) {
@@ -59,7 +55,7 @@ if ($org_uuid) {
         $org_name = $organization['cn'][0];
         error_log("add_org_user.php: Using organization name from 'cn' attribute: $org_name");
     }
-    
+
     if (!$org_name) {
         // Debug: log the organization structure to help troubleshoot
         error_log("add_org_user.php: Organization data structure: " . print_r($organization, true));
@@ -67,7 +63,7 @@ if ($org_uuid) {
         render_footer();
         exit(0);
     }
-    
+
     error_log("add_org_user.php: Successfully determined organization name: $org_name");
 }
 
@@ -92,24 +88,24 @@ if (!$organization) {
 }
 
 $attribute_map = $LDAP['default_attribute_map'];
-if (isset($LDAP['account_additional_attributes'])) { 
-    $attribute_map = ldap_complete_attribute_map($attribute_map, $LDAP['account_additional_attributes']); 
+if (isset($LDAP['account_additional_attributes'])) {
+    $attribute_map = ldap_complete_attribute_map($attribute_map, $LDAP['account_additional_attributes']);
 }
 
 if (!array_key_exists($LDAP['account_attribute'], $attribute_map)) {
     $attribute_map = array_merge($attribute_map, array($LDAP['account_attribute'] => array("label" => "Account UID")));
 }
 
-$invalid_password = FALSE;
-$mismatched_passwords = FALSE;
-$invalid_username = FALSE;
-$weak_password = FALSE;
-$invalid_email = FALSE;
+$invalid_password = false;
+$mismatched_passwords = false;
+$invalid_username = false;
+$weak_password = false;
+$invalid_email = false;
         // Common Name (cn) is auto-generated, no validation needed
-$invalid_givenname = FALSE;
-$invalid_sn = FALSE;
-$invalid_account_identifier = FALSE;
-$invalid_user_role = FALSE;
+$invalid_givenname = false;
+$invalid_sn = false;
+$invalid_account_identifier = false;
+$invalid_user_role = false;
 
 $new_account_r = array();
 $account_attribute = $LDAP['account_attribute'];
@@ -119,8 +115,8 @@ $account_attribute = $LDAP['account_attribute'];
 
 // Handle form submission
 if (isset($_POST['create_org_user'])) {
-            if (!validate_csrf_token()) {
-            render_alert_banner("Security validation failed. Please refresh the page and try again.", "danger");
+    if (!validate_csrf_token()) {
+        render_alert_banner("Security validation failed. Please refresh the page and try again.", "danger");
     } else {
         // Process form data
         foreach ($attribute_map as $attribute => $attr_r) {
@@ -135,7 +131,7 @@ if (isset($_POST['create_org_user'])) {
                 $finfo = finfo_open(FILEINFO_MIME_TYPE);
                 $mime_type = finfo_file($finfo, $file_tmp);
                 finfo_close($finfo);
-                
+
                 if ($file_error !== UPLOAD_ERR_OK) {
                     render_alert_banner('File upload error for ' . htmlspecialchars($attribute) . '.', 'danger', 10000);
                     continue;
@@ -148,7 +144,7 @@ if (isset($_POST['create_org_user'])) {
                     render_alert_banner('Invalid file type for ' . htmlspecialchars($attribute) . '. Allowed: images, PDF, text.', 'danger', 10000);
                     continue;
                 }
-                
+
                 $this_attribute = array();
                 $this_attribute[0] = file_get_contents($file_tmp);
                 $$attribute = $this_attribute;
@@ -168,12 +164,16 @@ if (isset($_POST['create_org_user'])) {
         if (empty($new_account_r[$account_attribute][0]) && !empty($mail[0])) {
             $new_account_r[$account_attribute] = $mail;
         }
-        
+
         // Auto-populate Common Name (cn) from givenName and sn if not provided
         if (empty($cn[0]) && (!empty($givenName[0]) || !empty($sn[0]))) {
             $cn_parts = [];
-            if (!empty($givenName[0])) $cn_parts[] = $givenName[0];
-            if (!empty($sn[0])) $cn_parts[] = $sn[0];
+            if (!empty($givenName[0])) {
+                $cn_parts[] = $givenName[0];
+            }
+            if (!empty($sn[0])) {
+                $cn_parts[] = $sn[0];
+            }
             $cn = array(0 => implode(' ', $cn_parts));
             $new_account_r['cn'] = $cn;
         }
@@ -192,26 +192,43 @@ if (isset($_POST['create_org_user'])) {
         $this_sn = $sn[0] ?? '';
 
         // Common Name (cn) is auto-generated from givenName + sn, so no validation needed
-        if (empty($account_identifier)) { $invalid_account_identifier = TRUE; }
-        if (empty($this_givenName)) { $invalid_givenname = TRUE; }
-        if (empty($this_sn)) { $invalid_sn = TRUE; }
-        if (empty($password)) { $invalid_password = TRUE; }
-        if ($password !== $password_match) { $mismatched_passwords = TRUE; }
-        if (!in_array($user_role, $available_user_roles)) { $invalid_user_role = TRUE; }
-        if (empty($this_mail)) { $invalid_email = TRUE; }
-        if (!empty($this_mail) && !is_valid_email($this_mail)) { $invalid_email = TRUE; }
+        if (empty($account_identifier)) {
+            $invalid_account_identifier = true;
+        }
+        if (empty($this_givenName)) {
+            $invalid_givenname = true;
+        }
+        if (empty($this_sn)) {
+            $invalid_sn = true;
+        }
+        if (empty($password)) {
+            $invalid_password = true;
+        }
+        if ($password !== $password_match) {
+            $mismatched_passwords = true;
+        }
+        if (!in_array($user_role, $available_user_roles)) {
+            $invalid_user_role = true;
+        }
+        if (empty($this_mail)) {
+            $invalid_email = true;
+        }
+        if (!empty($this_mail) && !is_valid_email($this_mail)) {
+            $invalid_email = true;
+        }
 
         // Check if username already exists
         $ldap_connection = open_ldap_connection();
         $existing_user = ldap_search($ldap_connection, $LDAP['org_dn'], "({$LDAP['account_attribute']}=" . ldap_escape($account_identifier, "", LDAP_ESCAPE_FILTER) . ")");
         if ($existing_user && ldap_count_entries($ldap_connection, $existing_user) > 0) {
-            $invalid_username = TRUE;
+            $invalid_username = true;
         }
 
         // If all validation passes, create the user
-        if (!$invalid_account_identifier && !$invalid_givenname && !$invalid_sn && 
-            !$invalid_password && !$mismatched_passwords && !$invalid_user_role && !$invalid_email && !$invalid_username) {
-            
+        if (
+            !$invalid_account_identifier && !$invalid_givenname && !$invalid_sn &&
+            !$invalid_password && !$mismatched_passwords && !$invalid_user_role && !$invalid_email && !$invalid_username
+        ) {
             // Add organization and role to the account data
             $new_account_r['organization'] = [$org_name];
             $new_account_r['description'] = [$user_role];
@@ -232,11 +249,10 @@ if (isset($_POST['create_org_user'])) {
                 }
 
                 // Send email if requested
-                if ($send_email && isset($this_mail) && $EMAIL_SENDING_ENABLED == TRUE) {
-                    include_once "mail_functions.inc.php";
+                if ($send_email && isset($this_mail) && $EMAIL_SENDING_ENABLED == true) {
                     $mail_body = parse_mail_text($new_account_mail_body, $password, $account_identifier, $this_givenName, $this_sn);
                     $mail_subject = parse_mail_text($new_account_mail_subject, $password, $account_identifier, $this_givenName, $this_sn);
-                    
+
                     $sent_email = send_email($this_mail, "$this_givenName $this_sn", $mail_subject, $mail_body);
                     if ($sent_email) {
                         $creation_message .= " An email was sent to $this_mail.";
@@ -246,16 +262,16 @@ if (isset($_POST['create_org_user'])) {
                 }
 
                 render_alert_banner($creation_message, "success");
-                
+
                 // Redirect back to organization users page
                 // Redirect back to organization users page, preserving UUID if available
-        $redirect_param = $org_uuid ? "uuid=" . urlencode($org_uuid) : "org=" . urlencode($org_name);
-        header("Location: org_users.php?" . $redirect_param);
+                $redirect_param = $org_uuid ? "uuid=" . urlencode($org_uuid) : "org=" . urlencode($org_name);
+                header("Location: org_users.php?" . $redirect_param);
                 exit(0);
             } else {
                 render_alert_banner("Failed to create user account. Check the logs for more information.", "danger");
             }
-            
+
             ldap_close($ldap_connection);
         }
     }
@@ -266,13 +282,27 @@ render_submenu();
 
 // Display any validation errors
 $errors = "";
-if ($invalid_givenname) { $errors .= "<li>First Name (givenName) is required</li>\n"; }
-if ($invalid_sn) { $errors .= "<li>Last Name (sn) is required</li>\n"; }
-if ($invalid_account_identifier) { $errors .= "<li>The email address (username) is invalid or already exists</li>\n"; }
-if ($invalid_password) { $errors .= "<li>The password is required</li>\n"; }
-if ($mismatched_passwords) { $errors .= "<li>The passwords do not match</li>\n"; }
-if ($invalid_email) { $errors .= "<li>The email address is invalid</li>\n"; }
-if ($invalid_user_role) { $errors .= "<li>Please select a valid user role</li>\n"; }
+if ($invalid_givenname) {
+    $errors .= "<li>First Name (givenName) is required</li>\n";
+}
+if ($invalid_sn) {
+    $errors .= "<li>Last Name (sn) is required</li>\n";
+}
+if ($invalid_account_identifier) {
+    $errors .= "<li>The email address (username) is invalid or already exists</li>\n";
+}
+if ($invalid_password) {
+    $errors .= "<li>The password is required</li>\n";
+}
+if ($mismatched_passwords) {
+    $errors .= "<li>The passwords do not match</li>\n";
+}
+if ($invalid_email) {
+    $errors .= "<li>The email address is invalid</li>\n";
+}
+if ($invalid_user_role) {
+    $errors .= "<li>Please select a valid user role</li>\n";
+}
 
 if ($errors != "") { ?>
     <div class="alert alert-warning">
@@ -293,7 +323,7 @@ if ($errors != "") { ?>
     </nav>
     <div class="row">
         <div class="col-md-8 col-md-offset-2">
-            <div class="panel panel-default">
+            <div class="card">
                 <div class="panel-heading">
                     <h3>Add New User to Organization: <?php echo htmlspecialchars($org_name); ?></h3>
                 </div>
@@ -308,7 +338,7 @@ if ($errors != "") { ?>
                         
                         <!-- Organization (pre-selected and locked) -->
                         <div class="form-group">
-                            <label class="col-sm-3 control-label">Organization</label>
+                            <label class="col-sm-3 form-label">Organization</label>
                             <div class="col-sm-6">
                                 <input type="text" class="form-control" value="<?php echo htmlspecialchars($org_name); ?>" readonly>
                                 <small class="text-muted">Organization is pre-selected and cannot be changed</small>
@@ -317,7 +347,7 @@ if ($errors != "") { ?>
 
                         <!-- User Role -->
                         <div class="form-group">
-                            <label for="user_role" class="col-sm-3 control-label">User Role</label>
+                            <label for="user_role" class="col-sm-3 form-label">User Role</label>
                             <div class="col-sm-6">
                                 <select class="form-control" name="user_role" id="user_role" required>
                                     <option value="">Select a role...</option>
@@ -329,7 +359,7 @@ if ($errors != "") { ?>
 
                         <!-- Account Identifier (Auto-generated from Email) -->
                         <div class="form-group" style="display: none;">
-                            <label for="<?php echo $account_attribute; ?>" class="col-sm-3 control-label">
+                            <label for="<?php echo $account_attribute; ?>" class="col-sm-3 form-label">
                                 <strong><?php echo htmlspecialchars($attribute_map[$account_attribute]['label']); ?></strong>
                             </label>
                             <div class="col-sm-6">
@@ -342,7 +372,7 @@ if ($errors != "") { ?>
 
                         <!-- Common Name (Auto-generated from First Name + Last Name) -->
                         <div class="form-group" style="display: none;">
-                            <label for="cn" class="col-sm-3 control-label">
+                            <label for="cn" class="col-sm-3 form-label">
                                 <strong>Common Name</strong>
                             </label>
                             <div class="col-sm-6">
@@ -354,7 +384,7 @@ if ($errors != "") { ?>
 
                         <!-- First Name -->
                         <div class="form-group">
-                            <label for="givenName" class="col-sm-3 control-label">
+                            <label for="givenName" class="col-sm-3 form-label">
                                 <strong>First Name</strong><sup>*</sup>
                             </label>
                             <div class="col-sm-6">
@@ -366,7 +396,7 @@ if ($errors != "") { ?>
 
                         <!-- Last Name -->
                         <div class="form-group">
-                            <label for="sn" class="col-sm-3 control-label">
+                            <label for="sn" class="col-sm-3 form-label">
                                 <strong>Last Name</strong><sup>*</sup>
                             </label>
                             <div class="col-sm-6">
@@ -378,20 +408,20 @@ if ($errors != "") { ?>
 
                         <!-- Email (Account UID) -->
                         <div class="form-group">
-                            <label for="mail" class="col-sm-3 control-label">
+                            <label for="mail" class="col-sm-3 form-label">
                                 <strong>Email (Username)</strong><sup>*</sup>
                             </label>
                             <div class="col-sm-6">
                                 <input type="email" class="form-control" name="mail" id="mail" 
                                        value="<?php echo htmlspecialchars($_POST['mail'] ?? ''); ?>" 
-                                       onchange="updateAccountUid(this.value)" required>
+                                       required>
                                 <small class="text-muted">Email will be used as the username for login</small>
                             </div>
                         </div>
 
                         <!-- Password -->
                         <div class="form-group">
-                            <label for="password" class="col-sm-3 control-label">
+                            <label for="password" class="col-sm-3 form-label">
                                 <strong>Password</strong><sup>*</sup>
                             </label>
                             <div class="col-sm-6">
@@ -410,7 +440,7 @@ if ($errors != "") { ?>
 
                         <!-- Confirm Password -->
                         <div class="form-group">
-                            <label for="password_match" class="col-sm-3 control-label">
+                            <label for="password_match" class="col-sm-3 form-label">
                                 <strong>Confirm Password</strong><sup>*</sup>
                             </label>
                             <div class="col-sm-6">
@@ -419,9 +449,9 @@ if ($errors != "") { ?>
                         </div>
 
                         <!-- Send Email Option -->
-                        <?php if ($EMAIL_SENDING_ENABLED == TRUE): ?>
+                        <?php if ($EMAIL_SENDING_ENABLED == true) : ?>
                         <div class="form-group">
-                            <label class="col-sm-3 control-label"></label>
+                            <label class="col-sm-3 form-label"></label>
                             <div class="col-sm-6">
                                 <div class="checkbox">
                                     <label>
@@ -435,9 +465,9 @@ if ($errors != "") { ?>
 
                         <!-- Submit Buttons -->
                         <div class="form-group">
-                            <div class="col-sm-6 col-sm-offset-3">
+                            <div class="col-sm-6 offset-sm-3">
                                 <button type="submit" name="create_user" class="btn btn-success">Create User</button>
-                                <a href="/manage/organizations/users/index.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>" class="btn btn-default">Cancel</a>
+                                <a href="/manage/organizations/users/index.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>" class="btn btn-secondary">Cancel</a>
                             </div>
                         </div>
                     </form>
@@ -447,126 +477,29 @@ if ($errors != "") { ?>
     </div>
 </div>
 
-<script src="/js/zxcvbn.min.js"></script>
-<script src="/bootstrap/js/bootstrap.min.js"></script>
+<script src="<?php print get_asset_base(); ?>js/zxcvbn.min.js"></script>
+<script src="<?php print get_asset_base(); ?>js/password_utils.min.js"></script>
+<script src="<?php print get_asset_base(); ?>js/form-sync.js"></script>
 <script>
-    // Debug: Check what's loaded
-    console.log('jQuery loaded:', typeof $ !== 'undefined');
-    console.log('Bootstrap loaded:', typeof $.fn !== 'undefined' && typeof $.fn.modal !== 'undefined');
-    console.log('jQuery version:', typeof $ !== 'undefined' ? $.fn.jquery : 'not loaded');
-    
-    // Initialize form enhancements when page loads
     document.addEventListener('DOMContentLoaded', function() {
-        // Initialize form enhancements
-        const givenNameField = document.getElementById('givenName');
-        const surnameField = document.getElementById('sn');
-        const displayField = document.getElementById('cn');
-        const emailField = document.getElementById('mail');
-        const passwordField = document.getElementById('password');
-        
-        // Auto-generate display name from first and last name
-        if (givenNameField && surnameField && displayField) {
-            function updateDisplayName() {
-                const givenName = givenNameField.value.trim();
-                const surname = surnameField.value.trim();
-                if (givenName && surname) {
-                    displayField.value = givenName + ' ' + surname;
-                }
-            }
-            
-            givenNameField.addEventListener('input', updateDisplayName);
-            surnameField.addEventListener('input', updateDisplayName);
-        }
-        
-        // Auto-generate account ID from email
-        if (emailField && document.getElementById('<?php echo $LDAP["account_attribute"]; ?>')) {
-            emailField.addEventListener('input', function() {
-                const accountField = document.getElementById('<?php echo $LDAP["account_attribute"]; ?>');
-                if (accountField) {
-                    accountField.value = this.value.trim();
-                }
+        var passwordConfig = <?php echo get_password_strength_config_js(); ?>;
+        if (typeof initializePasswordStrength === 'function') {
+            initializePasswordStrength({
+                passwordFieldId: 'password',
+                confirmFieldId: 'password_match',
+                config: passwordConfig
             });
         }
-        
-        // Password strength checking
-        const passwordField = document.getElementById('password');
-        const confirmField = document.getElementById('password_match');
-        
-        if (passwordField && confirmField) {
-            passwordField.addEventListener('input', function() {
-                const password = this.value;
-                const strength = zxcvbn(password);
-                
-                // Update password strength indicator
-                const strengthBar = document.getElementById('password_strength');
-                if (strengthBar) {
-                    const score = strength.score;
-                    const colors = ['#d9534f', '#f0ad4e', '#f0ad4e', '#5bc0de', '#5cb85c'];
-                    const labels = ['Very Weak', 'Weak', 'Fair', 'Good', 'Strong'];
-                    
-                    strengthBar.style.width = ((score + 1) * 20) + '%';
-                    strengthBar.className = 'progress-bar';
-                    strengthBar.style.backgroundColor = colors[score];
-                    strengthBar.textContent = labels[score];
-                }
-                
-                // Check if passwords match
-                if (confirmField.value) {
-                    if (password === confirmField.value) {
-                        confirmField.setCustomValidity('');
-                    } else {
-                        confirmField.setCustomValidity('Passwords do not match');
-                    }
-                }
-            });
-            
-            confirmField.addEventListener('input', function() {
-                if (passwordField.value === this.value) {
-                    this.setCustomValidity('');
-                } else {
-                    this.setCustomValidity('Passwords do not match');
-                }
+        if (typeof initFormSync === 'function') {
+            initFormSync({
+                givenNameId: 'givenName',
+                snId: 'sn',
+                cnId: 'cn',
+                emailId: 'mail',
+                accountAttributeId: '<?php echo $LDAP["account_attribute"]; ?>'
             });
         }
     });
-    
-    // Generate secure password function
-    function generateSecurePassword(options) {
-        const words = ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot', 'golf', 'hotel', 'india', 'juliet', 'kilo', 'lima', 'mike', 'november', 'oscar', 'papa', 'quebec', 'romeo', 'sierra', 'tango', 'uniform', 'victor', 'whiskey', 'xray', 'yankee', 'zulu'];
-        
-        let password = '';
-        for (let i = 0; i < options.words; i++) {
-            if (i > 0) password += options.separator;
-            password += words[Math.floor(Math.random() * words.length)];
-        }
-        
-        // Add a random number
-        password += Math.floor(Math.random() * 100);
-        
-        // Set the password
-        const passwordField = document.getElementById(options.passwordFieldId);
-        if (passwordField) {
-            passwordField.value = password;
-            passwordField.dispatchEvent(new Event('input'));
-        }
-        
-        // Set the confirm field if it exists
-        if (options.confirmFieldId) {
-            const confirmField = document.getElementById(options.confirmFieldId);
-            if (confirmField) {
-                confirmField.value = password;
-                confirmField.dispatchEvent(new Event('input'));
-            }
-        }
-    }
-    
-    // Update account UID function
-    function updateAccountUid(email) {
-        const accountField = document.getElementById('<?php echo $LDAP["account_attribute"]; ?>');
-        if (accountField) {
-            accountField.value = email.trim();
-        }
-    }
 </script>
 
 <?php render_footer(); ?>

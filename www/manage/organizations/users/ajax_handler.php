@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 // Set include path for required functions first
@@ -20,20 +21,18 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Debug: Log session information
-error_log("AJAX Handler - Session ID: " . session_id());
-error_log("AJAX Handler - Session path: " . session_save_path());
-error_log("AJAX Handler - Session cookie path: " . ini_get('session.cookie_path'));
-error_log("AJAX Handler - Session data keys: " . implode(', ', array_keys($_SESSION)));
-error_log("AJAX Handler - VALIDATED: " . (isset($_SESSION['VALIDATED']) ? ($_SESSION['VALIDATED'] ? 'TRUE' : 'FALSE') : 'NOT SET'));
-error_log("AJAX Handler - CSRF token: " . (isset($_SESSION['csrf_token']) ? substr($_SESSION['csrf_token'], 0, 8) . '...' : 'NOT SET'));
+$ajax_debug = (getenv('ENVIRONMENT') === 'development');
+if ($ajax_debug) {
+    error_log("AJAX Handler - Session ID: " . session_id());
+    error_log("AJAX Handler - Session path: " . session_save_path());
+    error_log("AJAX Handler - Session cookie path: " . ini_get('session.cookie_path'));
+    error_log("AJAX Handler - Session data keys: " . implode(', ', array_keys($_SESSION)));
+    error_log("AJAX Handler - VALIDATED: " . (isset($_SESSION['VALIDATED']) ? ($_SESSION['VALIDATED'] ? 'TRUE' : 'FALSE') : 'NOT SET'));
+    error_log("AJAX Handler - CSRF token: " . (isset($_SESSION['csrf_token']) ? substr($_SESSION['csrf_token'], 0, 8) . '...' : 'NOT SET'));
+}
 
-// Include required files
-include_once "web_functions.inc.php";
-include_once "ldap_functions.inc.php";
-include_once "access_functions.inc.php";
-include_once "organization_functions.inc.php";
-include_once "user_functions.inc.php";
+require_once "bootstrap_manage.inc.php";
+bootstrap_manage(['ldap', 'organization', 'user']);
 
 // Security: Only allow AJAX requests
 if (!isset($_SERVER['HTTP_X_REQUESTED_WITH']) || strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) !== 'xmlhttprequest') {
@@ -49,19 +48,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     exit;
 }
 
-// Test endpoint to check session status
-if (isset($_GET['action']) && $_GET['action'] === 'test_session') {
-    header('Content-Type: application/json');
-    echo json_encode([
-        'session_id' => session_id(),
-        'session_status' => session_status(),
-        'session_keys' => array_keys($_SESSION),
-        'validated' => isset($_SESSION['VALIDATED']) ? $_SESSION['VALIDATED'] : 'NOT SET',
-        'csrf_token' => isset($_SESSION['csrf_token']) ? substr($_SESSION['csrf_token'], 0, 8) . '...' : 'NOT SET'
-    ]);
-    exit;
-}
-
 // Security: Check if user is authenticated
 // The session uses different keys than expected - check for actual authentication data
 $is_authenticated = false;
@@ -70,7 +56,9 @@ if (isset($_SESSION['user_id']) && !empty($_SESSION['user_id'])) {
 }
 
 if (!$is_authenticated) {
-    error_log("AJAX Handler - Authentication failed. User ID not found in session");
+    if ($ajax_debug) {
+        error_log("AJAX Handler - Authentication failed. User ID not found in session");
+    }
     http_response_code(401);
     echo json_encode(['error' => 'Authentication required']);
     exit;
@@ -85,7 +73,9 @@ if (!isset($_GET['csrf_token']) || empty($_GET['csrf_token'])) {
 
 // Check if CSRF token exists in session and matches
 if (empty($_SESSION['csrf_token']) || !hash_equals($_SESSION['csrf_token'], $_GET['csrf_token'])) {
-    error_log("AJAX Handler - CSRF validation failed. Session token: " . (isset($_SESSION['csrf_token']) ? substr($_SESSION['csrf_token'], 0, 8) . '...' : 'NOT SET'));
+    if ($ajax_debug) {
+        error_log("AJAX Handler - CSRF validation failed. Session token: " . (isset($_SESSION['csrf_token']) ? substr($_SESSION['csrf_token'], 0, 8) . '...' : 'NOT SET'));
+    }
     http_response_code(403);
     echo json_encode(['error' => 'Invalid security token']);
     exit;
@@ -105,39 +95,14 @@ if (!isset($_GET['fetch_user_data']) || empty($_GET['fetch_user_data'])) {
     exit;
 }
 
-// Get and validate organization parameter
-$orgName = null;
-$org_uuid = null;
-
-if (isset($_GET['uuid']) && !empty($_GET['uuid'])) {
-    // UUID-based lookup
-    $org_uuid = $_GET['uuid'];
-    if (!is_valid_uuid($org_uuid)) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Invalid organization UUID']);
-        exit;
-    }
-    
-    // Get organization by UUID
-    $ldap_connection = open_ldap_connection();
-    $organization_by_uuid = ldap_get_organization_by_uuid($ldap_connection, $org_uuid);
-    ldap_close($ldap_connection);
-    
-    if (!$organization_by_uuid) {
-        http_response_code(404);
-        echo json_encode(['error' => 'Organization not found']);
-        exit;
-    }
-    
-    $orgName = $organization_by_uuid['o'][0];
-} elseif (isset($_GET['org']) && !empty($_GET['org'])) {
-    // Legacy name-based lookup
-    $orgName = $_GET['org'];
-} else {
-    http_response_code(400);
-    echo json_encode(['error' => 'Organization identifier required']);
+$res = resolve_organization_from_request();
+if ($res['error'] !== null) {
+    http_response_code(strpos($res['error'], 'not found') !== false ? 404 : 400);
+    echo json_encode(['error' => $res['error']]);
     exit;
 }
+$orgName = $res['org_name'] ?? '';
+$org_uuid = $res['org_uuid'] ?? '';
 
 // Access control: Check if user has permission to access this organization
 $user_roles = [
@@ -147,19 +112,26 @@ $user_roles = [
     'org_uuid' => isset($_SESSION['org_uuid']) ? $_SESSION['org_uuid'] : null
 ];
 
-// Debug: Log role information
-error_log("AJAX Handler - User roles: " . print_r($user_roles, true));
+if ($ajax_debug) {
+    error_log("AJAX Handler - User roles: " . print_r($user_roles, true));
+}
 
 // Only allow access if user is global admin, maintainer, or org admin for this specific organization
 $has_access = false;
 if ($user_roles['is_admin'] || $user_roles['is_maintainer']) {
     $has_access = true;
-    error_log("AJAX Handler - Access granted via global admin/maintainer role");
+    if ($ajax_debug) {
+        error_log("AJAX Handler - Access granted via global admin/maintainer role");
+    }
 } elseif ($user_roles['is_org_admin'] && $user_roles['org_uuid'] === $org_uuid) {
     $has_access = true;
-    error_log("AJAX Handler - Access granted via org admin role for org: " . $org_uuid);
+    if ($ajax_debug) {
+        error_log("AJAX Handler - Access granted via org admin role for org: " . $org_uuid);
+    }
 } else {
-    error_log("AJAX Handler - Access denied. User roles: " . print_r($user_roles, true) . ", Requested org: " . $org_uuid);
+    if ($ajax_debug) {
+        error_log("AJAX Handler - Access denied. User roles: " . print_r($user_roles, true) . ", Requested org: " . $org_uuid);
+    }
 }
 
 if (!$has_access) {
@@ -182,7 +154,7 @@ if ($is_uuid) {
     $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
     $user_by_uuid = ldap_get_entry_by_uuid($ldap_connection, $fetchUserParam, $usersDn);
     ldap_close($ldap_connection);
-    
+
     if ($user_by_uuid) {
         $user_data = [
             'givenName' => get_ldap_attribute($user_by_uuid, 'givenName'),

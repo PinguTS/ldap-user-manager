@@ -24,11 +24,11 @@ LDAP User Manager includes a single AJAX endpoint for fetching user data within 
 |-----------|------|----------|-------------|
 | `action` | string | Yes | Must be `fetch_user_data` |
 | `fetch_user_data` | string | Yes | User identifier (UUID or uid) |
-| `uuid` | string | Yes* | Organization UUID |
-| `org` | string | Yes* | Organization name (legacy) |
+| `uuid` | string | Yes* | Organization UUID (preferred; use for all new integrations) |
+| `org` | string | No  | Organization name (**legacy only**; avoid for security and encoding reasons) |
 | `csrf_token` | string | Yes | CSRF security token |
 
-*Either `uuid` or `org` is required
+*Either `uuid` or `org` is required. **Use `uuid` for all new use;** `org` is deprecated and supported only for backward compatibility. The project uses UUID-based identification for URLs and API parameters (see [LDAP Structure](../ldap-structure.md)).
 
 #### Response Format
 
@@ -213,23 +213,7 @@ if ($is_uuid) {
 
 ## Debugging
 
-### Session Debugging
-The handler includes debug logging for session issues:
-
-```php
-error_log("AJAX Handler - Session ID: " . session_id());
-error_log("AJAX Handler - Session data keys: " . implode(', ', array_keys($_SESSION)));
-error_log("AJAX Handler - VALIDATED: " . (isset($_SESSION['VALIDATED']) ? ($_SESSION['VALIDATED'] ? 'TRUE' : 'FALSE') : 'NOT SET'));
-```
-
-### Test Endpoint
-Use the test endpoint to check session status:
-
-```bash
-curl -X GET "https://app.example.org/manage/organizations/users/ajax_handler.php?action=test_session" \
-  -H "X-Requested-With: XMLHttpRequest" \
-  -H "Cookie: PHPSESSID=your_session_id"
-```
+When `ENVIRONMENT=development`, the handler logs session and request details (e.g. session ID, CSRF presence, roles) to the error log. In production, debug logging is disabled.
 
 ## Best Practices
 

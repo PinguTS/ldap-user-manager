@@ -3,26 +3,37 @@
 // Include security configuration
 include_once __DIR__ . '/security_config.inc.php';
 
- $log_prefix="";
+// Composer autoload (vendor may be next to www/ or one level up for local dev)
+$autoload = dirname(__DIR__) . '/vendor/autoload.php';
+if (!is_file($autoload)) {
+    $autoload = dirname(__DIR__, 2) . '/vendor/autoload.php';
+}
+if (is_file($autoload)) {
+    require_once $autoload;
+}
+
+ $log_prefix = "";
 
  # User account defaults
 
  $DEFAULT_USER_GROUP = (getenv('DEFAULT_USER_GROUP') ? getenv('DEFAULT_USER_GROUP') : 'everybody');
  $DEFAULT_USER_SHELL = (getenv('DEFAULT_USER_SHELL') ? getenv('DEFAULT_USER_SHELL') : '/bin/bash');
- $ENFORCE_SAFE_SYSTEM_NAMES = ((strcasecmp(getenv('ENFORCE_SAFE_SYSTEM_NAMES') ?: 'TRUE','FALSE') == 0) ? FALSE : TRUE);
+ $ENFORCE_SAFE_SYSTEM_NAMES = ((strcasecmp(getenv('ENFORCE_SAFE_SYSTEM_NAMES') ?: 'TRUE', 'FALSE') == 0) ? false : true);
  $USERNAME_FORMAT = (getenv('USERNAME_FORMAT') ? getenv('USERNAME_FORMAT') : '{first_name}-{last_name}');
  $USERNAME_REGEX  = (getenv('USERNAME_REGEX')  ? getenv('USERNAME_REGEX') : '^[a-z][a-zA-Z0-9\._-]{3,32}$');   #We use the username regex for groups too.
 
- if (getenv('PASSWORD_HASH')) { $PASSWORD_HASH = strtoupper(getenv('PASSWORD_HASH')); }
- $ACCEPT_WEAK_PASSWORDS = ((strcasecmp(getenv('ACCEPT_WEAK_PASSWORDS') ?: 'FALSE','TRUE') == 0) ? TRUE : FALSE);
+if (getenv('PASSWORD_HASH')) {
+    $PASSWORD_HASH = strtoupper(getenv('PASSWORD_HASH'));
+}
+ $ACCEPT_WEAK_PASSWORDS = ((strcasecmp(getenv('ACCEPT_WEAK_PASSWORDS') ?: 'FALSE', 'TRUE') == 0) ? true : false);
 
  # Password strength configuration
  $PASSWORD_STRENGTH_MIN_SCORE = (int)(getenv('PASSWORD_STRENGTH_MIN_SCORE') ?: 2);
  $PASSWORD_STRENGTH_MIN_LENGTH = (int)(getenv('PASSWORD_STRENGTH_MIN_LENGTH') ?: 8);
- $PASSWORD_STRENGTH_REQUIRE_UPPERCASE = ((strcasecmp(getenv('PASSWORD_STRENGTH_REQUIRE_UPPERCASE') ?: 'TRUE','FALSE') == 0) ? FALSE : TRUE);
- $PASSWORD_STRENGTH_REQUIRE_LOWERCASE = ((strcasecmp(getenv('PASSWORD_STRENGTH_REQUIRE_LOWERCASE') ?: 'TRUE','FALSE') == 0) ? FALSE : TRUE);
- $PASSWORD_STRENGTH_REQUIRE_NUMBERS = ((strcasecmp(getenv('PASSWORD_STRENGTH_REQUIRE_NUMBERS') ?: 'TRUE','FALSE') == 0) ? FALSE : TRUE);
- $PASSWORD_STRENGTH_REQUIRE_SYMBOLS = ((strcasecmp(getenv('PASSWORD_STRENGTH_REQUIRE_SYMBOLS') ?: 'FALSE','TRUE') == 0) ? TRUE : FALSE);
+ $PASSWORD_STRENGTH_REQUIRE_UPPERCASE = ((strcasecmp(getenv('PASSWORD_STRENGTH_REQUIRE_UPPERCASE') ?: 'TRUE', 'FALSE') == 0) ? false : true);
+ $PASSWORD_STRENGTH_REQUIRE_LOWERCASE = ((strcasecmp(getenv('PASSWORD_STRENGTH_REQUIRE_LOWERCASE') ?: 'TRUE', 'FALSE') == 0) ? false : true);
+ $PASSWORD_STRENGTH_REQUIRE_NUMBERS = ((strcasecmp(getenv('PASSWORD_STRENGTH_REQUIRE_NUMBERS') ?: 'TRUE', 'FALSE') == 0) ? false : true);
+ $PASSWORD_STRENGTH_REQUIRE_SYMBOLS = ((strcasecmp(getenv('PASSWORD_STRENGTH_REQUIRE_SYMBOLS') ?: 'FALSE', 'TRUE') == 0) ? true : false);
 
  $min_uid = 2000;
  $min_gid = 2000;
@@ -31,19 +42,19 @@ include_once __DIR__ . '/security_config.inc.php';
  # User field configuration
  # Required fields for user creation (must be present)
  # Note: The 'uid' field is always required as it's used as the RDN
- $LDAP['user_required_fields'] = getenv('LDAP_USER_REQUIRED_FIELDS') ? 
-     explode(',', getenv('LDAP_USER_REQUIRED_FIELDS')) : 
+ $LDAP['user_required_fields'] = getenv('LDAP_USER_REQUIRED_FIELDS') ?
+     explode(',', getenv('LDAP_USER_REQUIRED_FIELDS')) :
      ['uid', 'givenname', 'sn', 'mail'];
 
  # Ensure 'uid' field is always included in required fields
- if (!in_array('uid', $LDAP['user_required_fields'])) {
-     $LDAP['user_required_fields'][] = 'uid';
- }
+if (!in_array('uid', $LDAP['user_required_fields'])) {
+    $LDAP['user_required_fields'][] = 'uid';
+}
 
  # Optional fields for user creation (can be present but not required)
  # For system users, we only need basic fields - address fields are not needed
- $LDAP['user_optional_fields'] = getenv('LDAP_USER_OPTIONAL_FIELDS') ? 
-     explode(',', getenv('LDAP_USER_OPTIONAL_FIELDS')) : 
+ $LDAP['user_optional_fields'] = getenv('LDAP_USER_OPTIONAL_FIELDS') ?
+     explode(',', getenv('LDAP_USER_OPTIONAL_FIELDS')) :
      ['cn', 'organization', 'description', 'telephoneNumber', 'labeledURI'];
 
  # Field mappings from form names to LDAP attributes
@@ -94,17 +105,17 @@ include_once __DIR__ . '/security_config.inc.php';
     "givenname" => array(
         "label" => "First name",
         "onkeyup" => "update_username(); update_email(); update_cn(); update_homedir(); check_email_validity(document.getElementById('mail').value);",
-        "required" => TRUE,
+        "required" => true,
     ),
     "sn" => array(
         "label" => "Last name",
         "onkeyup" => "update_username(); update_email(); update_cn(); update_homedir(); check_email_validity(document.getElementById('mail').value);",
-        "required" => TRUE,
+        "required" => true,
     ),
     "mail" => array(
         "label" => "Email",
         "onkeyup" => "auto_email_update = false; check_email_validity(document.getElementById('mail').value);",
-        "required" => TRUE,
+        "required" => true,
     ),
     "cn" => array(
         "label" => "Common name",
@@ -112,7 +123,7 @@ include_once __DIR__ . '/security_config.inc.php';
     ),
     "organization" => array(
         "label" => "Organization",
-        "required" => TRUE,
+        "required" => true,
     ),
     "description" => array(
         "label" => "User Role",
@@ -128,21 +139,20 @@ include_once __DIR__ . '/security_config.inc.php';
 
  $LDAP['default_group_attribute_map'] = array( "description" => array("label" => "Description"));
 
- $SHOW_POSIX_ATTRIBUTES = ((strcasecmp(getenv('SHOW_POSIX_ATTRIBUTES') ?: 'FALSE','TRUE') == 0) ? TRUE : FALSE);
+ $SHOW_POSIX_ATTRIBUTES = ((strcasecmp(getenv('SHOW_POSIX_ATTRIBUTES') ?: 'FALSE', 'TRUE') == 0) ? true : false);
 
- if ($SHOW_POSIX_ATTRIBUTES != TRUE) {
+ if ($SHOW_POSIX_ATTRIBUTES != true) {
    # Remove POSIX-specific attributes when not needed
-   unset($LDAP['default_attribute_map']['uidnumber']);
-   unset($LDAP['default_attribute_map']['gidnumber']);
-   unset($LDAP['default_attribute_map']['homedirectory']);
-   unset($LDAP['default_attribute_map']['loginshell']);
- }
- else {
-   $LDAP['default_attribute_map']["uidnumber"]  = array("label" => "UID");
-   $LDAP['default_attribute_map']["gidnumber"]  = array("label" => "GID");
-   $LDAP['default_attribute_map']["homedirectory"]  = array("label" => "Home directory", "onkeyup" => "auto_homedir_update = false;");
-   $LDAP['default_attribute_map']["loginshell"]  = array("label" => "Shell", "default" => $DEFAULT_USER_SHELL);
-   $LDAP['default_group_attribute_map']["gidnumber"] = array("label" => "Group ID number");
+     unset($LDAP['default_attribute_map']['uidnumber']);
+     unset($LDAP['default_attribute_map']['gidnumber']);
+     unset($LDAP['default_attribute_map']['homedirectory']);
+     unset($LDAP['default_attribute_map']['loginshell']);
+ } else {
+     $LDAP['default_attribute_map']["uidnumber"]  = array("label" => "UID");
+     $LDAP['default_attribute_map']["gidnumber"]  = array("label" => "GID");
+     $LDAP['default_attribute_map']["homedirectory"]  = array("label" => "Home directory", "onkeyup" => "auto_homedir_update = false;");
+     $LDAP['default_attribute_map']["loginshell"]  = array("label" => "Shell", "default" => $DEFAULT_USER_SHELL);
+     $LDAP['default_group_attribute_map']["gidnumber"] = array("label" => "Group ID number");
  }
 
 
@@ -153,19 +163,19 @@ include_once __DIR__ . '/security_config.inc.php';
  $LDAP['admin_bind_dn'] = getenv('LDAP_ADMIN_BIND_DN');
  $LDAP['admin_bind_pwd'] = getenv('LDAP_ADMIN_BIND_PWD');
  $LDAP['connection_type'] = "plain";
- $LDAP['require_starttls'] = ((strcasecmp(getenv('LDAP_REQUIRE_STARTTLS') ?: 'FALSE','TRUE') == 0) ? TRUE : FALSE);
- $LDAP['ignore_cert_errors'] = ((strcasecmp(getenv('LDAP_IGNORE_CERT_ERRORS') ?: 'FALSE','TRUE') == 0) ? TRUE : FALSE);
- $LDAP['rfc2307bis_check_run'] = FALSE;
+ $LDAP['require_starttls'] = ((strcasecmp(getenv('LDAP_REQUIRE_STARTTLS') ?: 'FALSE', 'TRUE') == 0) ? true : false);
+ $LDAP['ignore_cert_errors'] = ((strcasecmp(getenv('LDAP_IGNORE_CERT_ERRORS') ?: 'FALSE', 'TRUE') == 0) ? true : false);
+ $LDAP['rfc2307bis_check_run'] = false;
 
 
  # Various advanced LDAP settings
 
  # Role names used throughout the system (groups, user descriptions, etc.)
  # Note: Role values now default to group names to eliminate duplication
-$LDAP['admin_role'] = getenv('LDAP_ADMIN_ROLE') ?: 'administrators';
-$LDAP['maintainer_role'] = getenv('LDAP_MAINTAINER_ROLE') ?: 'maintainers';
-$LDAP['org_admin_role'] = getenv('LDAP_ORG_ADMIN_ROLE') ?: 'org_admin';
-$LDAP['user_role'] = getenv('LDAP_USER_ROLE') ?: 'user';
+ $LDAP['admin_role'] = getenv('LDAP_ADMIN_ROLE') ?: 'administrators';
+ $LDAP['maintainer_role'] = getenv('LDAP_MAINTAINER_ROLE') ?: 'maintainers';
+ $LDAP['org_admin_role'] = getenv('LDAP_ORG_ADMIN_ROLE') ?: 'org_admin';
+ $LDAP['user_role'] = getenv('LDAP_USER_ROLE') ?: 'user';
 
  # Display labels for UI (human-readable role names)
  $LDAP['role_display_labels'] = [
@@ -196,20 +206,20 @@ $LDAP['user_role'] = getenv('LDAP_USER_ROLE') ?: 'user';
  # Organization field configuration
 # Required fields for organization creation (must be present)
 # Note: The 'o' (organization name) field is always required as it's used as the RDN
-$LDAP['org_required_fields'] = getenv('LDAP_ORG_REQUIRED_FIELDS') ? 
-    explode(',', getenv('LDAP_ORG_REQUIRED_FIELDS')) : 
+ $LDAP['org_required_fields'] = getenv('LDAP_ORG_REQUIRED_FIELDS') ?
+    explode(',', getenv('LDAP_ORG_REQUIRED_FIELDS')) :
     ['o'];
 
 # Ensure 'o' field is always included in required fields
-if (!in_array('o', $LDAP['org_required_fields'])) {
-    $LDAP['org_required_fields'][] = 'o';
-}
+ if (!in_array('o', $LDAP['org_required_fields'])) {
+     $LDAP['org_required_fields'][] = 'o';
+ }
 
  # Optional fields for organization creation (can be present but not required)
  # Fields listed here are considered optional and won't have required validation
  # Required fields are those NOT listed here (e.g., 'o' for organization name is always required)
- $LDAP['org_optional_fields'] = getenv('LDAP_ORG_OPTIONAL_FIELDS') ? 
-    explode(',', getenv('LDAP_ORG_OPTIONAL_FIELDS')) : 
+ $LDAP['org_optional_fields'] = getenv('LDAP_ORG_OPTIONAL_FIELDS') ?
+    explode(',', getenv('LDAP_ORG_OPTIONAL_FIELDS')) :
     ['telephoneNumber', 'labeledURI', 'mail', 'description', 'businessCategory', 'postalAddress'];
 
  # Field mappings from form names to LDAP attributes
@@ -222,7 +232,7 @@ if (!in_array('o', $LDAP['org_required_fields'])) {
     'org_email' => 'mail',
     'org_description' => 'description',
     'org_category' => 'businessCategory'
-];
+ ];
 
  # Address field configuration (these are composite fields that combine into postalAddress)
  # These fields are not stored directly in LDAP but are combined into the postalAddress attribute
@@ -244,7 +254,7 @@ if (!in_array('o', $LDAP['org_required_fields'])) {
     'org_email' => 'Email',
     'org_description' => 'Description',
     'org_category' => 'Business Category'
-];
+ ];
 
  # Field types for form rendering
  $LDAP['org_field_types'] = [
@@ -254,39 +264,53 @@ if (!in_array('o', $LDAP['org_required_fields'])) {
     'org_email' => 'email',
     'org_description' => 'textarea',
     'org_category' => 'text'
-];
+ ];
 
  $LDAP['group_ou'] = (getenv('LDAP_GROUP_OU') ? getenv('LDAP_GROUP_OU') : 'groups');
  $LDAP['user_ou'] = (getenv('LDAP_USER_OU') ? getenv('LDAP_USER_OU') : 'people');
  $LDAP['org_ou'] = (getenv('LDAP_ORG_OU') ? getenv('LDAP_ORG_OU') : 'organizations');
- $LDAP['forced_rfc2307bis'] = ((strcasecmp(getenv('FORCE_RFC2307BIS'),'TRUE') == 0) ? TRUE : FALSE);
+ $LDAP['forced_rfc2307bis'] = ((strcasecmp(getenv('FORCE_RFC2307BIS') ?: '', 'TRUE') == 0) ? true : false);
 
- if (getenv('LDAP_ACCOUNT_ADDITIONAL_OBJECTCLASSES')) { $account_additional_objectclasses = strtolower(getenv('LDAP_ACCOUNT_ADDITIONAL_OBJECTCLASSES')); }
- if (getenv('LDAP_ACCOUNT_ADDITIONAL_ATTRIBUTES')) { $LDAP['account_additional_attributes'] = getenv('LDAP_ACCOUNT_ADDITIONAL_ATTRIBUTES'); }
+ if (getenv('LDAP_ACCOUNT_ADDITIONAL_OBJECTCLASSES')) {
+     $account_additional_objectclasses = strtolower(getenv('LDAP_ACCOUNT_ADDITIONAL_OBJECTCLASSES'));
+ }
+ if (getenv('LDAP_ACCOUNT_ADDITIONAL_ATTRIBUTES')) {
+     $LDAP['account_additional_attributes'] = getenv('LDAP_ACCOUNT_ADDITIONAL_ATTRIBUTES');
+ }
 
- if (getenv('LDAP_GROUP_ADDITIONAL_OBJECTCLASSES')) { $group_additional_objectclasses = getenv('LDAP_GROUP_ADDITIONAL_OBJECTCLASSES'); }
- if (getenv('LDAP_GROUP_ADDITIONAL_ATTRIBUTES')) { $LDAP['group_additional_attributes'] = getenv('LDAP_GROUP_ADDITIONAL_ATTRIBUTES'); }
+ if (getenv('LDAP_GROUP_ADDITIONAL_OBJECTCLASSES')) {
+     $group_additional_objectclasses = getenv('LDAP_GROUP_ADDITIONAL_OBJECTCLASSES');
+ }
+ if (getenv('LDAP_GROUP_ADDITIONAL_ATTRIBUTES')) {
+     $LDAP['group_additional_attributes'] = getenv('LDAP_GROUP_ADDITIONAL_ATTRIBUTES');
+ }
 
- if (getenv('LDAP_GROUP_MEMBERSHIP_ATTRIBUTE')) { $LDAP['group_membership_attribute'] = getenv('LDAP_GROUP_MEMBERSHIP_ATTRIBUTE'); }
+ if (getenv('LDAP_GROUP_MEMBERSHIP_ATTRIBUTE')) {
+     $LDAP['group_membership_attribute'] = getenv('LDAP_GROUP_MEMBERSHIP_ATTRIBUTE');
+ }
  if (getenv('LDAP_GROUP_MEMBERSHIP_USES_UID')) {
-   if (strtoupper(getenv('LDAP_GROUP_MEMBERSHIP_USES_UID')) == 'TRUE' )   { $LDAP['group_membership_uses_uid']  = TRUE;  }
-   if (strtoupper(getenv('LDAP_GROUP_MEMBERSHIP_USES_UID')) == 'FALSE' )  { $LDAP['group_membership_uses_uid']  = FALSE; }
+     if (strtoupper(getenv('LDAP_GROUP_MEMBERSHIP_USES_UID')) == 'TRUE') {
+         $LDAP['group_membership_uses_uid']  = true;
+     }
+     if (strtoupper(getenv('LDAP_GROUP_MEMBERSHIP_USES_UID')) == 'FALSE') {
+         $LDAP['group_membership_uses_uid']  = false;
+     }
  }
 
  # Updated LDAP structure for new organization-based approach
-$LDAP['org_dn'] = "ou={$LDAP['org_ou']},{$LDAP['base_dn']}";
+ $LDAP['org_dn'] = "ou={$LDAP['org_ou']},{$LDAP['base_dn']}";
 
-$LDAP['people_dn'] = "ou=people,{$LDAP['base_dn']}";
-$LDAP['org_people_dn'] = "ou=people,{$LDAP['org_dn']}";
-$LDAP['roles_dn'] = "ou=roles,{$LDAP['base_dn']}";
+ $LDAP['people_dn'] = "ou=people,{$LDAP['base_dn']}";
+ $LDAP['org_people_dn'] = "ou=people,{$LDAP['org_dn']}";
+ $LDAP['roles_dn'] = "ou=roles,{$LDAP['base_dn']}";
 
 # UUID-based identification configuration
-$LDAP['use_uuid_identification'] = getenv('LDAP_USE_UUID_IDENTIFICATION') ? 
-    (strtolower(getenv('LDAP_USE_UUID_IDENTIFICATION')) === 'true') : 
+ $LDAP['use_uuid_identification'] = getenv('LDAP_USE_UUID_IDENTIFICATION') ?
+    (strtolower(getenv('LDAP_USE_UUID_IDENTIFICATION')) === 'true') :
     true; // Default to true for security
 
 # UUID attribute name (OpenLDAP operational attribute)
-$LDAP['uuid_attribute'] = 'entryUUID';
+ $LDAP['uuid_attribute'] = 'entryUUID';
 
 
  # Interface customisation
@@ -296,92 +320,109 @@ $LDAP['uuid_attribute'] = 'entryUUID';
 
  $SITE_LOGIN_LDAP_ATTRIBUTE = (getenv('SITE_LOGIN_LDAP_ATTRIBUTE') ? getenv('SITE_LOGIN_LDAP_ATTRIBUTE') : 'mail' );
  $SITE_LOGIN_FIELD_LABEL = (getenv('SITE_LOGIN_FIELD_LABEL') ? getenv('SITE_LOGIN_FIELD_LABEL') : "Email" );
- 
+
  $SERVER_HOSTNAME = (getenv('SERVER_HOSTNAME') ? getenv('SERVER_HOSTNAME') : "ldapusermanager.org");
- $SERVER_PATH = (getenv('SERVER_PATH') ? getenv('SERVER_PATH') : "/");
+ $SERVER_PATH = (getenv('SERVER_PATH') !== false ? (string) getenv('SERVER_PATH') : '/');
+ if ($SERVER_PATH === '') {
+     $SERVER_PATH = '/';
+ }
 
  $SESSION_TIMEOUT = (getenv('SESSION_TIMEOUT') ? getenv('SESSION_TIMEOUT') : 60); // 60 minutes (1 hour)
+// Directory for app session files (must be writable and shared across all app instances, e.g. a volume in Docker)
+ $SESSION_SAVE_PATH = rtrim(getenv('SESSION_SAVE_PATH') ?: '/tmp', '/');
 
- $NO_HTTPS = ((strcasecmp(getenv('NO_HTTPS'),'TRUE') == 0) ? TRUE : FALSE);
+ $NO_HTTPS = ((strcasecmp(getenv('NO_HTTPS') ?: '', 'TRUE') == 0) ? true : false);
 
- $REMOTE_HTTP_HEADERS_LOGIN = ((strcasecmp(getenv('REMOTE_HTTP_HEADERS_LOGIN'),'TRUE') == 0) ? TRUE : FALSE);
+ $REMOTE_HTTP_HEADERS_LOGIN = ((strcasecmp(getenv('REMOTE_HTTP_HEADERS_LOGIN') ?: '', 'TRUE') == 0) ? true : false);
 
  # Sending email
 
  $SMTP['host'] = getenv('SMTP_HOSTNAME');
- $SMTP['user'] = (getenv('SMTP_USERNAME') ? getenv('SMTP_USERNAME') : NULL);
- $SMTP['pass'] = (getenv('SMTP_PASSWORD') ? getenv('SMTP_PASSWORD') : NULL);
+ $SMTP['user'] = (getenv('SMTP_USERNAME') ? getenv('SMTP_USERNAME') : null);
+ $SMTP['pass'] = (getenv('SMTP_PASSWORD') ? getenv('SMTP_PASSWORD') : null);
  $SMTP['port'] = (getenv('SMTP_HOST_PORT') ? getenv('SMTP_HOST_PORT') : 25);
- $SMTP['helo'] = (getenv('SMTP_HELO_HOST') ? getenv('SMTP_HELO_HOST') : NULL);
- $SMTP['ssl']  = ((strcasecmp(getenv('SMTP_USE_SSL'),'TRUE') == 0) ? TRUE : FALSE);
- $SMTP['tls']  = ((strcasecmp(getenv('SMTP_USE_TLS'),'TRUE') == 0) ? TRUE : FALSE);
- if ($SMTP['tls'] == TRUE) { $SMTP['ssl'] = FALSE; }
+ $SMTP['helo'] = (getenv('SMTP_HELO_HOST') ? getenv('SMTP_HELO_HOST') : null);
+ $SMTP['ssl']  = ((strcasecmp(getenv('SMTP_USE_SSL') ?: '', 'TRUE') == 0) ? true : false);
+ $SMTP['tls']  = ((strcasecmp(getenv('SMTP_USE_TLS') ?: '', 'TRUE') == 0) ? true : false);
+ if ($SMTP['tls'] == true) {
+     $SMTP['ssl'] = false;
+ }
 
- $EMAIL_DOMAIN = (getenv('EMAIL_DOMAIN') ? getenv('EMAIL_DOMAIN') : Null);
+ $EMAIL_DOMAIN = (getenv('EMAIL_DOMAIN') ? getenv('EMAIL_DOMAIN') : null);
 
  $default_email_from_domain = ($EMAIL_DOMAIN ? $EMAIL_DOMAIN : 'ldapusermanger.org');
 
  $EMAIL['from_address'] = (getenv('EMAIL_FROM_ADDRESS') ? getenv('EMAIL_FROM_ADDRESS') : "admin@" . $default_email_from_domain );
  $EMAIL['from_name'] = (getenv('EMAIL_FROM_NAME') ? getenv('EMAIL_FROM_NAME') : $SITE_NAME );
 
- if ($SMTP['host'] != "") { $EMAIL_SENDING_ENABLED = TRUE; } else { $EMAIL_SENDING_ENABLED = FALSE; }
+ if ($SMTP['host'] != "") {
+     $EMAIL_SENDING_ENABLED = true;
+ } else {
+     $EMAIL_SENDING_ENABLED = false;
+ }
 
  # Account requests
 
- $ACCOUNT_REQUESTS_ENABLED = ((strcasecmp(getenv('ACCOUNT_REQUESTS_ENABLED'),'TRUE') == 0) ? TRUE : FALSE);
- if (($EMAIL_SENDING_ENABLED == FALSE) && ($ACCOUNT_REQUESTS_ENABLED == TRUE)) {
-   $ACCOUNT_REQUESTS_ENABLED = FALSE;
-   error_log("$log_prefix Config: ACCOUNT_REQUESTS_ENABLED was set to TRUE but SMTP_HOSTNAME wasn't set, so account requesting has been disabled as we can't send out the request email",0);
+ $ACCOUNT_REQUESTS_ENABLED = ((strcasecmp(getenv('ACCOUNT_REQUESTS_ENABLED') ?: '', 'TRUE') == 0) ? true : false);
+ if (($EMAIL_SENDING_ENABLED == false) && ($ACCOUNT_REQUESTS_ENABLED == true)) {
+     $ACCOUNT_REQUESTS_ENABLED = false;
+     error_log("$log_prefix Config: ACCOUNT_REQUESTS_ENABLED was set to TRUE but SMTP_HOSTNAME wasn't set, so account requesting has been disabled as we can't send out the request email", 0);
  }
 
  $ACCOUNT_REQUESTS_EMAIL = (getenv('ACCOUNT_REQUESTS_EMAIL') ? getenv('ACCOUNT_REQUESTS_EMAIL') : $EMAIL['from_address']);
 
- # PHPMailer path configuration
-$PHPMailer_PATH = (getenv('PHPMailer_PATH') ? getenv('PHPMailer_PATH') : '/opt/PHPMailer/src');
+ # PHPMailer path configuration (used only when not using Composer autoload; default to vendor path)
+ $vendorPhpMailer = dirname(__DIR__) . '/vendor/phpmailer/phpmailer/src';
+ if (!is_dir($vendorPhpMailer)) {
+     $vendorPhpMailer = dirname(__DIR__, 2) . '/vendor/phpmailer/phpmailer/src';
+ }
+ $PHPMailer_PATH = (getenv('PHPMailer_PATH') ? getenv('PHPMailer_PATH') : $vendorPhpMailer);
 
  # Debugging
 
- $LDAP_DEBUG = ((strcasecmp(getenv('LDAP_DEBUG'),'TRUE') == 0) ? TRUE : FALSE);
- $LDAP_VERBOSE_CONNECTION_LOGS = ((strcasecmp(getenv('LDAP_VERBOSE_CONNECTION_LOGS'),'TRUE') == 0) ? TRUE : FALSE);
- $SESSION_DEBUG = ((strcasecmp(getenv('SESSION_DEBUG'),'TRUE') == 0) ? TRUE : FALSE);
- $SETUP_DEBUG = ((strcasecmp(getenv('SETUP_DEBUG'),'TRUE') == 0) ? TRUE : FALSE);
+ $LDAP_DEBUG = ((strcasecmp(getenv('LDAP_DEBUG') ?: '', 'TRUE') == 0) ? true : false);
+ $LDAP_VERBOSE_CONNECTION_LOGS = ((strcasecmp(getenv('LDAP_VERBOSE_CONNECTION_LOGS') ?: '', 'TRUE') == 0) ? true : false);
+ $SESSION_DEBUG = ((strcasecmp(getenv('SESSION_DEBUG') ?: '', 'TRUE') == 0) ? true : false);
+ $SETUP_DEBUG = ((strcasecmp(getenv('SETUP_DEBUG') ?: '', 'TRUE') == 0) ? true : false);
  $SMTP['debug_level'] = getenv('SMTP_LOG_LEVEL');
- if (!is_numeric($SMTP['debug_level']) or $SMTP['debug_level'] >4 or $SMTP['debug_level'] <0) { $SMTP['debug_level'] = 0; }
+ if (!is_numeric($SMTP['debug_level']) or $SMTP['debug_level'] > 4 or $SMTP['debug_level'] < 0) {
+     $SMTP['debug_level'] = 0;
+ }
 
  # Sanity checking
 
- $CUSTOM_LOGO = (getenv('CUSTOM_LOGO') ? getenv('CUSTOM_LOGO') : FALSE);
- $CUSTOM_STYLES = (getenv('CUSTOM_STYLES') ? getenv('CUSTOM_STYLES') : FALSE);
+ $CUSTOM_LOGO = (getenv('CUSTOM_LOGO') ? getenv('CUSTOM_LOGO') : false);
+ $CUSTOM_STYLES = (getenv('CUSTOM_STYLES') ? getenv('CUSTOM_STYLES') : false);
 
  $errors = "";
 
  if (empty($LDAP['uri'])) {
-  $errors .= "<div class='alert alert-warning'><p class='text-center'>LDAP_URI isn't set</p></div>\n";
+     $errors .= "<div class='alert alert-warning'><p class='text-center'>LDAP_URI isn't set</p></div>\n";
  }
  if (empty($LDAP['base_dn'])) {
-  $errors .= "<div class='alert alert-warning'><p class='text-center'>LDAP_BASE_DN isn't set</p></div>\n";
+     $errors .= "<div class='alert alert-warning'><p class='text-center'>LDAP_BASE_DN isn't set</p></div>\n";
  }
  if (empty($LDAP['admin_bind_dn'])) {
-  $errors .= "<div class='alert alert-warning'><p class='text-center'>LDAP_ADMIN_BIND_DN isn't set</p></div>\n";
+     $errors .= "<div class='alert alert-warning'><p class='text-center'>LDAP_ADMIN_BIND_DN isn't set</p></div>\n";
  }
  if (empty($LDAP['admin_bind_pwd'])) {
-  $errors .= "<div class='alert alert-warning'><p class='text-center'>LDAP_ADMIN_BIND_PWD isn't set</p></div>\n";
+     $errors .= "<div class='alert alert-warning'><p class='text-center'>LDAP_ADMIN_BIND_PWD isn't set</p></div>\n";
  }
  if (empty($LDAP['admin_role'])) {
-    $errors .= "<div class='alert alert-warning'><p class='text-center'>LDAP_ADMIN_ROLE isn't set</p></div>\n";
-}
+     $errors .= "<div class='alert alert-warning'><p class='text-center'>LDAP_ADMIN_ROLE isn't set</p></div>\n";
+ }
 
  if ($errors != "") {
-  render_header("Fatal errors",false);
-  print $errors;
-  render_footer();
-  exit(1);
+     render_header("Fatal errors", false);
+     print $errors;
+     render_footer();
+     exit(1);
  }
 
  // Validate role configuration to prevent conflicts
  // Note: Role values and group names are now synchronized by default to eliminate duplication
  // LDAP_ADMIN_ROLE defaults to LDAP_ADMIN_GROUP_NAME, LDAP_MAINTAINER_ROLE defaults to LDAP_MAINTAINER_GROUP_NAME
- if ($LDAP['prevent_role_conflicts'] === 'TRUE' || $LDAP['prevent_role_conflicts'] === TRUE) {
+ if ($LDAP['prevent_role_conflicts'] === 'TRUE' || $LDAP['prevent_role_conflicts'] === true) {
      // CRITICAL: Check for admin/maintainer role conflicts that would break access control
      if ($LDAP['admin_role'] === $LDAP['maintainer_role']) {
          $errors .= "<div class='alert alert-danger'><p class='text-center'><strong>CRITICAL ERROR: Admin and Maintainer roles cannot be the same!</strong></p>";
@@ -389,7 +430,7 @@ $PHPMailer_PATH = (getenv('PHPMailer_PATH') ? getenv('PHPMailer_PATH') : '/opt/P
          $errors .= "<p class='text-center'>This configuration will completely break the access control system.</p>";
          $errors .= "<p class='text-center'>Please set different values for LDAP_ADMIN_ROLE and LDAP_MAINTAINER_ROLE.</p></div>\n";
      }
-     
+
      // Check for admin/maintainer group name conflicts
      if ($LDAP['admin_role'] === $LDAP['maintainer_role']) {
          $errors .= "<div class='alert alert-danger'><p class='text-center'><strong>CRITICAL ERROR: Admin and Maintainer group names cannot be the same!</strong></p>";
@@ -397,20 +438,20 @@ $PHPMailer_PATH = (getenv('PHPMailer_PATH') ? getenv('PHPMailer_PATH') : '/opt/P
          $errors .= "<p class='text-center'>This configuration will completely break the access control system.</p>";
          $errors .= "<p class='text-center'>Please set different values for LDAP_ADMIN_GROUP_NAME and LDAP_MAINTAINER_GROUP_NAME.</p></div>\n";
      }
-     
+
      // Check for role value conflicts with group names
      if ($LDAP['admin_role'] === $LDAP['maintainer_role']) {
          $errors .= "<div class='alert alert-danger'><p class='text-center'><strong>CRITICAL ERROR: Admin role conflicts with Maintainer group!</strong></p>";
          $errors .= "<p class='text-center'>Current values: admin_role = '{$LDAP['admin_role']}', maintainer_group_name = '{$LDAP['maintainer_role']}'</p>";
          $errors .= "<p class='text-center'>This will cause access control confusion.</p></div>\n";
      }
-     
+
      if ($LDAP['maintainer_role'] === $LDAP['admin_role']) {
          $errors .= "<div class='alert alert-danger'><p class='text-center'><strong>CRITICAL ERROR: Maintainer role conflicts with Admin group!</strong></p>";
          $errors .= "<p class='text-center'>Current values: maintainer_role = '{$LDAP['maintainer_role']}', admin_group_name = '{$LDAP['admin_role']}'</p>";
          $errors .= "<p class='text-center'>This will cause access control confusion.</p></div>\n";
      }
-     
+
      // General role value uniqueness check
      $role_values = [
          'admin_role' => $LDAP['admin_role'],
@@ -418,7 +459,7 @@ $PHPMailer_PATH = (getenv('PHPMailer_PATH') ? getenv('PHPMailer_PATH') : '/opt/P
          'org_admin_role' => $LDAP['org_admin_role'],
          'user_role' => $LDAP['user_role']
      ];
-     
+
      // Check for group name conflicts
      $group_values = [
          'admin_group_name' => $LDAP['admin_role'],
@@ -429,30 +470,31 @@ $PHPMailer_PATH = (getenv('PHPMailer_PATH') ? getenv('PHPMailer_PATH') : '/opt/P
  /**
   * Runtime role conflict check - call this function throughout the web app
   * to detect configuration conflicts and put system into maintenance mode
-  * 
+  *
   * @return bool True if conflicts detected (system should be in maintenance mode)
   */
- function checkRuntimeRoleConflicts() {
+ function checkRuntimeRoleConflicts()
+ {
      global $LDAP;
-     
+
      // Check for critical admin/maintainer conflicts
      if ($LDAP['admin_role'] === $LDAP['maintainer_role']) {
          return true;
      }
-     
+
      if ($LDAP['admin_role'] === $LDAP['maintainer_role']) {
          return true;
      }
-     
+
      // Check for role/group cross-conflicts
      if ($LDAP['admin_role'] === $LDAP['maintainer_role']) {
          return true;
      }
-     
+
      if ($LDAP['maintainer_role'] === $LDAP['admin_role']) {
          return true;
      }
-     
+
      return false;
  }
 
@@ -460,15 +502,16 @@ $PHPMailer_PATH = (getenv('PHPMailer_PATH') ? getenv('PHPMailer_PATH') : '/opt/P
   * Display maintenance mode page when role conflicts are detected
   * This prevents the system from operating with broken access control
   */
- function displayMaintenanceMode() {
+ function displayMaintenanceMode()
+ {
      global $LDAP;
-     
+
      $conflicts = [];
-     
+
      if ($LDAP['admin_role'] === $LDAP['maintainer_role']) {
          $conflicts[] = "Admin and Maintainer roles are both set to '{$LDAP['admin_role']}'";
      }
-     
+
      echo '<!DOCTYPE html>
      <html lang="en">
      <head>
@@ -500,11 +543,11 @@ $PHPMailer_PATH = (getenv('PHPMailer_PATH') ? getenv('PHPMailer_PATH') : '/opt/P
              <div class="conflict-list">
                  <h3>Configuration Conflicts Found:</h3>
                  <ul>';
-     
+
      foreach ($conflicts as $conflict) {
          echo "<li>$conflict</li>";
      }
-     
+
      echo '</ul>
              </div>
              
@@ -535,15 +578,14 @@ $PHPMailer_PATH = (getenv('PHPMailer_PATH') ? getenv('PHPMailer_PATH') : '/opt/P
          </div>
      </body>
      </html>';
-     
+
      exit(1);
  }
 
  // File upload configuration
-$FILE_UPLOAD_MAX_SIZE = getenv('FILE_UPLOAD_MAX_SIZE') ? intval(getenv('FILE_UPLOAD_MAX_SIZE')) : 2 * 1024 * 1024; // Default 2MB
-$FILE_UPLOAD_ALLOWED_MIME_TYPES = getenv('FILE_UPLOAD_ALLOWED_MIME_TYPES')
+ $FILE_UPLOAD_MAX_SIZE = getenv('FILE_UPLOAD_MAX_SIZE') ? intval(getenv('FILE_UPLOAD_MAX_SIZE')) : 2 * 1024 * 1024; // Default 2MB
+ $FILE_UPLOAD_ALLOWED_MIME_TYPES = getenv('FILE_UPLOAD_ALLOWED_MIME_TYPES')
     ? array_map('trim', explode(',', getenv('FILE_UPLOAD_ALLOWED_MIME_TYPES')))
     : [
         'image/jpeg', 'image/png', 'image/gif', 'application/pdf', 'text/plain'
       ];
-

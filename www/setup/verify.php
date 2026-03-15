@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 set_include_path(".:" . __DIR__ . "/../includes/");
@@ -17,15 +18,15 @@ $ldap_connection = open_ldap_connection();
 $missing_components = array();
 
 # Setup debug logging
-if ($SETUP_DEBUG == TRUE) {
-  error_log("$log_prefix SETUP_DEBUG: Starting verification process", 0);
+if ($SETUP_DEBUG == true) {
+    error_log("$log_prefix SETUP_DEBUG: Starting verification process", 0);
 }
 
 ?>
 <div class='container'>
-  <div class="panel panel-default">
-    <div class="panel-heading">LDAP Setup Verification</div>
-    <div class="panel-body">
+  <div class="card">
+    <div class="card-header">LDAP Setup Verification</div>
+    <div class="card-body">
       <ul class="list-group">
 
 <?php
@@ -35,7 +36,7 @@ print "<li class='list-group-item'><strong>Test 1: Organizational Units</strong>
 
 $ou_tests = array(
             $LDAP['org_dn'] => "Organizations OU",
-    "ou=people,{$LDAP['base_dn']}" => "People OU", 
+    "ou=people,{$LDAP['base_dn']}" => "People OU",
     $LDAP['roles_dn'] => "Roles OU"
 );
 
@@ -95,11 +96,11 @@ $admin_group_search = ldap_search($ldap_connection, $LDAP['roles_dn'], "(&(objec
 if ($admin_group_search && ldap_count_entries($ldap_connection, $admin_group_search) > 0) {
     $admin_group_entries = ldap_get_entries($ldap_connection, $admin_group_search);
     $admin_group = $admin_group_entries[0];
-    
+
     if (isset($admin_group['member'])) {
         $member_count = $admin_group['member']['count'];
         print "<li class='list-group-item list-group-item-success'>✓ Administrators group has {$member_count} member(s)</li>\n";
-        
+
         for ($i = 0; $i < $member_count; $i++) {
             $member_dn = $admin_group['member'][$i];
             print "<li class='list-group-item list-group-item-info'>  - {$member_dn}</li>\n";
@@ -116,11 +117,11 @@ $maintainer_group_search = ldap_search($ldap_connection, $LDAP['roles_dn'], "(&(
 if ($maintainer_group_search && ldap_count_entries($ldap_connection, $maintainer_group_search) > 0) {
     $maintainer_group_entries = ldap_get_entries($ldap_connection, $maintainer_group_search);
     $maintainer_group = $maintainer_group_entries[0];
-    
+
     if (isset($maintainer_group['member'])) {
         $member_count = $maintainer_group['member']['count'];
         print "<li class='list-group-item list-group-item-success'>✓ Maintainers group has {$member_count} member(s)</li>\n";
-        
+
         for ($i = 0; $i < $member_count; $i++) {
             $member_dn = $maintainer_group['member'][$i];
             print "<li class='list-group-item list-group-item-info'>  - {$member_dn}</li>\n";
@@ -139,13 +140,13 @@ print "<li class='list-group-item'><strong>Test 5: Authentication Test</strong><
 if ($admin_search && ldap_count_entries($ldap_connection, $admin_search) > 0) {
     $admin_entries = ldap_get_entries($ldap_connection, $admin_search);
     $admin_dn = $admin_entries[0]['dn'];
-    
+
     // Try to bind as admin user (this will test if the user can authenticate)
     $test_connection = ldap_connect($LDAP['uri']);
     if ($test_connection) {
         ldap_set_option($test_connection, LDAP_OPT_PROTOCOL_VERSION, 3);
         ldap_set_option($test_connection, LDAP_OPT_REFERRALS, 0);
-        
+
         // Note: We can't test actual password authentication without knowing the password
         // But we can verify the user entry is valid
         $user_read = ldap_read($test_connection, $admin_dn, "(objectClass=*)", array("uid", "cn", "mail"));
@@ -154,7 +155,7 @@ if ($admin_search && ldap_count_entries($ldap_connection, $admin_search) > 0) {
         } else {
             print "<li class='list-group-item list-group-item-warning'>⚠ Administrator user entry exists but may have issues</li>\n";
         }
-        
+
         ldap_close($test_connection);
     } else {
         print "<li class='list-group-item list-group-item-warning'>⚠ Cannot test user authentication (connection issue)</li>\n";
@@ -171,71 +172,71 @@ if ($admin_search && ldap_count_entries($ldap_connection, $admin_search) > 0) {
 <?php
 # Check if we have missing components and show appropriate options
 if (!empty($missing_components)) {
-  if ($SETUP_DEBUG == TRUE) {
-    error_log("$log_prefix SETUP_DEBUG: Missing components detected: " . implode(', ', array_unique($missing_components)), 0);
-  }
-  
-  print "<div class='panel panel-warning'>\n";
-  print "  <div class='panel-heading'>Missing Components Detected</div>\n";
-  print "  <div class='panel-body'>\n";
-  print "    <p>The verification found missing components that need to be created:</p>\n";
-  
-  if (in_array('ou', $missing_components)) {
-    print "    <p>• <strong>Organizational Units</strong> (people, organizations, or roles)</p>\n";
-  }
-  if (in_array('user', $missing_components)) {
-    print "    <p>• <strong>System Users</strong> (administrator and/or maintainer)</p>\n";
-  }
-  if (in_array('role', $missing_components)) {
-    print "    <p>• <strong>Role Groups</strong> (administrators and/or maintainers)</p>\n";
-  }
-  
-  print "    <p>You need to go back to the setup process to create these missing components.</p>\n";
-  print "  </div>\n";
-  print "</div>\n";
-  
-  print "<div class='well'>\n";
-  print "  <div class='row'>\n";
-  print "    <div class='col-md-6'>\n";
-  print "      <form action='{$THIS_MODULE_PATH}/run_checks.php'>\n";
-  print "        <input type='submit' class='btn btn-warning center-block' value='Go to Setup'>\n";
-  print "      </form>\n";
-  print "    </div>\n";
-  print "    <div class='col-md-6'>\n";
-  print "      <form action='{$THIS_MODULE_PATH}'>\n";
-  print "        <input type='submit' class='btn btn-default center-block' value='Back to Setup Menu'>\n";
-  print "      </form>\n";
-  print "    </div>\n";
-  print "  </div>\n";
-  print "</div>\n";
+    if ($SETUP_DEBUG == true) {
+        error_log("$log_prefix SETUP_DEBUG: Missing components detected: " . implode(', ', array_unique($missing_components)), 0);
+    }
+
+    print "<div class='card border-warning'>\n";
+    print "  <div class='card-header'>Missing Components Detected</div>\n";
+    print "  <div class='card-body'>\n";
+    print "    <p>The verification found missing components that need to be created:</p>\n";
+
+    if (in_array('ou', $missing_components)) {
+        print "    <p>• <strong>Organizational Units</strong> (people, organizations, or roles)</p>\n";
+    }
+    if (in_array('user', $missing_components)) {
+        print "    <p>• <strong>System Users</strong> (administrator and/or maintainer)</p>\n";
+    }
+    if (in_array('role', $missing_components)) {
+        print "    <p>• <strong>Role Groups</strong> (administrators and/or maintainers)</p>\n";
+    }
+
+    print "    <p>You need to go back to the setup process to create these missing components.</p>\n";
+    print "  </div>\n";
+    print "</div>\n";
+
+    print "<div class='p-3 bg-light rounded'>\n";
+    print "  <div class='row'>\n";
+    print "    <div class='col-md-6'>\n";
+    print "      <form action='{$THIS_MODULE_PATH}/run_checks.php'>\n";
+    print "        <input type='submit' class='btn btn-warning d-block mx-auto' value='Go to Setup'>\n";
+    print "      </form>\n";
+    print "    </div>\n";
+    print "    <div class='col-md-6'>\n";
+    print "      <form action='{$THIS_MODULE_PATH}'>\n";
+    print "        <input type='submit' class='btn btn-secondary d-block mx-auto' value='Back to Setup Menu'>\n";
+    print "      </form>\n";
+    print "    </div>\n";
+    print "  </div>\n";
+    print "</div>\n";
 } else {
-  if ($SETUP_DEBUG == TRUE) {
-    error_log("$log_prefix SETUP_DEBUG: All components verified successfully", 0);
-  }
-  
+    if ($SETUP_DEBUG == true) {
+        error_log("$log_prefix SETUP_DEBUG: All components verified successfully", 0);
+    }
+
   # All components exist, show success message and completion options
-  print "<div class='panel panel-success'>\n";
-  print "  <div class='panel-heading'>Setup Complete!</div>\n";
-  print "  <div class='panel-body'>\n";
-  print "    <p>All LDAP components have been verified and are working correctly.</p>\n";
-  print "    <p>You can now proceed to use the system or log in with your administrator account.</p>\n";
-  print "  </div>\n";
-  print "</div>\n";
-  
-  print "<div class='well'>\n";
-  print "  <div class='row'>\n";
-  print "    <div class='col-md-6'>\n";
-  print "      <form action='{$SERVER_PATH}log_in'>\n";
-  print "        <input type='submit' class='btn btn-success center-block' value='Go to Login'>\n";
-  print "      </form>\n";
-  print "    </div>\n";
-  print "    <div class='col-md-6'>\n";
-  print "      <form action='{$THIS_MODULE_PATH}'>\n";
-  print "        <input type='submit' class='btn btn-default center-block' value='Back to Setup Menu'>\n";
-  print "      </form>\n";
-  print "    </div>\n";
-  print "  </div>\n";
-  print "</div>\n";
+    print "<div class='card border-success'>\n";
+    print "  <div class='card-header'>Setup Complete!</div>\n";
+    print "  <div class='card-body'>\n";
+    print "    <p>All LDAP components have been verified and are working correctly.</p>\n";
+    print "    <p>You can now proceed to use the system or log in with your administrator account.</p>\n";
+    print "  </div>\n";
+    print "</div>\n";
+
+    print "<div class='p-3 bg-light rounded'>\n";
+    print "  <div class='row'>\n";
+    print "    <div class='col-md-6'>\n";
+    print "      <form action='{$SERVER_PATH}log_in'>\n";
+    print "        <input type='submit' class='btn btn-success d-block mx-auto' value='Go to Login'>\n";
+    print "      </form>\n";
+    print "    </div>\n";
+    print "    <div class='col-md-6'>\n";
+    print "      <form action='{$THIS_MODULE_PATH}'>\n";
+    print "        <input type='submit' class='btn btn-secondary d-block mx-auto' value='Back to Setup Menu'>\n";
+    print "      </form>\n";
+    print "    </div>\n";
+    print "  </div>\n";
+    print "</div>\n";
 }
 ?>
   </div>

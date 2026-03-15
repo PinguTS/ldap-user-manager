@@ -1,19 +1,106 @@
 <?php
+
 declare(strict_types=1);
 
 include_once "ldap_functions.inc.php";
 include_once "config.inc.php";
 
-function createOrganization($orgData) {
+/**
+ * Parse LDAP postalAddress into components (format: Street$ZIP$City$Country).
+ *
+ * @param string $postalAddress Raw LDAP postalAddress value
+ * @return array{street: string, zip: string, city: string, country: string}
+ */
+function parsePostalAddress(string $postalAddress): array
+{
+    $parts = explode('$', $postalAddress);
+
+    return [
+        'street' => trim($parts[0] ?? ''),
+        'zip' => trim($parts[1] ?? ''),
+        'city' => trim($parts[2] ?? ''),
+        'country' => trim($parts[3] ?? ''),
+    ];
+}
+
+/**
+ * Build LDAP postalAddress from individual components (Street$ZIP$City$Country).
+ *
+ * @param string $street  Street address
+ * @param string $zip     Postal/ZIP code
+ * @param string $city    City
+ * @param string $country Country
+ * @return string
+ */
+function buildPostalAddress(string $street, string $zip, string $city, string $country): string
+{
+    return implode('$', [$street, $zip, $city, $country]);
+}
+
+/**
+ * Resolve organization from request parameters (uuid or org).
+ * Uses $_GET['uuid'] or $_GET['org']; opens/closes LDAP when resolving by UUID.
+ *
+ * @return array{org_name: string|null, org_uuid: string|null, organization: array|null, error: string|null}
+ */
+function resolve_organization_from_request(): array
+{
+    if (isset($_GET['uuid']) && $_GET['uuid'] !== '') {
+        $org_uuid = $_GET['uuid'];
+        if (!is_valid_uuid($org_uuid)) {
+            return [
+                'org_name' => null,
+                'org_uuid' => null,
+                'organization' => null,
+                'error' => 'Invalid organization UUID provided.',
+            ];
+        }
+        $ldap = open_ldap_connection();
+        $organization = ldap_get_organization_by_uuid($ldap, $org_uuid);
+        ldap_close($ldap);
+        if (!$organization) {
+            return [
+                'org_name' => null,
+                'org_uuid' => $org_uuid,
+                'organization' => null,
+                'error' => "Organization with UUID '" . htmlspecialchars($org_uuid) . "' not found.",
+            ];
+        }
+        $org_name = $organization['o'][0] ?? null;
+        return [
+            'org_name' => $org_name,
+            'org_uuid' => $org_uuid,
+            'organization' => $organization,
+            'error' => null,
+        ];
+    }
+    if (isset($_GET['org']) && $_GET['org'] !== '') {
+        return [
+            'org_name' => $_GET['org'],
+            'org_uuid' => null,
+            'organization' => null,
+            'error' => null,
+        ];
+    }
+    return [
+        'org_name' => null,
+        'org_uuid' => null,
+        'organization' => null,
+        'error' => 'Organization identifier (UUID or name) is required.',
+    ];
+}
+
+function createOrganization($orgData)
+{
     global $LDAP;
     $ldap = open_ldap_connection();
-    
+
     // Check that required field 'o' (organization name) is present
     if (empty($orgData['o'])) {
         error_log("createOrganization: Missing required field 'o' (organization name).");
         return [false, "Missing required field: organization name"];
     }
-    
+
     $orgRDN = ldap_escape($orgData['o'], '', LDAP_ESCAPE_DN);
     $orgDN = "o={$orgRDN}," . $LDAP['org_dn'];
 
@@ -28,17 +115,17 @@ function createOrganization($orgData) {
     $orgEntry = [
         'objectClass' => ['top', 'organization', 'labeledURIObject', 'extensibleObject']
     ];
-    
+
     // Add the organization name (required)
     $orgEntry['o'] = $orgData['o'];
-    
+
     // Add optional fields that are present in the input data
     foreach ($LDAP['org_optional_fields'] as $ldap_attr) {
         if (isset($orgData[$ldap_attr]) && !empty($orgData[$ldap_attr])) {
             $orgEntry[$ldap_attr] = $orgData[$ldap_attr];
         }
     }
-    
+
     // Special handling for postalAddress from individual address fields
     // This handles both direct postalAddress input and composite from individual fields
     if (isset($orgData['postalAddress']) && !empty($orgData['postalAddress'])) {
@@ -58,10 +145,10 @@ function createOrganization($orgData) {
             $orgEntry['postalAddress'] = $postal_address;
         }
     }
-    
+
     // Debug logging
     error_log("createOrganization: Building entry for org '{$orgData['o']}' with fields: " . implode(', ', array_keys($orgEntry)));
-    
+
     $result = ldap_add($ldap, $orgDN, $orgEntry);
     if (!$result) {
         $err = ldap_error($ldap);
@@ -102,17 +189,18 @@ function createOrganization($orgData) {
     return [true, "Organization '{$orgData['o']}' created successfully"];
 }
 
-function deleteOrganization($orgName) {
+function deleteOrganization($orgName)
+{
     global $LDAP;
     $ldap = open_ldap_connection();
-    
+
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
     $orgDN = "o={$orgRDN}," . $LDAP['org_dn'];
-    
+
     // Recursively delete the organization
     $result = ldap_delete_recursive($ldap, $orgDN);
     ldap_close($ldap);
-    
+
     if ($result) {
         return [true, "Organization '$orgName' deleted successfully"];
     } else {
@@ -122,17 +210,18 @@ function deleteOrganization($orgName) {
     }
 }
 
-function setOrganizationStatus($orgName, $status) {
+function setOrganizationStatus($orgName, $status)
+{
     global $LDAP;
     $ldap = open_ldap_connection();
-    
+
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
     $orgDN = "o={$orgRDN}," . $LDAP['org_dn'];
-    
+
     $modifications = ['description' => $status];
     $result = ldap_modify($ldap, $orgDN, $modifications);
     ldap_close($ldap);
-    
+
     if ($result) {
         return [true, "Organization '$orgName' status updated successfully"];
     } else {
@@ -142,26 +231,31 @@ function setOrganizationStatus($orgName, $status) {
     }
 }
 
-function listOrganizations() {
+function listOrganizations()
+{
     global $LDAP;
     $ldap = open_ldap_connection();
-    
-    $search = ldap_search($ldap, $LDAP['org_dn'], '(objectClass=organization)', 
-        ['o', 'postalAddress', 'telephoneNumber', 'labeledURI', 'mail', 'description', 'entryUUID']);
-    
+
+    $search = ldap_search(
+        $ldap,
+        $LDAP['org_dn'],
+        '(objectClass=organization)',
+        ['o', 'postalAddress', 'telephoneNumber', 'labeledURI', 'mail', 'description', 'entryUUID']
+    );
+
     if (!$search) {
         ldap_close($ldap);
         return [];
     }
-    
+
     $entries = ldap_get_entries($ldap, $search);
     ldap_close($ldap);
-    
+
     $organizations = [];
     for ($i = 0; $i < $entries['count']; $i++) {
         $org = $entries[$i];
         $postalAddress = isset($org['postaladdress'][0]) ? $org['postaladdress'][0] : '';
-        
+
         // Parse postalAddress: Street$City$State$ZIP$Country
         $addressParts = explode('$', $postalAddress);
         $organizations[] = [
@@ -179,11 +273,12 @@ function listOrganizations() {
             'status' => isset($org['description'][0]) ? $org['description'][0] : 'enabled'
         ];
     }
-    
+
     return $organizations;
 }
 
-function ldap_delete_recursive($ldap, $dn) {
+function ldap_delete_recursive($ldap, $dn)
+{
     // Search for all children
     $search = ldap_list($ldap, $dn, '(objectClass=*)', ['dn']);
     if ($search) {
@@ -192,18 +287,19 @@ function ldap_delete_recursive($ldap, $dn) {
             ldap_delete_recursive($ldap, $entries[$i]['dn']);
         }
     }
-    
+
     // Delete the entry itself
     return ldap_delete($ldap, $dn);
 }
 
-function addUserToOrgAdmin($orgName, $userDn) {
+function addUserToOrgAdmin($orgName, $userDn)
+{
     global $LDAP;
     $ldap = open_ldap_connection();
-    
+
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
     $groupDN = "cn={$LDAP['org_admin_role']},ou=roles,o={$orgRDN}," . $LDAP['org_dn'];
-    
+
     // First, check if the roles directory exists, if not create it
     $rolesDN = "ou=roles,o={$orgRDN}," . $LDAP['org_dn'];
     $rolesDirExists = @ldap_read($ldap, $rolesDN, '(objectClass=*)', ['dn']);
@@ -214,7 +310,7 @@ function addUserToOrgAdmin($orgName, $userDn) {
             'ou' => 'roles',
             'description' => 'Roles for organization ' . $orgName
         ];
-        
+
         $createRolesDir = @ldap_add($ldap, $rolesDN, $rolesDirEntry);
         if (!$createRolesDir) {
             $err = ldap_error($ldap);
@@ -223,7 +319,7 @@ function addUserToOrgAdmin($orgName, $userDn) {
             return [false, "Failed to create roles directory: $err"];
         }
     }
-    
+
     // First, check if the group exists, if not create it
     $search = @ldap_search($ldap, $groupDN, '(objectClass=*)', ['dn']);
     if (!$search || ldap_count_entries($ldap, $search) == 0) {
@@ -244,12 +340,12 @@ function addUserToOrgAdmin($orgName, $userDn) {
         ldap_close($ldap);
         return [true, "User added to organization admin group"];
     }
-    
+
     // Add user to existing group
     $modifications = ['member' => $userDn];
     $result = ldap_mod_add($ldap, $groupDN, $modifications);
     ldap_close($ldap);
-    
+
     if ($result) {
         return [true, "User added to organization admin group"];
     } else {
@@ -265,10 +361,11 @@ function addUserToOrgAdmin($orgName, $userDn) {
  * @param array $orgData Organization data to update
  * @return bool Success status
  */
-function updateOrganization($orgIdentifier, $orgData) {
+function updateOrganization($orgIdentifier, $orgData)
+{
     global $LDAP;
     $ldap = open_ldap_connection();
-    
+
     // Determine if we're using UUID or name-based lookup
     if ($LDAP['use_uuid_identification'] && is_valid_uuid($orgIdentifier)) {
         // UUID-based lookup
@@ -282,7 +379,7 @@ function updateOrganization($orgIdentifier, $orgData) {
         // Name-based lookup
         $org_dn = "o=" . ldap_escape($orgIdentifier, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
     }
-    
+
     // Prepare modifications
     $modifications = [];
     foreach ($orgData as $attr => $value) {
@@ -290,15 +387,15 @@ function updateOrganization($orgIdentifier, $orgData) {
             $modifications[$attr] = $value;
         }
     }
-    
+
     if (empty($modifications)) {
         ldap_close($ldap);
         return true; // Nothing to update
     }
-    
+
     // Perform the update
     $result = @ldap_modify($ldap, $org_dn, $modifications);
-    
+
     if ($result) {
         ldap_close($ldap);
         return true;
@@ -311,16 +408,17 @@ function updateOrganization($orgIdentifier, $orgData) {
     }
 }
 
-function removeUserFromOrgAdmin($orgName, $userDn) {
+function removeUserFromOrgAdmin($orgName, $userDn)
+{
     global $LDAP;
     $ldap = open_ldap_connection();
-    
+
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
     $groupDN = "cn={$LDAP['org_admin_role']},ou=roles,o={$orgRDN}," . $LDAP['org_dn'];
-    
+
     $modifications = ['member' => $userDn];
     $result = ldap_mod_del($ldap, $groupDN, $modifications);
-    
+
     if ($result) {
         ldap_close($ldap);
         return [true, "User removed from organization admin group"];
@@ -333,13 +431,14 @@ function removeUserFromOrgAdmin($orgName, $userDn) {
     }
 }
 
-function getOrganizationUsers($orgName) {
+function getOrganizationUsers($orgName)
+{
     global $LDAP;
     $ldap = open_ldap_connection();
-    
+
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
     $usersDN = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
-    
+
     // First check if the users DN exists before searching
     $dnExists = @ldap_read($ldap, $usersDN, '(objectClass=*)', ['dn']);
     if (!$dnExists) {
@@ -347,10 +446,14 @@ function getOrganizationUsers($orgName) {
         ldap_close($ldap);
         return [];
     }
-    
-    $search = @ldap_search($ldap, $usersDN, '(objectClass=inetOrgPerson)', 
-        ['uid', 'cn', 'sn', 'givenName', 'mail', 'description', 'organization', 'entryUUID']);
-    
+
+    $search = @ldap_search(
+        $ldap,
+        $usersDN,
+        '(objectClass=inetOrgPerson)',
+        ['uid', 'cn', 'sn', 'givenName', 'mail', 'description', 'organization', 'entryUUID']
+    );
+
     if (!$search) {
         // Log the error but don't show it to the user
         $error_msg = ldap_error($ldap);
@@ -358,13 +461,13 @@ function getOrganizationUsers($orgName) {
         error_log("getOrganizationUsers: LDAP search failed for DN: $usersDN. Error: " . $error_msg);
         return [];
     }
-    
+
     $entries = ldap_get_entries($ldap, $search);
-    
+
     // Get all organization admin members in one query
     $org_admin_members = [];
     $org_admin_group_dn = "cn={$LDAP['org_admin_role']},ou=roles,o={$orgRDN}," . $LDAP['org_dn'];
-    
+
     // Check if the org admin group exists
     $group_exists = @ldap_read($ldap, $org_admin_group_dn, '(objectClass=groupOfNames)', ['member']);
     if ($group_exists) {
@@ -375,19 +478,19 @@ function getOrganizationUsers($orgName) {
             }
         }
     }
-    
+
     ldap_close($ldap);
-    
+
     $users = [];
     for ($i = 0; $i < $entries['count']; $i++) {
         $user = $entries[$i];
-        
+
         // Determine the actual role by checking if user is in the admin group
         $actual_role = 'user'; // Default role
         if (in_array($user['dn'], $org_admin_members)) {
             $actual_role = $LDAP['org_admin_role'];
         }
-        
+
         $users[] = [
             'dn' => $user['dn'],
             'uid' => isset($user['uid'][0]) ? $user['uid'][0] : '',
@@ -400,19 +503,20 @@ function getOrganizationUsers($orgName) {
             'entryUUID' => isset($user['entryuuid'][0]) ? $user['entryuuid'][0] : ''
         ];
     }
-    
+
     return $users;
 }
 
 
 
-function isUserOrgAdmin($orgName, $userDn) {
+function isUserOrgAdmin($orgName, $userDn)
+{
     global $LDAP;
     $ldap = open_ldap_connection();
-    
+
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
     $groupDN = "cn={$LDAP['org_admin_role']},ou=roles,o={$orgRDN}," . $LDAP['org_dn'];
-    
+
     // First check if the group DN exists before searching
     $dnExists = @ldap_read($ldap, $groupDN, '(objectClass=*)', ['dn']);
     if (!$dnExists) {
@@ -420,15 +524,16 @@ function isUserOrgAdmin($orgName, $userDn) {
         ldap_close($ldap);
         return false;
     }
-    
+
     $search = @ldap_search($ldap, $groupDN, '(member=' . ldap_escape($userDn, '', LDAP_ESCAPE_FILTER) . ')', ['dn']);
     $isMember = $search && ldap_count_entries($ldap, $search) > 0;
-    
+
     ldap_close($ldap);
     return $isMember;
 }
 
-function isUserOrgManager($orgName, $userDn) {
+function isUserOrgManager($orgName, $userDn)
+{
     // Alias for isUserOrgAdmin - both refer to the same role
     return isUserOrgAdmin($orgName, $userDn);
 }
@@ -439,10 +544,11 @@ function isUserOrgManager($orgName, $userDn) {
  * @param array $userData User data to update
  * @return bool Success status
  */
-function updateUser($userIdentifier, $userData) {
+function updateUser($userIdentifier, $userData)
+{
     global $LDAP;
     $ldap = open_ldap_connection();
-    
+
     // Determine if we're using UUID or DN-based lookup
     if ($LDAP['use_uuid_identification'] && is_valid_uuid($userIdentifier)) {
         // UUID-based lookup
@@ -456,7 +562,7 @@ function updateUser($userIdentifier, $userData) {
         // DN-based lookup
         $user_dn = $userIdentifier;
     }
-    
+
     // Prepare modifications
     $modifications = [];
     foreach ($userData as $attr => $value) {
@@ -464,15 +570,15 @@ function updateUser($userIdentifier, $userData) {
             $modifications[$attr] = $value;
         }
     }
-    
+
     if (empty($modifications)) {
         ldap_close($ldap);
         return true; // Nothing to update
     }
-    
+
     // Perform the update
     $result = @ldap_modify($ldap, $user_dn, $modifications);
-    
+
     if ($result) {
         ldap_close($ldap);
         return true;
@@ -490,10 +596,11 @@ function updateUser($userIdentifier, $userData) {
  * @param string $userIdentifier User UUID or DN
  * @return bool Success status
  */
-function deleteUser($userIdentifier) {
+function deleteUser($userIdentifier)
+{
     global $LDAP;
     $ldap = open_ldap_connection();
-    
+
     // Determine if we're using UUID or DN-based lookup
     if ($LDAP['use_uuid_identification'] && is_valid_uuid($userIdentifier)) {
         // UUID-based lookup
@@ -507,7 +614,7 @@ function deleteUser($userIdentifier) {
         // DN-based lookup
         $user_dn = $userIdentifier;
     }
-    
+
     // Remove user from all groups before deleting the user account
     $group_cleanup_success = ldap_remove_user_from_all_groups($ldap, $user_dn);
     if (!$group_cleanup_success) {
@@ -517,7 +624,7 @@ function deleteUser($userIdentifier) {
 
     // Perform the deletion
     $result = @ldap_delete($ldap, $user_dn);
-    
+
     if ($result) {
         ldap_close($ldap);
         return true;
@@ -535,14 +642,15 @@ function deleteUser($userIdentifier) {
  * @param array $userData User data from the form
  * @return array [success, message]
  */
-function createUserAccount($userData) {
+function createUserAccount($userData)
+{
     global $LDAP;
     $ldap = open_ldap_connection();
-    
+
     try {
         // Determine if this is a system user or organization user
         $is_system_user = in_array($userData['userRole'], [$LDAP['admin_role'], 'maintainer']);
-        
+
         if ($is_system_user) {
             // Create system user (administrator/maintainer)
             return createSystemUser($ldap, $userData);
@@ -562,18 +670,19 @@ function createUserAccount($userData) {
  * @param array $userData User data
  * @return array [success, message]
  */
-function createSystemUser($ldap, $userData) {
+function createSystemUser($ldap, $userData)
+{
     global $LDAP;
-    
+
     // System users go directly under the people DN
     $user_dn = "uid=" . ldap_escape($userData['mail'], '', LDAP_ESCAPE_DN) . "," . $LDAP['people_dn'];
-    
+
     // Check if user already exists
     $search = @ldap_search($ldap, $LDAP['people_dn'], "(uid=" . ldap_escape($userData['mail'], '', LDAP_ESCAPE_FILTER) . ")");
     if ($search && ldap_count_entries($ldap, $search) > 0) {
         return [false, "User with email {$userData['mail']} already exists"];
     }
-    
+
     // Prepare user attributes
     $user_attributes = [
         'objectclass' => ['top', 'person', 'organizationalPerson', 'inetOrgPerson'],
@@ -585,19 +694,19 @@ function createSystemUser($ldap, $userData) {
         'userPassword' => $userData['userPassword'], // Password is already hashed
         'description' => $userData['userRole'] // Role is stored in description
     ];
-    
+
     // Add optional fields
     if (!empty($userData['telephoneNumber'])) {
         $user_attributes['telephoneNumber'] = $userData['telephoneNumber'];
     }
-    
+
     // Create the user
     $result = @ldap_add($ldap, $user_dn, $user_attributes);
     if (!$result) {
         $error = ldap_error($ldap);
         return [false, "Failed to create system user: $error"];
     }
-    
+
     // Add user to the appropriate role group
     $role_group_dn = "cn={$userData['userRole']}," . $LDAP['roles_dn'];
     $modify = @ldap_mod_add($ldap, $role_group_dn, ['member' => $user_dn]);
@@ -605,7 +714,7 @@ function createSystemUser($ldap, $userData) {
         // Log the warning but don't fail the user creation
         error_log("Warning: Failed to add user to role group {$userData['userRole']}: " . ldap_error($ldap));
     }
-    
+
     return [true, "System user created successfully"];
 }
 
@@ -615,26 +724,30 @@ function createSystemUser($ldap, $userData) {
  * @param array $userData User data
  * @return array [success, message]
  */
-function createOrganizationUser($ldap, $userData) {
+function createOrganizationUser($ldap, $userData)
+{
     global $LDAP;
-    
+
     // Organization users go under their organization
     $org_name = $userData['o'];
     $user_dn = "uid=" . ldap_escape($userData['mail'], '', LDAP_ESCAPE_DN) . ",ou=people,o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
-    
+
     // Check if organization exists
     $org_search = @ldap_search($ldap, $LDAP['org_dn'], "o=" . ldap_escape($org_name, '', LDAP_ESCAPE_FILTER));
     if (!$org_search || ldap_count_entries($ldap, $org_search) == 0) {
         return [false, "Organization '$org_name' does not exist"];
     }
-    
+
     // Check if user already exists in this organization
-    $user_search = @ldap_search($ldap, "ou=people,o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'], 
-                               "(uid=" . ldap_escape($userData['mail'], '', LDAP_ESCAPE_FILTER) . ")");
+    $user_search = @ldap_search(
+        $ldap,
+        "ou=people,o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'],
+        "(uid=" . ldap_escape($userData['mail'], '', LDAP_ESCAPE_FILTER) . ")"
+    );
     if ($user_search && ldap_count_entries($ldap, $user_search) > 0) {
         return [false, "User with email {$userData['mail']} already exists in organization '$org_name'"];
     }
-    
+
     // Ensure the users directory exists
     $users_dn = "ou=people,o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
     $usersDirExists = @ldap_read($ldap, $users_dn, '(objectClass=*)', ['dn']);
@@ -644,13 +757,13 @@ function createOrganizationUser($ldap, $userData) {
             'ou' => 'people',
             'description' => "Users for organization $org_name"
         ];
-        
+
         $createUsersDir = @ldap_add($ldap, $users_dn, $usersDirEntry);
         if (!$createUsersDir) {
             return [false, "Failed to create users directory for organization '$org_name'"];
         }
     }
-    
+
     // Prepare user attributes
     $user_attributes = [
         'objectclass' => ['top', 'person', 'organizationalPerson', 'inetOrgPerson'],
@@ -663,26 +776,26 @@ function createOrganizationUser($ldap, $userData) {
         'o' => $org_name,
         'description' => $userData['userRole'] // Role is stored in description
     ];
-    
+
     // Add optional fields
     if (!empty($userData['telephoneNumber'])) {
         $user_attributes['telephoneNumber'] = $userData['telephoneNumber'];
     }
-    
+
     // Create the user
     $result = @ldap_add($ldap, $user_dn, $user_attributes);
     if (!$result) {
         $error = ldap_error($ldap);
         return [false, "Failed to create organization user: $error"];
     }
-    
+
     // If user is an organization admin, add them to the org_admin role
     // IMPORTANT: Check organization admin role independently, regardless of role value conflicts
     if ($userData['userRole'] === $LDAP['org_admin_role']) {
         // Add user to organization admin role
         $org_roles_dn = "ou=roles,o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
         $org_admin_group_dn = "cn={$LDAP['org_admin_role']},$org_roles_dn";
-        
+
         // Ensure the org_admin group exists
         $groupExists = @ldap_read($ldap, $org_admin_group_dn, '(objectClass=*)', ['dn']);
         if (!$groupExists) {
@@ -699,7 +812,6 @@ function createOrganizationUser($ldap, $userData) {
             @ldap_mod_add($ldap, $org_admin_group_dn, ['member' => $user_dn]);
         }
     }
-    
+
     return [true, "Organization user created successfully"];
 }
-

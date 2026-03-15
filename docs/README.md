@@ -27,6 +27,7 @@ Welcome to the LDAP User Manager documentation. This directory contains comprehe
 - **[Apache Setup](deployment/apache-setup.md)** - Apache server setup guide
 - **[URL Routing](deployment/url-routing.md)** - Clean URLs and routing system
 - **[AJAX Handler](deployment/ajax-handler.md)** - Dynamic user data fetching
+- **[Export Endpoint](deployment/export-endpoint.md)** - Member organizations export (TYPO3, Bearer auth)
 - **[Troubleshooting](deployment/troubleshooting.md)** - Common issues and solutions
 - **[Monitoring](deployment/monitoring.md)** - System monitoring and alerting
 
@@ -93,11 +94,12 @@ Welcome to the LDAP User Manager documentation. This directory contains comprehe
 - Configuration references
 - Troubleshooting guide
 - OIDC integration guide
-- LDAP structure documentation
+- LDAP structure documentation (including status groups: member/disabled orgs and users)
 - Backup and monitoring guides
 - Apache configuration details
 - URL routing documentation
 - AJAX handler documentation
+- Export endpoint (member organizations, Bearer auth, TYPO3 formats)
 - Feature overview
 - Security best practices
 - Development setup guide

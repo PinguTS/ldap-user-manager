@@ -16,4 +16,29 @@ ou: people
 
 dn: ou=roles,dc=example,dc=com
 objectClass: organizationalUnit
-ou: roles 
+ou: roles
+
+# Placeholder member for empty groupOfNames (required by schema)
+dn: cn=placeholder,ou=roles,dc=example,dc=com
+objectClass: organizationalRole
+cn: placeholder
+description: Placeholder for empty status groups
+
+# Status groups (membership and disabled flags)
+dn: cn=memberOrganizations,ou=roles,dc=example,dc=com
+objectClass: groupOfNames
+cn: memberOrganizations
+description: Organizations with active membership status
+member: cn=placeholder,ou=roles,dc=example,dc=com
+
+dn: cn=disabledOrganizations,ou=roles,dc=example,dc=com
+objectClass: groupOfNames
+cn: disabledOrganizations
+description: Organizations that have been deactivated
+member: cn=placeholder,ou=roles,dc=example,dc=com
+
+dn: cn=disabledUsers,ou=roles,dc=example,dc=com
+objectClass: groupOfNames
+cn: disabledUsers
+description: User accounts disabled at the application level
+member: cn=placeholder,ou=roles,dc=example,dc=com

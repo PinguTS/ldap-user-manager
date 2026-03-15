@@ -4,20 +4,22 @@ This document explains how to properly configure roles and access control for th
 
 ## 🎯 **Role Configuration Overview**
 
-The system uses role-based access control with two main role types:
+The system uses role-based access control with four role levels:
 
 - **Global Administrators**: Full system access
 - **System Maintainers**: Can manage organizations and users
-- **Organization Administrators**: Manage users within their organization
-- **Regular Users**: Self-service account management
+- **Organization Administrators**: Manage users within their organization only
+- **Regular Users**: Self-service account management (e.g. change own password)
 
 ## 🔧 **Configuration Variables**
 
 ### **Role Values**
+All four role names define the LDAP group CNs under `ou=roles` (global roles) or under each organization's `ou=roles` (org admin). They must be unique.
 ```bash
-# Group names define the LDAP groups under ou=roles
-LDAP_ADMIN_ROLE=administrators
-LDAP_MAINTAINER_ROLE=maintainers
+LDAP_ADMIN_ROLE=administrators      # Global administrators (default)
+LDAP_MAINTAINER_ROLE=maintainers    # Global maintainers (default)
+LDAP_ORG_ADMIN_ROLE=org_admin       # Organization administrators (default)
+LDAP_USER_ROLE=user                 # Regular users (default)
 ```
 
 ## ⚠️ **Important Configuration Rules**
@@ -89,6 +91,6 @@ LDAP_USER_ROLE=user
 
 ## 📚 **Related Documentation**
 
-- [Configuration Variables](CONFIGURATION_VARIABLES.md) - Complete environment variable reference
-- [LDAP Configuration](LDAP-CONFIGURATION.md) - LDAP schema and setup
-- [Access Control](docs/ACCESS_CONTROL.md) - How roles and permissions work
+- [Environment Variables](environment-variables.md) - Complete configuration reference
+- [LDAP Structure](../ldap-structure.md) - Directory structure and role groups
+- [Security Best Practices](../security/best-practices.md) - Security recommendations

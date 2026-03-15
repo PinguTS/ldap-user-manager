@@ -4,6 +4,7 @@ ldap-user-manager.iml
 
 # Local development
 local.dev
+vendor/
 
 # Build configuration
 buildkit.toml
@@ -21,6 +22,9 @@ ldap_data/
 ldap_config/
 caddy_data/
 caddy_config/
+
+# PHPUnit
+.phpunit.cache/
 
 # OS files
 .DS_Store

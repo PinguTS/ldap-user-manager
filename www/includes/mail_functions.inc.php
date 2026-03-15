@@ -1,9 +1,8 @@
 <?php
+
 declare(strict_types=1);
 
-include_once "$PHPMailer_PATH/PHPMailer.php";
-include_once "$PHPMailer_PATH/SMTP.php";
-include_once "$PHPMailer_PATH/Exception.php";
+// PHPMailer loaded via Composer autoload (see config.inc.php)
 
 #Default email text
 
@@ -25,64 +24,69 @@ You should log into <a href="{change_password_url}">{change_password_url}</a> an
 EoRP;
 
 
-function parse_mail_text($template,$password,$login,$first_name,$last_name) {
+function parse_mail_text($template, $password, $login, $first_name, $last_name)
+{
 
-  global $ORGANISATION_NAME, $SITE_PROTOCOL, $SERVER_HOSTNAME, $SERVER_PATH;
+    global $ORGANISATION_NAME, $SITE_PROTOCOL, $SERVER_HOSTNAME, $SERVER_PATH;
 
-  $template = str_replace("{password}", $password, $template);
-  $template = str_replace("{login}", $login, $template);
-  $template = str_replace("{first_name}", $first_name, $template);
-  $template = str_replace("{last_name}", $last_name, $template);
+    $template = str_replace("{password}", $password, $template);
+    $template = str_replace("{login}", $login, $template);
+    $template = str_replace("{first_name}", $first_name, $template);
+    $template = str_replace("{last_name}", $last_name, $template);
 
-  $template = str_replace("{organisation}", $ORGANISATION_NAME, $template);
-  $template = str_replace("{site_url}", "{$SITE_PROTOCOL}{$SERVER_HOSTNAME}{$SERVER_PATH}", $template);
-  $template = str_replace("{change_password_url}", "{$SITE_PROTOCOL}{$SERVER_HOSTNAME}{$SERVER_PATH}change_password", $template);
+    $template = str_replace("{organisation}", $ORGANISATION_NAME, $template);
+    $template = str_replace("{site_url}", "{$SITE_PROTOCOL}{$SERVER_HOSTNAME}{$SERVER_PATH}", $template);
+    $template = str_replace("{change_password_url}", "{$SITE_PROTOCOL}{$SERVER_HOSTNAME}{$SERVER_PATH}change_password", $template);
 
-  return $template;
-
+    return $template;
 }
 
-function send_email($recipient_email,$recipient_name,$subject,$body) {
+function send_email($recipient_email, $recipient_name, $subject, $body)
+{
 
-  global $EMAIL, $SMTP, $log_prefix;
+    global $EMAIL, $SMTP, $log_prefix;
 
-  $mail = new PHPMailer\PHPMailer\PHPMailer();
-  $mail->CharSet = 'UTF-8';
-  $mail->isSMTP();
+    $mail = new PHPMailer\PHPMailer\PHPMailer();
+    $mail->CharSet = 'UTF-8';
+    $mail->isSMTP();
 
-  $mail->SMTPDebug = $SMTP['debug_level'];
-  $mail->Debugoutput = function($message, $level) { error_log("$log_prefix SMTP (level $level): $message"); };
+    $mail->SMTPDebug = $SMTP['debug_level'];
+    $mail->Debugoutput = function ($message, $level) {
+        error_log("$log_prefix SMTP (level $level): $message");
+    };
 
-  $mail->Host = $SMTP['host'];
-  $mail->Port = $SMTP['port'];
+    $mail->Host = $SMTP['host'];
+    $mail->Port = $SMTP['port'];
 
-  if (isset($SMTP['helo'])) {
-    $mail->Helo = $SMTP['helo'];
-  }
+    if (isset($SMTP['helo'])) {
+        $mail->Helo = $SMTP['helo'];
+    }
 
-  if (isset($SMTP['user'])) {
-    $mail->SMTPAuth = true;
-    $mail->Username = $SMTP['user'];
-    $mail->Password = $SMTP['pass'];
-  }
+    if (isset($SMTP['user'])) {
+        $mail->SMTPAuth = true;
+        $mail->Username = $SMTP['user'];
+        $mail->Password = $SMTP['pass'];
+    }
 
-  if ($SMTP['tls'] == TRUE) { $mail->SMTPSecure = 'tls'; }
-  if ($SMTP['ssl'] == TRUE) { $mail->SMTPSecure = 'ssl'; }
+    if ($SMTP['tls'] == true) {
+        $mail->SMTPSecure = 'tls';
+    }
+    if ($SMTP['ssl'] == true) {
+        $mail->SMTPSecure = 'ssl';
+    }
 
-  $mail->SMTPAutoTLS = false;
-  $mail->setFrom($EMAIL['from_address'], $EMAIL['from_name']);
-  $mail->addAddress($recipient_email, $recipient_name);
-  $mail->Subject = $subject;
-  $mail->Body = $body;
-  $mail->IsHTML(true);
+    $mail->SMTPAutoTLS = false;
+    $mail->setFrom($EMAIL['from_address'], $EMAIL['from_name']);
+    $mail->addAddress($recipient_email, $recipient_name);
+    $mail->Subject = $subject;
+    $mail->Body = $body;
+    $mail->IsHTML(true);
 
-  if (!$mail->Send())  {
-    error_log("$log_prefix SMTP: Unable to send email: " . $mail->ErrorInfo);
-    return FALSE;
-  }
-  else {
-    error_log("$log_prefix SMTP: sent an email to $recipient_email ($recipient_name)");
-    return TRUE;
-  }
-
+    if (!$mail->Send()) {
+        error_log("$log_prefix SMTP: Unable to send email: " . $mail->ErrorInfo);
+        return false;
+    } else {
+        error_log("$log_prefix SMTP: sent an email to $recipient_email ($recipient_name)");
+        return true;
+    }
 }

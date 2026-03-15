@@ -1,4 +1,10 @@
-FROM php:8-apache
+# Composer stage: install PHP dependencies
+FROM composer:2 AS builder
+WORKDIR /app
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-scripts --no-interaction
+
+FROM php:8.2-apache
 
 RUN set -eux; \
     apt-get update; \
@@ -19,11 +25,14 @@ RUN set -eux; \
     docker-php-ext-configure ldap --with-libdir="lib/${arch}"; \
     docker-php-ext-install -j"$(nproc)" ldap
 
-# PHPMailer holen
-ADD https://github.com/PHPMailer/PHPMailer/archive/refs/tags/v6.3.0.tar.gz /tmp
-
 # Enable Apache modules for security, performance, and URL rewriting
 RUN a2enmod rewrite ssl headers expires deflate && a2dissite 000-default default-ssl
+
+# Suppress "Could not reliably determine the server's fully qualified domain name"
+RUN echo "ServerName localhost" > /etc/apache2/conf-available/servername.conf && a2enconf servername
+
+# Set PHP date.timezone to avoid "Invalid date.timezone value ''" startup warning
+RUN echo "date.timezone = UTC" > /usr/local/etc/php/conf.d/99-timezone.ini
 
 # Copy Apache configuration
 COPY apache/ /etc/apache2/conf-available/
@@ -32,7 +41,11 @@ EXPOSE 80
 EXPOSE 443
 
 COPY www/ /opt/ldap_user_manager
-RUN tar -xzf /tmp/v6.3.0.tar.gz -C /opt && mv /opt/PHPMailer-6.3.0 /opt/PHPMailer
+COPY --from=builder /app/vendor /opt/ldap_user_manager/vendor
+
+# Default session directory for app session files (writable by www-data; override with SESSION_SAVE_PATH)
+ENV SESSION_SAVE_PATH=/var/lib/ldap_user_manager/sessions
+RUN mkdir -p "$SESSION_SAVE_PATH" && chown www-data:www-data "$SESSION_SAVE_PATH"
 
 RUN chown -R www-data:www-data /opt/ldap_user_manager
 RUN find /opt/ldap_user_manager -type d -exec chmod 755 {} \;
