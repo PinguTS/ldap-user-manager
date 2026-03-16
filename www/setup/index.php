@@ -6,6 +6,7 @@ set_include_path(".:" . __DIR__ . "/../includes/");
 
 include_once "web_functions.inc.php";
 include_once "ldap_functions.inc.php";
+include_once __DIR__ . '/bootstrap_setup.inc.php';
 
 // CRITICAL: Check for role configuration conflicts before allowing setup
 // This prevents setup completion with broken access control configuration

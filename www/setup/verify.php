@@ -6,6 +6,8 @@ set_include_path(".:" . __DIR__ . "/../includes/");
 
 include_once "web_functions.inc.php";
 include_once "ldap_functions.inc.php";
+include_once "setup_verify.inc.php";
+include_once __DIR__ . '/bootstrap_setup.inc.php';
 
 validate_setup_cookie();
 set_page_access("setup");
@@ -13,14 +15,19 @@ set_page_access("setup");
 render_header("$ORGANISATION_NAME account manager setup verification");
 
 $ldap_connection = open_ldap_connection();
-
-# Track what's missing to determine if we need to show setup options
-$missing_components = array();
+if ($ldap_connection === false) {
+    print "<div class='alert alert-danger'>✗ Cannot connect to LDAP server</div>";
+    render_footer();
+    exit;
+}
 
 # Setup debug logging
 if ($SETUP_DEBUG == true) {
     error_log("$log_prefix SETUP_DEBUG: Starting verification process", 0);
 }
+
+$result = run_setup_verification($ldap_connection);
+$missing_components = $result['missing_components'];
 
 ?>
 <div class='container'>
@@ -31,134 +38,78 @@ if ($SETUP_DEBUG == true) {
 
 <?php
 
-# Test 1: Check if OUs exist
+# Test 1: Organizational Units
 print "<li class='list-group-item'><strong>Test 1: Organizational Units</strong></li>\n";
-
-$ou_tests = array(
-            $LDAP['org_dn'] => "Organizations OU",
-    "ou=people,{$LDAP['base_dn']}" => "People OU",
-    $LDAP['roles_dn'] => "Roles OU"
-);
-
-foreach ($ou_tests as $ou_dn => $ou_name) {
-    $ou_search = ldap_read($ldap_connection, $ou_dn, "(objectClass=*)", array("dn"));
-    if ($ou_search && ldap_count_entries($ldap_connection, $ou_search) > 0) {
+foreach ($result['ou_results'] as $ou_name => $ok) {
+    if ($ok) {
         print "<li class='list-group-item list-group-item-success'>✓ {$ou_name} exists</li>\n";
     } else {
         print "<li class='list-group-item list-group-item-danger'>✗ {$ou_name} missing</li>\n";
-        $missing_components[] = 'ou';
     }
 }
 
-# Test 2: Check if system users exist
+# Test 2: System Users
 print "<li class='list-group-item'><strong>Test 2: System Users</strong></li>\n";
-
-$user_tests = array(
-            "(&(objectclass=inetOrgPerson)(description={$LDAP['admin_role']}))" => "Administrator User",
-            "(&(objectclass=inetOrgPerson)(description={$LDAP['maintainer_role']}))" => "Maintainer User"
-);
-
-foreach ($user_tests as $filter => $user_name) {
-    $user_search = ldap_search($ldap_connection, "ou=people,{$LDAP['base_dn']}", $filter);
-    if ($user_search && ldap_count_entries($ldap_connection, $user_search) > 0) {
-        $entries = ldap_get_entries($ldap_connection, $user_search);
-        $email = $entries[0]['mail'][0];
-        print "<li class='list-group-item list-group-item-success'>✓ {$user_name} exists ({$email})</li>\n";
-    } else {
-        print "<li class='list-group-item list-group-item-danger'>✗ {$user_name} missing</li>\n";
-        $missing_components[] = 'user';
-    }
+if ($result['admin_exists']) {
+    $admin_attrs = $result['admin_attrs'];
+    $admin_mail = $admin_attrs['mail'][0] ?? null;
+    $admin_uid = $admin_attrs['uid'][0] ?? null;
+    $label = $admin_mail ?: ($admin_uid ?: $result['admin_member_dn']);
+    $label = htmlspecialchars((string) $label);
+    print "<li class='list-group-item list-group-item-success'>✓ Administrator User exists ({$label})</li>\n";
+} else {
+    print "<li class='list-group-item list-group-item-danger'>✗ Administrator User missing</li>\n";
+}
+if ($result['maintainer_exists']) {
+    $maintainer_attrs = $result['maintainer_attrs'];
+    $maintainer_mail = $maintainer_attrs['mail'][0] ?? null;
+    $maintainer_uid = $maintainer_attrs['uid'][0] ?? null;
+    $label = $maintainer_mail ?: ($maintainer_uid ?: $result['maintainer_member_dn']);
+    $label = htmlspecialchars((string) $label);
+    print "<li class='list-group-item list-group-item-success'>✓ Maintainer User exists ({$label})</li>\n";
+} else {
+    print "<li class='list-group-item list-group-item-warning'>⚠ Maintainer User missing (optional)</li>\n";
 }
 
-# Test 3: Check if role groups exist
+# Test 3: Role Groups
 print "<li class='list-group-item'><strong>Test 3: Role Groups</strong></li>\n";
+$admin_group_ok = $result['admin_group'] !== null;
+$maintainer_group_ok = $result['maintainer_group'] !== null;
+print $admin_group_ok ? "<li class='list-group-item list-group-item-success'>✓ Administrators Group exists</li>\n" : "<li class='list-group-item list-group-item-danger'>✗ Administrators Group missing</li>\n";
+print $maintainer_group_ok ? "<li class='list-group-item list-group-item-success'>✓ Maintainers Group exists</li>\n" : "<li class='list-group-item list-group-item-danger'>✗ Maintainers Group missing</li>\n";
 
-$role_tests = array(
-            "(&(objectclass=groupOfNames)(cn={$LDAP['admin_role']}))" => "Administrators Group",
-            "(&(objectclass=groupOfNames)(cn={$LDAP['maintainer_role']}))" => "Maintainers Group"
-);
-
-foreach ($role_tests as $filter => $role_name) {
-    $role_search = ldap_search($ldap_connection, $LDAP['roles_dn'], $filter);
-    if ($role_search && ldap_count_entries($ldap_connection, $role_search) > 0) {
-        print "<li class='list-group-item list-group-item-success'>✓ {$role_name} exists</li>\n";
-    } else {
-        print "<li class='list-group-item list-group-item-danger'>✗ {$role_name} missing</li>\n";
-        $missing_components[] = 'role';
-    }
-}
-
-# Test 4: Check role memberships
+# Test 4: Role Memberships
 print "<li class='list-group-item'><strong>Test 4: Role Memberships</strong></li>\n";
-
-# Check administrators group membership
-$admin_group_search = ldap_search($ldap_connection, $LDAP['roles_dn'], "(&(objectclass=groupOfNames)(cn={$LDAP['admin_role']}))");
-if ($admin_group_search && ldap_count_entries($ldap_connection, $admin_group_search) > 0) {
-    $admin_group_entries = ldap_get_entries($ldap_connection, $admin_group_search);
-    $admin_group = $admin_group_entries[0];
-
-    if (isset($admin_group['member'])) {
-        $member_count = $admin_group['member']['count'];
-        print "<li class='list-group-item list-group-item-success'>✓ Administrators group has {$member_count} member(s)</li>\n";
-
-        for ($i = 0; $i < $member_count; $i++) {
-            $member_dn = $admin_group['member'][$i];
-            print "<li class='list-group-item list-group-item-info'>  - {$member_dn}</li>\n";
-        }
-    } else {
-        print "<li class='list-group-item list-group-item-warning'>⚠ Administrators group has no members</li>\n";
+if ($result['admin_group'] !== null && isset($result['admin_group']['member'])) {
+    $member_count = $result['admin_group']['member']['count'];
+    print "<li class='list-group-item list-group-item-success'>✓ Administrators group has {$member_count} member(s)</li>\n";
+    for ($i = 0; $i < $member_count; $i++) {
+        $member_dn = $result['admin_group']['member'][$i];
+        print "<li class='list-group-item list-group-item-info'>  - {$member_dn}</li>\n";
     }
 } else {
-    print "<li class='list-group-item list-group-item-danger'>✗ Cannot find administrators group</li>\n";
+    print $result['admin_group'] !== null ? "<li class='list-group-item list-group-item-warning'>⚠ Administrators group has no members</li>\n" : "<li class='list-group-item list-group-item-danger'>✗ Cannot find administrators group</li>\n";
 }
-
-# Check maintainers group membership
-$maintainer_group_search = ldap_search($ldap_connection, $LDAP['roles_dn'], "(&(objectclass=groupOfNames)(cn=maintainers))");
-if ($maintainer_group_search && ldap_count_entries($ldap_connection, $maintainer_group_search) > 0) {
-    $maintainer_group_entries = ldap_get_entries($ldap_connection, $maintainer_group_search);
-    $maintainer_group = $maintainer_group_entries[0];
-
-    if (isset($maintainer_group['member'])) {
-        $member_count = $maintainer_group['member']['count'];
-        print "<li class='list-group-item list-group-item-success'>✓ Maintainers group has {$member_count} member(s)</li>\n";
-
-        for ($i = 0; $i < $member_count; $i++) {
-            $member_dn = $maintainer_group['member'][$i];
-            print "<li class='list-group-item list-group-item-info'>  - {$member_dn}</li>\n";
-        }
-    } else {
-        print "<li class='list-group-item list-group-item-warning'>⚠ Maintainers group has no members</li>\n";
+if ($result['maintainer_group'] !== null && isset($result['maintainer_group']['member'])) {
+    $member_count = $result['maintainer_group']['member']['count'];
+    print "<li class='list-group-item list-group-item-success'>✓ Maintainers group has {$member_count} member(s)</li>\n";
+    for ($i = 0; $i < $member_count; $i++) {
+        $member_dn = $result['maintainer_group']['member'][$i];
+        print "<li class='list-group-item list-group-item-info'>  - {$member_dn}</li>\n";
     }
 } else {
-    print "<li class='list-group-item list-group-item-danger'>✗ Cannot find maintainers group</li>\n";
+    print $result['maintainer_group'] !== null ? "<li class='list-group-item list-group-item-warning'>⚠ Maintainers group has no members</li>\n" : "<li class='list-group-item list-group-item-danger'>✗ Cannot find maintainers group</li>\n";
 }
 
-# Test 5: Test authentication
+# Test 5: Authentication Test
 print "<li class='list-group-item'><strong>Test 5: Authentication Test</strong></li>\n";
-
-    $admin_search = ldap_search($ldap_connection, "ou=people,{$LDAP['base_dn']}", "(&(objectclass=inetOrgPerson)(description={$LDAP['admin_role']}))");
-if ($admin_search && ldap_count_entries($ldap_connection, $admin_search) > 0) {
-    $admin_entries = ldap_get_entries($ldap_connection, $admin_search);
-    $admin_dn = $admin_entries[0]['dn'];
-
-    // Try to bind as admin user (this will test if the user can authenticate)
-    $test_connection = ldap_connect($LDAP['uri']);
-    if ($test_connection) {
-        ldap_set_option($test_connection, LDAP_OPT_PROTOCOL_VERSION, 3);
-        ldap_set_option($test_connection, LDAP_OPT_REFERRALS, 0);
-
-        // Note: We can't test actual password authentication without knowing the password
-        // But we can verify the user entry is valid
-        $user_read = ldap_read($test_connection, $admin_dn, "(objectClass=*)", array("uid", "cn", "mail"));
-        if ($user_read) {
-            print "<li class='list-group-item list-group-item-success'>✓ Administrator user entry is valid and readable</li>\n";
-        } else {
-            print "<li class='list-group-item list-group-item-warning'>⚠ Administrator user entry exists but may have issues</li>\n";
-        }
-
-        ldap_close($test_connection);
+if ($result['admin_exists'] && !empty($result['admin_member_dn'])) {
+    $admin_dn = $result['admin_member_dn'];
+    $user_read = @ldap_read($ldap_connection, $admin_dn, "(objectClass=*)", array("uid", "cn", "mail"));
+    if ($user_read && ldap_count_entries($ldap_connection, $user_read) > 0) {
+        print "<li class='list-group-item list-group-item-success'>✓ Administrator user entry is valid and readable</li>\n";
     } else {
-        print "<li class='list-group-item list-group-item-warning'>⚠ Cannot test user authentication (connection issue)</li>\n";
+        print "<li class='list-group-item list-group-item-warning'>⚠ Administrator user entry exists but may have issues</li>\n";
     }
 } else {
     print "<li class='list-group-item list-group-item-danger'>✗ Cannot find administrator user for authentication test</li>\n";
@@ -168,9 +119,8 @@ if ($admin_search && ldap_count_entries($ldap_connection, $admin_search) > 0) {
       </ul>
     </div>
   </div>
- 
+
 <?php
-# Check if we have missing components and show appropriate options
 if (!empty($missing_components)) {
     if ($SETUP_DEBUG == true) {
         error_log("$log_prefix SETUP_DEBUG: Missing components detected: " . implode(', ', array_unique($missing_components)), 0);
@@ -214,7 +164,8 @@ if (!empty($missing_components)) {
         error_log("$log_prefix SETUP_DEBUG: All components verified successfully", 0);
     }
 
-  # All components exist, show success message and completion options
+    set_setup_locked();
+
     print "<div class='card border-success'>\n";
     print "  <div class='card-header'>Setup Complete!</div>\n";
     print "  <div class='card-body'>\n";

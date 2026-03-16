@@ -187,6 +187,20 @@ fi
 env_file_replace
 
 ########################
+# If LDAP is reachable and passes setup verification, create the setup lock file
+# so /setup/ shows only the minimal "Setup complete" page. Skip in development
+# (ENVIRONMENT=development) so the setup wizard remains available. Best-effort:
+# do not fail container start if LDAP is not ready or verification fails.
+if [ "${ENVIRONMENT}" != "development" ] && [ -f /opt/ldap_user_manager/bin/verify-and-lock-setup.php ]; then
+  for attempt in 1 2 3; do
+    if php /opt/ldap_user_manager/bin/verify-and-lock-setup.php; then
+      break
+    fi
+    [ "$attempt" -lt 3 ] && sleep 5
+  done
+fi
+
+########################
 #Run Apache
 
 # first arg is `-f` or `--some-option`

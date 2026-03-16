@@ -143,6 +143,15 @@ export PASSWORD_STRENGTH_REQUIRE_SYMBOLS=FALSE
 4. **Check if it's accepted or rejected**
 5. **Adjust settings as needed**
 
+## 🔐 **Setup lock (after setup is complete)**
+
+Once LDAP setup verification succeeds, the `/setup/` area is locked: visitors see only a short "Setup complete" message and a link to the application login. No detailed LDAP information is shown.
+
+- **`LDAP_SETUP_LOCK_FILE`** – Path of the lock file (default: `/tmp/ldap_user_manager_setup_complete`). Set this to a persistent path in production (e.g. a volume mount) so the lock survives restarts.
+- **`LDAP_SETUP_LOCKED`** – Set to `false` to force-unlock the setup area (e.g. for development or to re-run the wizard). When `false`, the full setup flow is available even if the lock file exists.
+- **Re-enable setup**: Remove the lock file, or set `LDAP_SETUP_LOCKED=false`. There is no in-app unlock; this is intentional for security.
+- **Docker**: The container entrypoint runs a verification check on startup; if LDAP is reachable and passes the same checks as the web wizard, the setup lock file is created automatically (so you may see the setup area already locked after first start). This check is skipped when `ENVIRONMENT=development` so the setup wizard stays available.
+
 ## 📚 **Need More Details?**
 
 - **Full Configuration Guide**: [CONFIGURATION_VARIABLES.md](CONFIGURATION_VARIABLES.md)
