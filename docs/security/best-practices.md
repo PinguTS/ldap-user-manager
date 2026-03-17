@@ -20,7 +20,7 @@ Security is critical for any user management system. This guide covers:
 - **Multi-factor authentication**: Consider OIDC integration
 
 ### Rate Limiting Configuration
-The system includes built-in rate limiting to prevent brute force attacks:
+The system includes built-in rate limiting to prevent brute force attacks. In the current release this is **not configurable via environment variables** and is fixed to **5 attempts per 5 minutes**.
 
 ```bash
 # Rate limiting settings (configured in Caddy)
@@ -33,7 +33,7 @@ Lockout duration: 15 minutes
 ### Session Security
 ```bash
 # Session configuration
-Session timeout: 1 hour (3600 seconds)
+Session timeout: 60 minutes (default)
 Session regeneration: Enabled on login
 Secure cookies: Enabled
 HTTP-only cookies: Enabled

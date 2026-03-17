@@ -491,13 +491,13 @@ ldapsearch -x -b ou=people,dc=example,dc=com -D cn=admin,dc=example,dc=com -w yo
 - Main [README.md](README.md) for general setup and environment variables
 - [docs/ldap-structure.md](docs/ldap-structure.md) for detailed LDAP structure examples 
 
-The system supports fully configurable organization fields through environment variables. You can customize which fields are required, optional, or ignored when creating organizations.
+The system supports configurable organization fields through environment variables. You can customize which LDAP attributes are treated as required or optional when creating/editing organizations.
 
 ### Environment Variables
 
 ```bash
 # Required fields for organization creation (comma-separated LDAP attributes)
-export LDAP_ORG_REQUIRED_FIELDS="o,street,city,state,postalCode,country,telephoneNumber,labeledURI,mail"
+export LDAP_ORG_REQUIRED_FIELDS="o,telephoneNumber,labeledURI,mail"
 
 # Optional fields for organization creation (comma-separated LDAP attributes)
 export LDAP_ORG_OPTIONAL_FIELDS="description,businessCategory,postalAddress,facsimileTelephoneNumber"
@@ -512,20 +512,16 @@ If no environment variables are set, the system uses these defaults:
 
 **Required Fields:**
 - `o` - Organization name
-- `street` - Street address
-- `city` - City
-- `state` - State/Province
-- `postalCode` - Postal code
-- `country` - Country
+
+**Optional Fields:**
 - `telephoneNumber` - Phone number
 - `labeledURI` - Website URL
 - `mail` - Email address
-
-**Optional Fields:**
 - `description` - Organization description/status
 - `businessCategory` - Business category
-- `postalAddress` - Alternative postal address format
-- `facsimileTelephoneNumber` - Fax number
+- `postalAddress` - Postal address (composite value stored in LDAP)
+- `memberNumber` - Membership number (optional metadata)
+- `memberSince` - Membership since date (optional metadata)
 
 ### Custom Field Configuration Examples
 
@@ -537,34 +533,34 @@ export LDAP_ORG_OPTIONAL_FIELDS=""
 
 #### Extended Configuration (Additional Fields)
 ```bash
-export LDAP_ORG_REQUIRED_FIELDS="o,street,city,state,postalCode,country,telephoneNumber,mail"
-export LDAP_ORG_OPTIONAL_FIELDS="description,businessCategory,labeledURI,postalAddress,facsimileTelephoneNumber,seeAlso,st"
+export LDAP_ORG_REQUIRED_FIELDS="o,telephoneNumber,mail"
+export LDAP_ORG_OPTIONAL_FIELDS="description,businessCategory,labeledURI,postalAddress,facsimileTelephoneNumber"
 ```
 
 #### Custom Schema Configuration
 ```bash
-export LDAP_ORG_REQUIRED_FIELDS="o,streetAddress,locality,st,postalCode,c,telephoneNumber,mail"
-export LDAP_ORG_OPTIONAL_FIELDS="description,businessCategory,url,postalAddress,facsimileTelephoneNumber,seeAlso,ou"
+export LDAP_ORG_REQUIRED_FIELDS="o,telephoneNumber,mail"
+export LDAP_ORG_OPTIONAL_FIELDS="description,businessCategory,postalAddress,facsimileTelephoneNumber,labeledURI"
 ```
 
 ### Field Mapping
 
-The system automatically maps form field names to LDAP attributes:
+The system maps organization form fields to LDAP attributes. Address entry is collected via UI fields and persisted as a single composite `postalAddress` value.
 
 | Form Field | LDAP Attribute | Description |
 |------------|----------------|-------------|
 | `org_name` | `o` | Organization name |
-| `org_address` | `street` | Street address |
-| `org_city` | `city` | City |
-| `org_state` | `state` | State/Province |
-| `org_zip` | `postalCode` | Postal code |
-| `org_country` | `country` | Country |
+| `org_address` | `postalAddress` (composite) | Street address (part of composite) |
+| `org_zip` | `postalAddress` (composite) | Postal code (part of composite) |
+| `org_city` | `postalAddress` (composite) | City (part of composite) |
+| `org_state` | `postalAddress` (composite) | State/Province (part of composite) |
+| `org_country` | `postalAddress` (composite) | Country (part of composite) |
 | `org_phone` | `telephoneNumber` | Phone number |
 | `org_website` | `labeledURI` | Website URL |
 | `org_email` | `mail` | Email address |
 | `org_description` | `description` | Description |
 | `org_category` | `businessCategory` | Business category |
-| `org_postal_address` | `postalAddress` | Alternative postal address |
+| `org_postal_address` | `postalAddress` | Postal address (composite) |
 | `org_fax` | `facsimileTelephoneNumber` | Fax number |
 
 ### Benefits
@@ -594,17 +590,12 @@ When creating an organization, the system processes fields as follows:
 **Example:**
 ```bash
 # Configuration
-export LDAP_ORG_REQUIRED_FIELDS="o,street,city,state,postalCode,country,telephoneNumber,mail"
+export LDAP_ORG_REQUIRED_FIELDS="o,telephoneNumber,mail"
 export LDAP_ORG_OPTIONAL_FIELDS="description,businessCategory,labeledURI"
 
 # Input data (including unconfigured field 'unused_field')
 org_data = {
     'o': 'Example Corp',
-    'street': '123 Main St',
-    'city': 'Anytown',
-    'state': 'CA',
-    'postalCode': '12345',
-    'country': 'USA',
     'telephoneNumber': '+1-555-0123',
     'mail': 'info@example.com',
     'description': 'A great company',           # Optional field - included

@@ -47,7 +47,9 @@ Authorization: Bearer <EXPORT_SHARED_SECRET>
 
 ## What is exported
 
-Only organizations that are **members** (in the status group configured by `LDAP_GROUP_MEMBER_ORGS`) and **not disabled** (not in `LDAP_GROUP_DISABLED_ORGS`) are included. Attributes exported include: `o`, `mail`, `postalAddress`, `telephoneNumber`, `facsimileTelephoneNumber`, `labeledURI`, `description`, `businessCategory`, `memberNumber`, `memberSince`, `taxIdentificationNumber`, `contactPersonUID`, `entryUUID`.
+Only organizations that are **members** (in the status group configured by `LDAP_GROUP_MEMBER_ORGS`) and **not disabled** (not in `LDAP_GROUP_DISABLED_ORGS`) are included.
+
+Attributes exported include: `o`, `mail`, `postalAddress`, `telephoneNumber`, `facsimileTelephoneNumber`, `labeledURI`, `description`, `businessCategory`, `memberNumber`, `memberSince`, `entryUUID`.
 
 ## Related configuration
 

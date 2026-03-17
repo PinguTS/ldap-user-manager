@@ -38,6 +38,13 @@ These settings control how strong passwords must be in your system:
 - `ACCEPT_WEAK_PASSWORDS` - Allow very weak passwords (default: FALSE)
   - **Note**: If set to TRUE, this overrides the minimum score requirement
 
+#### **Password set/reset link tokens**
+These settings control the secure email links used to set or reset passwords (no passwords are emailed):
+- `PASSWORD_RESET_TOKEN_SECRET` - Secret used to sign password action tokens (required to enable link-based flows)
+  - **Recommendation**: generate with `openssl rand -hex 32` (or longer)
+  - **Security note**: rotate this secret to invalidate all outstanding links immediately
+- `PASSWORD_RESET_TOKEN_TTL_SECONDS` - Link expiry in seconds (default: 3600)
+
 #### **Password Configuration Examples**
 
 **Development/Testing Environment (Lenient):**
@@ -118,20 +125,16 @@ These settings control security features and access control:
 #### **Session Security**
 - `SESSION_TIMEOUT` - Session timeout in **minutes** (default: 60 - 1 hour)
 - `SESSION_SAVE_PATH` - Directory for app session files (default: `/tmp`). When running **multiple app instances** (e.g. Docker replicas or load-balanced containers), set this to a **shared writable path** (e.g. a mounted volume) so all instances see the same sessions; otherwise login may succeed but the next request can hit another instance and fail with "session file wasn't found", causing redirects or "corrupted content" errors.
-- `SESSION_REGENERATE_ID` - Regenerate session ID on login (default: TRUE)
-- `SESSION_SECURE_COOKIES` - Use secure cookies (default: TRUE)
-- `SESSION_HTTP_ONLY` - HTTP-only cookies (default: TRUE)
-- `SESSION_SAME_SITE` - SameSite cookie policy (default: 'strict')
+
+**Note:** Only `SESSION_TIMEOUT` and `SESSION_SAVE_PATH` are currently configurable via environment variables. Other session/cookie settings are controlled by the application code (with `NO_HTTPS` affecting whether cookies are marked `Secure`).
 
 #### **Rate Limiting**
-- `RATE_LIMIT_MAX_ATTEMPTS` - Maximum login attempts (default: 5)
-- `RATE_LIMIT_TIME_WINDOW` - Time window for attempts in seconds (default: 300 - 5 minutes)
-- `RATE_LIMIT_LOCKOUT_DURATION` - Lockout duration in seconds (default: 900 - 15 minutes)
+
+Login rate limiting is currently fixed at **5 attempts per 5 minutes** (not configurable via environment variables in the current release).
 
 #### **File Upload Security**
 - `FILE_UPLOAD_MAX_SIZE` - Maximum file upload size in bytes (default: 2097152 - 2MB)
-- `FILE_UPLOAD_ALLOWED_TYPES` - Comma-separated list of allowed MIME types (default: 'image/jpeg,image/png,image/gif,application/pdf,text/plain')
-- `FILE_UPLOAD_SCAN_VIRUS` - Enable virus scanning (default: FALSE)
+- `FILE_UPLOAD_ALLOWED_MIME_TYPES` - Comma-separated list of allowed MIME types (default: 'image/jpeg,image/png,image/gif,application/pdf,text/plain')
 
 #### **Security Headers**
 The system automatically sets security headers:
@@ -144,7 +147,6 @@ The system automatically sets security headers:
 
 #### **Audit Logging**
 - `AUDIT_LOG_ENABLED` - Enable audit logging (default: TRUE)
-- `AUDIT_LOG_LEVEL` - Log level (DEBUG, INFO, WARN, ERROR) (default: INFO)
 - `AUDIT_LOG_FILE` - Audit log file path (default: '/var/log/ldap_user_manager/audit.log')
 
 ### User Account Configuration

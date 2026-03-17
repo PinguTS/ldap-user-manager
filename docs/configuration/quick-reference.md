@@ -154,9 +154,9 @@ Once LDAP setup verification succeeds, the `/setup/` area is locked: visitors se
 
 ## 📚 **Need More Details?**
 
-- **Full Configuration Guide**: [CONFIGURATION_VARIABLES.md](CONFIGURATION_VARIABLES.md)
-- **Password Security Details**: [PASSWORD_STRENGTH_CONFIGURATION.md](PASSWORD_STRENGTH_CONFIGURATION.md)
-- **Docker Setup**: [DOCKER-SETUP.md](DOCKER-SETUP.md)
+- **Full Configuration Guide**: [Environment Variables](environment-variables.md)
+- **Password Security Details**: [Password Policy](password-policy.md)
+- **Docker Setup**: [Docker Setup](../../DOCKER-SETUP.md)
 
 ## 🚨 **Common Mistakes**
 

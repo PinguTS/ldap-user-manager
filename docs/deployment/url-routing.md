@@ -14,6 +14,7 @@ The system provides clean URLs by removing `.php` extensions and handling URL re
 - `/log_out` → Logout page
 - `/change_password` → Password change page
 - `/request_account` → Account request page
+- `/oidc/callback.php` → OIDC callback endpoint (used when OIDC is enabled)
 
 ### **Setup and Configuration**
 - `/setup` → Setup wizard
@@ -110,6 +111,9 @@ The URL routing system uses **Apache configuration** to provide clean URLs and p
 - **Integration**: Automatically included in Docker container's Apache configuration
 - **Modules Required**: `mod_rewrite`, `mod_headers`, `mod_expires`, `mod_deflate`
 
+### **OIDC callback clean URL**
+The code provides `www/oidc/callback.php`. If you want a clean URL like `/oidc/callback`, add an Apache rewrite rule mapping `/oidc/callback` to `/oidc/callback.php`.
+
 ### **Docker Integration**
 - **Dockerfile**: Copies Apache configuration to `/etc/apache2/conf-available/`
 - **Entrypoint**: Includes configuration in both HTTP and HTTPS VirtualHosts
@@ -150,5 +154,5 @@ RewriteLogLevel 3
 
 - [LDAP Configuration](LDAP-CONFIGURATION.md) - LDAP setup and configuration
 - [Docker Setup](DOCKER-SETUP.md) - Docker deployment instructions
-- [Configuration Variables](CONFIGURATION_VARIABLES.md) - Environment variables
+- [Environment Variables](../configuration/environment-variables.md) - Environment variables
 - [Role Configuration](ROLE_CONFIGURATION.md) - Access control configuration

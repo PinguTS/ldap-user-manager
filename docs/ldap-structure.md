@@ -207,8 +207,8 @@ The UUID-based identification can be configured using environment variables:
 # Enable/disable UUID-based identification (default: true)
 LDAP_USE_UUID_IDENTIFICATION=true
 
-# Custom UUID attribute name (default: entryUUID)
-LDAP_UUID_ATTRIBUTE=entryUUID
+# UUID attribute is currently fixed to OpenLDAP's operational attribute entryUUID.
+# (LDAP_UUID_ATTRIBUTE is not used by the current implementation.)
 ```
 
 ### Fallback Support

@@ -43,7 +43,7 @@ The system uses the following URL patterns for different features:
 - **Login**: `/log_in/`
 - **Logout**: `/log_out/`
 - **Setup Wizard**: `/setup/`
-- **OIDC Callback**: `/oidc/callback`
+- **OIDC Callback**: `/oidc/callback.php` (or `/oidc/callback` if you add a rewrite rule)
 - **Change Password**: `/change_password/`
 - **Request Account**: `/request_account/`
 

@@ -31,13 +31,13 @@ cd ldap-user-manager
 
 Key environment variables (see [env.example](env.example) and [Environment Variables](docs/configuration/environment-variables.md)):
 
-- **LDAP**: `LDAP_URI`, `LDAP_BASE_DN`, `LDAP_ADMIN_BIND_DN`, `LDAP_ADMIN_BIND_PWD`; optional `LDAP_USER_OU`, `LDAP_ORG_OU`, `LDAP_GROUP_OU`, `LDAP_ACCOUNT_ATTRIBUTE`, `LDAP_UUID_ATTRIBUTE`, `LDAP_USE_UUID_IDENTIFICATION`.
+- **LDAP**: `LDAP_URI`, `LDAP_BASE_DN`, `LDAP_ADMIN_BIND_DN`, `LDAP_ADMIN_BIND_PWD`; optional `LDAP_USER_OU`, `LDAP_ORG_OU`, `LDAP_GROUP_OU`, `LDAP_ACCOUNT_ATTRIBUTE`, `LDAP_USE_UUID_IDENTIFICATION`.
 - **Roles**: `LDAP_ADMIN_ROLE`, `LDAP_MAINTAINER_ROLE`, `LDAP_ORG_ADMIN_ROLE`, `LDAP_USER_ROLE` (must be unique).
 - **Status groups** (membership/disabled flags): `LDAP_GROUP_MEMBER_ORGS`, `LDAP_GROUP_DISABLED_ORGS`, `LDAP_GROUP_DISABLED_USERS`.
-- **Session**: `SESSION_TIMEOUT`, `SESSION_REGENERATE_ID`, `SESSION_SECURE_COOKIES`, `SESSION_HTTP_ONLY`, `SESSION_SAME_SITE`.
-- **Rate limiting**: `RATE_LIMIT_MAX_ATTEMPTS`, `RATE_LIMIT_TIME_WINDOW`, `RATE_LIMIT_LOCKOUT_DURATION`.
+- **Session**: `SESSION_TIMEOUT`, `SESSION_SAVE_PATH`.
 - **Password policy**: `PASSWORD_STRENGTH_MIN_SCORE`, `PASSWORD_STRENGTH_MIN_LENGTH`, `PASSWORD_STRENGTH_REQUIRE_*`, `ACCEPT_WEAK_PASSWORDS`.
-- **Audit**: `AUDIT_LOG_ENABLED`, `AUDIT_LOG_LEVEL`, `AUDIT_LOG_FILE`.
+- **Password set/reset links**: `PASSWORD_RESET_TOKEN_SECRET` (signing secret; generate with `openssl rand -hex 32`), `PASSWORD_RESET_TOKEN_TTL_SECONDS`.
+- **Audit**: `AUDIT_LOG_ENABLED`, `AUDIT_LOG_FILE`.
 - **Export** (member organizations): `EXPORT_SHARED_SECRET` (required for `/export/organizations.php`; generate with `openssl rand -hex 32`; empty disables endpoint), `TYPO3_EXPORT_PID`.
 
 ## Success Checklist
