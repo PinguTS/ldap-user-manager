@@ -10,11 +10,19 @@ $li_info = "<li class='list-group-item list-group-item-info'>$INFO_ICON";
 function render_submenu()
 {
 
-    global $THIS_MODULE_PATH;
+    global $THIS_MODULE_PATH, $EMAIL_SENDING_ENABLED;
 
     // Define submodules based on user permissions
     $submodules = array();
 
+    if (($EMAIL_SENDING_ENABLED ?? false) !== true) {
+        ?>
+     <div class="alert alert-warning alert-dismissible fade show mb-0" role="alert">
+      <p class="text-center mb-0">Email is disabled. Password reset and welcome emails are unavailable. Run the email verification (e.g. <code>bin/verify-email.php</code>) or check SMTP configuration.</p>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+     </div>
+        <?php
+    }
     ?>
      <nav class="navbar navbar-expand-lg navbar-light bg-light">
       <div class="container-fluid">

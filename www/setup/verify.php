@@ -7,6 +7,8 @@ set_include_path(".:" . __DIR__ . "/../includes/");
 include_once "web_functions.inc.php";
 include_once "ldap_functions.inc.php";
 include_once "setup_verify.inc.php";
+include_once __DIR__ . '/../includes/email_verify.inc.php';
+include_once __DIR__ . '/../includes/email_status.inc.php';
 include_once __DIR__ . '/bootstrap_setup.inc.php';
 
 validate_setup_cookie();
@@ -115,6 +117,21 @@ if ($result['admin_exists'] && !empty($result['admin_member_dn'])) {
     print "<li class='list-group-item list-group-item-danger'>✗ Cannot find administrator user for authentication test</li>\n";
 }
 
+# Test 6: Email (SMTP)
+$email_verification_passed = null;
+$smtp_host_set = isset($SMTP['host']) && trim((string) $SMTP['host']) !== '';
+if ($smtp_host_set) {
+    $email_result = run_email_verification();
+    $email_verification_passed = $email_result['passed'];
+    $email_message = htmlspecialchars($email_result['message'], ENT_QUOTES, 'UTF-8');
+    print "<li class='list-group-item'><strong>Test 6: Email (SMTP)</strong></li>\n";
+    if ($email_verification_passed) {
+        print "<li class='list-group-item list-group-item-success'>✓ SMTP connection and authentication OK</li>\n";
+    } else {
+        print "<li class='list-group-item list-group-item-danger'>✗ SMTP verification failed: {$email_message}</li>\n";
+    }
+}
+
 ?>
       </ul>
     </div>
@@ -165,6 +182,9 @@ if (!empty($missing_components)) {
     }
 
     set_setup_locked();
+    if ($smtp_host_set && $email_verification_passed !== null) {
+        set_email_verified($email_verification_passed);
+    }
 
     print "<div class='card border-success'>\n";
     print "  <div class='card-header'>Setup Complete!</div>\n";

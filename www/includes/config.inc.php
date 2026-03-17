@@ -362,7 +362,13 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
  $EMAIL['from_name'] = (getenv('EMAIL_FROM_NAME') ? getenv('EMAIL_FROM_NAME') : $SITE_NAME );
 
  if ($SMTP['host'] != "") {
-     $EMAIL_SENDING_ENABLED = true;
+     include_once __DIR__ . '/email_status.inc.php';
+     if (email_status_needs_refresh()) {
+         include_once __DIR__ . '/email_verify.inc.php';
+         $email_result = run_email_verification();
+         set_email_verified($email_result['passed']);
+     }
+     $EMAIL_SENDING_ENABLED = is_email_verified();
  } else {
      $EMAIL_SENDING_ENABLED = false;
  }

@@ -1,0 +1,4 @@
+# Prevent direct access to template files (PHP reads them; they must not be served).
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>

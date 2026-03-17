@@ -182,6 +182,7 @@ These settings control how the system sends emails:
 - `EMAIL_FROM_ADDRESS` - From email address
 - `EMAIL_FROM_NAME` - From email name
 - `PHPMailer_PATH` - PHPMailer installation path (default: '/opt/PHPMailer/src')
+- `EMAIL_TEMPLATES_DIR` - Optional. Directory containing email template files; when set, overrides the default `www/templates/emails`. Use an absolute path. Template files: `new_account.html`, `reset_password.html` (each file: first line = subject, blank line, then HTML body).
 
 ### Account Requests
 These settings control whether users can request new accounts:
