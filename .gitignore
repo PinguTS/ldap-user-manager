@@ -29,3 +29,6 @@ caddy_config/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Cursor
+.cursorrules.md
