@@ -17,7 +17,6 @@
 | First Name   | cn            |
 | Last Name    | sn            |
 | Password     | userPassword  |
-| Passcode     | loginPasscode |
 
 ### Example LocalConfiguration.php Snippet
 ```php
@@ -68,7 +67,7 @@ This guide explains how to connect TYPO3 to an OpenLDAP directory using the `ig_
 - An OpenLDAP server is running with the following structure:
   - Users are stored under: `uid=...,ou=users,o=OrgName,ou=organizations,dc=example,dc=com`
   - Groups are under: `ou=roles,dc=example,dc=com` or per-organization.
-  - User attributes include: `uid`, `mail`, `userPassword`, `loginPasscode`, `cn`, `sn`, etc.
+  - User attributes include: `uid`, `mail`, `userPassword`, `cn`, `sn`, etc.
 
 ---
 
@@ -99,7 +98,6 @@ This guide explains how to connect TYPO3 to an OpenLDAP directory using the `ig_
   - First Name: `cn` or `givenName`
   - Last Name: `sn`
   - Password: `userPassword`
-  - Passcode: `loginPasscode` (see below for custom support)
 
 ---
 
@@ -115,23 +113,10 @@ If you want to map LDAP groups to TYPO3 user groups:
 
 - Users log in to TYPO3 with their LDAP username (uid or mail) and password.
 - The extension checks the `userPassword` attribute by default.
-- If you have enabled passcode support in your LDAP, you can extend authentication to check the `loginPasscode` attribute as well (see below).
 
 ---
 
-## 5. Passcode Support
-
-By default, `ig_ldap_sso_auth` does not check a custom `loginPasscode` attribute. If you want to allow users to log in with a passcode:
-
-- You will need to extend the extension or implement a custom TYPO3 authentication service.
-- The custom logic should:
-  1. Attempt to authenticate with the password.
-  2. If that fails, fetch the `loginPasscode` attribute and verify it.
-- For most SSO scenarios, password-based authentication is sufficient.
-
----
-
-## 6. Example Configuration (LocalConfiguration.php)
+## 5. Example Configuration (LocalConfiguration.php)
 
 Below is an example configuration for the extension in `typo3conf/LocalConfiguration.php`:
 
@@ -165,14 +150,14 @@ Below is an example configuration for the extension in `typo3conf/LocalConfigura
 
 ---
 
-## 7. SSO (Single Sign-On) Options
+## 6. SSO (Single Sign-On) Options
 
 - For true SSO (e.g., Windows logon), configure your web server for Kerberos/NTLM and let ig_ldap_sso_auth use REMOTE_USER.
 - Otherwise, users log in with their LDAP credentials as described above.
 
 ---
 
-## 8. Testing
+## 7. Testing
 
 - Test login with a user from your LDAP directory.
 - Check group mapping if you use LDAP groups for TYPO3 permissions.
@@ -180,7 +165,7 @@ Below is an example configuration for the extension in `typo3conf/LocalConfigura
 
 ---
 
-## 9. References
+## 8. References
 
 - [ig_ldap_sso_auth Extension Manual](https://docs.typo3.org/p/ichhabrecht/ig-ldap-sso-auth/master/en-us/)
 - [TYPO3 Authentication Services](https://docs.typo3.org/m/typo3/reference-coreapi/main/en-us/ApiOverview/Authentication/Index.html)
@@ -200,6 +185,5 @@ Below is an example configuration for the extension in `typo3conf/LocalConfigura
 | Username Attribute     | uid                                                        |
 | Email Attribute        | mail                                                       |
 | Password Attribute     | userPassword                                               |
-| Passcode Attribute     | loginPasscode (custom, needs extension for SSO)            |
 
 --- 

@@ -130,7 +130,7 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
         "default" => "user",
     ),
      "userPassword" => array(
-     "label" => "Password/Passcode",
+     "label" => "Password",
     )
  );
 

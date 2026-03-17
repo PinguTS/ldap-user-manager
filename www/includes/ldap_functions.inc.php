@@ -131,9 +131,9 @@ function open_ldap_connection($ldap_bind = true)
  * @param resource $ldap_connection LDAP connection resource
  * @param string $username Username to authenticate
  * @param string $password Password to authenticate
- * @return bool True if authentication succeeds, false otherwise
+ * @return string|false DN string if authentication succeeds, false otherwise
  */
-function ldap_auth_username($ldap_connection, $username, $password)
+function ldap_auth_username($ldap_connection, $username, $password): string|false
 {
 
   # Search for the DN for the given username across all organizations.  If found, try binding with the DN and user's password.
@@ -298,36 +298,6 @@ function generate_salt($length)
 
 ##################################
 
-function verify_ldap_passcode($passcode, $stored_hash)
-{
-    global $log_prefix;
-
-  // Handle different LDAP hash formats
-    if (preg_match('/^\{ARGON2\}(.+)$/', $stored_hash, $matches)) {
-        return password_verify($passcode, $matches[1]);
-    } elseif (preg_match('/^\{SSHA\}(.+)$/', $stored_hash, $matches)) {
-        $hash_data = base64_decode($matches[1]);
-        $salt = substr($hash_data, -8);
-        $hash = substr($hash_data, 0, -8);
-        return hash_equals(sha1($passcode . $salt, true), $hash);
-    } elseif (preg_match('/^\{CRYPT\}(.+)$/', $stored_hash, $matches)) {
-        return hash_equals(crypt($passcode, $matches[1]), $stored_hash);
-    } elseif (preg_match('/^\{SMD5\}(.+)$/', $stored_hash, $matches)) {
-        $hash_data = base64_decode($matches[1]);
-        $salt = substr($hash_data, -8);
-        $hash = substr($hash_data, 0, -8);
-        return hash_equals(md5($passcode . $salt, true), $hash);
-    } elseif (preg_match('/^\{MD5\}(.+)$/', $stored_hash, $matches)) {
-        return hash_equals(base64_encode(md5($passcode, true)), $matches[1]);
-    } elseif (preg_match('/^\{SHA\}(.+)$/', $stored_hash, $matches)) {
-        return hash_equals(base64_encode(sha1($passcode, true)), $matches[1]);
-    } else {
-      // Fallback to direct comparison for cleartext (not recommended)
-        error_log("$log_prefix Warning: Using cleartext passcode comparison", 0);
-        return hash_equals($passcode, $stored_hash);
-    }
-}
-
 function ldap_hashed_password($password)
 {
 
@@ -421,101 +391,6 @@ function ldap_hashed_password($password)
 
     return $hashed_pwd;
 }
-
-function ldap_hashed_passcode($passcode)
-{
-
-    global $PASSWORD_HASH, $log_prefix, $SECURITY_CONFIG;
-
-    $secure_algos = $SECURITY_CONFIG['passcode']['allowed_algorithms'];
-    $default_algo = $SECURITY_CONFIG['passcode']['default_algorithm'];
-
-    $check_algos = array(
-     "SHA512CRYPT" => "CRYPT_SHA512",
-     "SHA256CRYPT" => "CRYPT_SHA256"
-    );
-
-    $available_algos = array();
-    foreach ($check_algos as $algo_name => $algo_function) {
-        if (defined($algo_function) and constant($algo_function) != 0) {
-            array_push($available_algos, $algo_name);
-        }
-    }
-
- // Always allow ARGON2 and SSHA
-    $available_algos = array_merge(['ARGON2', 'SSHA'], $available_algos);
-
- // Select the best available algorithm
-    $hash_algo = null;
-    if (isset($PASSWORD_HASH)) {
-        $PASSWORD_HASH = strtoupper($PASSWORD_HASH);
-        if (!in_array($PASSWORD_HASH, $secure_algos)) {
-            error_log("$log_prefix LDAP passcode: unknown or weak hash method ($PASSWORD_HASH), falling back to secure default", 0);
-        } elseif ($PASSWORD_HASH === 'CLEAR') {
-            error_log("$log_prefix passcode hashing - FATAL - CLEAR selected, refusing to store passcode in cleartext.", 0);
-            die("FATAL: Refusing to store passcode in cleartext. Set PASSWORD_HASH to a secure value (ARGON2 or SSHA recommended).");
-        } elseif (in_array($PASSWORD_HASH, $available_algos)) {
-            $hash_algo = $PASSWORD_HASH;
-        }
-    }
-
-    if (!$hash_algo) {
-        // Use default from config if available
-        if (in_array($default_algo, $available_algos)) {
-            $hash_algo = $default_algo;
-        } else {
-            // Fallback to strongest available
-            foreach ($secure_algos as $algo) {
-                if ($algo === 'ARGON2' && defined('PASSWORD_ARGON2ID')) {
-                    $hash_algo = 'ARGON2';
-                    break;
-                }
-                if (in_array($algo, $available_algos)) {
-                    $hash_algo = $algo;
-                    break;
-                }
-            }
-        }
-    }
-
-    if (!$hash_algo) {
-        die("FATAL: No secure passcode hash available. Check your PHP and system configuration.");
-    }
-
-    error_log("$log_prefix LDAP passcode: using '{$hash_algo}' as the hashing method", 0);
-
-    switch ($hash_algo) {
-        case 'ARGON2':
-            $hashed_passcode = '{ARGON2}' . password_hash($passcode, PASSWORD_ARGON2ID, ['memory_cost' => 2048, 'time_cost' => 4, 'threads' => 3]);
-            break;
-
-        case 'SSHA':
-            $salt = generate_salt(8);
-            $hashed_passcode = '{SSHA}' . base64_encode(sha1($passcode . $salt, true) . $salt);
-            break;
-
-        case 'SHA512CRYPT':
-            $hashed_passcode = '{CRYPT}' . crypt($passcode, '$6$' . generate_salt(8));
-            break;
-
-        case 'SHA256CRYPT':
-            $hashed_passcode = '{CRYPT}' . crypt($passcode, '$5$' . generate_salt(8));
-            break;
-
-        default:
-          // Fallback to ARGON2 if available, otherwise SSHA
-            if (defined('PASSWORD_ARGON2ID')) {
-                $hashed_passcode = '{ARGON2}' . password_hash($passcode, PASSWORD_ARGON2ID, ['memory_cost' => 2048, 'time_cost' => 4, 'threads' => 3]);
-            } else {
-                $salt = generate_salt(8);
-                $hashed_passcode = '{SSHA}' . base64_encode(sha1($passcode . $salt, true) . $salt);
-            }
-            break;
-    }
-
-    return $hashed_passcode;
-}
-
 
 ##################################
 
@@ -1232,17 +1107,6 @@ function ldap_new_account($ldap_connection, $account_r)
                                 'userpassword' => $hashed_pass,
                       );
 
-        # Handle passcode if provided
-            if (isset($account_r['passcode'][0]) && !empty($account_r['passcode'][0])) {
-                $hashed_passcode = ldap_hashed_passcode($account_r['passcode'][0]);
-           # Add passcode to userPassword (multiple values supported)
-                if (!isset($account_attributes['userpassword'])) {
-                    $account_attributes['userpassword'] = array();
-                }
-                $account_attributes['userpassword'][] = $hashed_passcode;
-                unset($account_r['passcode']);
-            }
-
             $account_attributes = array_merge($account_r, $account_attributes);
 
         # Ensure all attributes are properly formatted as arrays with numeric keys
@@ -1423,83 +1287,6 @@ function ldap_change_password($ldap_connection, $username, $new_password)
 
 ##################################
 
-function ldap_change_passcode($ldap_connection, $username, $new_passcode)
-{
-
-    global $log_prefix, $LDAP, $LDAP_DEBUG;
-
- # Find DN of user across all organizations and system users
-    $ldap_search_query = "{$LDAP['account_attribute']}=" . ldap_escape(($username === null ? '' : $username), "", LDAP_ESCAPE_FILTER);
-    $user_dn = null;
-
- # Search in organizations first
-    $ldap_search = @ ldap_search($ldap_connection, $LDAP['org_dn'], $ldap_search_query);
-    if ($ldap_search) {
-        $result = @ ldap_get_entries($ldap_connection, $ldap_search);
-        if ($result["count"] == 1) {
-            $user_dn = $result[0]['dn'];
-        }
-    }
-
- # If not found in organizations, search in system users
-    if (!$user_dn) {
-        $ldap_search = @ ldap_search($ldap_connection, $LDAP['people_dn'], $ldap_search_query);
-        if ($ldap_search) {
-            $result = @ ldap_get_entries($ldap_connection, $ldap_search);
-            if ($result["count"] == 1) {
-                  $user_dn = $result[0]['dn'];
-            }
-        }
-    }
-
-    if (!$user_dn) {
-        error_log("$log_prefix Couldn't find the DN for user $username");
-        return false;
-    }
-
- # Get current user attributes to preserve existing userPassword values
-    $current_attrs = @ ldap_read($ldap_connection, $user_dn, "(objectClass=*)", ["userPassword"]);
-    if ($current_attrs) {
-        $current_entries = @ ldap_get_entries($ldap_connection, $current_attrs);
-        if ($current_entries['count'] > 0 && isset($current_entries[0]['userpassword'])) {
-         # Remove old passcode values (keep regular passwords)
-            $new_userpassword = array();
-            foreach ($current_entries[0]['userpassword'] as $index => $pwd) {
-                if ($index === "count") {
-                    continue;
-                }
-               # Keep only non-passcode hashes (regular passwords)
-                if (strpos($pwd, '{') === 0 && !preg_match('/^\{ARGON2\}|\{SSHA\}|\{CRYPT\}|\{SMD5\}|\{MD5\}|\{SHA\}/', $pwd)) {
-                    $new_userpassword[] = $pwd;
-                }
-            }
-         # Add new passcode
-            $new_userpassword[] = ldap_hashed_passcode($new_passcode);
-
-            $entries["userPassword"] = $new_userpassword;
-        } else {
-       # No existing userPassword, just add new passcode
-            $entries["userPassword"] = ldap_hashed_passcode($new_passcode);
-        }
-    } else {
-      # No existing attributes, just add new passcode
-        $entries["userPassword"] = ldap_hashed_passcode($new_passcode);
-    }
-
-    $update = @ ldap_mod_replace($ldap_connection, $user_dn, $entries);
-
-    if ($update) {
-        error_log("$log_prefix Updated the passcode for $username", 0);
-        return true;
-    } else {
-        error_log("$log_prefix Couldn't update the passcode for {$username}: " . ldap_error($ldap_connection), 0);
-        return false;
-    }
-}
-
-
-##################################
-
 function ldap_get_user_info($ldap_connection, $username, $fields = null)
 {
 
@@ -1595,16 +1382,6 @@ function ldap_update_user_attributes($ldap_connection, $username, $attributes)
  # Handle password hashing if password is being updated
     if (isset($attributes['userPassword'])) {
         $attributes['userPassword'] = ldap_hashed_password($attributes['userPassword']);
-    }
-
- # Handle passcode hashing if passcode is being updated
-    if (isset($attributes['passcode'])) {
-     # Add passcode to userPassword (multiple values supported)
-        if (!isset($attributes['userPassword'])) {
-            $attributes['userPassword'] = array();
-        }
-        $attributes['userPassword'][] = ldap_hashed_passcode($attributes['passcode']);
-        unset($attributes['passcode']); // Remove the passcode key
     }
 
     $update = @ ldap_mod_replace($ldap_connection, $user_dn, $attributes);

@@ -22,7 +22,7 @@ These are typically included by default in most OpenLDAP installations.
 
 **Approach**: Use existing LDAP attributes that are available in all standard LDAP schemas.
 
-**Implementation**: The application stores role information in the `description` attribute and passcodes in the `userPassword` attribute.
+**Implementation**: The application stores role information in the `description` attribute.
 
 **Features**:
 - Works with any LDAP server
@@ -100,10 +100,10 @@ Organization users have additional organizational context:
 
 #### Common Attributes
 All users include:
-- `userPassword`: stores both regular passwords and app-managed passcodes
+- `userPassword`: stores the user's password
 - `entryUUID`: OpenLDAP operational attribute for secure identification
 
-**Note**: The application uses existing LDAP attributes for maximum compatibility. Passcodes are stored alongside regular passwords in the `userPassword` attribute.
+**Note**: The application uses existing LDAP attributes for maximum compatibility.
 
 ---
 
@@ -150,12 +150,12 @@ show_organization.php?org=Company%20Name
 
 4. **Role checking** is done by verifying group membership, not by reading user attributes
 
-### 3.2 System Roles
+### 4.2 System Roles
 - **Administrators**: Full access to all organizations, users, and settings
 - **Maintainers**: Can manage all organizations and users, but cannot modify administrator accounts
 - **Organization Managers**: Can manage users within their assigned organization(s)
 
-### 3.3 Access Control Rules
+### 4.3 Access Control Rules
 - Administrators can modify anyone
 - Maintainers can modify anyone except administrators
 - Organization managers can only modify users in their organization
@@ -163,49 +163,9 @@ show_organization.php?org=Company%20Name
 
 ---
 
-## 3. Passcode Implementation
+## 5. Account Locking Implementation
 
-### 3.1 Implementation Approach
-
-Passcode functionality is implemented using existing LDAP attributes for maximum compatibility:
-
-**`userPassword` for App-Managed Passcodes:**
-- Stores application-managed passcodes alongside regular passwords
-- No schema changes required
-- Application handles all passcode verification logic
-- Can store multiple passcodes if needed
-- Uses standard LDAP hashing (SSHA, etc.)
-- Regular passwords and passcodes coexist in the same attribute
-
-**Example Implementation:**
-```
-userPassword: {SSHA}hashed_regular_password
-userPassword: {SSHA}hashed_passcode_123456
-userPassword: {SSHA}hashed_passcode_789012
-```
-
-**Benefits:**
-- ✅ No custom schema required
-- ✅ Works with any LDAP server
-- ✅ Semantically correct attribute usage
-- ✅ Standard LDAP compliance
-- ✅ Flexible storage for multiple passcodes
-- ✅ Preserves existing password functionality
-
-### 3.2 Application Logic
-
-The application:
-1. **Stores passcodes** in the `userPassword` attribute alongside passwords
-2. **Distinguishes between** regular passwords and passcodes by hash format
-3. **Handles verification** logic for both authentication methods
-4. **Manages passcode lifecycle** (creation, expiration, rotation)
-5. **Uses existing LDAP attributes** for maximum compatibility
-
----
-
-## 4. Account Locking Implementation
-
-### 4.1 Standard LDAP Account Locking
+### 5.1 Standard LDAP Account Locking
 
 LDAP User Manager implements **RFC-compliant account locking** using the standard `pwdAccountLockedTime` attribute:
 
@@ -237,7 +197,7 @@ o: OrgName
 pwdAccountLockedTime: 000001010000Z  # Organization is locked
 ```
 
-### 4.2 Account Locking Features
+### 5.2 Account Locking Features
 
 **User Account Locking:**
 - **Individual Lock**: Lock specific user accounts
@@ -256,7 +216,7 @@ pwdAccountLockedTime: 000001010000Z  # Organization is locked
 - **Clear Messages**: Users see specific error messages for locked accounts
 - **Audit Trail**: All lock/unlock actions are logged
 
-### 4.3 Access Control for Account Locking
+### 5.3 Access Control for Account Locking
 
 **User Lock/Unlock Permissions:**
 - **Global Administrators**: Can lock/unlock any user account
@@ -272,7 +232,7 @@ pwdAccountLockedTime: 000001010000Z  # Organization is locked
 - **Administrators, Maintainers, Organization Admins**: Can view lock status
 - **Regular Users**: Cannot view lock status of other accounts
 
-### 4.4 Technical Implementation
+### 5.4 Technical Implementation
 
 **LDAP Functions:**
 ```php
@@ -312,9 +272,9 @@ ldap_unlock_organization($ldap_connection, $org_name)
 
 ---
 
-## 4. Setup Process
+## 6. Setup Process
 
-### 4.1 Web-Based Setup (Recommended)
+### 6.1 Web-Based Setup (Recommended)
 
 The LDAP User Manager includes a comprehensive web-based setup wizard that automatically creates all necessary LDAP structure:
 
@@ -336,7 +296,7 @@ The LDAP User Manager includes a comprehensive web-based setup wizard that autom
 - Administrator and maintainer roles with proper memberships
 - Example organization (optional)
 
-### 4.2 LDIF Files (Reference Only)
+### 6.2 LDIF Files (Reference Only)
 
 The LDIF files in the `ldif/` directory are provided for reference and advanced users who want to understand the LDAP structure. They are **not required** for normal operation since the web-based setup wizard handles everything automatically.
 
@@ -346,44 +306,43 @@ The LDIF files in the `ldif/` directory are provided for reference and advanced 
 - `ldif/base.ldif` - Base directory structure
 - `ldif/system_users.ldif` - System user definitions
 - `ldif/example-org.ldif` - Example organization structure
-- `userPassword` - Stores both regular passwords and app-managed passcodes
 
 ---
 
-## 5. Configuration
+## 7. Configuration
 
-### 5.1 Environment Variables
+### 7.1 Environment Variables
 - `LDAP_ADMIN_ROLE`: administrator (default) - Controls both group name and role name
 - `LDAP_MAINTAINER_ROLE`: maintainer (default) - Controls both group name and role name  
 - `LDAP_ORG_ADMIN_ROLE`: org_admin (default) - Controls both group name and role name
 - `LDAP_ORG_OU`: organizations (default)
 
-### 5.2 LDAP Base DN
+### 7.2 LDAP Base DN
 Ensure your `LDAP_BASE_DN` matches the structure in the LDIF files.
 
 ---
 
-## 6. LDIF Files
+## 8. LDIF Files
 
-### 6.1 Structure Files
+### 8.1 Structure Files
 - `ldif/base.ldif` - Base directory structure (organizations, system_users, roles OUs)
 - `ldif/system_users.ldif` - System user accounts (administrator, maintainer)
 - `ldif/example-org.ldif` - Example organization with users (optional)
 
-### 6.2 Additional Schemas
-- No custom schema files are needed. The system uses existing LDAP attributes like `description` for role information and `userPassword` for passcodes.
+### 8.2 Additional Schemas
+- No custom schema files are needed. The system uses existing LDAP attributes like `description` for role information.
 
 ---
 
-## 7. Troubleshooting
+## 9. Troubleshooting
 
-### 7.1 Common Errors
+### 9.1 Common Errors
 
 - **"attribute type undefined"**: The custom schema hasn't been loaded. Load `userRole-schema.ldif` first.
 - **"no values for attribute type"**: `groupOfNames` object class requires at least one member value.
 - **"Protocol error"**: Usually indicates schema or structural issues.
 
-### 7.2 Verification Commands
+### 9.2 Verification Commands
 
 ```bash
 # Check if schema was loaded
@@ -398,9 +357,9 @@ ldapsearch -x -b ou=people,dc=example,dc=com -D cn=admin,dc=example,dc=com -w yo
 
 ---
 
-## 8. Docker Setup
+## 10. Docker Setup
 
-### 8.1 Docker Setup Overview
+### 10.1 Docker Setup Overview
 
 The easiest way to set up LDAP in Docker is to use the web-based setup wizard:
 
@@ -409,7 +368,7 @@ The easiest way to set up LDAP in Docker is to use the web-based setup wizard:
 3. **Access the setup wizard** at `/setup/` in your web browser
 4. **The wizard will automatically** create all necessary LDAP structure
 
-### 8.2 Manual Docker Setup
+### 10.2 Manual Docker Setup
 
 If you prefer to set up manually or use Docker Compose:
 
@@ -488,7 +447,7 @@ docker exec -it ldap-server ldapsearch -x -b ou=people,dc=example,dc=com -D cn=a
 
 ---
 
-## 9. Basic Diagnostics
+## 11. Basic Diagnostics
 
 ### Diagnostic Commands
 
@@ -526,7 +485,7 @@ ldapsearch -x -b ou=people,dc=example,dc=com -D cn=admin,dc=example,dc=com -w yo
 
 ---
 
-## 10. See Also
+## 12. See Also
 
 - [ldif/README.md](ldif/README.md) - Detailed LDIF loading instructions
 - Main [README.md](README.md) for general setup and environment variables

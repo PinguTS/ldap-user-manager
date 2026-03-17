@@ -20,8 +20,7 @@ LDAP User Manager is a comprehensive web-based interface for managing LDAP user 
 ## 🔄 **Core Functionality**
 
 1. **User Creation**: User creation functions working within organizations
-2. **Passcode Support**: Passcode functionality implemented for future logins
-3. **Organization Management UI**: Frontend updated to handle organization structure
+2. **Organization Management UI**: Frontend updated to handle organization structure
 
 ## 🚀 **Planned Enhancements**
 
@@ -74,12 +73,7 @@ dc=example,dc=com
    - User DN structure based on organization context
    - Email-based login (uid = email address)
 
-2. **Passcode Support**
-   - Passcode attribute in user entries
-   - Password change functions with passcode handling
-   - Passcode validation and hashing
-
-3. **Setup Process**
+2. **Setup Process**
    - Setup wizard for new LDAP structure
    - Organization creation during setup
    - Proper role assignment
@@ -150,7 +144,6 @@ $LDAP['org_address_fields'] = [
 - User creation and management
 - Organization management
 - Role-based access control
-- Passcode functionality
 
 ### Integration Testing
 - LDAP operations

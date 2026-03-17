@@ -41,22 +41,6 @@ $SECURITY_CONFIG = [
         'default_algorithm' => 'SSHA'
     ],
 
-    // Passcode policy
-    'passcode' => [
-        'min_length' => 8,
-        'require_uppercase' => true,
-        'require_lowercase' => true,
-        'require_numbers' => true,
-        'require_special' => false,
-        'max_age' => 90 * 24 * 3600, // 90 days
-        'allowed_algorithms' => [
-            'SSHA',
-            'SHA512CRYPT',
-            'SHA256CRYPT'
-        ],
-        'default_algorithm' => 'SSHA'
-    ],
-
     // File upload security
     'file_upload' => [
         'max_size' => 2 * 1024 * 1024, // 2MB

@@ -22,7 +22,7 @@ description: Active
 businessCategory: Technology
 ```
 
-### User (with passcode)
+### User
 ```ldif
 dn: uid=jane.doe,ou=people,o=OrgA,ou=organizations,dc=example,dc=com
 objectClass: inetOrgPerson
@@ -32,7 +32,6 @@ mail: jane.doe@orga.com
 cn: Jane Doe
 sn: Doe
 userPassword: {SSHA}dummyhash
-loginPasscode: {bcrypt}$2y$10$examplehash
 ```
 
 ### Organization Admin Group
@@ -99,7 +98,6 @@ access to *
 | First Name   | cn            |
 | Last Name    | sn            |
 | Password     | userPassword  |
-| Passcode     | loginPasscode |
 
 ### LocalConfiguration.php Snippet
 ```php

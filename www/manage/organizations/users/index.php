@@ -388,7 +388,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
     $mail = trim($_POST['mail']);
     $cn = trim($_POST['cn']);
     $password = $_POST['password'];
-    $passcode = $_POST['passcode'];
 
     // Use email as username since that's how the system is configured
     $uid = $mail;
@@ -445,14 +444,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
         'userPassword' => ldap_hashed_password($password), // Use consistent LDAP hashing
         'account_attribute' => $LDAP['account_attribute']
     );
-
-    # Add passcode to userPassword (multiple values supported)
-    if (!isset($entry['userPassword'])) {
-        $entry['userPassword'] = array();
-    }
-    if (!empty($passcode)) {
-        $entry['userPassword'][] = ldap_hashed_passcode($passcode);
-    }
     $add_result = @ldap_add($ldap, $userDn, $entry);
     if ($add_result) {
         $message = 'User added successfully.';
@@ -559,7 +550,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
     $sn = trim($_POST['edit_sn']);
     $mail = trim($_POST['edit_mail']);
     $password = $_POST['edit_password'];
-    $passcode = $_POST['edit_passcode'];
 
     // Check if the edit_uid is a UUID or uid
     $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $uid);
@@ -596,13 +586,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
     if ($password !== '') {
         $entry['userPassword'] = ldap_hashed_password($password); // For demo; use LDAP hash in production
     }
-    if ($passcode !== '') {
-      # Add passcode to userPassword (multiple values supported)
-        if (!isset($entry['userPassword'])) {
-            $entry['userPassword'] = array();
-        }
-        $entry['userPassword'][] = ldap_hashed_passcode($passcode);
-    }
     try {
         ldap_modify($ldap, $userDn, $entry);
         $message = 'User updated successfully.';
@@ -615,7 +598,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
 }
 after_edit_user:
 
-// Handle reset password/passcode
+// Handle reset password
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         validate_csrf_token();
@@ -648,18 +631,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
     }
 
     $new_password = $_POST['reset_password'];
-    $new_passcode = $_POST['reset_passcode'];
     $ldap = open_ldap_connection();
     $entry = [];
     if ($new_password !== '') {
         $entry['userPassword'] = ldap_hashed_password($new_password);
-    }
-    if ($new_passcode !== '') {
-      # Add passcode to userPassword (multiple values supported)
-        if (!isset($entry['userPassword'])) {
-            $entry['userPassword'] = array();
-        }
-        $entry['userPassword'][] = ldap_hashed_passcode($new_passcode);
     }
     if (!empty($entry)) {
         try {
@@ -671,7 +646,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
             $message_type = 'danger';
         }
     } else {
-        $message = 'Please enter a new password and/or passcode.';
+        $message = 'Please enter a new password.';
         $message_type = 'warning';
     }
     ldap_close($ldap);
@@ -792,10 +767,6 @@ $ldap_connection = open_ldap_connection();
             <label for="password">Password</label>
             <input type="password" class="form-control" name="password" id="password" required>
         </div>
-        <div class="form-group">
-            <label for="passcode">Passcode (optional)</label>
-            <input type="text" class="form-control" name="passcode" id="passcode">
-        </div>
         <input type="hidden" name="add_user" value="1">
         <button type="submit" name="add_user" class="btn btn-primary" id="add_user_btn">Add User</button>
         <span id="add_user_spinner" style="display:none;"><span class="spinner-border spinner-border-sm"></span> Adding...</span>
@@ -829,10 +800,6 @@ $ldap_connection = open_ldap_connection();
               <div class="form-group">
                 <label for="edit_password">Password (leave blank to keep unchanged)</label>
                 <input type="password" class="form-control" name="edit_password" id="edit_password">
-              </div>
-              <div class="form-group">
-                <label for="edit_passcode">Passcode (leave blank to keep unchanged)</label>
-                <input type="text" class="form-control" name="edit_passcode" id="edit_passcode">
               </div>
             </div>
             <div class="modal-footer">
@@ -870,10 +837,6 @@ $ldap_connection = open_ldap_connection();
               <div class="form-group">
                 <label for="edit_password">Password (leave blank to keep unchanged)</label>
                 <input type="password" class="form-control" name="edit_password" id="edit_password">
-              </div>
-              <div class="form-group">
-                <label for="edit_passcode">Passcode (leave blank to keep unchanged)</label>
-                <input type="text" class="form-control" name="edit_passcode" id="edit_passcode">
               </div>
             </div>
             <div class="modal-footer">
@@ -950,10 +913,6 @@ $ldap_connection = open_ldap_connection();
               <div class="form-group">
                 <label for="reset_password">New Password (leave blank to keep unchanged)</label>
                 <input type="password" class="form-control" name="reset_password" id="reset_password">
-              </div>
-              <div class="form-group">
-                <label for="reset_passcode">New Passcode (leave blank to keep unchanged)</label>
-                <input type="text" class="form-control" name="reset_passcode" id="reset_passcode">
               </div>
             </div>
             <div class="modal-footer">

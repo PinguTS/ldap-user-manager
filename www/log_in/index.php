@@ -15,7 +15,7 @@ if (function_exists('checkRuntimeRoleConflicts') && checkRuntimeRoleConflicts())
 }
 
 // Handle login POST before any output
-if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["passcode"]))) {
+if (isset($_POST["user_id"]) && isset($_POST["password"])) {
   // Check rate limiting before attempting authentication
     if (is_rate_limited($_POST["user_id"])) {
         http_response_code(429); // Too Many Requests
@@ -26,46 +26,7 @@ if (isset($_POST["user_id"]) and (isset($_POST["password"]) || isset($_POST["pas
     $ldap_connection = open_ldap_connection();
     $user_dn = ldap_auth_username($ldap_connection, $_POST["user_id"], $_POST["password"]);
 
-  // If password failed, try passcode
-    if ($user_dn == false && isset($_POST["passcode"]) && $_POST["passcode"] !== "") {
-      // Search for user DN across all organizations and system users
-        $user_search = ldap_search($ldap_connection, $LDAP['org_dn'], "({$LDAP['account_attribute']}=" . ldap_escape($_POST["user_id"], "", LDAP_ESCAPE_FILTER) . ")", ["dn", "userPassword"]);
-        $user_entries = ldap_get_entries($ldap_connection, $user_search);
-
-      // If not found in organizations, search in system users
-        if ($user_entries["count"] == 0) {
-            $user_search = ldap_search($ldap_connection, $LDAP['people_dn'], "({$LDAP['account_attribute']}=" . ldap_escape($_POST["user_id"], "", LDAP_ESCAPE_FILTER) . ")", ["dn", "userPassword"]);
-            $user_entries = ldap_get_entries($ldap_connection, $user_search);
-        }
-
-        if ($user_entries["count"] > 0 && isset($user_entries[0]["userpassword"])) {
-          // Check all userPassword values for passcode match
-            $passcode_found = false;
-            foreach ($user_entries[0]["userpassword"] as $index => $stored_hash) {
-                if ($index === "count") {
-                    continue; // Skip the count field
-                }
-
-              // Skip if this looks like a regular password (not a passcode format)
-                if (strpos($stored_hash, '{') === 0 && !preg_match('/^\{ARGON2\}|\{SSHA\}|\{CRYPT\}|\{SMD5\}|\{MD5\}|\{SHA\}/', $stored_hash)) {
-                    continue; // Skip non-passcode hash formats
-                }
-
-              // Verify passcode using LDAP-compatible hashing
-                if (verify_ldap_passcode($_POST["passcode"], $stored_hash)) {
-                    $passcode_found = true;
-                    $user_dn = $user_entries[0]["dn"];
-                    break;
-                }
-            }
-
-            if (!$passcode_found) {
-                $user_dn = false;
-            }
-        }
-    }
-
-    if (!$user_dn) {
+    if ($user_dn === false) {
       // Record failed login attempt
         record_login_attempt($_POST["user_id"], false);
 
@@ -363,13 +324,6 @@ render_header("$ORGANISATION_NAME account manager - log in");
      <label for="password" class="col-sm-4 form-label">Password</label>
      <div class="col-sm-6">
       <input type="password" class="form-control" id="confirm" name="password">
-     </div>
-    </div>
-
-    <div class="form-group">
-     <label for="passcode" class="col-sm-4 form-label">Passcode (optional)</label>
-     <div class="col-sm-6">
-      <input type="text" class="form-control" id="passcode" name="passcode">
      </div>
     </div>
 
