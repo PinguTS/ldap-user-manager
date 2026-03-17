@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 set_include_path(".:" . __DIR__ . "/../../../includes/");
 require_once "bootstrap_manage.inc.php";
-bootstrap_manage(['ldap', 'organization', 'user', 'mail']);
+bootstrap_manage(['ldap', 'organization', 'user', 'mail', 'password_reset']);
 
 // Ensure CSRF token is generated early
 get_csrf_token();
@@ -179,10 +179,14 @@ if (isset($_POST['create_org_user'])) {
         }
 
         // Get password and validation
-        $password = $_POST['password'] ?? '';
-        $password_match = $_POST['password_match'] ?? '';
+        $password = (string) ($_POST['password'] ?? '');
+        $password_match = (string) ($_POST['password_match'] ?? '');
         $user_role = $_POST['user_role'] ?? 'user';
-        $send_email = isset($_POST['send_email']) && $_POST['send_email'] == 'on';
+        $send_password_set_link = isset($_POST['send_password_set_link']) && $_POST['send_password_set_link'] === 'on';
+        if ($send_password_set_link && !is_password_reset_link_enabled()) {
+            $send_password_set_link = false;
+            render_alert_banner('Password set links are disabled because PASSWORD_RESET_TOKEN_SECRET is not configured.', 'warning', 10000);
+        }
 
         // Validation
         $account_identifier = $new_account_r[$account_attribute][0] ?? '';
@@ -201,11 +205,13 @@ if (isset($_POST['create_org_user'])) {
         if (empty($this_sn)) {
             $invalid_sn = true;
         }
-        if (empty($password)) {
-            $invalid_password = true;
-        }
-        if ($password !== $password_match) {
-            $mismatched_passwords = true;
+        if (!$send_password_set_link) {
+            if ($password === '') {
+                $invalid_password = true;
+            }
+            if ($password !== $password_match) {
+                $mismatched_passwords = true;
+            }
         }
         if (!in_array($user_role, $available_user_roles)) {
             $invalid_user_role = true;
@@ -232,6 +238,10 @@ if (isset($_POST['create_org_user'])) {
             // Add organization and role to the account data
             $new_account_r['organization'] = [$org_name];
             $new_account_r['description'] = [$user_role];
+            if ($send_password_set_link) {
+                // Set a random temporary password; user will set their own via email link.
+                $password = bin2hex(random_bytes(16));
+            }
             $new_account_r['password'] = [$password];
 
             // Create the user account
@@ -248,10 +258,23 @@ if (isset($_POST['create_org_user'])) {
                     }
                 }
 
-                // Send email if requested
-                if ($send_email && isset($this_mail) && $EMAIL_SENDING_ENABLED == true) {
-                    $mail_body = parse_mail_text($new_account_mail_body, $password, $account_identifier, $this_givenName, $this_sn);
-                    $mail_subject = parse_mail_text($new_account_mail_subject, $password, $account_identifier, $this_givenName, $this_sn);
+                // Send password set link if requested
+                if ($send_password_set_link && isset($this_mail) && $EMAIL_SENDING_ENABLED === true) {
+                    $payload = build_password_action_payload((string) $account_identifier, 'set');
+                    $token = create_password_action_token($payload);
+                    $setUrl = build_password_action_url($token);
+                    $ttlMinutes = (int) ceil(get_password_reset_token_ttl_seconds() / 60);
+
+                    $vars = [
+                        'login' => (string) $account_identifier,
+                        'first_name' => (string) $this_givenName,
+                        'last_name' => (string) $this_sn,
+                        'password_set_url' => $setUrl,
+                        'token_expires_minutes' => (string) $ttlMinutes,
+                    ];
+
+                    $mail_body = parse_mail_template((string) $new_account_mail_body, $vars);
+                    $mail_subject = parse_mail_template((string) $new_account_mail_subject, $vars);
 
                     $sent_email = send_email($this_mail, "$this_givenName $this_sn", $mail_subject, $mail_body);
                     if ($sent_email) {
@@ -419,45 +442,43 @@ if ($errors != "") { ?>
                             </div>
                         </div>
 
-                        <!-- Password -->
-                        <div class="form-group">
-                            <label for="password" class="col-sm-3 form-label">
-                                <strong>Password</strong><sup>*</sup>
-                            </label>
-                            <div class="col-sm-6">
-                                <input type="password" class="form-control" name="password" id="password" required>
+                        <div id="password_fields">
+                            <!-- Password -->
+                            <div class="form-group">
+                                <label for="password" class="col-sm-3 form-label">
+                                    <strong>Password</strong><sup>*</sup>
+                                </label>
+                                <div class="col-sm-6">
+                                    <input type="password" class="form-control" name="password" id="password" required>
+                                </div>
                             </div>
-                            <div class="col-sm-1">
-                                <button type="button" class="btn btn-sm btn-info" onclick="generateSecurePassword({
-                                    type: 'word',
-                                    words: 4,
-                                    separator: ' ',
-                                    passwordFieldId: 'password',
-                                    confirmFieldId: 'password_match'
-                                })">Generate</button>
+
+                            <!-- Confirm Password -->
+                            <div class="form-group">
+                                <label for="password_match" class="col-sm-3 form-label">
+                                    <strong>Confirm Password</strong><sup>*</sup>
+                                </label>
+                                <div class="col-sm-6">
+                                    <input type="password" class="form-control" name="password_match" id="password_match" required>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Confirm Password -->
-                        <div class="form-group">
-                            <label for="password_match" class="col-sm-3 form-label">
-                                <strong>Confirm Password</strong><sup>*</sup>
-                            </label>
-                            <div class="col-sm-6">
-                                <input type="password" class="form-control" name="password_match" id="password_match" required>
-                            </div>
-                        </div>
-
-                        <!-- Send Email Option -->
-                        <?php if ($EMAIL_SENDING_ENABLED == true) : ?>
+                        <!-- Send password set link option -->
+                        <?php if ($EMAIL_SENDING_ENABLED === true) : ?>
                         <div class="form-group">
                             <label class="col-sm-3 form-label"></label>
                             <div class="col-sm-6">
                                 <div class="checkbox">
                                     <label>
-                                        <input type="checkbox" name="send_email" <?php echo (isset($_POST['send_email']) && $_POST['send_email'] == 'on') ? 'checked' : ''; ?>>
-                                        Send credentials to user's email address
+                                        <input type="checkbox" id="send_password_set_link" name="send_password_set_link" <?php echo (isset($_POST['send_password_set_link']) && $_POST['send_password_set_link'] === 'on') ? 'checked' : ''; ?> <?php echo !is_password_reset_link_enabled() ? 'disabled' : ''; ?>>
+                                        Email password setup link (user sets their own password)
                                     </label>
+                                    <?php if (!is_password_reset_link_enabled()) : ?>
+                                        <div class="alert alert-warning mt-2 mb-0 py-2">
+                                            Password links are disabled because <code>PASSWORD_RESET_TOKEN_SECRET</code> is not configured.
+                                        </div>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>
@@ -477,8 +498,7 @@ if ($errors != "") { ?>
     </div>
 </div>
 
-<script src="<?php print get_asset_base(); ?>js/zxcvbn.min.js"></script>
-<script src="<?php print get_asset_base(); ?>js/password_utils.min.js"></script>
+<script src="<?php print get_asset_base(); ?>js/password_utils.js"></script>
 <script src="<?php print get_asset_base(); ?>js/form-sync.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -498,6 +518,33 @@ if ($errors != "") { ?>
                 emailId: 'mail',
                 accountAttributeId: '<?php echo $LDAP["account_attribute"]; ?>'
             });
+        }
+
+        var checkbox = document.getElementById('send_password_set_link');
+        var passwordFields = document.getElementById('password_fields');
+        var passwordInput = document.getElementById('password');
+        var confirmInput = document.getElementById('password_match');
+
+        function togglePasswordFields() {
+            if (!checkbox || !passwordFields || !passwordInput || !confirmInput) {
+                return;
+            }
+            var useLink = checkbox.checked;
+            passwordFields.style.display = useLink ? 'none' : '';
+            passwordInput.required = !useLink;
+            confirmInput.required = !useLink;
+            if (useLink) {
+                passwordInput.value = '';
+                confirmInput.value = '';
+            }
+        }
+
+        if (checkbox) {
+            <?php if (!is_password_reset_link_enabled()) : ?>
+            checkbox.disabled = true;
+            <?php endif; ?>
+            checkbox.addEventListener('change', togglePasswordFields);
+            togglePasswordFields();
         }
     });
 </script>

@@ -64,7 +64,7 @@ if (!$ldap) {
 $attrs = [
     'o', 'mail', 'postalAddress', 'telephoneNumber', 'facsimileTelephoneNumber',
     'labeledURI', 'description', 'businessCategory', 'memberNumber', 'memberSince',
-    'taxIdentificationNumber', 'contactPersonUID', 'entryUUID',
+    'entryUUID',
 ];
 $search = @ldap_list($ldap, $orgDn, '(objectClass=organization)', $attrs, 0, 0);
 if ($search === false) {
@@ -107,8 +107,6 @@ for ($i = 0; $i < (int) $entries['count']; $i++) {
         'businessCategory' => $org['businesscategory'][0] ?? '',
         'memberNumber' => $org['membernumber'][0] ?? '',
         'memberSince' => $org['membersince'][0] ?? '',
-        'taxIdentificationNumber' => $org['taxidentificationnumber'][0] ?? '',
-        'contactPersonUID' => $org['contactpersonuid'][0] ?? '',
         'entryUUID' => $org['entryuuid'][0] ?? '',
     ];
 }
@@ -146,7 +144,6 @@ if ($format === 'json_typo3') {
             'tx_orgtype' => $r['businessCategory'],
             'tx_member_number' => $r['memberNumber'],
             'tx_member_since' => $r['memberSince'],
-            'tx_tax_id' => $r['taxIdentificationNumber'],
             '_meta' => [
                 'ldap_dn' => $r['dn'],
                 'ldap_uuid' => $r['entryUUID'],
@@ -173,14 +170,14 @@ $out = fopen('php://output', 'w');
 if ($out !== false) {
     fputcsv($out, [
         'company', 'email', 'phone', 'fax', 'address', 'zip', 'city', 'country',
-        'www', 'description', 'tx_orgtype', 'tx_member_number', 'tx_member_since', 'tx_tax_id', 'entryUUID',
+        'www', 'description', 'tx_orgtype', 'tx_member_number', 'tx_member_since', 'entryUUID',
     ]);
     foreach ($records as $r) {
         fputcsv($out, [
             $r['o'], $r['mail'], $r['telephoneNumber'], $r['facsimileTelephoneNumber'],
             $r['postalAddress_street'], $r['postalAddress_zip'], $r['postalAddress_city'], $r['postalAddress_country'],
             $r['labeledURI'], $r['description'], $r['businessCategory'],
-            $r['memberNumber'], $r['memberSince'], $r['taxIdentificationNumber'], $r['entryUUID'],
+            $r['memberNumber'], $r['memberSince'], $r['entryUUID'],
         ]);
     }
     fclose($out);

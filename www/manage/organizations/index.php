@@ -9,61 +9,103 @@ bootstrap_manage(['ldap', 'organization']);
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $ldap_connection = open_ldap_connection();
-
-    switch ($_POST['action']) {
-        case 'lock_organization':
-            if (isset($_POST['org_name']) && currentUserCanDisableOrganization($_POST['org_name'])) {
-                $org_name = trim($_POST['org_name']);
-                if (ldap_lock_organization($ldap_connection, $org_name)) {
-                    $message = "Organization '$org_name' has been locked successfully. All users in this organization are now disabled.";
-                    $message_type = 'success';
+    if ($ldap_connection === false) {
+        $message = "LDAP connection failed. Please check the logs for details.";
+        $message_type = 'danger';
+    } else {
+        switch ($_POST['action']) {
+            case 'member_organization':
+                if (isset($_POST['org_name']) && (currentUserIsGlobalAdmin() || currentUserIsMaintainer())) {
+                    $org_name = trim($_POST['org_name']);
+                    $org_dn = "o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
+                    $member_group_cn_post = getenv('LDAP_GROUP_MEMBER_ORGS') ?: 'memberOrganizations';
+                    $base_dn = $LDAP['base_dn'] ?? '';
+                    if ($base_dn !== '' && function_exists('addToStatusGroup') && addToStatusGroup($ldap_connection, $org_dn, $member_group_cn_post, $base_dn)) {
+                        $message = "Organization '$org_name' has been marked as a member organization.";
+                        $message_type = 'success';
+                    } else {
+                        $message = "Failed to mark organization '$org_name' as member. Please check the logs for details.";
+                        $message_type = 'danger';
+                    }
                 } else {
-                    $message = "Failed to lock organization '$org_name'. Please check the logs for details.";
+                    $message = "Permission denied or invalid organization name.";
                     $message_type = 'danger';
                 }
-            } else {
-                $message = "Permission denied or invalid organization name.";
-                $message_type = 'danger';
-            }
-            break;
+                break;
 
-        case 'unlock_organization':
-            if (isset($_POST['org_name']) && currentUserCanEnableOrganization($_POST['org_name'])) {
-                $org_name = trim($_POST['org_name']);
-                if (ldap_unlock_organization($ldap_connection, $org_name)) {
-                    $message = "Organization '$org_name' has been unlocked successfully. All users in this organization are now enabled.";
-                    $message_type = 'success';
+            case 'unmember_organization':
+                if (isset($_POST['org_name']) && (currentUserIsGlobalAdmin() || currentUserIsMaintainer())) {
+                    $org_name = trim($_POST['org_name']);
+                    $org_dn = "o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
+                    $member_group_cn_post = getenv('LDAP_GROUP_MEMBER_ORGS') ?: 'memberOrganizations';
+                    $base_dn = $LDAP['base_dn'] ?? '';
+                    if ($base_dn !== '' && function_exists('removeFromStatusGroup') && removeFromStatusGroup($ldap_connection, $org_dn, $member_group_cn_post, $base_dn)) {
+                        $message = "Organization '$org_name' has been removed from member organizations.";
+                        $message_type = 'success';
+                    } else {
+                        $message = "Failed to remove organization '$org_name' from member organizations. Please check the logs for details.";
+                        $message_type = 'danger';
+                    }
                 } else {
-                    $message = "Failed to unlock organization '$org_name'. Please check the logs for details.";
+                    $message = "Permission denied or invalid organization name.";
                     $message_type = 'danger';
                 }
-            } else {
-                $message = "Permission denied or invalid organization name.";
-                $message_type = 'danger';
-            }
-            break;
+                break;
 
-        case 'delete_organization':
-            // Existing delete logic
-            if (isset($_POST['org_name']) && currentUserCanDeleteOrganization($_POST['org_name'])) {
-                $org_name = trim($_POST['org_name']);
-                $org_uuid = isset($_POST['org_uuid']) ? trim($_POST['org_uuid']) : '';
-
-                if (ldap_delete_organization($ldap_connection, $org_name, $org_uuid)) {
-                    $message = "Organization '$org_name' has been deleted successfully.";
-                    $message_type = 'success';
+            case 'lock_organization':
+                if (isset($_POST['org_name']) && currentUserCanDisableOrganization($_POST['org_name'])) {
+                    $org_name = trim($_POST['org_name']);
+                    if (ldap_lock_organization($ldap_connection, $org_name)) {
+                        $message = "Organization '$org_name' has been locked successfully. All users in this organization are now disabled.";
+                        $message_type = 'success';
+                    } else {
+                        $message = "Failed to lock organization '$org_name'. Please check the logs for details.";
+                        $message_type = 'danger';
+                    }
                 } else {
-                    $message = "Failed to delete organization '$org_name'. Please check the logs for details.";
+                    $message = "Permission denied or invalid organization name.";
                     $message_type = 'danger';
                 }
-            } else {
-                $message = "Permission denied or invalid organization name.";
-                $message_type = 'danger';
-            }
-            break;
+                break;
+
+            case 'unlock_organization':
+                if (isset($_POST['org_name']) && currentUserCanEnableOrganization($_POST['org_name'])) {
+                    $org_name = trim($_POST['org_name']);
+                    if (ldap_unlock_organization($ldap_connection, $org_name)) {
+                        $message = "Organization '$org_name' has been unlocked successfully. All users in this organization are now enabled.";
+                        $message_type = 'success';
+                    } else {
+                        $message = "Failed to unlock organization '$org_name'. Please check the logs for details.";
+                        $message_type = 'danger';
+                    }
+                } else {
+                    $message = "Permission denied or invalid organization name.";
+                    $message_type = 'danger';
+                }
+                break;
+
+            case 'delete_organization':
+                // Existing delete logic
+                if (isset($_POST['org_name']) && currentUserCanDeleteOrganization($_POST['org_name'])) {
+                    $org_name = trim($_POST['org_name']);
+                    $org_uuid = isset($_POST['org_uuid']) ? trim($_POST['org_uuid']) : '';
+
+                    if (ldap_delete_organization($ldap_connection, $org_name, $org_uuid)) {
+                        $message = "Organization '$org_name' has been deleted successfully.";
+                        $message_type = 'success';
+                    } else {
+                        $message = "Failed to delete organization '$org_name'. Please check the logs for details.";
+                        $message_type = 'danger';
+                    }
+                } else {
+                    $message = "Permission denied or invalid organization name.";
+                    $message_type = 'danger';
+                }
+                break;
+        }
+
+        ldap_close($ldap_connection);
     }
-
-    ldap_close($ldap_connection);
 }
 
 // Use the enhanced access control function
@@ -164,73 +206,111 @@ $base_dn = $LDAP['base_dn'] ?? '';
                                     $org_name_url = urlencode($org_name);
                                     ?>
                                     <div class="list-group-item">
-                                        <h5 class="mb-1"><?php echo $org_name_safe; ?></h5>
-                                        <p class="mb-0">
-                                            <?php if (isset($org['mail']) && !empty($org['mail'])) : ?>
-                                                <strong>Email:</strong> <?php echo htmlspecialchars($org['mail']); ?><br>
-                                            <?php endif; ?>
-                                            <?php if (isset($org['telephoneNumber']) && !empty($org['telephoneNumber'])) : ?>
-                                                <strong>Phone:</strong> <?php echo htmlspecialchars($org['telephoneNumber']); ?><br>
-                                            <?php endif; ?>
-                                            <?php if (isset($org['description']) && !empty($org['description'])) : ?>
-                                                <strong>Status:</strong> <?php echo htmlspecialchars($org['description']); ?><br>
-                                            <?php endif; ?>
-                                            <?php
-                                            $org_dn = $org['dn'] ?? '';
-                                            $is_member = ($ldap_connection && $base_dn !== '' && $org_dn !== '' && function_exists('isInStatusGroup') && isInStatusGroup($ldap_connection, $org_dn, $member_group_cn, $base_dn));
-                                            $is_disabled = ($ldap_connection && $base_dn !== '' && $org_dn !== '' && function_exists('isInStatusGroup') && isInStatusGroup($ldap_connection, $org_dn, $disabled_group_cn, $base_dn));
-                                            ?>
-                                            <?php if ($is_member) :
-                                                ?><span class="badge bg-primary">Member</span><?php
-                                            endif; ?>
-                                            <?php if ($is_disabled) :
-                                                ?><span class="badge bg-danger">Disabled</span><?php
-                                            endif; ?>
-                                            <strong>Account Status:</strong>
-                                            <span class="badge bg-<?php
-                                            if ($ldap_connection && ldap_organization_is_locked($ldap_connection, $org_name)) {
-                                                echo 'danger';
-                                            } else {
-                                                echo 'success';
-                                            }
-                                            ?>">
+                                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+                                            <div class="flex-grow-1" style="min-width: 260px;">
+                                                <h5 class="mb-1"><?php echo $org_name_safe; ?></h5>
+                                                <p class="mb-0">
+                                                    <?php if (isset($org['mail']) && !empty($org['mail'])) : ?>
+                                                        <strong>Email:</strong> <?php echo htmlspecialchars($org['mail']); ?><br>
+                                                    <?php endif; ?>
+                                                    <?php if (isset($org['telephoneNumber']) && !empty($org['telephoneNumber'])) : ?>
+                                                        <strong>Phone:</strong> <?php echo htmlspecialchars($org['telephoneNumber']); ?><br>
+                                                    <?php endif; ?>
+                                                    <?php if (isset($org['description']) && !empty($org['description'])) : ?>
+                                                        <strong>Status:</strong> <?php echo htmlspecialchars($org['description']); ?><br>
+                                                    <?php endif; ?>
+                                                    <?php
+                                                    $org_dn = $org['dn'] ?? '';
+                                                    $is_member = ($ldap_connection && $base_dn !== '' && $org_dn !== '' && function_exists('isInStatusGroup') && isInStatusGroup($ldap_connection, $org_dn, $member_group_cn, $base_dn));
+                                                    $is_disabled = ($ldap_connection && $base_dn !== '' && $org_dn !== '' && function_exists('isInStatusGroup') && isInStatusGroup($ldap_connection, $org_dn, $disabled_group_cn, $base_dn));
+                                                    $is_locked = ($ldap_connection && ldap_organization_is_locked($ldap_connection, $org_name));
+                                                    ?>
+                                                    <?php if ($is_member) : ?>
+                                                        <span class="badge bg-primary">Member</span>
+                                                    <?php endif; ?>
+                                                    <?php if ($is_disabled) : ?>
+                                                        <span class="badge bg-danger">Disabled</span>
+                                                    <?php endif; ?>
+                                                    <strong>Account Status:</strong>
+                                                    <span class="badge bg-<?php echo $is_locked ? 'danger' : 'success'; ?>">
+                                                        <?php echo $is_locked ? 'Locked' : 'Active'; ?>
+                                                    </span>
+                                                </p>
                                                 <?php
-                                                if ($ldap_connection && ldap_organization_is_locked($ldap_connection, $org_name)) {
-                                                    echo 'Locked';
-                                                } else {
-                                                    echo 'Active';
-                                                }
+                                                $current_users = ($ldap_connection && function_exists('ldap_org_count_users')) ? ldap_org_count_users($ldap_connection, $org_name) : 0;
+                                                $limit_users = ($ldap_connection && function_exists('ldap_org_get_user_limit')) ? ldap_org_get_user_limit($ldap_connection, $org_name) : null;
                                                 ?>
-                                            </span>
-                                        </p>
-                                        <div class="btn-group btn-group-sm">
-                                            <?php if ($LDAP['use_uuid_identification'] && isset($org['entryUUID'])) : ?>
-                                                <a href="/manage/organizations/show/index.php?uuid=<?php echo urlencode($org['entryUUID']); ?>" class="btn btn-info">View</a>
-                                                <a href="/manage/organizations/users/index.php?uuid=<?php echo urlencode($org['entryUUID']); ?>" class="btn btn-primary">Users</a>
-                                                <?php if (currentUserCanDeleteOrganization($org_name)) : ?>
-                                                    <button type="button" class="btn btn-danger" onclick="confirmDelete('<?php echo $org_name_safe; ?>', '<?php echo $org['entryUUID']; ?>')">Delete</button>
-                                                <?php endif; ?>
-                                                <?php if (currentUserCanDisableOrganization($org_name)) : ?>
-                                                    <?php if ($ldap_connection && ldap_organization_is_locked($ldap_connection, $org_name)) : ?>
-                                                        <button type="button" class="btn btn-success" onclick="confirmUnlockOrganization('<?php echo $org_name_safe; ?>')">Unlock</button>
+                                                <div class="mt-2" style="max-width: 420px;">
+                                                    <?php if ($limit_users === null) : ?>
+                                                        <small class="text-muted">User limit: unlimited (<?php echo (int) $current_users; ?> users)</small>
                                                     <?php else : ?>
-                                                        <button type="button" class="btn btn-warning" onclick="confirmLockOrganization('<?php echo $org_name_safe; ?>')">Lock</button>
+                                                        <?php
+                                                        $pct = $limit_users > 0 ? ($current_users / $limit_users) : 0.0;
+                                                        $pct_display = (int) round(min($pct, 1.5) * 100);
+                                                        $bar_class = 'bg-success';
+                                                        if ($pct >= 1.0) {
+                                                            $bar_class = 'bg-danger';
+                                                        } elseif ($pct >= 0.8) {
+                                                            $bar_class = 'bg-warning';
+                                                        }
+                                                        $width = (int) max(0, min(100, round($pct * 100)));
+                                                        ?>
+                                                        <small class="text-muted">Users: <?php echo (int) $current_users; ?> / <?php echo (int) $limit_users; ?></small>
+                                                        <div class="progress" title="<?php echo (int) $current_users; ?> / <?php echo (int) $limit_users; ?> (<?php echo $pct_display; ?>%)">
+                                                            <div class="progress-bar <?php echo $bar_class; ?>" role="progressbar" style="width: <?php echo $width; ?>%;" aria-valuenow="<?php echo $width; ?>" aria-valuemin="0" aria-valuemax="100"></div>
+                                                        </div>
                                                     <?php endif; ?>
-                                                <?php endif; ?>
-                                            <?php else : ?>
-                                                <a href="/manage/organizations/show/index.php?org=<?php echo $org_name_url; ?>" class="btn btn-info">View</a>
-                                                <a href="/manage/organizations/users/index.php?org=<?php echo $org_name_url; ?>" class="btn btn-primary">Users</a>
-                                                <?php if (currentUserCanDeleteOrganization($org_name)) : ?>
-                                                    <button type="button" class="btn btn-danger" onclick="confirmDelete('<?php echo $org_name_safe; ?>')">Delete</button>
-                                                <?php endif; ?>
-                                                <?php if (currentUserCanDisableOrganization($org_name)) : ?>
-                                                    <?php if (ldap_organization_is_locked($ldap_connection, $org_name)) : ?>
-                                                        <button type="button" class="btn btn-success" onclick="confirmUnlockOrganization('<?php echo $org_name_safe; ?>')">Unlock</button>
+                                                </div>
+                                            </div>
+
+                                            <?php
+                                            $use_uuid = ($LDAP['use_uuid_identification'] && isset($org['entryUUID']));
+                                            $org_uuid_val = $use_uuid ? (string) $org['entryUUID'] : '';
+                                            $can_membership = (currentUserIsGlobalAdmin() || currentUserIsMaintainer()) && $ldap_connection && $base_dn !== '' && $org_dn !== '' && function_exists('isInStatusGroup');
+                                            $can_lock = currentUserCanDisableOrganization($org_name);
+                                            $can_delete = currentUserCanDeleteOrganization($org_name);
+                                            ?>
+
+                                            <div class="d-flex align-items-center justify-content-end flex-wrap gap-2" style="min-width: 260px;">
+                                                <div class="btn-group btn-group-sm" role="group" aria-label="View and users">
+                                                    <?php if ($use_uuid) : ?>
+                                                        <a href="/manage/organizations/show/index.php?uuid=<?php echo urlencode($org_uuid_val); ?>" class="btn btn-info">View</a>
+                                                        <a href="/manage/organizations/users/index.php?uuid=<?php echo urlencode($org_uuid_val); ?>" class="btn btn-primary">Users</a>
                                                     <?php else : ?>
-                                                        <button type="button" class="btn btn-warning" onclick="confirmLockOrganization('<?php echo $org_name_safe; ?>')">Lock</button>
+                                                        <a href="/manage/organizations/show/index.php?org=<?php echo $org_name_url; ?>" class="btn btn-info">View</a>
+                                                        <a href="/manage/organizations/users/index.php?org=<?php echo $org_name_url; ?>" class="btn btn-primary">Users</a>
                                                     <?php endif; ?>
+                                                </div>
+
+                                                <?php if ($can_membership) : ?>
+                                                    <div class="vr"></div>
+                                                    <div class="btn-group btn-group-sm" role="group" aria-label="Membership actions">
+                                                        <?php if ($is_member) : ?>
+                                                            <button type="button" class="btn btn-secondary" onclick="confirmUnmemberOrganization('<?php echo $org_name_safe; ?>', '<?php echo htmlspecialchars($org_uuid_val); ?>')">Unmember</button>
+                                                        <?php else : ?>
+                                                            <button type="button" class="btn btn-secondary" onclick="confirmMemberOrganization('<?php echo $org_name_safe; ?>', '<?php echo htmlspecialchars($org_uuid_val); ?>')">Member</button>
+                                                        <?php endif; ?>
+                                                    </div>
                                                 <?php endif; ?>
-                                            <?php endif; ?>
+
+                                                <?php if ($can_lock) : ?>
+                                                    <div class="vr"></div>
+                                                    <div class="btn-group btn-group-sm" role="group" aria-label="Lock actions">
+                                                        <?php if ($is_locked) : ?>
+                                                            <button type="button" class="btn btn-success" onclick="confirmUnlockOrganization('<?php echo $org_name_safe; ?>', '<?php echo htmlspecialchars($org_uuid_val); ?>')">Unlock</button>
+                                                        <?php else : ?>
+                                                            <button type="button" class="btn btn-warning" onclick="confirmLockOrganization('<?php echo $org_name_safe; ?>', '<?php echo htmlspecialchars($org_uuid_val); ?>')">Lock</button>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                <?php endif; ?>
+
+                                                <?php if ($can_delete) : ?>
+                                                    <div class="vr"></div>
+                                                    <div class="btn-group btn-group-sm" role="group" aria-label="Delete">
+                                                        <button type="button" class="btn btn-danger" onclick="confirmDelete('<?php echo $org_name_safe; ?>', '<?php echo htmlspecialchars($org_uuid_val); ?>')">Delete</button>
+                                                    </div>
+                                                <?php endif; ?>
+                                            </div>
                                         </div>
                                     </div>
                                 <?php endforeach; ?>
@@ -281,6 +361,32 @@ render_confirm_modal(
     'Unlock Organization',
     'btn-success'
 );
+
+render_confirm_modal(
+    'memberModal',
+    'Confirm Organization Membership',
+    '<p>Mark the organization "<span id="memberOrgName"></span>" as a <strong>member organization</strong>?</p>',
+    [
+        ['name' => 'action', 'value' => 'member_organization'],
+        ['name' => 'org_name', 'id' => 'memberOrgNameInput'],
+        ['name' => 'org_uuid', 'id' => 'memberOrgUuidInput'],
+    ],
+    'Mark as Member',
+    'btn-secondary'
+);
+
+render_confirm_modal(
+    'unmemberModal',
+    'Confirm Remove Membership',
+    '<p>Remove the organization "<span id="unmemberOrgName"></span>" from <strong>member organizations</strong>?</p>',
+    [
+        ['name' => 'action', 'value' => 'unmember_organization'],
+        ['name' => 'org_name', 'id' => 'unmemberOrgNameInput'],
+        ['name' => 'org_uuid', 'id' => 'unmemberOrgUuidInput'],
+    ],
+    'Remove Membership',
+    'btn-secondary'
+);
 ?>
 
 <script src="<?php print get_asset_base(); ?>js/modals.js"></script>
@@ -314,6 +420,12 @@ render_confirm_modal(
     }
     function confirmDelete(orgName, orgUuid) {
         confirmAction('deleteModal', { deleteOrgName: orgName, deleteOrgNameInput: orgName, deleteOrgUuidInput: orgUuid || '' });
+    }
+    function confirmMemberOrganization(orgName, orgUuid) {
+        confirmAction('memberModal', { memberOrgName: orgName, memberOrgNameInput: orgName, memberOrgUuidInput: orgUuid || '' });
+    }
+    function confirmUnmemberOrganization(orgName, orgUuid) {
+        confirmAction('unmemberModal', { unmemberOrgName: orgName, unmemberOrgNameInput: orgName, unmemberOrgUuidInput: orgUuid || '' });
     }
 </script>
 

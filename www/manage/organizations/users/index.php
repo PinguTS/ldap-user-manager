@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 set_include_path(".:" . __DIR__ . "/../../../includes/");
 require_once "bootstrap_manage.inc.php";
-bootstrap_manage(['ldap', 'organization', 'user']);
+bootstrap_manage(['ldap', 'organization', 'user', 'mail', 'password_reset']);
 
 // Ensure CSRF token is generated early
 get_csrf_token();
@@ -387,12 +387,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
     $sn = trim($_POST['sn']);
     $mail = trim($_POST['mail']);
     $cn = trim($_POST['cn']);
-    $password = $_POST['password'];
+    $password = (string) ($_POST['password'] ?? '');
+    $passwordMatch = (string) ($_POST['password_match'] ?? '');
+    $sendPasswordSetLink = isset($_POST['send_password_set_link']) && $_POST['send_password_set_link'] === 'on';
+    if ($sendPasswordSetLink && !is_password_reset_link_enabled()) {
+        $sendPasswordSetLink = false;
+    }
+    $passScore = isset($_POST['pass_score']) && is_numeric($_POST['pass_score']) ? (int) $_POST['pass_score'] : null;
 
     // Use email as username since that's how the system is configured
     $uid = $mail;
 
-    if ($givenName === '' || $sn === '' || $mail === '' || $password === '') {
+    if ($givenName === '' || $sn === '' || $mail === '' || (!$sendPasswordSetLink && $password === '')) {
         $message = 'All fields are required.';
         $message_type = 'danger';
         goto after_add_user;
@@ -434,6 +440,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
     }
 
     // Create user entry
+    if ($sendPasswordSetLink) {
+        // Random temporary password; user will set their own via emailed link.
+        $password = bin2hex(random_bytes(16));
+    } else {
+        $validation = validate_password_submission($password, $passwordMatch, $passScore);
+        if (!$validation['ok']) {
+            $message = implode(' ', $validation['errors']);
+            $message_type = 'danger';
+            ldap_close($ldap);
+            goto after_add_user;
+        }
+    }
+
     $entry = array(
         'objectClass' => array('top', 'inetOrgPerson', 'organizationalPerson', 'person'),
         'uid' => $uid,
@@ -448,6 +467,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
     if ($add_result) {
         $message = 'User added successfully.';
         $message_type = 'success';
+
+        if ($sendPasswordSetLink) {
+            global $EMAIL_SENDING_ENABLED, $new_account_mail_subject, $new_account_mail_body;
+            if ($EMAIL_SENDING_ENABLED === true) {
+                $payload = build_password_action_payload($mail, 'set');
+                $token = create_password_action_token($payload);
+                $setUrl = build_password_action_url($token);
+                $ttlMinutes = (int) ceil(get_password_reset_token_ttl_seconds() / 60);
+                $vars = [
+                    'login' => $mail,
+                    'first_name' => $givenName,
+                    'last_name' => $sn,
+                    'password_set_url' => $setUrl,
+                    'token_expires_minutes' => (string) $ttlMinutes,
+                ];
+                $subject = parse_mail_template((string) $new_account_mail_subject, $vars);
+                $body = parse_mail_template((string) $new_account_mail_body, $vars);
+                send_email($mail, trim($givenName . ' ' . $sn), $subject, $body);
+                $message .= ' A password set link was sent by email.';
+            }
+        }
     } else {
         $ldap_err = ldap_error($ldap);
         $message = 'Failed to add user: ' . htmlspecialchars($ldap_err);
@@ -549,7 +589,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
     $givenName = trim($_POST['edit_givenname']);
     $sn = trim($_POST['edit_sn']);
     $mail = trim($_POST['edit_mail']);
-    $password = $_POST['edit_password'];
+    $password = (string) ($_POST['edit_password'] ?? '');
+    $passwordMatch = (string) ($_POST['edit_password_match'] ?? '');
+    $passScore = isset($_POST['edit_pass_score']) && is_numeric($_POST['edit_pass_score']) ? (int) $_POST['edit_pass_score'] : null;
 
     // Check if the edit_uid is a UUID or uid
     $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $uid);
@@ -584,7 +626,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
         'mail' => $mail
     ];
     if ($password !== '') {
-        $entry['userPassword'] = ldap_hashed_password($password); // For demo; use LDAP hash in production
+        $validation = validate_password_submission($password, $passwordMatch, $passScore);
+        if (!$validation['ok']) {
+            $message = implode(' ', $validation['errors']);
+            $message_type = 'danger';
+            ldap_close($ldap);
+            goto after_edit_user;
+        }
+        $entry['userPassword'] = ldap_hashed_password($password);
     }
     try {
         ldap_modify($ldap, $userDn, $entry);
@@ -630,13 +679,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
         $userDn = "uid=" . ldap_escape($resetUserParam, '', LDAP_ESCAPE_DN) . ",$usersDn";
     }
 
-    $new_password = $_POST['reset_password'];
-    $ldap = open_ldap_connection();
-    $entry = [];
-    if ($new_password !== '') {
-        $entry['userPassword'] = ldap_hashed_password($new_password);
+    $new_password = (string) ($_POST['reset_password'] ?? '');
+    $new_password_match = (string) ($_POST['reset_password_match'] ?? '');
+    $send_reset_link = isset($_POST['send_password_reset_link']) && $_POST['send_password_reset_link'] === 'on';
+    if ($send_reset_link && !is_password_reset_link_enabled()) {
+        $send_reset_link = false;
     }
-    if (!empty($entry)) {
+    $passScore = isset($_POST['pass_score']) && is_numeric($_POST['pass_score']) ? (int) $_POST['pass_score'] : null;
+
+    $ldap = open_ldap_connection();
+
+    if ($send_reset_link) {
+        global $EMAIL_SENDING_ENABLED, $reset_password_mail_subject, $reset_password_mail_body;
+        if ($EMAIL_SENDING_ENABLED === true) {
+            $read = @ldap_read($ldap, $userDn, '(objectClass=*)', ['mail', 'givenName', 'sn', $LDAP['account_attribute']]);
+            $entries = $read ? ldap_get_entries($ldap, $read) : null;
+            $userMail = '';
+            $first = '';
+            $last = '';
+            $login = '';
+            if (is_array($entries) && ($entries['count'] ?? 0) > 0) {
+                $userMail = (string) ($entries[0]['mail'][0] ?? '');
+                $first = (string) ($entries[0]['givenname'][0] ?? $entries[0]['givenName'][0] ?? '');
+                $last = (string) ($entries[0]['sn'][0] ?? '');
+                $login = (string) ($entries[0][strtolower($LDAP['account_attribute'])][0] ?? $userMail);
+            }
+            if ($userMail !== '' && is_valid_email($userMail)) {
+                $payload = build_password_action_payload($login !== '' ? $login : $userMail, 'reset');
+                $token = create_password_action_token($payload);
+                $resetUrl = build_password_action_url($token);
+                $ttlMinutes = (int) ceil(get_password_reset_token_ttl_seconds() / 60);
+                $vars = [
+                    'login' => ($login !== '' ? $login : $userMail),
+                    'first_name' => $first,
+                    'last_name' => $last,
+                    'password_reset_url' => $resetUrl,
+                    'token_expires_minutes' => (string) $ttlMinutes,
+                ];
+                $subject = parse_mail_template((string) $reset_password_mail_subject, $vars);
+                $body = parse_mail_template((string) $reset_password_mail_body, $vars);
+                send_email($userMail, trim($first . ' ' . $last), $subject, $body);
+            }
+        }
+        $message = 'If the address exists, a password reset link has been sent.';
+        $message_type = 'success';
+    } else {
+        $validation = validate_password_submission($new_password, $new_password_match, $passScore);
+        if (!$validation['ok']) {
+            $message = implode(' ', $validation['errors']);
+            $message_type = 'danger';
+            ldap_close($ldap);
+            goto after_reset_user;
+        }
+        $entry = ['userPassword' => ldap_hashed_password($new_password)];
         try {
             ldap_modify($ldap, $userDn, $entry);
             $message = 'Credentials reset successfully.';
@@ -645,10 +740,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
             $message = 'Error resetting credentials: ' . htmlspecialchars($e->getMessage());
             $message_type = 'danger';
         }
-    } else {
-        $message = 'Please enter a new password.';
-        $message_type = 'warning';
     }
+
     ldap_close($ldap);
 }
 after_reset_user:
@@ -719,8 +812,9 @@ $ldap_connection = open_ldap_connection();
                         </form>
                     </td>
                     <td>
-                        <div class="btn-group btn-group-sm">
-                            <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&edit_user=<?= urlencode($user_identifier) ?>" class="btn btn-secondary btn-sm">Edit</a>
+                        <div class="d-inline-flex align-items-center flex-wrap gap-1">
+                            <div class="btn-group btn-group-sm" role="group" aria-label="User actions">
+                                <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&edit_user=<?= urlencode($user_identifier) ?>" class="btn btn-secondary btn-sm">Edit</a>
                             <?php if (currentUserCanDisableUser($user_identifier)) : ?>
                                 <?php if (ldap_user_is_locked($ldap_connection, $user['dn'])) : ?>
                                     <button type="button" class="btn btn-success btn-sm" onclick="confirmUnlockUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')">Unlock</button>
@@ -728,8 +822,11 @@ $ldap_connection = open_ldap_connection();
                                     <button type="button" class="btn btn-warning btn-sm" onclick="confirmLockUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')">Lock</button>
                                 <?php endif; ?>
                             <?php endif; ?>
-                            <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')">Delete</button>
-                            <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&reset_user=<?= urlencode($user_identifier) ?>" class="btn btn-warning btn-sm">Reset</a>
+                                <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&reset_user=<?= urlencode($user_identifier) ?>" class="btn btn-primary btn-sm">New password</a>
+                            </div>
+                            <div class="ms-2 ps-2 border-start">
+                                <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')">Delete</button>
+                            </div>
                         </div>
                     </td>
                 </tr>
@@ -767,10 +864,67 @@ $ldap_connection = open_ldap_connection();
             <label for="password">Password</label>
             <input type="password" class="form-control" name="password" id="password" required>
         </div>
+        <div class="form-group">
+            <label for="password_match">Confirm Password</label>
+            <input type="password" class="form-control" name="password_match" id="password_match" required>
+        </div>
+        <input type="hidden" id="pass_score" value="0" name="pass_score">
+
+        <?php global $EMAIL_SENDING_ENABLED; ?>
+        <?php if ($EMAIL_SENDING_ENABLED === true) : ?>
+            <div class="form-check mt-2">
+                <input class="form-check-input" type="checkbox" id="send_password_set_link" name="send_password_set_link" <?php echo !is_password_reset_link_enabled() ? 'disabled' : ''; ?>>
+                <label class="form-check-label" for="send_password_set_link">
+                    Email password setup link (user sets their own password)
+                </label>
+                <?php if (!is_password_reset_link_enabled()) : ?>
+                    <div class="alert alert-warning mt-2 mb-0 py-2">
+                        Password links are disabled because <code>PASSWORD_RESET_TOKEN_SECRET</code> is not configured.
+                    </div>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
         <input type="hidden" name="add_user" value="1">
         <button type="submit" name="add_user" class="btn btn-primary" id="add_user_btn">Add User</button>
         <span id="add_user_spinner" style="display:none;"><span class="spinner-border spinner-border-sm"></span> Adding...</span>
     </form>
+
+    <script src="<?php print get_asset_base(); ?>js/password_utils.js"></script>
+    <script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', function(){
+        const passwordConfig = <?php echo get_password_strength_config_js(); ?>;
+        if (typeof initializePasswordStrength === 'function') {
+            initializePasswordStrength({
+                passwordFieldId: 'password',
+                confirmFieldId: 'password_match',
+                config: passwordConfig
+            });
+        }
+
+        const checkbox = document.getElementById('send_password_set_link');
+        const pw = document.getElementById('password');
+        const pw2 = document.getElementById('password_match');
+        function togglePw() {
+            if (!checkbox || !pw || !pw2) return;
+            const useLink = checkbox.checked;
+            pw.required = !useLink;
+            pw2.required = !useLink;
+            pw.disabled = useLink;
+            pw2.disabled = useLink;
+            if (useLink) {
+                pw.value = '';
+                pw2.value = '';
+            }
+        }
+        if (checkbox) {
+            <?php if (!is_password_reset_link_enabled()) : ?>
+            checkbox.disabled = true;
+            <?php endif; ?>
+            checkbox.addEventListener('change', togglePw);
+            togglePw();
+        }
+    });
+    </script>
 
     <!-- Edit User Modal -->
     <?php if ($editUser) : ?>
@@ -798,9 +952,14 @@ $ldap_connection = open_ldap_connection();
                 <input type="email" class="form-control" name="edit_mail" id="edit_mail" value="<?= htmlspecialchars(get_ldap_attribute($editUser, 'mail')) ?>" required>
               </div>
               <div class="form-group">
-                <label for="edit_password">Password (leave blank to keep unchanged)</label>
+                <label for="edit_password">New Password (leave blank to keep unchanged)</label>
                 <input type="password" class="form-control" name="edit_password" id="edit_password">
               </div>
+              <div class="form-group mt-2">
+                <label for="edit_password_match">Confirm New Password</label>
+                <input type="password" class="form-control" name="edit_password_match" id="edit_password_match">
+              </div>
+              <input type="hidden" id="edit_pass_score" value="0" name="edit_pass_score">
             </div>
             <div class="modal-footer">
               <button type="submit" name="save_user" class="btn btn-primary">Save Changes</button>
@@ -835,9 +994,14 @@ $ldap_connection = open_ldap_connection();
                 <input type="email" class="form-control" name="edit_mail" id="edit_mail" required>
               </div>
               <div class="form-group">
-                <label for="edit_password">Password (leave blank to keep unchanged)</label>
+                <label for="edit_password">New Password (leave blank to keep unchanged)</label>
                 <input type="password" class="form-control" name="edit_password" id="edit_password">
               </div>
+              <div class="form-group mt-2">
+                <label for="edit_password_match">Confirm New Password</label>
+                <input type="password" class="form-control" name="edit_password_match" id="edit_password_match">
+              </div>
+              <input type="hidden" id="edit_pass_score" value="0" name="edit_pass_score">
             </div>
             <div class="modal-footer">
               <button type="submit" name="save_user" class="btn btn-primary">Save Changes</button>
@@ -911,9 +1075,29 @@ $ldap_connection = open_ldap_connection();
             <div class="modal-body">
               <input type="hidden" name="reset_uid" value="<?= htmlspecialchars($resetUserParam) ?>">
               <div class="form-group">
-                <label for="reset_password">New Password (leave blank to keep unchanged)</label>
-                <input type="password" class="form-control" name="reset_password" id="reset_password">
+                <label for="reset_password">New Password</label>
+                <input type="password" class="form-control" name="reset_password" id="reset_password" required>
               </div>
+              <div class="form-group mt-2">
+                <label for="reset_password_match">Confirm New Password</label>
+                <input type="password" class="form-control" name="reset_password_match" id="reset_password_match" required>
+              </div>
+              <input type="hidden" id="reset_pass_score" value="0" name="pass_score">
+
+              <?php global $EMAIL_SENDING_ENABLED; ?>
+              <?php if ($EMAIL_SENDING_ENABLED === true) : ?>
+                <div class="form-check mt-3">
+                  <input class="form-check-input" type="checkbox" id="send_password_reset_link" name="send_password_reset_link" <?php echo !is_password_reset_link_enabled() ? 'disabled' : ''; ?>>
+                  <label class="form-check-label" for="send_password_reset_link">
+                    Email password reset link (user sets a new password)
+                  </label>
+                    <?php if (!is_password_reset_link_enabled()) : ?>
+                        <div class="alert alert-warning mt-2 mb-0 py-2">
+                            Password links are disabled because <code>PASSWORD_RESET_TOKEN_SECRET</code> is not configured.
+                        </div>
+                    <?php endif; ?>
+                </div>
+              <?php endif; ?>
             </div>
             <div class="modal-footer">
               <button type="submit" name="reset_creds" class="btn btn-warning">Reset</button>
@@ -924,11 +1108,10 @@ $ldap_connection = open_ldap_connection();
       </div>
     </div>
     <?php endif; ?>
-    <p class="text-muted mt-2">(Role management and UI refinements complete.)</p>
 </div>
 <script src="<?php print get_asset_base(); ?>js/modals.js"></script>
 <script src="<?php print get_asset_base(); ?>js/form-sync.js"></script>
-<script src="<?php print get_asset_base(); ?>js/zxcvbn.min.js"></script>
+<script src="<?php print get_asset_base(); ?>js/password_utils.js"></script>
 <script>
     // Initialize organization user search functionality
     document.addEventListener('DOMContentLoaded', function() {
@@ -968,6 +1151,45 @@ $ldap_connection = open_ldap_connection();
                 emailId: 'mail',
                 accountAttributeId: '<?php echo $LDAP["account_attribute"]; ?>'
             });
+        }
+
+        // Edit modal + reset modal strength + optional email link toggles
+        if (typeof initializePasswordStrength === 'function') {
+            var passwordConfig = <?php echo get_password_strength_config_js(); ?>;
+            initializePasswordStrength({
+                passwordFieldId: 'edit_password',
+                confirmFieldId: 'edit_password_match',
+                config: passwordConfig,
+                hiddenFieldId: 'edit_pass_score'
+            });
+            initializePasswordStrength({
+                passwordFieldId: 'reset_password',
+                confirmFieldId: 'reset_password_match',
+                config: passwordConfig
+            });
+        }
+
+        var resetCheckbox = document.getElementById('send_password_reset_link');
+        var resetPw = document.getElementById('reset_password');
+        var resetPw2 = document.getElementById('reset_password_match');
+        function toggleResetPw() {
+            if (!resetCheckbox || !resetPw || !resetPw2) return;
+            var useLink = resetCheckbox.checked;
+            resetPw.required = !useLink;
+            resetPw2.required = !useLink;
+            resetPw.disabled = useLink;
+            resetPw2.disabled = useLink;
+            if (useLink) {
+                resetPw.value = '';
+                resetPw2.value = '';
+            }
+        }
+        if (resetCheckbox) {
+            <?php if (!is_password_reset_link_enabled()) : ?>
+            resetCheckbox.disabled = true;
+            <?php endif; ?>
+            resetCheckbox.addEventListener('change', toggleResetPw);
+            toggleResetPw();
         }
     });
 

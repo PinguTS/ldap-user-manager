@@ -247,7 +247,9 @@ if ($ldap_connection === false) {
 
                         print "</td>\n";
                         print "   <td>";
-                        print "     <a href='/manage/users/show.php?{$user_link_param}' class='btn btn-sm btn-info'>View</a>";
+                        print "     <span class='d-inline-flex align-items-center flex-wrap gap-1'>";
+                        print "       <span class='btn-group btn-group-sm' role='group' aria-label='User actions'>";
+                        print "         <a href='/manage/users/show.php?{$user_link_param}' class='btn btn-sm btn-info'>View</a>";
 
                         // Check if current user can delete this user
                         $can_delete = false;
@@ -279,26 +281,29 @@ if ($ldap_connection === false) {
                             }
                         }
 
-                        if ($can_delete) {
-                            // Use UUID for delete if available, otherwise use account_identifier
-                            $delete_param = $user_uuid ? $user_uuid : $account_identifier;
-                            print "     <button type='button' class='btn btn-sm btn-danger' onclick='confirmDelete(\"" . htmlspecialchars($delete_param) . "\", \"" . htmlspecialchars($account_identifier) . "\")'>Delete</button>";
-                        } else {
-                            print "     <button type='button' class='btn btn-sm btn-danger' disabled title='" . htmlspecialchars($delete_reason) . "'>Delete</button>";
-                        }
-
                         // Add lock/unlock functionality
                         if (currentUserCanDisableUser($account_identifier)) {
                             $user_dn_for_lock = get_user_dn_from_identifier($ldap_connection, $account_identifier);
                             if ($user_dn_for_lock) {
                                 if (ldap_user_is_locked($ldap_connection, $user_dn_for_lock)) {
-                                    print "     <button type='button' class='btn btn-sm btn-success' onclick='confirmUnlockUser(\"" . htmlspecialchars($account_identifier) . "\")'>Unlock</button>";
+                                    print "         <button type='button' class='btn btn-sm btn-success' onclick='confirmUnlockUser(\"" . htmlspecialchars($account_identifier) . "\")'>Unlock</button>";
                                 } else {
-                                    print "     <button type='button' class='btn btn-sm btn-warning' onclick='confirmLockUser(\"" . htmlspecialchars($account_identifier) . "\")'>Lock</button>";
+                                    print "         <button type='button' class='btn btn-sm btn-warning' onclick='confirmLockUser(\"" . htmlspecialchars($account_identifier) . "\")'>Lock</button>";
                                 }
                             }
                         }
 
+                        print "       </span>"; // btn-group
+                        print "       <span class='ms-2 ps-2 border-start'>";
+                        if ($can_delete) {
+                            // Use UUID for delete if available, otherwise use account_identifier
+                            $delete_param = $user_uuid ? $user_uuid : $account_identifier;
+                            print "         <button type='button' class='btn btn-sm btn-danger' onclick='confirmDelete(\"" . htmlspecialchars($delete_param) . "\", \"" . htmlspecialchars($account_identifier) . "\")'>Delete</button>";
+                        } else {
+                            print "         <button type='button' class='btn btn-sm btn-danger' disabled title='" . htmlspecialchars($delete_reason) . "'>Delete</button>";
+                        }
+                        print "       </span>"; // delete separator
+                        print "     </span>"; // d-inline-flex
                         print "   </td>";
                         print " </tr>\n";
                     }

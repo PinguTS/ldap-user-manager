@@ -20,11 +20,15 @@ function bootstrap_manage(array $modules = []): void
     include_once $inc . 'web_functions.inc.php';
     include_once $inc . 'access_functions.inc.php';
     include_once $inc . 'module_functions.inc.php';
+    if (in_array('password_reset', $modules, true)) {
+        include_once $inc . 'password_reset_functions.inc.php';
+    }
     if (in_array('ldap', $modules, true)) {
         include_once $inc . 'ldap_functions.inc.php';
     }
     if (in_array('organization', $modules, true)) {
         include_once $inc . 'organization_functions.inc.php';
+        include_once $inc . 'org_config_functions.inc.php';
     }
     if (in_array('user', $modules, true)) {
         include_once $inc . 'user_functions.inc.php';

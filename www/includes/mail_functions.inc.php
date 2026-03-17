@@ -4,41 +4,73 @@ declare(strict_types=1);
 
 // PHPMailer loaded via Composer autoload (see config.inc.php)
 
-#Default email text
+// Default email templates (link-only; no passwords in email)
 
-$new_account_mail_subject = (getenv('NEW_ACCOUNT_EMAIL_SUBJECT') ? getenv('NEW_ACCOUNT_EMAIL_SUBJECT') : "Your {organisation} account has been created.");
+$new_account_mail_subject = (getenv('NEW_ACCOUNT_EMAIL_SUBJECT') ? getenv('NEW_ACCOUNT_EMAIL_SUBJECT') : 'Your {organisation} account is ready.');
 $new_account_mail_body = getenv('NEW_ACCOUNT_EMAIL_BODY') ?: <<<EoNA
-You've been set up with an account for {organisation}.  Your credentials are:
+You've been set up with an account for {organisation}.
 <p>
-Login: {login}<br>
-Password: {password}
+Login: {login}
 <p>
-You should log into <a href="{change_password_url}">{change_password_url}</a> and change the password as soon as possible.
+To set your password, open this link (valid for {token_expires_minutes} minutes):
+<p>
+<a href="{password_set_url}">{password_set_url}</a>
 EoNA;
 
-$reset_password_mail_subject = (getenv('RESET_PASSWORD_EMAIL_SUBJECT') ? getenv('RESET_PASSWORD_EMAIL_SUBJECT') : "Your {organisation} password has been reset.");
+$reset_password_mail_subject = (getenv('RESET_PASSWORD_EMAIL_SUBJECT') ? getenv('RESET_PASSWORD_EMAIL_SUBJECT') : 'Reset your {organisation} password.');
 $reset_password_mail_body = getenv('RESET_PASSWORD_EMAIL_BODY') ?: <<<EoRP
-Your password for {organisation} has been reset.  Your new password is {password}
+A password reset was requested for your {organisation} account.
 <p>
-You should log into <a href="{change_password_url}">{change_password_url}</a> and change this password as soon as possible.
+To set a new password, open this link (valid for {token_expires_minutes} minutes):
+<p>
+<a href="{password_reset_url}">{password_reset_url}</a>
 EoRP;
 
 
-function parse_mail_text($template, $password, $login, $first_name, $last_name)
+/**
+ * Replace placeholders in email templates.
+ *
+ * Supported placeholders:
+ * - {login}, {first_name}, {last_name}
+ * - {organisation}, {site_url}, {change_password_url}
+ * - {password_set_url}, {password_reset_url}, {token_expires_minutes}
+ *
+ * @param string $template
+ * @param array<string, string> $vars
+ */
+function parse_mail_template(string $template, array $vars): string
 {
 
     global $ORGANISATION_NAME, $SITE_PROTOCOL, $SERVER_HOSTNAME, $SERVER_PATH;
 
-    $template = str_replace("{password}", $password, $template);
-    $template = str_replace("{login}", $login, $template);
-    $template = str_replace("{first_name}", $first_name, $template);
-    $template = str_replace("{last_name}", $last_name, $template);
+    $baseUrl = "{$SITE_PROTOCOL}{$SERVER_HOSTNAME}{$SERVER_PATH}";
+    $defaults = [
+        'organisation' => (string) $ORGANISATION_NAME,
+        'site_url' => $baseUrl,
+        'change_password_url' => $baseUrl . 'change_password',
+    ];
 
-    $template = str_replace("{organisation}", $ORGANISATION_NAME, $template);
-    $template = str_replace("{site_url}", "{$SITE_PROTOCOL}{$SERVER_HOSTNAME}{$SERVER_PATH}", $template);
-    $template = str_replace("{change_password_url}", "{$SITE_PROTOCOL}{$SERVER_HOSTNAME}{$SERVER_PATH}change_password", $template);
+    $vars = array_merge($defaults, $vars);
+    foreach ($vars as $key => $value) {
+        $template = str_replace('{' . $key . '}', (string) $value, $template);
+    }
 
-    return $template;
+    return (string) $template;
+}
+
+/**
+ * Backwards-compatible wrapper for legacy templates that included {password}.
+ *
+ * @deprecated Use parse_mail_template() with explicit vars instead.
+ */
+function parse_mail_text($template, $password, $login, $first_name, $last_name)
+{
+    return parse_mail_template((string) $template, [
+        'password' => (string) $password,
+        'login' => (string) $login,
+        'first_name' => (string) $first_name,
+        'last_name' => (string) $last_name,
+    ]);
 }
 
 function send_email($recipient_email, $recipient_name, $subject, $body)

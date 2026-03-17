@@ -46,6 +46,9 @@ const DEFAULT_PASSWORD_CONFIG = {
  */
 function initializePasswordStrength(options = {}) {
     const config = { ...DEFAULT_PASSWORD_CONFIG, ...options.config };
+    if (options.hiddenFieldId) {
+        config.hiddenFieldId = options.hiddenFieldId;
+    }
     const passwordField = document.getElementById(options.passwordFieldId);
     
     if (!passwordField) {
@@ -237,7 +240,8 @@ function updateStrengthMeter(strengthMeter, score) {
     strengthMeter.setAttribute('aria-valuenow', percentage);
     
     // Update classes
-    strengthMeter.className = `progress-bar progress-bar-${level.class}`;
+    // Bootstrap 5 uses bg-* classes (not progress-bar-*)
+    strengthMeter.className = `progress-bar bg-${level.class}`;
     
     // Update text
     strengthMeter.textContent = level.name;

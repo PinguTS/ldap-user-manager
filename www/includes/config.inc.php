@@ -220,7 +220,7 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
  # Required fields are those NOT listed here (e.g., 'o' for organization name is always required)
  $LDAP['org_optional_fields'] = getenv('LDAP_ORG_OPTIONAL_FIELDS') ?
     explode(',', getenv('LDAP_ORG_OPTIONAL_FIELDS')) :
-    ['telephoneNumber', 'labeledURI', 'mail', 'description', 'businessCategory', 'postalAddress'];
+    ['telephoneNumber', 'labeledURI', 'mail', 'description', 'businessCategory', 'postalAddress', 'memberNumber', 'memberSince'];
 
  # Field mappings from form names to LDAP attributes
  # Note: Individual address fields (street, city, state, postalCode, country) are combined into postalAddress
@@ -231,7 +231,9 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
     'org_website' => 'labeledURI',
     'org_email' => 'mail',
     'org_description' => 'description',
-    'org_category' => 'businessCategory'
+    'org_category' => 'businessCategory',
+    'org_member_number' => 'memberNumber',
+    'org_member_since' => 'memberSince'
  ];
 
  # Address field configuration (these are composite fields that combine into postalAddress)
@@ -253,7 +255,9 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
     'org_website' => 'Website',
     'org_email' => 'Email',
     'org_description' => 'Description',
-    'org_category' => 'Business Category'
+    'org_category' => 'Business Category',
+    'org_member_number' => 'Member number',
+    'org_member_since' => 'Member since (YYYY-MM-DD)'
  ];
 
  # Field types for form rendering
@@ -263,7 +267,9 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
     'org_website' => 'url',
     'org_email' => 'email',
     'org_description' => 'textarea',
-    'org_category' => 'text'
+    'org_category' => 'text',
+    'org_member_number' => 'text',
+    'org_member_since' => 'text'
  ];
 
  $LDAP['group_ou'] = (getenv('LDAP_GROUP_OU') ? getenv('LDAP_GROUP_OU') : 'groups');

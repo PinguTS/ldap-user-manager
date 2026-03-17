@@ -78,10 +78,9 @@ if (isset($mismatched)) {  ?>
 
 ?>
 
-<script src="<?php print get_asset_base(); ?>js/zxcvbn.min.js"></script>
-<script src="<?php print get_asset_base(); ?>js/password_utils.min.js"></script>
+<script src="<?php print get_asset_base(); ?>js/password_utils.js"></script>
 <script type="text/javascript">
-$(document).ready(function(){
+document.addEventListener('DOMContentLoaded', function(){
     // Get password strength configuration from server
     const passwordConfig = <?php echo get_password_strength_config_js(); ?>;
     

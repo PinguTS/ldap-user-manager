@@ -12,7 +12,7 @@ if (!defined('LDAP_ESCAPE_DN')) {
 
 set_include_path(".:" . __DIR__ . "/../../includes/");
 require_once "bootstrap_manage.inc.php";
-bootstrap_manage(['ldap', 'user']);
+bootstrap_manage(['ldap', 'user', 'password_reset']);
 
 // Ensure CSRF token is generated early
 get_csrf_token();
@@ -160,11 +160,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile']) && 
 
     // Handle password change
     if (!empty($_POST['new_password'])) {
-        if ($_POST['new_password'] !== $_POST['confirm_new_password']) {
-            $errors[] = "New passwords do not match.";
+        $passScore = isset($_POST['pass_score']) && is_numeric($_POST['pass_score']) ? (int) $_POST['pass_score'] : null;
+        $validation = validate_password_submission(
+            (string) $_POST['new_password'],
+            (string) ($_POST['confirm_new_password'] ?? ''),
+            $passScore
+        );
+        if (!$validation['ok']) {
+            $errors = array_merge($errors, $validation['errors']);
         } else {
             // Hash the password before storing it
-            $update_data['userPassword'] = ldap_hashed_password($_POST['new_password']);
+            $update_data['userPassword'] = ldap_hashed_password((string) $_POST['new_password']);
         }
     }
 
@@ -302,6 +308,7 @@ ldap_close($ldap_connection);
                                 </div>
                             </div>
                         </div>
+                        <input type="hidden" id="pass_score" value="0" name="pass_score">
                         
                         <!-- Additional Attributes -->
                         <?php if (isset($LDAP['account_additional_attributes'])) : ?>
@@ -399,24 +406,15 @@ ldap_close($ldap_connection);
     </div>
 </div>
 
-<script>
-// Password confirmation validation
-document.getElementById('confirm_new_password').addEventListener('input', function() {
-    var password = document.getElementById('new_password').value;
-    var confirm = this.value;
-    
-    if (password !== confirm) {
-        this.setCustomValidity('Passwords do not match');
-    } else {
-        this.setCustomValidity('');
-    }
-});
-
-document.getElementById('new_password').addEventListener('input', function() {
-    var confirm = document.getElementById('confirm_new_password');
-    if (confirm.value) {
-        confirm.dispatchEvent(new Event('input'));
-    }
+<script src="<?php print get_asset_base(); ?>js/password_utils.js"></script>
+<script type="text/javascript">
+document.addEventListener('DOMContentLoaded', function(){
+    const passwordConfig = <?php echo get_password_strength_config_js(); ?>;
+    initializePasswordStrength({
+        passwordFieldId: 'new_password',
+        confirmFieldId: 'confirm_new_password',
+        config: passwordConfig
+    });
 });
 </script>
 
