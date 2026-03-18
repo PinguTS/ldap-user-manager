@@ -154,17 +154,17 @@ if (isset($_POST["user_id"]) && isset($_POST["password"])) {
         }
     }
 
-  // Resolve display name (mail or cn) for menu / one-time token
+  // Resolve display name (cn / display name first, then mail) for menu / one-time token
     $login_display_name = null;
     $read = @ldap_read($ldap_connection, $user_dn, '(objectClass=*)', ['mail', 'cn']);
     if ($read) {
         $entries = @ldap_get_entries($ldap_connection, $read);
         if (!empty($entries[0])) {
             $e = $entries[0];
-            if (!empty($e['mail'][0])) {
-                $login_display_name = $e['mail'][0];
-            } elseif (!empty($e['cn'][0])) {
+            if (!empty($e['cn'][0])) {
                 $login_display_name = $e['cn'][0];
+            } elseif (!empty($e['mail'][0])) {
+                $login_display_name = $e['mail'][0];
             }
         }
     }
