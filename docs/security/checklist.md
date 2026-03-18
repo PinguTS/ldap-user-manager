@@ -86,7 +86,7 @@ This checklist ensures your LDAP User Manager deployment meets security best pra
 
 ### ✅ Security Headers
 - [ ] **Security headers present**
-  - [ ] X-Frame-Options: DENY
+  - [ ] X-Frame-Options: DENY (or SAMEORIGIN, but consistent across all layers)
   - [ ] X-Content-Type-Options: nosniff
   - [ ] X-XSS-Protection: 1; mode=block
   - [ ] Referrer-Policy: strict-origin-when-cross-origin

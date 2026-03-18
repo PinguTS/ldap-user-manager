@@ -216,4 +216,4 @@ module.exports = {
 - **OIDC Documentation**: https://openid.net/connect/
 - **LDAP Documentation**: https://tools.ietf.org/html/rfc4511
 - **Main Documentation**: [../../docs/identity.md](../../docs/identity.md)
-- **OIDC Quick Reference**: [../../docs/oidc-quick-reference.md](../../docs/oidc-quick-reference.md)
+- **OIDC Quick Reference**: [../../docs/integrations/oidc-quick-reference.md](../../docs/integrations/oidc-quick-reference.md)

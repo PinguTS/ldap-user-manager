@@ -56,7 +56,7 @@ $black = imagecolorallocate($image, 0, 0, 0);
 $white = imagecolorallocate($image, 255, 255, 255);
 $textcols = [$black, $white];
 
-$fonts = glob(__DIR__ . '/../../request_account/fonts/*.ttf');
+$fonts = glob(__DIR__ . '/../../assets/fonts/*.ttf');
 $num_chars = 6;
 $human_proof = random_string($num_chars);
 

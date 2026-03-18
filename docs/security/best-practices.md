@@ -118,8 +118,9 @@ server {
 The system automatically sets security headers to protect against common attacks:
 
 ```bash
-# Security headers configuration
-X-Frame-Options: DENY                    # Prevent clickjacking
+# Security headers (effective values depend on where you set them)
+# Prefer setting them in ONE place (reverse proxy OR web server OR PHP) to avoid duplicates/conflicts.
+X-Frame-Options: DENY                    # Prevent clickjacking (or SAMEORIGIN if you intentionally allow same-site framing)
 X-Content-Type-Options: nosniff         # Prevent MIME type sniffing
 X-XSS-Protection: 1; mode=block         # XSS protection
 Referrer-Policy: strict-origin-when-cross-origin  # Control referrer info

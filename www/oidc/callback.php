@@ -27,7 +27,7 @@ if (handle_oidc_callback()) {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Authentication Error</title>
-        <link rel="stylesheet" href="/bootstrap/css/bootstrap.min.css">
+        <link rel="stylesheet" href="<?php print htmlspecialchars(get_asset_base(), ENT_QUOTES, 'UTF-8'); ?>bootstrap/css/bootstrap.min.css">
     </head>
     <body>
         <div class="container mt-5">

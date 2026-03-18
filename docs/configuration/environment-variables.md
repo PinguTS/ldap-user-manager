@@ -137,8 +137,12 @@ Login rate limiting is currently fixed at **5 attempts per 5 minutes** (not conf
 - `FILE_UPLOAD_ALLOWED_MIME_TYPES` - Comma-separated list of allowed MIME types (default: 'image/jpeg,image/png,image/gif,application/pdf,text/plain')
 
 #### **Security Headers**
-The system automatically sets security headers:
-- `X-Frame-Options: DENY` - Prevent clickjacking
+The application sets security headers in PHP (see `www/includes/security_config.inc.php`), and your web server / reverse proxy configuration may also set headers.
+
+**Avoid setting the same header in multiple places with different values**, as this can lead to duplicate/conflicting policies.
+
+The system sets security headers (effective values depend on your deployment):
+- `X-Frame-Options` - Prevent clickjacking (app default: `DENY`; some provided Apache configs also add `SAMEORIGIN` — choose one policy and apply it consistently)
 - `X-Content-Type-Options: nosniff` - Prevent MIME type sniffing
 - `X-XSS-Protection: 1; mode=block` - XSS protection
 - `Referrer-Policy: strict-origin-when-cross-origin` - Control referrer information

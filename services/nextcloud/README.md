@@ -152,4 +152,4 @@ Nextcloud will map OIDC claims to user attributes:
 - **OIDC Login App**: https://github.com/pulsejet/nextcloud-oidc-login
 - **Nextcloud Documentation**: https://docs.nextcloud.com/
 - **Main Documentation**: [../../docs/identity.md](../../docs/identity.md)
-- **OIDC Quick Reference**: [../../docs/oidc-quick-reference.md](../../docs/oidc-quick-reference.md)
+- **OIDC Quick Reference**: [../../docs/integrations/oidc-quick-reference.md](../../docs/integrations/oidc-quick-reference.md)

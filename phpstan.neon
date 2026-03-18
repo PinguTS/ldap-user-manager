@@ -6,9 +6,9 @@ parameters:
     paths:
         - www/
     excludePaths:
-        - www/js/
-        - www/bootstrap/
-        - www/request_account/fonts/
+        - www/assets/js/
+        - www/assets/bootstrap/
+        - www/assets/fonts/
     ignoreErrors:
         - identifier: missingType.iterableValue
         - identifier: missingType.generics

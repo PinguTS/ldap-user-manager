@@ -139,7 +139,7 @@ set $base_path "/ldap-manager";  # Example for sub-path
 ### **Debug Steps**
 1. **Check web server error logs** for specific error messages
 2. **Verify module status**: `apache2ctl -M` (Apache) or `nginx -t` (Nginx)
-3. **Test static file access** directly (e.g., `/bootstrap/css/bootstrap.css`)
+3. **Test static file access** directly (e.g., `/assets/bootstrap/css/bootstrap.css`)
 4. **Check file permissions** and ownership
 5. **Verify configuration syntax** before reloading
 

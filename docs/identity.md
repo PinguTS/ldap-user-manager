@@ -669,4 +669,4 @@ For additional support, refer to:
 - [Dex Documentation](https://dexidp.io/docs/)
 - [OpenID Connect Specification](https://openid.net/connect/)
 - [LDAP User Manager Documentation](./README.md)
-- [OIDC Quick Reference](./oidc-quick-reference.md)
+- [OIDC Quick Reference](./integrations/oidc-quick-reference.md)

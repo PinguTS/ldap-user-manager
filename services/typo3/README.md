@@ -130,4 +130,4 @@ page.10.wrap = <h1>|</h1>
 
 - **TYPO3 OIDC Extension**: https://extensions.typo3.org/extension/oidc/
 - **Main Documentation**: [../../docs/identity.md](../../docs/identity.md)
-- **OIDC Quick Reference**: [../../docs/oidc-quick-reference.md](../../docs/oidc-quick-reference.md)
+- **OIDC Quick Reference**: [../../docs/integrations/oidc-quick-reference.md](../../docs/integrations/oidc-quick-reference.md)

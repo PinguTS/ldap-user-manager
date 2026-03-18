@@ -136,9 +136,8 @@ make rector   # Check for modernization opportunities
 ## Excluded Files
 
 The following files and directories are excluded from quality checks:
-- `www/js/*.js` - JavaScript files
-- `www/bootstrap/*` - Bootstrap framework files
-- `www/request_account/fonts/*` - Font files
+- `www/assets/js/*.js` - JavaScript files
+- `www/assets/bootstrap/*` - Bootstrap framework files
 - `vendor/*` - Composer dependencies
 - Configuration files (`.yml`, `.yaml`, `.toml`)
 

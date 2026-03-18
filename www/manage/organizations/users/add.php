@@ -350,12 +350,12 @@ if ($errors != "") { ?>
         </ol>
     </nav>
     <div class="row">
-        <div class="col-md-8 col-md-offset-2">
+        <div class="col-md-8 offset-md-2">
             <div class="card">
-                <div class="panel-heading">
+                <div class="card-header">
                     <h3>Add New User to Organization: <?php echo htmlspecialchars($org_name); ?></h3>
                 </div>
-                <div class="panel-body">
+                <div class="card-body">
                     <div class="alert alert-info">
                         <strong>Note:</strong> The email address you enter will automatically be used as the username for login. Users will sign in using their email address and password.
                     </div>

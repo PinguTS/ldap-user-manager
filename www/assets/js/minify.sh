@@ -50,7 +50,7 @@ minify_js() {
 
 # Check if we're in the right directory
 if [[ ! -f "user_management.js" ]]; then
-    echo "❌ Please run this script from the www/js/ directory"
+    echo "❌ Please run this script from the www/assets/js/ directory"
     exit 1
 fi
 

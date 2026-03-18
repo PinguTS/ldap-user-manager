@@ -1041,7 +1041,8 @@ function get_asset_base(): string
 {
     global $SERVER_PATH;
     $path = rtrim((string) ($SERVER_PATH ?? ''), '/');
-    return ($path === '') ? '/' : '/' . $path . '/';
+    $base = ($path === '') ? '/' : '/' . ltrim($path, '/') . '/';
+    return $base . 'assets/';
 }
 
 /**

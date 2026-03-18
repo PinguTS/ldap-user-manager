@@ -153,4 +153,4 @@ GitLab will map OIDC claims to user attributes:
 
 - **GitLab OmniAuth Documentation**: https://docs.gitlab.com/ee/integration/omniauth.html
 - **Main Documentation**: [../../docs/identity.md](../../docs/identity.md)
-- **OIDC Quick Reference**: [../../docs/oidc-quick-reference.md](../../docs/oidc-quick-reference.md)
+- **OIDC Quick Reference**: [../../docs/integrations/oidc-quick-reference.md](../../docs/integrations/oidc-quick-reference.md)

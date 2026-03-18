@@ -10,10 +10,10 @@ The system provides clean URLs by removing `.php` extensions and handling URL re
 
 ### **Main Application**
 - `/` → Main application entry point
-- `/log_in` → Login page
-- `/log_out` → Logout page
-- `/change_password` → Password change page
-- `/request_account` → Account request page
+- `/login/` → Login page
+- `/logout/` → Logout page
+- `/password/change/` → Password change page
+- `/account/request/` → Account request page
 - `/oidc/callback.php` → OIDC callback endpoint (used when OIDC is enabled)
 
 ### **Setup and Configuration**
@@ -23,22 +23,22 @@ The system provides clean URLs by removing `.php` extensions and handling URL re
 - `/setup/run_checks` → System checks
 
 ### **User Management**
-- `/manage/users` → System users list
-- `/manage/users/new` → Create new system user
-- `/manage/users/show` → View system user
-- `/manage/users/show/username` → View specific user
+- `/manage/users/` → System users list
+- `/manage/users/new/` (or `/manage/users/new.php`) → Create new system user
+- `/manage/users/show.php?uuid={uuid}` → View system user (canonical)
+- `/manage/users/{uuid}` → View system user (UUID-in-path via rewrite rule)
 
 ### **Organization Management**
-- `/manage/organizations` → Organizations list
-- `/manage/organizations/add` → Create new organization
-- `/manage/organizations/show` → View organization
-- `/manage/organizations/show/CompanyName` → View specific organization
-- `/manage/organizations/users` → Organization users list
-- `/manage/organizations/users/add` → Add user to organization
+- `/manage/organizations/` → Organizations list
+- `/manage/organizations/add.php` (or `/manage/organizations/add/`) → Create new organization
+- `/manage/organizations/show/index.php?uuid={uuid}` → View organization (canonical)
+- `/manage/organizations/{uuid}` → View organization (UUID-in-path via rewrite rule)
+- `/manage/organizations/{uuid}/users` → Organization users list (UUID-in-path via rewrite rule)
+- `/manage/organizations/{uuid}/users/new` → Add user to organization (UUID-in-path via rewrite rule)
 
 ### **Role Management**
-- `/manage/roles` → Role management
-- `/manage/download` → Download functionality
+- `/manage/roles/` → Role management
+- `/manage/download.php?...` → Download functionality
 
 ## 🔧 **How It Works**
 
@@ -53,14 +53,14 @@ The URL routing system uses **Apache configuration** to provide clean URLs and p
 
 ### **Before (with .php extensions)**
 ```
-/manage/users/show.php?user=john.doe
+/manage/users/show.php?uuid=550e8400-e29b-41d4-a716-446655440000
 /manage/organizations/show/index.php?org=CompanyA
 ```
 
 ### **After (clean URLs)**
 ```
-/manage/users/show/john.doe
-/manage/organizations/show/CompanyA
+/manage/users/550e8400-e29b-41d4-a716-446655440000
+/manage/organizations/550e8400-e29b-41d4-a716-446655440000
 ```
 
 ## 🛡️ **Security Features**
@@ -92,8 +92,8 @@ The URL routing system uses **Apache configuration** to provide clean URLs and p
 
 ### **Valid URLs (should work)**
 ```
-/manage/users/show
-/manage/organizations/show/MyCompany
+/manage/users/
+/manage/organizations/550e8400-e29b-41d4-a716-446655440000
 /setup/ldap
 ```
 

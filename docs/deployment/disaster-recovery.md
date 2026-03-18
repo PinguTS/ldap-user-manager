@@ -519,8 +519,8 @@ else
 fi
 
 # Test user authentication
-if curl -f -X POST http://localhost:8080/log_in/ \
-  -d "username=admin@example.com&password=admin123" > /dev/null 2>&1; then
+if curl -f -X POST http://localhost:8080/login/ \
+  -d "user_id=admin@example.com&password=admin123" > /dev/null 2>&1; then
   echo "✅ User authentication working"
 else
   echo "❌ User authentication failed"

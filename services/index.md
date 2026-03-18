@@ -163,7 +163,7 @@ All external services require these OIDC settings:
 ## 📖 **Additional Resources**
 
 - **Main Documentation**: [../docs/identity.md](../docs/identity.md)
-- **OIDC Quick Reference**: [../docs/oidc-quick-reference.md](../docs/oidc-quick-reference.md)
+- **OIDC Quick Reference**: [../docs/integrations/oidc-quick-reference.md](../docs/integrations/oidc-quick-reference.md)
 - **Dex Documentation**: https://dexidp.io/docs/
 - **OIDC Specification**: https://openid.net/connect/
 

@@ -306,4 +306,4 @@ class PlgAuthenticationLdap extends CMSPlugin
 - **Joomla OIDC Plugin**: https://extensions.joomla.org/extension/authentication/oidc/
 - **Joomla Documentation**: https://docs.joomla.org/
 - **Main Documentation**: [../../docs/identity.md](../../docs/identity.md)
-- **OIDC Quick Reference**: [../../docs/oidc-quick-reference.md](../../docs/oidc-quick-reference.md)
+- **OIDC Quick Reference**: [../../docs/integrations/oidc-quick-reference.md](../../docs/integrations/oidc-quick-reference.md)

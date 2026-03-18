@@ -171,4 +171,4 @@ add_filter('ldap_auth_settings', function($settings) {
 - **WordPress OIDC Plugin**: https://wordpress.org/plugins/openid-connect/
 - **WordPress Documentation**: https://wordpress.org/support/
 - **Main Documentation**: [../../docs/identity.md](../../docs/identity.md)
-- **OIDC Quick Reference**: [../../docs/oidc-quick-reference.md](../../docs/oidc-quick-reference.md)
+- **OIDC Quick Reference**: [../../docs/integrations/oidc-quick-reference.md](../../docs/integrations/oidc-quick-reference.md)

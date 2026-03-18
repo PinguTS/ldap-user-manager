@@ -40,12 +40,12 @@ The system uses the following URL patterns for different features:
 - **System Roles**: `/manage/roles/`
 
 #### **Authentication & Setup**
-- **Login**: `/log_in/`
-- **Logout**: `/log_out/`
+- **Login**: `/login/`
+- **Logout**: `/logout/`
 - **Setup Wizard**: `/setup/`
 - **OIDC Callback**: `/oidc/callback.php` (or `/oidc/callback` if you add a rewrite rule)
-- **Change Password**: `/change_password/`
-- **Request Account**: `/request_account/`
+- **Change Password**: `/password/change/`
+- **Request Account**: `/account/request/`
 
 #### **File Downloads**
 - **Download Resource**: `/manage/download.php?resource_identifier={dn}&attribute={attr}`

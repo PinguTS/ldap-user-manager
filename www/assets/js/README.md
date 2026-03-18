@@ -48,10 +48,10 @@ The web application automatically uses minified versions:
 
 ```html
 <!-- Development (original files) -->
-<script src="/js/user_management.js"></script>
+<script src="/assets/js/user_management.js"></script>
 
 <!-- Production (minified files) -->
-<script src="/js/user_management.min.js"></script>
+<script src="/assets/js/user_management.min.js"></script>
 ```
 
 ## File Sizes
