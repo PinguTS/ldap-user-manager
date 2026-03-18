@@ -393,15 +393,15 @@ if ($errors != "") { ?>
                             </div>
                         </div>
 
-                        <!-- Common Name (Auto-generated from First Name + Last Name) -->
-                        <div class="form-group" style="display: none;">
+                        <!-- Display Name (cn) -->
+                        <div class="form-group">
                             <label for="cn" class="col-sm-3 form-label">
-                                <strong>Common Name</strong>
+                                <strong>Display Name</strong><sup>*</sup>
                             </label>
                             <div class="col-sm-6">
-                                <input type="hidden" name="cn" id="cn" 
-                                       value="<?php echo htmlspecialchars($_POST['cn'] ?? ''); ?>">
-                                <small class="text-muted">Auto-generated from First Name + Last Name</small>
+                                <input type="text" class="form-control" name="cn" id="cn"
+                                       value="<?php echo htmlspecialchars($_POST['cn'] ?? ''); ?>" required>
+                                <small class="text-muted">Auto-filled from First Name + Last Name (you can edit it).</small>
                             </div>
                         </div>
 
@@ -413,7 +413,7 @@ if ($errors != "") { ?>
                             <div class="col-sm-6">
                                 <input type="text" class="form-control" name="givenName" id="givenName" 
                                        value="<?php echo htmlspecialchars($_POST['givenName'] ?? ''); ?>" 
-                                       onchange="updateCommonName()" required>
+                                       required>
                             </div>
                         </div>
 
@@ -425,7 +425,7 @@ if ($errors != "") { ?>
                             <div class="col-sm-6">
                                 <input type="text" class="form-control" name="sn" id="sn" 
                                        value="<?php echo htmlspecialchars($_POST['sn'] ?? ''); ?>" 
-                                       onchange="updateCommonName()" required>
+                                       required>
                             </div>
                         </div>
 

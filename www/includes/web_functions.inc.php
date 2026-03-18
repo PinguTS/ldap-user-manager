@@ -507,16 +507,16 @@ function validate_passkey_cookie()
                 if ($user_dn) {
                     $currentUserGroups = ldap_user_group_membership($ldap_connection, $user_dn);
                     $USER_DN = $user_dn;
-                    // Resolve display name (mail or cn) for menu when USER_ID is a UUID
+                    // Resolve display name (cn preferred) for menu
                     $read = @ldap_read($ldap_connection, $user_dn, '(objectClass=*)', ['mail', 'cn']);
                     if ($read) {
                         $entries = ldap_get_entries($ldap_connection, $read);
                         if (!empty($entries[0])) {
                             $e = $entries[0];
-                            if (!empty($e['mail'][0])) {
-                                $USER_DISPLAY_NAME = $e['mail'][0];
-                            } elseif (!empty($e['cn'][0])) {
+                            if (!empty($e['cn'][0])) {
                                 $USER_DISPLAY_NAME = $e['cn'][0];
+                            } elseif (!empty($e['mail'][0])) {
+                                $USER_DISPLAY_NAME = $e['mail'][0];
                             }
                         }
                     }

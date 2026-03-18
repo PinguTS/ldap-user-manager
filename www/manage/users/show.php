@@ -407,8 +407,18 @@ ldap_close($ldap_connection);
 </div>
 
 <script src="<?php print get_asset_base(); ?>js/password_utils.js"></script>
+<script src="<?php print get_asset_base(); ?>js/form-sync.js"></script>
 <script type="text/javascript">
 document.addEventListener('DOMContentLoaded', function(){
+    // Form sync: display name from givenName+sn (editable; stops overwriting once user edits cn)
+    if (typeof initFormSync === 'function') {
+        initFormSync({
+            givenNameId: 'givenName',
+            snId: 'sn',
+            cnId: 'cn'
+        });
+    }
+
     const passwordConfig = <?php echo get_password_strength_config_js(); ?>;
     initializePasswordStrength({
         passwordFieldId: 'new_password',

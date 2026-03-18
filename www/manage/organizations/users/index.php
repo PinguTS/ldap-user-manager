@@ -398,7 +398,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
     // Use email as username since that's how the system is configured
     $uid = $mail;
 
-    if ($givenName === '' || $sn === '' || $mail === '' || (!$sendPasswordSetLink && $password === '')) {
+    if ($givenName === '' || $sn === '' || $cn === '' || $mail === '' || (!$sendPasswordSetLink && $password === '')) {
         $message = 'All fields are required.';
         $message_type = 'danger';
         goto after_add_user;
@@ -588,6 +588,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
     $uid = trim($_POST['edit_uid']);
     $givenName = trim($_POST['edit_givenname']);
     $sn = trim($_POST['edit_sn']);
+    $cn = trim($_POST['edit_cn'] ?? '');
     $mail = trim($_POST['edit_mail']);
     $password = (string) ($_POST['edit_password'] ?? '');
     $passwordMatch = (string) ($_POST['edit_password_match'] ?? '');
@@ -622,7 +623,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
     $entry = [
         'givenname' => $givenName,
         'sn' => $sn,
-        'cn' => $givenName . ' ' . $sn, // Construct cn from givenName + sn
+        'cn' => ($cn !== '' ? $cn : trim($givenName . ' ' . $sn)),
         'mail' => $mail
     ];
     if ($password !== '') {
@@ -844,11 +845,16 @@ $ldap_connection = open_ldap_connection();
         <?= csrf_token_field() ?>
         <div class="form-group">
             <label for="givenName">First Name</label>
-            <input type="text" class="form-control" name="givenName" id="givenName" onchange="updateCommonName()" required>
+            <input type="text" class="form-control" name="givenName" id="givenName" required>
         </div>
         <div class="form-group">
             <label for="sn">Last Name</label>
-            <input type="text" class="form-control" name="sn" id="sn" onchange="updateCommonName()" required>
+            <input type="text" class="form-control" name="sn" id="sn" required>
+        </div>
+        <div class="form-group">
+            <label for="cn">Display Name</label>
+            <input type="text" class="form-control" name="cn" id="cn" required>
+            <small class="text-muted">Auto-filled from First Name + Last Name (you can edit it).</small>
         </div>
         <div class="form-group">
             <label for="mail">Email (Username)</label>
@@ -857,7 +863,6 @@ $ldap_connection = open_ldap_connection();
         </div>
         
         <!-- Hidden fields for auto-generated values -->
-        <input type="hidden" name="cn" id="cn" value="">
         <input type="hidden" name="<?php echo $LDAP['account_attribute']; ?>" id="<?php echo $LDAP['account_attribute']; ?>" value="">
         
         <div class="form-group">
@@ -948,6 +953,11 @@ $ldap_connection = open_ldap_connection();
                 <input type="text" class="form-control" name="edit_sn" id="edit_sn" value="<?= htmlspecialchars(get_ldap_attribute($editUser, 'sn')) ?>" required>
               </div>
               <div class="form-group">
+                <label for="edit_cn">Display Name</label>
+                <input type="text" class="form-control" name="edit_cn" id="edit_cn" value="<?= htmlspecialchars(get_ldap_attribute($editUser, 'cn')) ?>" required>
+                <small class="text-muted">Auto-filled from First Name + Last Name (you can edit it).</small>
+              </div>
+              <div class="form-group">
                 <label for="edit_mail">Email</label>
                 <input type="email" class="form-control" name="edit_mail" id="edit_mail" value="<?= htmlspecialchars(get_ldap_attribute($editUser, 'mail')) ?>" required>
               </div>
@@ -988,6 +998,11 @@ $ldap_connection = open_ldap_connection();
               <div class="form-group">
                 <label for="edit_sn">Last Name</label>
                 <input type="text" class="form-control" name="edit_sn" id="edit_sn" required>
+              </div>
+              <div class="form-group">
+                <label for="edit_cn">Display Name</label>
+                <input type="text" class="form-control" name="edit_cn" id="edit_cn" required>
+                <small class="text-muted">Auto-filled from First Name + Last Name (you can edit it).</small>
               </div>
               <div class="form-group">
                 <label for="edit_mail">Email</label>
@@ -1150,6 +1165,11 @@ $ldap_connection = open_ldap_connection();
                 cnId: 'cn',
                 emailId: 'mail',
                 accountAttributeId: '<?php echo $LDAP["account_attribute"]; ?>'
+            });
+            initFormSync({
+                givenNameId: 'edit_givenname',
+                snId: 'edit_sn',
+                cnId: 'edit_cn'
             });
         }
 

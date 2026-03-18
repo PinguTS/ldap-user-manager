@@ -369,6 +369,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
 </div>
 
 <script src="<?php print get_asset_base(); ?>js/password_utils.js"></script>
+<script src="<?php print get_asset_base(); ?>js/form-sync.js"></script>
 <script type="text/javascript">
 document.addEventListener('DOMContentLoaded', function(){
     // Get password strength configuration from server
@@ -407,16 +408,14 @@ document.addEventListener('DOMContentLoaded', function(){
         togglePw();
     }
     
-    // Initialize form enhancements
-    initializeUserManagementForms({
-        givenNameField: 'givenName',
-        surnameField: 'sn',
-        displayField: 'cn',
-        emailField: 'mail',
-        uidField: 'uid',
-        passwordField: 'userPassword',
-        confirmField: 'confirm_password'
-    });
+    // Form sync: display name from givenName+sn
+    if (typeof initFormSync === 'function') {
+        initFormSync({
+            givenNameId: 'givenName',
+            snId: 'sn',
+            cnId: 'cn'
+        });
+    }
 });
 </script>
 

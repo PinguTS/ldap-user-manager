@@ -16,18 +16,32 @@ function initFormSync(options) {
     var emailEl = options.emailId ? document.getElementById(options.emailId) : null;
     var accountEl = options.accountAttributeId ? document.getElementById(options.accountAttributeId) : null;
 
+    var cnDirty = false;
+
     function updateDisplayName() {
         if (!cnEl) return;
+        if (cnDirty) return;
         var given = (givenNameEl && givenNameEl.value) ? givenNameEl.value.trim() : '';
         var sn = (snEl && snEl.value) ? snEl.value.trim() : '';
-        if (given && sn) {
-            cnEl.value = given + ' ' + sn;
-        }
+        var combined = (given + ' ' + sn).trim();
+        cnEl.value = combined;
     }
 
     if (givenNameEl && snEl && cnEl) {
         givenNameEl.addEventListener('input', updateDisplayName);
         snEl.addEventListener('input', updateDisplayName);
+
+        cnEl.addEventListener('input', function (e) {
+            if (e && e.isTrusted) {
+                cnDirty = cnEl.value.trim() !== '';
+            }
+        });
+
+        cnEl.addEventListener('change', function (e) {
+            if (e && e.isTrusted) {
+                cnDirty = cnEl.value.trim() !== '';
+            }
+        });
     }
 
     if (emailEl && accountEl) {
@@ -37,4 +51,19 @@ function initFormSync(options) {
         emailEl.addEventListener('input', syncEmailToAccount);
         emailEl.addEventListener('change', syncEmailToAccount);
     }
+}
+
+/**
+ * Backward-compatible helper for legacy inline handlers.
+ * Only fills cn when it is empty, so user edits are preserved.
+ */
+function updateCommonName() {
+    var givenNameEl = document.getElementById('givenName');
+    var snEl = document.getElementById('sn');
+    var cnEl = document.getElementById('cn');
+    if (!cnEl) return;
+    if (cnEl.value && cnEl.value.trim() !== '') return;
+    var given = (givenNameEl && givenNameEl.value) ? givenNameEl.value.trim() : '';
+    var sn = (snEl && snEl.value) ? snEl.value.trim() : '';
+    cnEl.value = (given + ' ' + sn).trim();
 }
