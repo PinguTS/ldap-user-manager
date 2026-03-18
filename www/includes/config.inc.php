@@ -516,20 +516,27 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
   */
  function displayMaintenanceMode()
  {
+     if (!function_exists('t')) {
+         require_once __DIR__ . '/i18n.inc.php';
+         lum_i18n_bootstrap();
+     }
+
      global $LDAP;
 
      $conflicts = [];
 
      if ($LDAP['admin_role'] === $LDAP['maintainer_role']) {
-         $conflicts[] = "Admin and Maintainer roles are both set to '{$LDAP['admin_role']}'";
+         $conflicts[] = t('maintenance.conflict.same_roles', ['role' => (string) $LDAP['admin_role']]);
      }
 
+     $lang = htmlspecialchars(lum_current_locale(), ENT_QUOTES, 'UTF-8');
+     $title = htmlspecialchars(t('maintenance.page_title'), ENT_QUOTES, 'UTF-8');
      echo '<!DOCTYPE html>
-     <html lang="en">
+     <html lang="' . $lang . '">
      <head>
          <meta charset="UTF-8">
          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-         <title>System Maintenance - Role Configuration Error</title>
+         <title>' . $title . '</title>
          <style>
              body { font-family: Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px; }
              .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -541,51 +548,36 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
              .conflict-list li { margin: 5px 0; color: #bf360c; }
              .solution { background: #e8f5e8; border-left: 4px solid #4caf50; padding: 20px; margin: 20px 0; }
              .solution h3 { color: #2e7d32; margin-top: 0; }
-             .code-block { background: #f5f5f5; padding: 15px; border-radius: 4px; font-family: monospace; margin: 10px 0; }
+             .code-block { background: #f5f5f5; padding: 15px; border-radius: 4px; font-family: monospace; margin: 10px 0; white-space: pre-wrap; }
          </style>
      </head>
      <body>
          <div class="container">
              <div class="error-header">
-                 <div class="error-icon">🚨</div>
-                 <h1>System Maintenance Required</h1>
-                 <h2>Critical Role Configuration Error Detected</h2>
+                 <div class="error-icon" aria-hidden="true">🚨</div>
+                 <h1>' . htmlspecialchars(t('maintenance.h1'), ENT_QUOTES, 'UTF-8') . '</h1>
+                 <h2>' . htmlspecialchars(t('maintenance.h2'), ENT_QUOTES, 'UTF-8') . '</h2>
              </div>
-             
              <div class="conflict-list">
-                 <h3>Configuration Conflicts Found:</h3>
+                 <h3>' . htmlspecialchars(t('maintenance.conflicts_heading'), ENT_QUOTES, 'UTF-8') . '</h3>
                  <ul>';
-
      foreach ($conflicts as $conflict) {
-         echo "<li>$conflict</li>";
+         echo '<li>' . htmlspecialchars($conflict, ENT_QUOTES, 'UTF-8') . '</li>';
      }
-
      echo '</ul>
              </div>
-             
              <div class="solution">
-                 <h3>Why This Happened:</h3>
-                 <p>The system detected that admin and maintainer roles/group names are set to the same values. This breaks the access control system because the system cannot distinguish between administrators and maintainers.</p>
-                 
-                 <h3>How to Fix:</h3>
-                 <p>Set different values for admin and maintainer roles/group names in your environment variables:</p>
-                 
-                 <div class="code-block">
-                     # Example 1: Different role values
-                     LDAP_ADMIN_ROLE=administrator
-                     LDAP_MAINTAINER_ROLE=maintainer
-                     
-                 </div>
-                 
-                 <p><strong>Important:</strong> After fixing the configuration, restart the application for changes to take effect.</p>
+                 <h3>' . htmlspecialchars(t('maintenance.why_heading'), ENT_QUOTES, 'UTF-8') . '</h3>
+                 <p>' . htmlspecialchars(t('maintenance.why_body'), ENT_QUOTES, 'UTF-8') . '</p>
+                 <h3>' . htmlspecialchars(t('maintenance.fix_heading'), ENT_QUOTES, 'UTF-8') . '</h3>
+                 <p>' . htmlspecialchars(t('maintenance.fix_body'), ENT_QUOTES, 'UTF-8') . '</p>
+                 <div class="code-block">' . htmlspecialchars(t('maintenance.code_example'), ENT_QUOTES, 'UTF-8') . '</div>
+                 <p><strong>' . htmlspecialchars(t('maintenance.important_label'), ENT_QUOTES, 'UTF-8') . '</strong> ' . htmlspecialchars(t('maintenance.restart_note'), ENT_QUOTES, 'UTF-8') . '</p>
              </div>
-             
              <div class="solution">
-                 <h3>Current Configuration:</h3>
-                 <div class="code-block">
-                     Admin Role: ' . htmlspecialchars($LDAP['admin_role']) . '
-                     Maintainer Role: ' . htmlspecialchars($LDAP['maintainer_role']) . '
-                 </div>
+                 <h3>' . htmlspecialchars(t('maintenance.current_config_heading'), ENT_QUOTES, 'UTF-8') . '</h3>
+                 <div class="code-block">' . htmlspecialchars(t('maintenance.current_admin', ['role' => (string) $LDAP['admin_role']]), ENT_QUOTES, 'UTF-8') . '
+' . htmlspecialchars(t('maintenance.current_maintainer', ['role' => (string) $LDAP['maintainer_role']]), ENT_QUOTES, 'UTF-8') . '</div>
              </div>
          </div>
      </body>

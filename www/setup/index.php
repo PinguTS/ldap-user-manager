@@ -28,26 +28,26 @@ if (isset($_POST["admin_password"])) {
         exit;
     }
 } else {
-    render_header("$ORGANISATION_NAME account manager setup - log in");
+    render_header(t('setup.index.page_title', ['org' => $ORGANISATION_NAME]));
 
     if (isset($_GET["invalid"])) {
         ?>
         <div class="alert alert-warning">
-            <p class="text-center">The password was incorrect.</p>
+            <p class="text-center"><?php echo htmlspecialchars(t('setup.index.wrong_password'), ENT_QUOTES, 'UTF-8'); ?></p>
         </div>
         <?php
     }
     ?>
     <div class="container">
         <div class="card">
-            <div class="card-header text-center">Password for <?php print $LDAP['admin_bind_dn']; ?></div>
+            <div class="card-header text-center"><?php echo htmlspecialchars(t('setup.index.password_for', ['dn' => $LDAP['admin_bind_dn']]), ENT_QUOTES, 'UTF-8'); ?></div>
             <div class="card-body text-center">
                 <form class="form-inline" action='' method='post'>
                     <div class="form-group">
                         <input type='password' class="form-control" name='admin_password'>
                     </div>
                     <div class="form-group">
-                        <input type='submit' class="btn btn-secondary" value='Log in'>
+                        <input type='submit' class="btn btn-secondary" value="<?php echo htmlspecialchars(t('login.submit'), ENT_QUOTES, 'UTF-8'); ?>">
                     </div>
                 </form>
             </div>

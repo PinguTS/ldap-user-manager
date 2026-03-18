@@ -186,7 +186,7 @@ if (isset($_POST["user_id"]) && isset($_POST["password"])) {
             $redirect_url .= (strpos($redirect_url, '?') !== false ? '&' : '?') . 'auth_tok=' . $auth_tok;
             header("Content-Type: text/html; charset=utf-8");
             header("Cache-Control: no-store, no-cache, must-revalidate");
-            echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0;url=' . htmlspecialchars($redirect_url, ENT_QUOTES, 'UTF-8') . '"></head><body>Redirecting...</body></html>';
+            echo '<!DOCTYPE html><html lang="' . htmlspecialchars(lum_current_locale(), ENT_QUOTES, 'UTF-8') . '"><head><meta http-equiv="Refresh" content="0;url=' . htmlspecialchars($redirect_url, ENT_QUOTES, 'UTF-8') . '"></head><body>' . htmlspecialchars(t('login.redirecting'), ENT_QUOTES, 'UTF-8') . '</body></html>';
             exit;
         }
         exit;
@@ -245,7 +245,7 @@ if (isset($_POST["user_id"]) && isset($_POST["password"])) {
     header("Content-Type: text/html; charset=utf-8");
     header("Cache-Control: no-store, no-cache, must-revalidate");
     $redirect_url_escaped = htmlspecialchars($redirect_url, ENT_QUOTES, 'UTF-8');
-    echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0;url=' . $redirect_url_escaped . '"></head><body>Redirecting...</body></html>';
+    echo '<!DOCTYPE html><html lang="' . htmlspecialchars(lum_current_locale(), ENT_QUOTES, 'UTF-8') . '"><head><meta http-equiv="Refresh" content="0;url=' . $redirect_url_escaped . '"></head><body>' . htmlspecialchars(t('login.redirecting'), ENT_QUOTES, 'UTF-8') . '</body></html>';
     exit;
 }
 
@@ -261,50 +261,49 @@ if (isset($_GET["redirect_to"])) {
     $redirect_to = $_GET["redirect_to"];
 }
 
-render_header("$ORGANISATION_NAME account manager - log in");
+render_header(t('login.page_title', ['org' => $ORGANISATION_NAME]));
 
 ?>
 <div class="container">
  <div class="col-sm-8 offset-sm-2">
 
   <div class="card">
-   <div class="card-header text-center">Log in</div>
+   <div class="card-header text-center"><?php echo htmlspecialchars(t('login.card_title'), ENT_QUOTES, 'UTF-8'); ?></div>
    <div class="card-body text-center">
 
    <?php if (isset($_GET['logged_out'])) { ?>
    <div class="alert alert-warning">
-   <p class="text-center">You've been automatically logged out because you've been inactive for
-        <?php print $SESSION_TIMEOUT; ?> minutes. Click on the 'Log in' link to get back into the system.</p>
+   <p class="text-center"><?php echo htmlspecialchars(t('login.logged_out_inactive', ['minutes' => (string) $SESSION_TIMEOUT]), ENT_QUOTES, 'UTF-8'); ?></p>
    </div>
    <?php } ?>
 
    <?php if (isset($display_unauth)) { ?>
    <div class="alert alert-warning">
-    Please log in to continue
+    <?php echo htmlspecialchars(t('login.please_log_in'), ENT_QUOTES, 'UTF-8'); ?>
    </div>
    <?php } ?>
 
    <?php if (isset($display_logged_out)) { ?>
    <div class="alert alert-warning">
-    You were logged out because your session expired. Log in again to continue.
+    <?php echo htmlspecialchars(t('login.session_expired'), ENT_QUOTES, 'UTF-8'); ?>
    </div>
    <?php } ?>
 
    <?php if (isset($_GET['invalid'])) : ?>
             <div class="alert alert-danger">
-                <strong>Login Failed:</strong> Invalid username or password. Please try again.
+                <strong><?php echo htmlspecialchars(t('login.failed_title'), ENT_QUOTES, 'UTF-8'); ?></strong> <?php echo htmlspecialchars(t('login.failed_invalid'), ENT_QUOTES, 'UTF-8'); ?>
             </div>
    <?php endif; ?>
         
         <?php if (isset($_GET['account_locked'])) : ?>
             <div class="alert alert-danger">
-                <strong>Account Disabled:</strong> Your account has been locked by an administrator. Please contact your system administrator for assistance.
+                <strong><?php echo htmlspecialchars(t('login.account_locked_title'), ENT_QUOTES, 'UTF-8'); ?></strong> <?php echo htmlspecialchars(t('login.account_locked'), ENT_QUOTES, 'UTF-8'); ?>
             </div>
         <?php endif; ?>
         
         <?php if (isset($_GET['rate_limited'])) : ?>
             <div class="alert alert-warning">
-                <strong>Too Many Attempts:</strong> You have exceeded the maximum login attempts. Please wait before trying again.
+                <strong><?php echo htmlspecialchars(t('login.rate_limited_title'), ENT_QUOTES, 'UTF-8'); ?></strong> <?php echo htmlspecialchars(t('login.rate_limited'), ENT_QUOTES, 'UTF-8'); ?>
             </div>
         <?php endif; ?>
 
@@ -321,14 +320,14 @@ render_header("$ORGANISATION_NAME account manager - log in");
     </div>
 
     <div class="form-group">
-     <label for="password" class="col-sm-4 form-label">Password</label>
+     <label for="password" class="col-sm-4 form-label"><?php echo htmlspecialchars(t('login.password_label'), ENT_QUOTES, 'UTF-8'); ?></label>
      <div class="col-sm-6">
       <input type="password" class="form-control" id="confirm" name="password">
      </div>
     </div>
 
     <div class="form-group">
-     <button type="submit" class="btn btn-secondary">Log in</button>
+     <button type="submit" class="btn btn-secondary"><?php echo htmlspecialchars(t('login.submit'), ENT_QUOTES, 'UTF-8'); ?></button>
     </div>
 
    </form>

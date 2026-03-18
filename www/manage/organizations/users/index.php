@@ -53,9 +53,9 @@ foreach ($orgs as $org) {
 }
 
 if (!$orgName || !$orgExists) {
-    render_header('Organization User Management');
+    render_header(t('manage.common.org_users_title'));
     render_submenu();
-    echo "<div class='alert alert-warning'>Please select a valid organization.</div>";
+    echo "<div class='alert alert-warning'>" . htmlspecialchars(t('manage.common.valid_org_prompt'), ENT_QUOTES, 'UTF-8') . "</div>";
     echo '<ul>';
     foreach ($orgs as $org) {
         // Extract organization name from DN or use 'o' attribute
@@ -762,42 +762,42 @@ $orgManagerDns = getOrgManagerDns($orgName);
 // Open LDAP connection for display and operations
 $ldap_connection = open_ldap_connection();
 
-render_header('User Management for Organization: ' . htmlspecialchars($orgDisplay));
+render_header(t('manage.org_users.page_title', ['org' => $orgDisplay]));
 render_submenu();
 ?>
 <div class="container">
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/', ENT_QUOTES, 'UTF-8'); ?>">Dashboard</a></li>
-            <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>">Organizations</a></li>
+            <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.common.dashboard'), ENT_QUOTES, 'UTF-8'); ?></a></li>
+            <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.common.organizations'), ENT_QUOTES, 'UTF-8'); ?></a></li>
             <?php if ($org_uuid) : ?>
                 <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/', ENT_QUOTES, 'UTF-8'); ?>"><?= htmlspecialchars($orgDisplay) ?></a></li>
             <?php endif; ?>
-            <li class="breadcrumb-item active" aria-current="page">Users</li>
+            <li class="breadcrumb-item active" aria-current="page"><?php echo htmlspecialchars(t('manage.common.users'), ENT_QUOTES, 'UTF-8'); ?></li>
         </ol>
     </nav>
     
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2>Users in <?= htmlspecialchars($orgDisplay) ?></h2>
+        <h2><?= htmlspecialchars(t('manage.common.users_in_org', ['org' => $orgDisplay]), ENT_QUOTES, 'UTF-8') ?></h2>
         <div>
             <?php if ($org_uuid) : ?>
-                <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary mb-3">&larr; Back to Organization</a>
+                <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary mb-3">&larr; <?php echo htmlspecialchars(t('manage.common.back_to_org'), ENT_QUOTES, 'UTF-8'); ?></a>
             <?php endif; ?>
         </div>
     </div>
     <?php if ($message) : ?>
         <div class="alert alert-<?= $message_type ?>" id="msgbox"> <?= $message ?> </div>
     <?php endif; ?>
-    <input class="form-control mb-2" id="user_search_input" type="text" placeholder="Search users..">
+    <input class="form-control mb-2" id="user_search_input" type="text" placeholder="<?php echo htmlspecialchars(t('manage.common.placeholder_search_users'), ENT_QUOTES, 'UTF-8'); ?>">
     <table class="table table-bordered" id="user_table">
         <thead>
             <tr>
-                <th>Username/Email</th>
-                <th>Full Name</th>
-                <th>Email</th>
-                <th>Status</th>
-                <th>Org Manager</th>
-                <th>Actions</th>
+                <th><?php echo htmlspecialchars(t('manage.common.username_email'), ENT_QUOTES, 'UTF-8'); ?></th>
+                <th><?php echo htmlspecialchars(t('manage.common.full_name'), ENT_QUOTES, 'UTF-8'); ?></th>
+                <th><?php echo htmlspecialchars(t('manage.common.email'), ENT_QUOTES, 'UTF-8'); ?></th>
+                <th><?php echo htmlspecialchars(t('manage.common.status'), ENT_QUOTES, 'UTF-8'); ?></th>
+                <th><?php echo htmlspecialchars(t('manage.common.org_manager'), ENT_QUOTES, 'UTF-8'); ?></th>
+                <th><?php echo htmlspecialchars(t('manage.common.actions'), ENT_QUOTES, 'UTF-8'); ?></th>
             </tr>
         </thead>
         <tbody>
@@ -814,7 +814,7 @@ render_submenu();
                     <td>
                         <?php
                         $is_locked = ldap_user_is_locked($ldap_connection, $user['dn']);
-                        echo $is_locked ? '<span class="badge bg-danger">Locked</span>' : '<span class="badge bg-success">Active</span>';
+                        echo $is_locked ? '<span class="badge bg-danger">' . htmlspecialchars(t('manage.common.locked'), ENT_QUOTES, 'UTF-8') . '</span>' : '<span class="badge bg-success">' . htmlspecialchars(t('manage.common.active'), ENT_QUOTES, 'UTF-8') . '</span>';
                         ?>
                     </td>
                     <td>
@@ -822,24 +822,24 @@ render_submenu();
                             <input type="hidden" name="<?= $org_uuid ? 'uuid' : 'org' ?>" value="<?= htmlspecialchars($org_uuid ?: $orgName) ?>">
                             <input type="hidden" name="uid" value="<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>">
                             <input type="hidden" name="toggle_manager" value="1">
-                            <input type="checkbox" onchange="this.form.submit()" <?= $isManager ? 'checked' : '' ?> title="Toggle Org Manager role">
+                            <input type="checkbox" onchange="this.form.submit()" <?= $isManager ? 'checked' : '' ?> title="<?php echo htmlspecialchars(t('manage.common.toggle_manager_title'), ENT_QUOTES, 'UTF-8'); ?>">
                         </form>
                     </td>
                     <td>
                         <div class="d-inline-flex align-items-center flex-wrap gap-1">
-                            <div class="btn-group btn-group-sm" role="group" aria-label="User actions">
-                                <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&edit_user=<?= urlencode($user_identifier) ?>" class="btn btn-secondary btn-sm">Edit</a>
+                            <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.common.user_actions_aria'), ENT_QUOTES, 'UTF-8'); ?>">
+                                <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&edit_user=<?= urlencode($user_identifier) ?>" class="btn btn-secondary btn-sm"><?php echo htmlspecialchars(t('manage.common.edit'), ENT_QUOTES, 'UTF-8'); ?></a>
                             <?php if (currentUserCanDisableUser($user_identifier)) : ?>
                                 <?php if (ldap_user_is_locked($ldap_connection, $user['dn'])) : ?>
-                                    <button type="button" class="btn btn-success btn-sm" onclick="confirmUnlockUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')">Unlock</button>
+                                    <button type="button" class="btn btn-success btn-sm" onclick="confirmUnlockUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')"><?php echo htmlspecialchars(t('manage.common.unlock'), ENT_QUOTES, 'UTF-8'); ?></button>
                                 <?php else : ?>
-                                    <button type="button" class="btn btn-warning btn-sm" onclick="confirmLockUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')">Lock</button>
+                                    <button type="button" class="btn btn-warning btn-sm" onclick="confirmLockUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')"><?php echo htmlspecialchars(t('manage.common.lock'), ENT_QUOTES, 'UTF-8'); ?></button>
                                 <?php endif; ?>
                             <?php endif; ?>
-                                <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&reset_user=<?= urlencode($user_identifier) ?>" class="btn btn-primary btn-sm">New password</a>
+                                <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&reset_user=<?= urlencode($user_identifier) ?>" class="btn btn-primary btn-sm"><?php echo htmlspecialchars(t('manage.common.new_password'), ENT_QUOTES, 'UTF-8'); ?></a>
                             </div>
                             <div class="ms-2 ps-2 border-start">
-                                <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')">Delete</button>
+                                <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
                             </div>
                         </div>
                     </td>
@@ -854,16 +854,16 @@ render_submenu();
         <?php endif; ?>
     </div>
     
-    <h4>Quick Add User</h4>
-    <p class="text-muted">Add a new user to this organization. The email address will be used as the username for login.</p>
+    <h4><?php echo htmlspecialchars(t('manage.common.quick_add_user'), ENT_QUOTES, 'UTF-8'); ?></h4>
+    <p class="text-muted"><?php echo htmlspecialchars(t('manage.common.quick_add_lead'), ENT_QUOTES, 'UTF-8'); ?></p>
     <form method="post" class="mb-4" id="add_user_form" onsubmit="return validateAddUserForm();">
         <?= csrf_token_field() ?>
         <div class="form-group">
-            <label for="givenName">First Name</label>
+            <label for="givenName"><?php echo htmlspecialchars(t('manage.common.first_name'), ENT_QUOTES, 'UTF-8'); ?></label>
             <input type="text" class="form-control" name="givenName" id="givenName" required>
         </div>
         <div class="form-group">
-            <label for="sn">Last Name</label>
+            <label for="sn"><?php echo htmlspecialchars(t('manage.common.last_name'), ENT_QUOTES, 'UTF-8'); ?></label>
             <input type="text" class="form-control" name="sn" id="sn" required>
         </div>
         <div class="form-group">
@@ -872,9 +872,9 @@ render_submenu();
             <small class="text-muted">Auto-filled from First Name + Last Name (you can edit it).</small>
         </div>
         <div class="form-group">
-            <label for="mail">Email (Username)</label>
+            <label for="mail"><?php echo htmlspecialchars(t('manage.common.email_username'), ENT_QUOTES, 'UTF-8'); ?></label>
             <input type="email" class="form-control" name="mail" id="mail" required>
-            <small class="text-muted">Email will be used as the username for login</small>
+            <small class="text-muted"><?php echo htmlspecialchars(t('manage.common.email_username_hint'), ENT_QUOTES, 'UTF-8'); ?></small>
         </div>
         
         <!-- Hidden fields for auto-generated values -->
@@ -905,7 +905,7 @@ render_submenu();
             </div>
         <?php endif; ?>
         <input type="hidden" name="add_user" value="1">
-        <button type="submit" name="add_user" class="btn btn-primary" id="add_user_btn">Add User</button>
+        <button type="submit" name="add_user" class="btn btn-primary" id="add_user_btn"><?php echo htmlspecialchars(t('manage.common.add_user'), ENT_QUOTES, 'UTF-8'); ?></button>
         <span id="add_user_spinner" style="display:none;"><span class="spinner-border spinner-border-sm"></span> Adding...</span>
     </form>
 
@@ -954,7 +954,7 @@ render_submenu();
           <form method="post" action="">
             <?= csrf_token_field() ?>
             <div class="modal-header">
-              <h5 class="modal-title" id="editUserModalLabel">Edit User</h5>
+              <h5 class="modal-title" id="editUserModalLabel"><?php echo htmlspecialchars(t('manage.common.edit_user'), ENT_QUOTES, 'UTF-8'); ?></h5>
               <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="btn-close" aria-label="Close"></a>
             </div>
             <div class="modal-body">
@@ -977,11 +977,11 @@ render_submenu();
                 <input type="email" class="form-control" name="edit_mail" id="edit_mail" value="<?= htmlspecialchars(get_ldap_attribute($editUser, 'mail')) ?>" required>
               </div>
               <div class="form-group">
-                <label for="edit_password">New Password (leave blank to keep unchanged)</label>
+                <label for="edit_password"><?php echo htmlspecialchars(t('manage.common.new_password_optional'), ENT_QUOTES, 'UTF-8'); ?></label>
                 <input type="password" class="form-control" name="edit_password" id="edit_password">
               </div>
               <div class="form-group mt-2">
-                <label for="edit_password_match">Confirm New Password</label>
+                <label for="edit_password_match"><?php echo htmlspecialchars(t('manage.common.confirm_new_password'), ENT_QUOTES, 'UTF-8'); ?></label>
                 <input type="password" class="form-control" name="edit_password_match" id="edit_password_match">
               </div>
               <input type="hidden" id="edit_pass_score" value="0" name="edit_pass_score">
@@ -1001,7 +1001,7 @@ render_submenu();
           <form method="post" action="">
             <?= csrf_token_field() ?>
             <div class="modal-header">
-              <h5 class="modal-title" id="editUserModalLabel">Edit User</h5>
+              <h5 class="modal-title" id="editUserModalLabel"><?php echo htmlspecialchars(t('manage.common.edit_user'), ENT_QUOTES, 'UTF-8'); ?></h5>
 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -1024,18 +1024,18 @@ render_submenu();
                 <input type="email" class="form-control" name="edit_mail" id="edit_mail" required>
               </div>
               <div class="form-group">
-                <label for="edit_password">New Password (leave blank to keep unchanged)</label>
+                <label for="edit_password"><?php echo htmlspecialchars(t('manage.common.new_password_optional'), ENT_QUOTES, 'UTF-8'); ?></label>
                 <input type="password" class="form-control" name="edit_password" id="edit_password">
               </div>
               <div class="form-group mt-2">
-                <label for="edit_password_match">Confirm New Password</label>
+                <label for="edit_password_match"><?php echo htmlspecialchars(t('manage.common.confirm_new_password'), ENT_QUOTES, 'UTF-8'); ?></label>
                 <input type="password" class="form-control" name="edit_password_match" id="edit_password_match">
               </div>
               <input type="hidden" id="edit_pass_score" value="0" name="edit_pass_score">
             </div>
             <div class="modal-footer">
-              <button type="submit" name="save_user" class="btn btn-primary">Save Changes</button>
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" name="save_user" class="btn btn-primary"><?php echo htmlspecialchars(t('manage.common.save_changes'), ENT_QUOTES, 'UTF-8'); ?></button>
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><?php echo htmlspecialchars(t('manage.common.cancel'), ENT_QUOTES, 'UTF-8'); ?></button>
             </div>
           </form>
         </div>
@@ -1046,26 +1046,26 @@ render_submenu();
     <?php
     render_confirm_modal(
         'lockUserModal',
-        'Lock User Account',
-        '<p>Are you sure you want to lock the user account for <strong><span id="lockUserName"></span></strong>?</p><p class="text-warning"><strong>Warning:</strong> This will prevent the user from logging in until the account is unlocked.</p>',
+        t('manage.org_users.modal.lock_title'),
+        t('manage.org_users.modal.lock_body'),
         [['name' => 'lock_user', 'id' => 'lockUserIdentifier']],
-        'Lock Account',
+        t('manage.org_users.modal.lock_submit'),
         'btn-warning'
     );
     render_confirm_modal(
         'unlockUserModal',
-        'Unlock User Account',
-        '<p>Are you sure you want to unlock the user account for <strong><span id="unlockUserName"></span></strong>?</p><p class="text-success">This will allow the user to log in again.</p>',
+        t('manage.org_users.modal.unlock_title'),
+        t('manage.org_users.modal.unlock_body'),
         [['name' => 'unlock_user', 'id' => 'unlockUserIdentifier']],
-        'Unlock Account',
+        t('manage.org_users.modal.unlock_submit'),
         'btn-success'
     );
     render_confirm_modal(
         'deleteUserModal',
-        'Delete User Account',
-        '<p>Are you sure you want to delete the user "<span id="deleteUserName"></span>"?</p><p class="text-danger"><strong>Warning:</strong> This action cannot be undone and will remove all associated data.</p><p class="text-warning"><strong>Note:</strong> This will permanently delete the user account from this organization.</p>',
+        t('manage.org_users.modal.delete_title'),
+        t('manage.org_users.modal.delete_body'),
         [['name' => 'delete_user', 'id' => 'deleteUserIdentifier']],
-        'Delete Account',
+        t('manage.org_users.modal.delete_submit'),
         'btn-danger'
     );
     ?>
@@ -1099,19 +1099,19 @@ render_submenu();
           <form method="post">
             <?= csrf_token_field() ?>
             <div class="modal-header bg-warning text-dark">
-              <h5 class="modal-title">Reset Credentials for <?= htmlspecialchars($resetUserDisplay) ?></h5>
+              <h5 class="modal-title"><?= htmlspecialchars(t('manage.org_users.reset_title', ['user' => $resetUserDisplay]), ENT_QUOTES, 'UTF-8') ?></h5>
               <?php if ($org_uuid) : ?>
-                  <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn-close text-dark" aria-label="Close"></a>
+                  <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn-close text-dark" aria-label="<?php echo htmlspecialchars(t('modal.close_aria'), ENT_QUOTES, 'UTF-8'); ?>"></a>
               <?php endif; ?>
             </div>
             <div class="modal-body">
               <input type="hidden" name="reset_uid" value="<?= htmlspecialchars($resetUserParam) ?>">
               <div class="form-group">
-                <label for="reset_password">New Password</label>
+                <label for="reset_password"><?php echo htmlspecialchars(t('manage.org_users.reset_new_pw'), ENT_QUOTES, 'UTF-8'); ?></label>
                 <input type="password" class="form-control" name="reset_password" id="reset_password" required>
               </div>
               <div class="form-group mt-2">
-                <label for="reset_password_match">Confirm New Password</label>
+                <label for="reset_password_match"><?php echo htmlspecialchars(t('manage.org_users.reset_confirm_pw'), ENT_QUOTES, 'UTF-8'); ?></label>
                 <input type="password" class="form-control" name="reset_password_match" id="reset_password_match" required>
               </div>
               <input type="hidden" id="reset_pass_score" value="0" name="pass_score">
@@ -1121,7 +1121,7 @@ render_submenu();
                 <div class="form-check mt-3">
                   <input class="form-check-input" type="checkbox" id="send_password_reset_link" name="send_password_reset_link" <?php echo !is_password_reset_link_enabled() ? 'disabled' : ''; ?>>
                   <label class="form-check-label" for="send_password_reset_link">
-                    Email password reset link (user sets a new password)
+                    <?php echo htmlspecialchars(t('manage.org_users.email_reset_checkbox'), ENT_QUOTES, 'UTF-8'); ?>
                   </label>
                     <?php if (!is_password_reset_link_enabled()) : ?>
                         <div class="alert alert-warning mt-2 mb-0 py-2">

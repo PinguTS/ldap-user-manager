@@ -53,6 +53,8 @@ if (
 // Load from same directory as this file so config/modules are found regardless of include_path/cwd
 include_once __DIR__ . "/config.inc.php";
 include_once __DIR__ . "/modules.inc.php";
+include_once __DIR__ . "/i18n.inc.php";
+lum_i18n_bootstrap();
 
 // When this file is included from inside a function (e.g. bootstrap_manage()), config vars are in global scope
 global $SERVER_PATH, $SESSION_TIMEOUT, $NO_HTTPS, $REMOTE_HTTP_HEADERS_LOGIN, $COOKIE_PATH, $THIS_MODULE_PATH, $DEFAULT_COOKIE_OPTIONS;
@@ -680,9 +682,10 @@ function render_header($title = "", $menu = true)
 
  #Initialise the HTML output for the page.
 
+    $htmlLang = htmlspecialchars(lum_current_locale(), ENT_QUOTES, 'UTF-8');
     ?>
 <!DOCTYPE html>
-<HTML>
+<html lang="<?php echo $htmlLang; ?>">
 <HEAD>
  <TITLE><?php print htmlspecialchars((string) $title, ENT_QUOTES, 'UTF-8'); ?></TITLE>
  <meta charset="utf-8">
@@ -709,8 +712,8 @@ function render_header($title = "", $menu = true)
     window.setTimeout(function() { $(".alert").fadeTo(500, 0).slideUp(500, function(){ $(this).remove(); }); }, 10000);
   </script>
   <div class="alert alert-success alert-dismissible fade show">
-    <p class="text-center mb-0">You've logged in successfully.</p>
-    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    <p class="text-center mb-0"><?php echo htmlspecialchars(t('alert.logged_in'), ENT_QUOTES, 'UTF-8'); ?></p>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="<?php echo htmlspecialchars(t('alert.close'), ENT_QUOTES, 'UTF-8'); ?>"></button>
   </div>
         <?php
     }
@@ -766,7 +769,7 @@ function render_menu()
   <nav class="navbar navbar-expand-lg navbar-light bg-light">
    <div class="container-fluid">
     <?php if ($CUSTOM_LOGO) {
-        echo '<a class="navbar-brand d-flex align-items-center" href="/"><img src="' . $CUSTOM_LOGO . '" class="logo me-2" alt="logo"></a>';
+        echo '<a class="navbar-brand d-flex align-items-center" href="/"><img src="' . htmlspecialchars((string) $CUSTOM_LOGO, ENT_QUOTES, 'UTF-8') . '" class="logo me-2" alt="' . htmlspecialchars(t('nav.logo_alt'), ENT_QUOTES, 'UTF-8') . '"></a>';
     }
     ?><a class="navbar-brand" href="/"><?php print $SITE_NAME ?></a>
      <ul class="navbar-nav me-auto">
@@ -775,10 +778,16 @@ function render_menu()
          // Customize module names for better display
             $this_module_name = '';
             if ($module === 'manage') {
-                $this_module_name = 'Manage';
+                $this_module_name = t('nav.manage');
             } else {
-                $module_str = (string) preg_replace('/_/', ' ', (string) ($module ?? ''));
-                $this_module_name = stripslashes(ucwords($module_str));
+                $navKey = 'nav.' . (string) $module;
+                $translated = t($navKey);
+                if ($translated !== $navKey) {
+                    $this_module_name = $translated;
+                } else {
+                    $module_str = (string) preg_replace('/_/', ' ', (string) ($module ?? ''));
+                    $this_module_name = stripslashes(ucwords($module_str));
+                }
             }
 
             $show_this_module = true;
@@ -845,7 +854,7 @@ function render_footer()
 
     ?>
  </BODY>
-</HTML>
+</html>
     <?php
 }
 
@@ -1434,11 +1443,11 @@ function render_confirm_modal(string $id, string $title, string $body_html, arra
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="<?php echo htmlspecialchars($id); ?>Label"><?php echo htmlspecialchars($title); ?></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?php echo htmlspecialchars(t('modal.close_aria'), ENT_QUOTES, 'UTF-8'); ?>"></button>
             </div>
             <div class="modal-body"><?php echo $body_html; ?></div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><?php echo htmlspecialchars(t('modal.cancel'), ENT_QUOTES, 'UTF-8'); ?></button>
                 <form method="post" action="" style="display: inline;">
                     <?php echo csrf_token_field(); ?>
                     <?php
@@ -1642,7 +1651,7 @@ function safe_display_name($user, $cn_key = 'cn', $givenname_key = 'givenName', 
     } elseif ($sn) {
         return htmlspecialchars($sn);
     } else {
-        return '<em>No name available</em>';
+        return '<em>' . htmlspecialchars(t('user.no_name_available'), ENT_QUOTES, 'UTF-8') . '</em>';
     }
 }
 

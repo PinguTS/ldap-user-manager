@@ -14,8 +14,8 @@ $token = (string) ($_GET['token'] ?? '');
 $payload = ($token !== '') ? verify_password_action_token($token) : null;
 
 if ($payload === null) {
-    render_header('Set password');
-    echo "<div class='container'><div class='alert alert-warning'>Invalid or expired link.</div></div>";
+    render_header(t('password.set.page_title'));
+    echo "<div class='container'><div class='alert alert-warning'>" . htmlspecialchars(t('password.set.invalid_link'), ENT_QUOTES, 'UTF-8') . "</div></div>";
     render_footer();
     exit(0);
 }
@@ -42,26 +42,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['set_password'])) {
         if ($changed) {
             $success = true;
         } else {
-            $errors[] = 'Failed to set password. Please contact an administrator.';
+            $errors[] = t('password.set.fail_admin');
         }
     }
 }
 
-render_header('Set password');
+render_header(t('password.set.page_title'));
 ?>
 
 <div class="container">
     <div class="col-sm-6 offset-sm-3">
         <div class="card">
             <div class="card-header text-center">
-                <?php echo ($purpose === 'reset') ? 'Reset your password' : 'Set your password'; ?>
+                <?php echo htmlspecialchars($purpose === 'reset' ? t('password.set.card_reset') : t('password.set.card_set'), ENT_QUOTES, 'UTF-8'); ?>
             </div>
             <div class="card-body">
                 <?php if ($success) : ?>
                     <div class="alert alert-success">
-                        Your password has been updated. You can now log in.
+                        <?php echo htmlspecialchars(t('password.set.success'), ENT_QUOTES, 'UTF-8'); ?>
                     </div>
-                    <a class="btn btn-primary" href="<?php echo htmlspecialchars(get_base_url() . 'login/'); ?>">Go to login</a>
+                    <a class="btn btn-primary" href="<?php echo htmlspecialchars(get_base_url() . 'login/'); ?>"><?php echo htmlspecialchars(t('password.set.go_login'), ENT_QUOTES, 'UTF-8'); ?></a>
                 <?php else : ?>
                     <?php if (!empty($errors)) : ?>
                         <div class="alert alert-warning">
@@ -70,7 +70,7 @@ render_header('Set password');
                     <?php endif; ?>
 
                     <p class="text-muted">
-                        Account: <strong><?php echo htmlspecialchars($accountIdentifier); ?></strong>
+                        <?php echo htmlspecialchars(t('password.set.account_label'), ENT_QUOTES, 'UTF-8'); ?> <strong><?php echo htmlspecialchars($accountIdentifier); ?></strong>
                     </p>
 
                     <form class="form-horizontal" action="" method="post">
@@ -78,14 +78,14 @@ render_header('Set password');
                         <input type="hidden" id="pass_score" value="0" name="pass_score">
 
                         <div class="form-group" id="password_div">
-                            <label for="password" class="col-sm-4 form-label">New Password</label>
+                            <label for="password" class="col-sm-4 form-label"><?php echo htmlspecialchars(t('password.set.new_pw'), ENT_QUOTES, 'UTF-8'); ?></label>
                             <div class="col-sm-6">
                                 <input type="password" class="form-control" id="password" name="password" required>
                             </div>
                         </div>
 
                         <div class="form-group" id="confirm_div">
-                            <label for="confirm" class="col-sm-4 form-label">Confirm</label>
+                            <label for="confirm" class="col-sm-4 form-label"><?php echo htmlspecialchars(t('password.set.confirm'), ENT_QUOTES, 'UTF-8'); ?></label>
                             <div class="col-sm-6">
                                 <input type="password" class="form-control" id="confirm" name="password_match" required>
                             </div>

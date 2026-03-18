@@ -18,6 +18,7 @@ This guide covers:
 - **Global asset loading**: Pages should use `render_header()` in `www/includes/web_functions.inc.php` so CSS/JS is loaded consistently.
 - **jQuery**: Still included and used by project scripts (e.g. `www/assets/js/zxcvbn-bootstrap-strength-meter.js` and some small UI helpers). Do not remove unless those usages are replaced.
 - **Markup**: Use Bootstrap 5 patterns (`data-bs-*`, `card` instead of `panel`, `offset-*-*` instead of `col-*-offset-*`).
+- **i18n**: JSON locales under `www/locales/`, `Accept-Language` resolution, and `t()` — see [Internationalization (i18n)](i18n.md).
 
 ## Prerequisites
 
@@ -67,6 +68,27 @@ composer install
 # Install JavaScript dependencies (if any)
 npm install
 ```
+
+### PHP and Composer only via Docker
+
+If **PHP is not installed** on your machine, use the Makefile targets (they call Docker when `php` / `composer` are missing from your PATH):
+
+| Goal | Command |
+|------|---------|
+| Install dev dependencies (PHPUnit, PHPStan, …) | `make install` |
+| Run PHPUnit | `make test` |
+| Run PHPStan | `make stan` |
+| PHPCS + PHPStan | `make quality` |
+
+Raw equivalents (from the repo root):
+
+```bash
+docker run --rm -v "$(pwd)":/app -w /app composer:2 install
+docker run --rm -v "$(pwd)":/app -w /app php:8.2-cli ./vendor/bin/phpunit
+docker run --rm -v "$(pwd)":/app -w /app php:8.2-cli ./vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=512M
+```
+
+The app container (`ldap-user-manager` image) is built with **production** Composer deps only; tests and static analysis use **`php:8.2-cli`** against your mounted project (including `vendor/` from `make install`).
 
 ## Development Configuration
 

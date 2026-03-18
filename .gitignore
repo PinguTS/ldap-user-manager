@@ -26,6 +26,9 @@ caddy_config/
 # PHPUnit
 .phpunit.cache/
 
+# Local pip target (optional locale generation)
+.pip_target/
+
 # OS files
 .DS_Store
 Thumbs.db

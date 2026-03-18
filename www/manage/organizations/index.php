@@ -10,7 +10,7 @@ bootstrap_manage(['ldap', 'organization']);
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $ldap_connection = open_ldap_connection();
     if ($ldap_connection === false) {
-        $message = "LDAP connection failed. Please check the logs for details.";
+        $message = t('manage.orgs.msg.ldap_fail');
         $message_type = 'danger';
     } else {
         switch ($_POST['action']) {
@@ -21,14 +21,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $member_group_cn_post = getenv('LDAP_GROUP_MEMBER_ORGS') ?: 'memberOrganizations';
                     $base_dn = $LDAP['base_dn'] ?? '';
                     if ($base_dn !== '' && function_exists('addToStatusGroup') && addToStatusGroup($ldap_connection, $org_dn, $member_group_cn_post, $base_dn)) {
-                        $message = "Organization '$org_name' has been marked as a member organization.";
+                        $message = t('manage.orgs.msg.member_ok', ['org' => $org_name]);
                         $message_type = 'success';
                     } else {
-                        $message = "Failed to mark organization '$org_name' as member. Please check the logs for details.";
+                        $message = t('manage.orgs.msg.member_fail', ['org' => $org_name]);
                         $message_type = 'danger';
                     }
                 } else {
-                    $message = "Permission denied or invalid organization name.";
+                    $message = t('manage.orgs.msg.perm_denied');
                     $message_type = 'danger';
                 }
                 break;
@@ -40,14 +40,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $member_group_cn_post = getenv('LDAP_GROUP_MEMBER_ORGS') ?: 'memberOrganizations';
                     $base_dn = $LDAP['base_dn'] ?? '';
                     if ($base_dn !== '' && function_exists('removeFromStatusGroup') && removeFromStatusGroup($ldap_connection, $org_dn, $member_group_cn_post, $base_dn)) {
-                        $message = "Organization '$org_name' has been removed from member organizations.";
+                        $message = t('manage.orgs.msg.unmember_ok', ['org' => $org_name]);
                         $message_type = 'success';
                     } else {
-                        $message = "Failed to remove organization '$org_name' from member organizations. Please check the logs for details.";
+                        $message = t('manage.orgs.msg.unmember_fail', ['org' => $org_name]);
                         $message_type = 'danger';
                     }
                 } else {
-                    $message = "Permission denied or invalid organization name.";
+                    $message = t('manage.orgs.msg.perm_denied');
                     $message_type = 'danger';
                 }
                 break;
@@ -56,14 +56,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 if (isset($_POST['org_name']) && currentUserCanDisableOrganization($_POST['org_name'])) {
                     $org_name = trim($_POST['org_name']);
                     if (ldap_lock_organization($ldap_connection, $org_name)) {
-                        $message = "Organization '$org_name' has been locked successfully. All users in this organization are now disabled.";
+                        $message = t('manage.orgs.msg.lock_ok', ['org' => $org_name]);
                         $message_type = 'success';
                     } else {
-                        $message = "Failed to lock organization '$org_name'. Please check the logs for details.";
+                        $message = t('manage.orgs.msg.lock_fail', ['org' => $org_name]);
                         $message_type = 'danger';
                     }
                 } else {
-                    $message = "Permission denied or invalid organization name.";
+                    $message = t('manage.orgs.msg.perm_denied');
                     $message_type = 'danger';
                 }
                 break;
@@ -72,14 +72,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 if (isset($_POST['org_name']) && currentUserCanEnableOrganization($_POST['org_name'])) {
                     $org_name = trim($_POST['org_name']);
                     if (ldap_unlock_organization($ldap_connection, $org_name)) {
-                        $message = "Organization '$org_name' has been unlocked successfully. All users in this organization are now enabled.";
+                        $message = t('manage.orgs.msg.unlock_ok', ['org' => $org_name]);
                         $message_type = 'success';
                     } else {
-                        $message = "Failed to unlock organization '$org_name'. Please check the logs for details.";
+                        $message = t('manage.orgs.msg.unlock_fail', ['org' => $org_name]);
                         $message_type = 'danger';
                     }
                 } else {
-                    $message = "Permission denied or invalid organization name.";
+                    $message = t('manage.orgs.msg.perm_denied');
                     $message_type = 'danger';
                 }
                 break;
@@ -91,14 +91,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $org_uuid = isset($_POST['org_uuid']) ? trim($_POST['org_uuid']) : '';
 
                     if (ldap_delete_organization($ldap_connection, $org_name, $org_uuid)) {
-                        $message = "Organization '$org_name' has been deleted successfully.";
+                        $message = t('manage.orgs.msg.delete_ok', ['org' => $org_name]);
                         $message_type = 'success';
                     } else {
-                        $message = "Failed to delete organization '$org_name'. Please check the logs for details.";
+                        $message = t('manage.orgs.msg.delete_fail', ['org' => $org_name]);
                         $message_type = 'danger';
                     }
                 } else {
-                    $message = "Permission denied or invalid organization name.";
+                    $message = t('manage.orgs.msg.perm_denied');
                     $message_type = 'danger';
                 }
                 break;
@@ -128,7 +128,7 @@ if (!$is_global_admin && !$is_maintainer) {
     }
 }
 
-render_header(($ORGANISATION_NAME ?? 'System') . ' - Organization Management');
+render_header(t('manage.orgs.page_title', ['org' => $ORGANISATION_NAME ?? 'System']));
 render_submenu();
 
 // Get all organizations for display
@@ -140,7 +140,7 @@ if (!is_array($organizations)) {
 // Establish LDAP connection for status checks
 $ldap_connection = open_ldap_connection();
 if (!$ldap_connection) {
-    $message = "Failed to connect to LDAP server. Please check the logs for details.";
+    $message = t('manage.orgs.ldap_conn_failed');
     $message_type = 'danger';
 }
 $member_group_cn = getenv('LDAP_GROUP_MEMBER_ORGS') ?: 'memberOrganizations';
@@ -152,11 +152,11 @@ $base_dn = $LDAP['base_dn'] ?? '';
 <div class="container">
     <div class="row">
         <div class="col-md-12">
-            <h2>Organization Management</h2>
+            <h2><?php echo htmlspecialchars(t('manage.orgs.heading'), ENT_QUOTES, 'UTF-8'); ?></h2>
             
             <?php if (isset($message)) : ?>
                 <div class="alert alert-<?php echo $message_type; ?> alert-dismissible" role="alert">
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="<?php echo htmlspecialchars(t('modal.close_aria'), ENT_QUOTES, 'UTF-8'); ?>"></button>
                     <?php echo htmlspecialchars($message); ?>
                 </div>
             <?php endif; ?>
@@ -165,7 +165,7 @@ $base_dn = $LDAP['base_dn'] ?? '';
             <div class="row mb-3">
                 <div class="col-md-12">
                     <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/new/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-success">
-                        <i class="bi bi-plus-lg"></i> Add New Organization
+                        <i class="bi bi-plus-lg"></i> <?php echo htmlspecialchars(t('manage.orgs.add_new'), ENT_QUOTES, 'UTF-8'); ?>
                     </a>
                 </div>
             </div>
@@ -173,14 +173,14 @@ $base_dn = $LDAP['base_dn'] ?? '';
             
             <div class="card border-info">
                 <div class="card-header bg-info text-white">
-                    <h3 class="card-title mb-0 h5">Existing Organizations</h3>
+                    <h3 class="card-title mb-0 h5"><?php echo htmlspecialchars(t('manage.orgs.existing'), ENT_QUOTES, 'UTF-8'); ?></h3>
                 </div>
                 <div class="card-body">
                     <?php if (empty($organizations)) : ?>
-                        <p class="text-muted">No organizations found.</p>
+                        <p class="text-muted"><?php echo htmlspecialchars(t('manage.orgs.no_orgs'), ENT_QUOTES, 'UTF-8'); ?></p>
                     <?php else : ?>
                         <div class="form-group">
-                            <input class="form-control" id="org_search_input" type="text" placeholder="Search organizations..." style="margin-bottom: 15px;">
+                            <input class="form-control" id="org_search_input" type="text" placeholder="<?php echo htmlspecialchars(t('manage.orgs.search_placeholder'), ENT_QUOTES, 'UTF-8'); ?>" style="margin-bottom: 15px;">
                         </div>
                         <div class="list-group">
                             <?php
@@ -196,7 +196,7 @@ $base_dn = $LDAP['base_dn'] ?? '';
                             }
 
                             if (empty($display_organizations)) : ?>
-                                <p class="text-muted">No organizations found or you don't have permission to view any organizations.</p>
+                                <p class="text-muted"><?php echo htmlspecialchars(t('manage.orgs.no_access_list'), ENT_QUOTES, 'UTF-8'); ?></p>
                             <?php else : ?>
                                 <?php foreach ($display_organizations as $org) : ?>
                                     <?php
@@ -211,13 +211,13 @@ $base_dn = $LDAP['base_dn'] ?? '';
                                                 <h5 class="mb-1"><?php echo $org_name_safe; ?></h5>
                                                 <p class="mb-0">
                                                     <?php if (isset($org['mail']) && !empty($org['mail'])) : ?>
-                                                        <strong>Email:</strong> <?php echo htmlspecialchars($org['mail']); ?><br>
+                                                        <strong><?php echo htmlspecialchars(t('manage.orgs.email_label'), ENT_QUOTES, 'UTF-8'); ?></strong> <?php echo htmlspecialchars($org['mail']); ?><br>
                                                     <?php endif; ?>
                                                     <?php if (isset($org['telephoneNumber']) && !empty($org['telephoneNumber'])) : ?>
-                                                        <strong>Phone:</strong> <?php echo htmlspecialchars($org['telephoneNumber']); ?><br>
+                                                        <strong><?php echo htmlspecialchars(t('manage.orgs.phone_label'), ENT_QUOTES, 'UTF-8'); ?></strong> <?php echo htmlspecialchars($org['telephoneNumber']); ?><br>
                                                     <?php endif; ?>
                                                     <?php if (isset($org['description']) && !empty($org['description'])) : ?>
-                                                        <strong>Status:</strong> <?php echo htmlspecialchars($org['description']); ?><br>
+                                                        <strong><?php echo htmlspecialchars(t('manage.orgs.status_label'), ENT_QUOTES, 'UTF-8'); ?></strong> <?php echo htmlspecialchars($org['description']); ?><br>
                                                     <?php endif; ?>
                                                     <?php
                                                     $org_dn = $org['dn'] ?? '';

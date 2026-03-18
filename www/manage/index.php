@@ -9,7 +9,7 @@ bootstrap_manage([]);
 // Use the enhanced access control function
 set_page_access(["admin", "maintainer", "org_admin"]);
 
-render_header("$ORGANISATION_NAME - Management Dashboard");
+render_header(t('manage.dashboard.page_title', ['org' => $ORGANISATION_NAME]));
 render_submenu();
 
 ?>
@@ -17,8 +17,8 @@ render_submenu();
 <div class="container">
     <div class="row">
         <div class="col-md-12">
-            <h2>Management Dashboard</h2>
-            <p class="lead">Welcome to the management dashboard. Select an area to manage:</p>
+            <h2><?php echo htmlspecialchars(t('manage.dashboard.heading'), ENT_QUOTES, 'UTF-8'); ?></h2>
+            <p class="lead"><?php echo htmlspecialchars(t('manage.dashboard.lead'), ENT_QUOTES, 'UTF-8'); ?></p>
         </div>
     </div>
     
@@ -27,11 +27,11 @@ render_submenu();
         <div class="col-md-4">
             <div class="card border-primary">
                 <div class="card-header bg-primary text-white">
-                    <h3 class="card-title mb-0 h5">User Management</h3>
+                    <h3 class="card-title mb-0 h5"><?php echo htmlspecialchars(t('manage.dashboard.user_mgmt_title'), ENT_QUOTES, 'UTF-8'); ?></h3>
                 </div>
                 <div class="card-body">
-                    <p>Manage system users, roles, and permissions.</p>
-                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary">Manage Users</a>
+                    <p><?php echo htmlspecialchars(t('manage.dashboard.user_mgmt_desc'), ENT_QUOTES, 'UTF-8'); ?></p>
+                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary"><?php echo htmlspecialchars(t('manage.dashboard.manage_users'), ENT_QUOTES, 'UTF-8'); ?></a>
                 </div>
             </div>
         </div>
@@ -39,11 +39,11 @@ render_submenu();
         <div class="col-md-4">
             <div class="card border-success">
                 <div class="card-header bg-success text-white">
-                    <h3 class="card-title mb-0 h5">Role Management</h3>
+                    <h3 class="card-title mb-0 h5"><?php echo htmlspecialchars(t('manage.dashboard.role_mgmt_title'), ENT_QUOTES, 'UTF-8'); ?></h3>
                 </div>
                 <div class="card-body">
-                    <p>Manage system roles and user assignments.</p>
-                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/roles/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-success">Manage Roles</a>
+                    <p><?php echo htmlspecialchars(t('manage.dashboard.role_mgmt_desc'), ENT_QUOTES, 'UTF-8'); ?></p>
+                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/roles/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-success"><?php echo htmlspecialchars(t('manage.dashboard.manage_roles'), ENT_QUOTES, 'UTF-8'); ?></a>
                 </div>
             </div>
         </div>
@@ -52,11 +52,11 @@ render_submenu();
         <div class="col-md-4">
             <div class="card border-info">
                 <div class="card-header bg-info text-white">
-                    <h3 class="card-title mb-0 h5">Organization Management</h3>
+                    <h3 class="card-title mb-0 h5"><?php echo htmlspecialchars(t('manage.dashboard.org_mgmt_title'), ENT_QUOTES, 'UTF-8'); ?></h3>
                 </div>
                 <div class="card-body">
-                    <p>Manage organizations and their users.</p>
-                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info">Manage Organizations</a>
+                    <p><?php echo htmlspecialchars(t('manage.dashboard.org_mgmt_desc'), ENT_QUOTES, 'UTF-8'); ?></p>
+                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info"><?php echo htmlspecialchars(t('manage.dashboard.manage_orgs'), ENT_QUOTES, 'UTF-8'); ?></a>
                 </div>
             </div>
         </div>
@@ -67,16 +67,16 @@ render_submenu();
         <div class="col-md-12">
             <div class="card border-warning">
                 <div class="card-header bg-warning text-dark">
-                    <h3 class="card-title mb-0 h5">Quick Access</h3>
+                    <h3 class="card-title mb-0 h5"><?php echo htmlspecialchars(t('manage.dashboard.quick_access_title'), ENT_QUOTES, 'UTF-8'); ?></h3>
                 </div>
                 <div class="card-body">
-                    <p>As an organization administrator, you can quickly access your organization's management area:</p>
+                    <p><?php echo htmlspecialchars(t('manage.dashboard.quick_access_lead'), ENT_QUOTES, 'UTF-8'); ?></p>
                     <?php
                     $org_name = currentUserGetOrgName();
                     $org_uuid = currentUserGetOrgUuid();
 
                     if ($org_uuid) {
-                        echo '<a href="' . htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/', ENT_QUOTES, 'UTF-8') . '" class="btn btn-warning">View My Organization</a>';
+                        echo '<a href="' . htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/', ENT_QUOTES, 'UTF-8') . '" class="btn btn-warning">' . htmlspecialchars(t('manage.dashboard.view_my_org'), ENT_QUOTES, 'UTF-8') . '</a>';
                     } elseif ($org_name) {
                         // Canonical routing is UUID-only; if UUID is missing, do not link by name.
                     }

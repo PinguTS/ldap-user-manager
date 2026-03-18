@@ -71,7 +71,7 @@ render_header();
 if (isset($_GET['logged_in'])) {
     ?>
     <div class="alert alert-success">
-        <p class="text-center">You're logged in. Select from the menu above.</p>
+        <p class="text-center"><?php echo htmlspecialchars(t('index.logged_in_select_menu'), ENT_QUOTES, 'UTF-8'); ?></p>
     </div>
     <?php
 }

@@ -31,14 +31,14 @@ if (isset($_POST['change_password'])) {
         $ldap_connection = open_ldap_connection();
         ldap_change_password($ldap_connection, $USER_ID, $_POST['password']) or die("change_ldap_password() failed.");
 
-        render_header("$ORGANISATION_NAME account manager - password changed");
+        render_header(t('password.change.success_title', ['org' => $ORGANISATION_NAME]));
         ?>
   <div class="container">
     <div class="col-sm-6 offset-sm-3">
       <div class="card border-success">
-        <div class="card-header bg-success text-white">Success</div>
+        <div class="card-header bg-success text-white"><?php echo htmlspecialchars(t('password.change.success_heading'), ENT_QUOTES, 'UTF-8'); ?></div>
         <div class="card-body">
-          Your password has been updated.
+          <?php echo htmlspecialchars(t('password.change.success_body'), ENT_QUOTES, 'UTF-8'); ?>
         </div>
       </div>
     </div>
@@ -49,16 +49,14 @@ if (isset($_POST['change_password'])) {
     }
 }
 
-render_header("Change your $ORGANISATION_NAME password");
+render_header(t('password.change.page_title', ['org' => $ORGANISATION_NAME]));
 
 if (isset($not_strong_enough)) {  ?>
 <div class="alert alert-warning">
  <p class="text-center">
-   The password wasn't strong enough. 
+   <?php echo htmlspecialchars(t('password.change.weak'), ENT_QUOTES, 'UTF-8'); ?>
     <?php if (isset($_POST['pass_score'])) : ?>
-     Current strength score: <?php echo htmlspecialchars($_POST['pass_score']); ?> 
-     (0=Very Weak, 1=Weak, 2=Fair, 3=Good, 4=Strong). 
-     A score of <?php echo $PASSWORD_STRENGTH_MIN_SCORE; ?> or higher is required.
+     <?php echo htmlspecialchars(t('password.change.score_help', ['score' => (string) $_POST['pass_score'], 'min' => (string) $PASSWORD_STRENGTH_MIN_SCORE]), ENT_QUOTES, 'UTF-8'); ?>
     <?php endif; ?>
  </p>
 </div>
@@ -66,13 +64,13 @@ if (isset($not_strong_enough)) {  ?>
 
 if (isset($invalid_chars)) {  ?>
 <div class="alert alert-warning">
- <p class="text-center">The password contained invalid characters.</p>
+ <p class="text-center"><?php echo htmlspecialchars(t('password.change.invalid_chars'), ENT_QUOTES, 'UTF-8'); ?></p>
 </div>
 <?php }
 
 if (isset($mismatched)) {  ?>
 <div class="alert alert-warning">
- <p class="text-center">The passwords didn't match.</p>
+ <p class="text-center"><?php echo htmlspecialchars(t('password.change.mismatch'), ENT_QUOTES, 'UTF-8'); ?></p>
 </div>
 <?php }
 
@@ -97,7 +95,7 @@ document.addEventListener('DOMContentLoaded', function(){
         const generateButton = document.createElement('button');
         generateButton.type = 'button';
         generateButton.className = 'btn btn-info btn-sm ml-2';
-        generateButton.textContent = 'Generate Password';
+        generateButton.textContent = <?php echo json_encode(t('password.change.generate')); ?>;
         generateButton.onclick = () => generateSecurePassword({
             type: 'word',
             words: 4,
@@ -116,12 +114,15 @@ document.addEventListener('DOMContentLoaded', function(){
  <div class="col-sm-6 offset-sm-3">
 
   <div class="card">
-   <div class="card-header text-center">Change your password</div>
+   <div class="card-header text-center"><?php echo htmlspecialchars(t('password.change.card_header'), ENT_QUOTES, 'UTF-8'); ?></div>
 
    <ul class="list-group list-group-flush">
-    <li class="list-group-item">Use this form to change your <?php print $ORGANISATION_NAME; ?> password. When you start typing your new password the gauge at the bottom will show its security strength.
-    Enter your password again in the <b>confirm</b> field. If the passwords don't match then both fields will be bordered with red.</li>
-    <li class="list-group-item"><strong>Password Strength Requirement:</strong> Your password must achieve a strength score of <?php echo $PASSWORD_STRENGTH_MIN_SCORE; ?> (<?php echo $PASSWORD_STRENGTH_MIN_SCORE == 0 ? 'Very Weak' : ($PASSWORD_STRENGTH_MIN_SCORE == 1 ? 'Weak' : ($PASSWORD_STRENGTH_MIN_SCORE == 2 ? 'Fair' : ($PASSWORD_STRENGTH_MIN_SCORE == 3 ? 'Good' : 'Strong'))); ?>) or higher. The strength meter below will show your password's current score as you type.</li>
+    <li class="list-group-item"><?php echo htmlspecialchars(t('password.change.bullet1', ['org' => $ORGANISATION_NAME]), ENT_QUOTES, 'UTF-8'); ?></li>
+    <li class="list-group-item"><?php
+    $lvl = (int) $PASSWORD_STRENGTH_MIN_SCORE;
+    $lvl = max(0, min(4, $lvl));
+    echo htmlspecialchars(t('password.change.bullet2', ['score' => (string) $PASSWORD_STRENGTH_MIN_SCORE, 'level' => t('password.strength.' . $lvl)]), ENT_QUOTES, 'UTF-8');
+    ?></li>
    </ul>
 
    <div class="card-body text-center">
@@ -132,7 +133,7 @@ document.addEventListener('DOMContentLoaded', function(){
      <input type='hidden' id="pass_score" value="0" name="pass_score">
      
      <div class="form-group" id="password_div">
-      <label for="password" class="col-sm-4 form-label">Password</label>
+      <label for="password" class="col-sm-4 form-label"><?php echo htmlspecialchars(t('password.change.new_label'), ENT_QUOTES, 'UTF-8'); ?></label>
       <div class="col-sm-6">
        <input type="password" class="form-control" id="password" name="password">
       </div>
@@ -153,20 +154,20 @@ document.addEventListener('DOMContentLoaded', function(){
      </script>
 
      <div class="form-group" id="confirm_div">
-      <label for="password" class="col-sm-4 form-label">Confirm</label>
+      <label for="password" class="col-sm-4 form-label"><?php echo htmlspecialchars(t('password.change.confirm_field'), ENT_QUOTES, 'UTF-8'); ?></label>
       <div class="col-sm-6">
        <input type="password" class="form-control" id="confirm" name="password_match" onkeyup="check_passwords_match()">
       </div>
      </div>
 
      <div class="form-group">
-       <button type="submit" class="btn btn-secondary">Change password</button>
+       <button type="submit" class="btn btn-secondary"><?php echo htmlspecialchars(t('password.change.submit'), ENT_QUOTES, 'UTF-8'); ?></button>
      </div>
      
      <!-- Debug: Show current password strength score -->
      <div class="form-group">
        <small class="text-muted">
-         Password strength score: <span id="debug_score">0</span> (0=Very Weak, 1=Weak, 2=Fair, 3=Good, 4=Strong)
+         <?php echo htmlspecialchars(t('password.change.debug_score'), ENT_QUOTES, 'UTF-8'); ?> <span id="debug_score">0</span>
        </small>
      </div>
     </form>

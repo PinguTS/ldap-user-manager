@@ -19,7 +19,7 @@ if ($submitted) {
     $email = trim((string) ($_POST['email'] ?? ''));
 
     // Always respond generically to avoid user enumeration.
-    $message = 'If the address exists, a password reset link has been sent.';
+    $message = t('password.reset.message');
     $messageType = 'info';
 
     if ($email !== '' && is_valid_email($email)) {
@@ -63,7 +63,7 @@ render_header('Request password reset');
 <div class="container">
     <div class="col-sm-6 offset-sm-3">
         <div class="card">
-            <div class="card-header text-center">Forgot your password?</div>
+            <div class="card-header text-center"><?php echo htmlspecialchars(t('password.reset.card_title'), ENT_QUOTES, 'UTF-8'); ?></div>
             <div class="card-body">
                 <?php if ($message !== null) : ?>
                     <div class="alert alert-<?php echo htmlspecialchars($messageType); ?>">
@@ -72,18 +72,18 @@ render_header('Request password reset');
                 <?php endif; ?>
 
                 <p class="text-muted">
-                    Enter your email address. If it exists in our directory, we will send you a link to set a new password.
+                    <?php echo htmlspecialchars(t('password.reset.lead'), ENT_QUOTES, 'UTF-8'); ?>
                 </p>
 
                 <form method="post" action="">
                     <input type="hidden" name="request_reset" value="1">
                     <div class="form-group">
-                        <label for="email" class="form-label">Email</label>
+                        <label for="email" class="form-label"><?php echo htmlspecialchars(t('password.reset.email_label'), ENT_QUOTES, 'UTF-8'); ?></label>
                         <input type="email" class="form-control" name="email" id="email" required>
                     </div>
                     <div class="form-group mt-2">
-                        <button type="submit" class="btn btn-primary">Send reset link</button>
-                        <a class="btn btn-secondary" href="<?php echo htmlspecialchars(get_base_url() . 'login/'); ?>">Back to login</a>
+                        <button type="submit" class="btn btn-primary"><?php echo htmlspecialchars(t('password.reset.submit'), ENT_QUOTES, 'UTF-8'); ?></button>
+                        <a class="btn btn-secondary" href="<?php echo htmlspecialchars(get_base_url() . 'login/'); ?>"><?php echo htmlspecialchars(t('password.reset.back_login'), ENT_QUOTES, 'UTF-8'); ?></a>
                     </div>
                 </form>
             </div>
