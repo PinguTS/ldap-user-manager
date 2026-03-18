@@ -52,10 +52,9 @@ foreach ($orgs as $org) {
     }
 }
 
-render_header('User Management for Organization: ' . htmlspecialchars($orgDisplay));
-render_submenu();
-
 if (!$orgName || !$orgExists) {
+    render_header('Organization User Management');
+    render_submenu();
     echo "<div class='alert alert-warning'>Please select a valid organization.</div>";
     echo '<ul>';
     foreach ($orgs as $org) {
@@ -374,6 +373,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $message = '';
 $message_type = '';
 
+// Redirect success flag handling (used after POST/Redirect/GET)
+if (isset($_GET['updated']) && (string) $_GET['updated'] === '1') {
+    $message = 'User updated successfully.';
+    $message_type = 'success';
+}
+
 // Handle add user form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
     try {
@@ -638,8 +643,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
     }
     try {
         ldap_modify($ldap, $userDn, $entry);
-        $message = 'User updated successfully.';
-        $message_type = 'success';
+        $baseParam = $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName);
+        header('Location: ?' . $baseParam . '&updated=1');
+        exit;
     } catch (Exception $e) {
         $message = 'Error updating user: ' . htmlspecialchars($e->getMessage());
         $message_type = 'danger';
@@ -755,6 +761,9 @@ $orgManagerDns = getOrgManagerDns($orgName);
 
 // Open LDAP connection for display and operations
 $ldap_connection = open_ldap_connection();
+
+render_header('User Management for Organization: ' . htmlspecialchars($orgDisplay));
+render_submenu();
 ?>
 <div class="container">
     <nav aria-label="breadcrumb">
