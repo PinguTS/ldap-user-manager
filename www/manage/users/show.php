@@ -13,6 +13,7 @@ if (!defined('LDAP_ESCAPE_DN')) {
 set_include_path(".:" . __DIR__ . "/../../includes/");
 require_once "bootstrap_manage.inc.php";
 bootstrap_manage(['ldap', 'user', 'password_reset']);
+require_once "organization_functions.inc.php";
 
 // Ensure CSRF token is generated early
 get_csrf_token();
@@ -42,6 +43,11 @@ if (isset($LDAP['account_additional_attributes'])) {
 }
 if (! array_key_exists($LDAP['account_attribute'], $attribute_map)) {
     $attribute_r = array_merge($attribute_map, array($LDAP['account_attribute'] => array("label" => "Account UID")));
+}
+
+// Ensure common attributes used in the profile form are included in updates
+if (!array_key_exists('telephonenumber', $attribute_map)) {
+    $attribute_map['telephonenumber'] = ['label' => 'Phone Number'];
 }
 
 // Check if user parameter is provided (support both UUID and legacy account_identifier)
@@ -151,10 +157,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile']) && 
     $update_data = [];
     $errors = [];
 
+    // Normalize POST keys because LDAP attribute keys may differ in case/style
+    // (e.g. config uses "givenname" but form uses "givenName")
+    $post_lower = [];
+    foreach ($_POST as $k => $v) {
+        $post_lower[strtolower((string) $k)] = $v;
+    }
+
     // Collect form data
     foreach ($attribute_map as $attr => $config) {
-        if (isset($_POST[$attr]) && !empty(trim($_POST[$attr]))) {
-            $update_data[$attr] = trim($_POST[$attr]);
+        $attr_lc = strtolower((string) $attr);
+        if (isset($post_lower[$attr_lc]) && !empty(trim((string) $post_lower[$attr_lc]))) {
+            $update_data[$attr] = trim((string) $post_lower[$attr_lc]);
         }
     }
 
