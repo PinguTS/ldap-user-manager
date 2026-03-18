@@ -31,7 +31,7 @@ render_submenu();
                 </div>
                 <div class="card-body">
                     <p>Manage system users, roles, and permissions.</p>
-                    <a href="/manage/users/" class="btn btn-primary">Manage Users</a>
+                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary">Manage Users</a>
                 </div>
             </div>
         </div>
@@ -43,7 +43,7 @@ render_submenu();
                 </div>
                 <div class="card-body">
                     <p>Manage system roles and user assignments.</p>
-                    <a href="/manage/roles/" class="btn btn-success">Manage Roles</a>
+                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/roles/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-success">Manage Roles</a>
                 </div>
             </div>
         </div>
@@ -56,7 +56,7 @@ render_submenu();
                 </div>
                 <div class="card-body">
                     <p>Manage organizations and their users.</p>
-                    <a href="/manage/organizations/" class="btn btn-info">Manage Organizations</a>
+                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info">Manage Organizations</a>
                 </div>
             </div>
         </div>
@@ -76,7 +76,7 @@ render_submenu();
                     $org_uuid = currentUserGetOrgUuid();
 
                     if ($org_uuid) {
-                        echo '<a href="/manage/organizations/' . urlencode($org_uuid) . '/" class="btn btn-warning">View My Organization</a>';
+                        echo '<a href="' . htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/', ENT_QUOTES, 'UTF-8') . '" class="btn btn-warning">View My Organization</a>';
                     } elseif ($org_name) {
                         // Canonical routing is UUID-only; if UUID is missing, do not link by name.
                     }

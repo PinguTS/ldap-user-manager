@@ -56,7 +56,7 @@ $black = imagecolorallocate($image, 0, 0, 0);
 $white = imagecolorallocate($image, 255, 255, 255);
 $textcols = [$black, $white];
 
-$fonts = glob(dirname(__FILE__) . '/fonts/*.ttf');
+$fonts = glob(__DIR__ . '/../../request_account/fonts/*.ttf');
 $num_chars = 6;
 $human_proof = random_string($num_chars);
 
@@ -69,7 +69,7 @@ for ($i = 0; $i < $num_chars; $i++) {
     $txt_x = 10 + ($i * $gap);
     $txt_y = rand(30, ($image_height - 15));
     $txt_col = $textcols[rand(0, 1)];
-    $txt_font =  $fonts[array_rand($fonts)];
+    $txt_font = $fonts[array_rand($fonts)];
     $txt = $human_proof[$i];
     imagettftext($image, $size, $angle, (int)$txt_x, (int)$txt_y, $txt_col, $txt_font, $txt);
 # print "imagettftext( $size, $angle, $txt_x, $txt_y, $txt_col, $txt_font, $txt);<p>";

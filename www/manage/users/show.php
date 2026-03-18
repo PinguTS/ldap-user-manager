@@ -332,7 +332,7 @@ ldap_close($ldap_connection);
                         
                         <div class="form-group">
                             <button type="submit" name="update_profile" class="btn btn-success">Update Profile</button>
-                            <a href="/manage/users/" class="btn btn-secondary">Back to Users</a>
+                            <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary">Back to Users</a>
                         </div>
                     </form>
                 </div>
@@ -344,7 +344,7 @@ ldap_close($ldap_connection);
                 </div>
                 <div class="card-body">
                     <p class="text-muted">You do not have permission to edit this user profile.</p>
-                    <a href="/manage/users/" class="btn btn-secondary">Back to Users</a>
+                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary">Back to Users</a>
                 </div>
             </div>
             <?php endif; ?>

@@ -351,8 +351,8 @@ if ($orgExists) {
 
   <nav aria-label="breadcrumb">
    <ol class="breadcrumb">
-    <li class="breadcrumb-item"><a href="/manage/">Dashboard</a></li>
-    <li class="breadcrumb-item"><a href="/manage/organizations/">Organizations</a></li>
+    <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/', ENT_QUOTES, 'UTF-8'); ?>">Dashboard</a></li>
+    <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>">Organizations</a></li>
     <li class="breadcrumb-item active" aria-current="page"><?php print htmlspecialchars($org_name); ?></li>
    </ol>
   </nav>
@@ -507,8 +507,8 @@ if ($orgExists) {
         <div class="d-flex align-items-center justify-content-start flex-wrap gap-2">
             <div class="btn-group btn-group-sm" role="group" aria-label="Users actions">
                 <?php if ($org_uuid !== '') : ?>
-                    <a href="/manage/organizations/<?php echo urlencode($org_uuid); ?>/users/" class="btn btn-info">View users</a>
-                    <a href="/manage/organizations/<?php echo urlencode($org_uuid); ?>/users/new/" class="btn btn-success">Add user</a>
+                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info">View users</a>
+                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/users/new/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-success">Add user</a>
                 <?php endif; ?>
             </div>
 
@@ -583,7 +583,7 @@ if ($orgExists) {
                                 <div class="d-inline-flex align-items-center flex-wrap gap-1">
                                     <div class="btn-group btn-group-sm" role="group" aria-label="Recent user actions">
                                         <?php if ($org_uuid !== '' && isset($user['entryUUID'])) : ?>
-                                            <a href="/manage/organizations/<?php echo urlencode($org_uuid); ?>/users/?edit_user=<?php echo urlencode((string) $user['entryUUID']); ?>" class="btn btn-secondary btn-sm">Edit</a>
+                                            <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/users/?edit_user=' . urlencode((string) $user['entryUUID']), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary btn-sm">Edit</a>
                                         <?php endif; ?>
                                     </div>
                                     <div class="vr"></div>
@@ -599,7 +599,7 @@ if ($orgExists) {
                     </div>
                     <div class="text-center mt-3">
                         <?php if ($org_uuid !== '') : ?>
-                            <a href="/manage/organizations/<?php echo urlencode($org_uuid); ?>/users/">View all users</a>
+                            <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>">View all users</a>
                         <?php endif; ?>
                     </div>
           <?php if (count($org_users) > 5) { ?>

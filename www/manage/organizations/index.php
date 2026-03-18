@@ -164,7 +164,7 @@ $base_dn = $LDAP['base_dn'] ?? '';
             <?php if (currentUserCanCreateOrganization()) : ?>
             <div class="row mb-3">
                 <div class="col-md-12">
-                    <a href="/manage/organizations/new/" class="btn btn-success">
+                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/new/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-success">
                         <i class="bi bi-plus-lg"></i> Add New Organization
                     </a>
                 </div>
@@ -274,8 +274,8 @@ $base_dn = $LDAP['base_dn'] ?? '';
                                             <div class="d-flex align-items-center justify-content-end flex-wrap gap-2" style="min-width: 260px;">
                                                 <div class="btn-group btn-group-sm" role="group" aria-label="View and users">
                                                     <?php if ($use_uuid) : ?>
-                                                        <a href="/manage/organizations/<?php echo urlencode($org_uuid_val); ?>/" class="btn btn-info">View</a>
-                                                        <a href="/manage/organizations/<?php echo urlencode($org_uuid_val); ?>/users/" class="btn btn-primary">Users</a>
+                                                        <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid_val) . '/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info">View</a>
+                                                        <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid_val) . '/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary">Users</a>
                                                     <?php else : ?>
                                                         <?php /* UUID-only canonical routing: do not link by name. */ ?>
                                                     <?php endif; ?>

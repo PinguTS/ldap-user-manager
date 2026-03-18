@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-set_include_path(".:" . __DIR__ . "/../includes/");
+set_include_path(".:" . __DIR__ . "/../../includes/");
 session_start();
 
 include_once "web_functions.inc.php";
@@ -119,71 +119,55 @@ EoT;
     Use this form to send a request for an account to an administrator at <?php print $ORGANISATION_NAME; ?>.
     If the administrator approves your request they'll get in touch with you to give you your new credentials.
     </div>
-  </div>
-
-  <div class="card"> 
-   <div class="card-header text-center">Request an account for <?php print $ORGANISATION_NAME; ?></div>
    <div class="card-body text-center">
 
-   <form class="form-horizontal" action='' method='post'>
+    <form class="form-horizontal" action='' method='post'>
 
     <div class="form-group">
      <label for="firstname" class="col-sm-4 form-label">First name</label>
      <div class="col-sm-6">
-      <input type="text" class="form-control" id="firstname" name="firstname" placeholder="Required" <?php if (isset($firstname)) {
-            print "value='$firstname'";
-                                                                                                     } ?>>
+      <input type="text" class="form-control" id="firstname" name="firstname">
      </div>
     </div>
 
     <div class="form-group">
      <label for="lastname" class="col-sm-4 form-label">Last name</label>
      <div class="col-sm-6">
-      <input type="text" class="form-control" id="lastname" name="lastname" placeholder="Required" <?php if (isset($lastname)) {
-            print "value='$lastname'";
-                                                                                                   } ?>>
+      <input type="text" class="form-control" id="lastname" name="lastname">
      </div>
     </div>
 
     <div class="form-group">
      <label for="email" class="col-sm-4 form-label">Email</label>
      <div class="col-sm-6">
-      <input type="text" class="form-control" id="email" name="email" <?php if (isset($email)) {
-            print "value='$email'";
-                                                                      } ?>>
+      <input type="text" class="form-control" id="email" name="email">
      </div>
     </div>
 
     <div class="form-group">
-     <label for="Notes" class="col-sm-4 form-label">Notes</label>
+     <label for="notes" class="col-sm-4 form-label">Notes</label>
      <div class="col-sm-6">
-      <textarea class="form-control" id="notes" name="notes" placeholder="Enter any extra information you think the administrator might need to know."><?php if (isset($notes)) {
-            print $notes;
-                                                                                                                                                       } ?></textarea>
+      <textarea class="form-control" id="notes" name="notes" rows="5"></textarea>
      </div>
     </div>
 
     <div class="form-group">
-     <label for="validate" class="col-sm-4 form-label">Validation</label>
+     <label for="validate" class="col-sm-4 form-label">Validation text</label>
      <div class="col-sm-6">
-      <span class="d-block mx-auto">
-        <img src="human.php" class="human-check" alt="Non-human detection">
-        <button type="button" class="btn btn-secondary btn-sm" onclick="document.querySelector('.human-check').src = 'human.php?' + Date.now()">
-         <i class="bi bi-arrow-clockwise"></i> Refresh
-        </button>
-      </span>
-      <input type="text" class="form-control d-block mx-auto" id="validate" name="validate" placeholder="Enter the characters from the image">
+      <img src="human.php" alt="human proof image">
+      <input type="text" class="form-control" id="validate" name="validate">
      </div>
     </div>
 
     <div class="form-group">
      <button type="submit" class="btn btn-secondary">Send request</button>
     </div>
-   
-   </form>
+
+    </form>
+   </div>
   </div>
  </div>
 </div>
+
 <?php
 render_footer();
-?>

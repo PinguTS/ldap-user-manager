@@ -359,7 +359,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
                         
                         <div class="form-group">
                             <button type="submit" name="create_account" class="btn btn-success">Create User Account</button>
-                            <a href="/manage/users/" class="btn btn-secondary">Cancel</a>
+                            <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary">Cancel</a>
                         </div>
                     </form>
                 </div>

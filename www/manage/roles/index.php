@@ -148,7 +148,7 @@ if ($ldap_connection === false) {
   
   <div class="alert alert-warning">
     <strong>Organization Role Management:</strong> To manage roles for organization users, go to 
-    <a href="/manage/organizations/">Organizations</a> → select an organization → Users → manage individual user roles.
+    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>">Organizations</a> → select an organization → Users → manage individual user roles.
   </div>
   
   <div class="row">

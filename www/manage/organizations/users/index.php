@@ -759,10 +759,10 @@ $ldap_connection = open_ldap_connection();
 <div class="container">
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="/manage/">Dashboard</a></li>
-            <li class="breadcrumb-item"><a href="/manage/organizations/">Organizations</a></li>
+            <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/', ENT_QUOTES, 'UTF-8'); ?>">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>">Organizations</a></li>
             <?php if ($org_uuid) : ?>
-                <li class="breadcrumb-item"><a href="/manage/organizations/<?php echo urlencode($org_uuid); ?>/"><?= htmlspecialchars($orgDisplay) ?></a></li>
+                <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/', ENT_QUOTES, 'UTF-8'); ?>"><?= htmlspecialchars($orgDisplay) ?></a></li>
             <?php endif; ?>
             <li class="breadcrumb-item active" aria-current="page">Users</li>
         </ol>
@@ -772,7 +772,7 @@ $ldap_connection = open_ldap_connection();
         <h2>Users in <?= htmlspecialchars($orgDisplay) ?></h2>
         <div>
             <?php if ($org_uuid) : ?>
-                <a href="/manage/organizations/<?php echo urlencode($org_uuid); ?>/" class="btn btn-secondary mb-3">&larr; Back to Organization</a>
+                <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary mb-3">&larr; Back to Organization</a>
             <?php endif; ?>
         </div>
     </div>
@@ -841,7 +841,7 @@ $ldap_connection = open_ldap_connection();
     
     <div class="mt-3">
         <?php if ($org_uuid) : ?>
-            <a href="/manage/organizations/<?php echo urlencode($org_uuid); ?>/users/new/" class="btn btn-success btn-sm ml-2">Create New User</a>
+            <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/users/new/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-success btn-sm ml-2">Create New User</a>
         <?php endif; ?>
     </div>
     
@@ -1092,7 +1092,7 @@ $ldap_connection = open_ldap_connection();
             <div class="modal-header bg-warning text-dark">
               <h5 class="modal-title">Reset Credentials for <?= htmlspecialchars($resetUserDisplay) ?></h5>
               <?php if ($org_uuid) : ?>
-                  <a href="/manage/organizations/<?php echo urlencode($org_uuid); ?>/users/" class="btn-close text-dark" aria-label="Close"></a>
+                  <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn-close text-dark" aria-label="Close"></a>
               <?php endif; ?>
             </div>
             <div class="modal-body">
@@ -1125,7 +1125,7 @@ $ldap_connection = open_ldap_connection();
             <div class="modal-footer">
               <button type="submit" name="reset_creds" class="btn btn-warning">Reset</button>
               <?php if ($org_uuid) : ?>
-                  <a href="/manage/organizations/<?php echo urlencode($org_uuid); ?>/users/" class="btn btn-secondary">Cancel</a>
+                  <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary">Cancel</a>
               <?php endif; ?>
             </div>
           </form>

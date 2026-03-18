@@ -340,11 +340,11 @@ if ($errors != "") { ?>
 <div class="container">
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="/manage/">Dashboard</a></li>
-            <li class="breadcrumb-item"><a href="/manage/organizations/">Organizations</a></li>
+            <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/', ENT_QUOTES, 'UTF-8'); ?>">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>">Organizations</a></li>
             <?php if ($org_uuid) : ?>
-                <li class="breadcrumb-item"><a href="/manage/organizations/<?php echo urlencode((string) $org_uuid); ?>/"><?php echo htmlspecialchars($org_name); ?></a></li>
-                <li class="breadcrumb-item"><a href="/manage/organizations/<?php echo urlencode((string) $org_uuid); ?>/users/">Users</a></li>
+                <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode((string) $org_uuid) . '/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($org_name); ?></a></li>
+                <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode((string) $org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>">Users</a></li>
             <?php endif; ?>
             <li class="breadcrumb-item active" aria-current="page">Add User</li>
         </ol>
@@ -494,7 +494,7 @@ if ($errors != "") { ?>
                             <div class="col-sm-6 offset-sm-3">
                                 <button type="submit" name="create_user" class="btn btn-success">Create User</button>
                                 <?php if ($org_uuid) : ?>
-                                    <a href="/manage/organizations/<?php echo urlencode((string) $org_uuid); ?>/users/" class="btn btn-secondary">Cancel</a>
+                                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode((string) $org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary">Cancel</a>
                                 <?php endif; ?>
                             </div>
                         </div>

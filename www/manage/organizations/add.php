@@ -183,7 +183,7 @@ render_submenu();
                         
                         <div class="form-group">
                             <button type="submit" class="btn btn-success">Create Organization</button>
-                            <a href="/manage/organizations/" class="btn btn-secondary">Cancel</a>
+                            <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary">Cancel</a>
                         </div>
                     </form>
                 </div>

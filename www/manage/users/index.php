@@ -164,7 +164,7 @@ if ($ldap_connection === false) {
             <div class="row mb-3">
                 <div class="col-md-6">
                     <?php if (currentUserIsGlobalAdmin() || currentUserIsMaintainer()) : ?>
-                    <a href="/manage/users/new/" class="btn btn-success">
+                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/users/new/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-success">
                         <i class="bi bi-plus-lg"></i> New System User
                     </a>
                     <?php endif; ?>
@@ -174,12 +174,12 @@ if ($ldap_connection === false) {
                 </div>
                 <div class="col-md-6 text-end">
                     <?php if (currentUserIsGlobalAdmin()) : ?>
-                    <a href="/manage/organizations/" class="btn btn-info">Manage Organizations</a>
-                    <a href="/manage/roles/" class="btn btn-warning">Role Management</a>
+                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info">Manage Organizations</a>
+                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/roles/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-warning">Role Management</a>
                     <?php elseif (currentUserIsMaintainer()) : ?>
-                    <a href="/manage/organizations/" class="btn btn-info">Manage Organizations</a>
+                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info">Manage Organizations</a>
                     <?php elseif (currentUserIsOrgAdmin()) : ?>
-                    <a href="/manage/organizations/" class="btn btn-info">Manage Organizations</a>
+                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info">Manage Organizations</a>
                     <?php endif; ?>
                 </div>
             </div>

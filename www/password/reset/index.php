@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-set_include_path('.:' . __DIR__ . '/../includes/');
+set_include_path('.:' . __DIR__ . '/../../includes/');
 
 include_once 'web_functions.inc.php';
 include_once 'ldap_functions.inc.php';
