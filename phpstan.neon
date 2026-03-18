@@ -35,7 +35,6 @@ parameters:
         # open_ldap_connection return type / unreachable code
         - '~Function open_ldap_connection\(\) .+ return type\.~'
         - '~never returns resource so it can be removed from the return type~'
-        - '~Unreachable statement - code above always terminates\.~'
         # strcasecmp string|false (we fixed config; catch any remaining)
         - '~Parameter #1 \$string1 of function strcasecmp expects string, string\|false given\.~'
         # open_ldap_connection returns resource|false; callers pass through

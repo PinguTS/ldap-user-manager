@@ -164,7 +164,7 @@ if ($ldap_connection === false) {
             <div class="row mb-3">
                 <div class="col-md-6">
                     <?php if (currentUserIsGlobalAdmin() || currentUserIsMaintainer()) : ?>
-                    <a href="/manage/users/new.php" class="btn btn-success">
+                    <a href="/manage/users/new/" class="btn btn-success">
                         <i class="bi bi-plus-lg"></i> New System User
                     </a>
                     <?php endif; ?>
@@ -221,12 +221,16 @@ if ($ldap_connection === false) {
                             $this_mail = "";
                         }
 
-                        // Use UUID for user link if available, otherwise fall back to account_identifier
-                        $user_uuid = isset($people[$account_identifier]['entryUUID']) ? $people[$account_identifier]['entryUUID'] : '';
-                        $user_link_param = $user_uuid ? 'uuid=' . urlencode($user_uuid) : 'account_identifier=' . urlencode($account_identifier);
+                        // Canonical routing is UUID-only.
+                        $user_uuid = isset($people[$account_identifier]['entryUUID']) ? (string) $people[$account_identifier]['entryUUID'] : '';
+                        $user_href = $user_uuid !== '' ? '/manage/users/' . urlencode($user_uuid) . '/' : '';
 
                         print " <tr>\n";
-                        print "   <td><a href='/manage/users/show.php?{$user_link_param}'>" . htmlspecialchars($account_identifier) . "</a></td>\n";
+                        if ($user_href !== '') {
+                            print "   <td><a href='{$user_href}'>" . htmlspecialchars($account_identifier) . "</a></td>\n";
+                        } else {
+                            print "   <td>" . htmlspecialchars($account_identifier) . "</td>\n";
+                        }
                         print "   <td>" . safe_user_attribute($people[$account_identifier], 'givenname') . "</td>\n";
                         print "   <td>" . safe_user_attribute($people[$account_identifier], 'sn') . "</td>\n";
                         print "   <td>" . htmlspecialchars($this_mail) . "</td>\n";
@@ -249,7 +253,9 @@ if ($ldap_connection === false) {
                         print "   <td>";
                         print "     <span class='d-inline-flex align-items-center flex-wrap gap-1'>";
                         print "       <span class='btn-group btn-group-sm' role='group' aria-label='User actions'>";
-                        print "         <a href='/manage/users/show.php?{$user_link_param}' class='btn btn-sm btn-info'>View</a>";
+                        if ($user_href !== '') {
+                            print "         <a href='{$user_href}' class='btn btn-sm btn-info'>View</a>";
+                        }
 
                         // Check if current user can delete this user
                         $can_delete = false;
@@ -296,8 +302,8 @@ if ($ldap_connection === false) {
                         print "       </span>"; // btn-group
                         print "       <span class='ms-2 ps-2 border-start'>";
                         if ($can_delete) {
-                            // Use UUID for delete if available, otherwise use account_identifier
-                            $delete_param = $user_uuid ? $user_uuid : $account_identifier;
+                            // Use UUID for deletes (canonical).
+                            $delete_param = $user_uuid;
                             print "         <button type='button' class='btn btn-sm btn-danger' onclick='confirmDelete(\"" . htmlspecialchars($delete_param) . "\", \"" . htmlspecialchars($account_identifier) . "\")'>Delete</button>";
                         } else {
                             print "         <button type='button' class='btn btn-sm btn-danger' disabled title='" . htmlspecialchars($delete_reason) . "'>Delete</button>";

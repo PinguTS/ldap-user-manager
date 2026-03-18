@@ -155,7 +155,7 @@ function build_password_action_url(string $token): string
 {
     global $SITE_PROTOCOL, $SERVER_HOSTNAME, $SERVER_PATH;
     $path = rtrim((string) $SERVER_PATH, '/') . '/';
-    return (string) $SITE_PROTOCOL . (string) $SERVER_HOSTNAME . $path . 'set_password/?token=' . urlencode($token);
+    return (string) $SITE_PROTOCOL . (string) $SERVER_HOSTNAME . $path . 'password/set/?token=' . urlencode($token);
 }
 
 /**

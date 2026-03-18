@@ -761,7 +761,9 @@ $ldap_connection = open_ldap_connection();
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="/manage/">Dashboard</a></li>
             <li class="breadcrumb-item"><a href="/manage/organizations/">Organizations</a></li>
-            <li class="breadcrumb-item"><a href="/manage/organizations/show/index.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName); ?>"><?= htmlspecialchars($orgDisplay) ?></a></li>
+            <?php if ($org_uuid) : ?>
+                <li class="breadcrumb-item"><a href="/manage/organizations/<?php echo urlencode($org_uuid); ?>/"><?= htmlspecialchars($orgDisplay) ?></a></li>
+            <?php endif; ?>
             <li class="breadcrumb-item active" aria-current="page">Users</li>
         </ol>
     </nav>
@@ -769,7 +771,9 @@ $ldap_connection = open_ldap_connection();
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2>Users in <?= htmlspecialchars($orgDisplay) ?></h2>
         <div>
-            <a href="/manage/organizations/show/index.php?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="btn btn-secondary mb-3">&larr; Back to Organization</a>
+            <?php if ($org_uuid) : ?>
+                <a href="/manage/organizations/<?php echo urlencode($org_uuid); ?>/" class="btn btn-secondary mb-3">&larr; Back to Organization</a>
+            <?php endif; ?>
         </div>
     </div>
     <?php if ($message) : ?>
@@ -836,7 +840,9 @@ $ldap_connection = open_ldap_connection();
     </table>
     
     <div class="mt-3">
-        <a href="/manage/organizations/users/add.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName); ?>" class="btn btn-success btn-sm ml-2">Create New User</a>
+        <?php if ($org_uuid) : ?>
+            <a href="/manage/organizations/<?php echo urlencode($org_uuid); ?>/users/new/" class="btn btn-success btn-sm ml-2">Create New User</a>
+        <?php endif; ?>
     </div>
     
     <h4>Quick Add User</h4>
@@ -1085,7 +1091,9 @@ $ldap_connection = open_ldap_connection();
             <?= csrf_token_field() ?>
             <div class="modal-header bg-warning text-dark">
               <h5 class="modal-title">Reset Credentials for <?= htmlspecialchars($resetUserDisplay) ?></h5>
-              <a href="/manage/organizations/users/index.php?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="btn-close text-dark" aria-label="Close"></a>
+              <?php if ($org_uuid) : ?>
+                  <a href="/manage/organizations/<?php echo urlencode($org_uuid); ?>/users/" class="btn-close text-dark" aria-label="Close"></a>
+              <?php endif; ?>
             </div>
             <div class="modal-body">
               <input type="hidden" name="reset_uid" value="<?= htmlspecialchars($resetUserParam) ?>">
@@ -1116,7 +1124,9 @@ $ldap_connection = open_ldap_connection();
             </div>
             <div class="modal-footer">
               <button type="submit" name="reset_creds" class="btn btn-warning">Reset</button>
-              <a href="/manage/organizations/users/index.php?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="btn btn-secondary">Cancel</a>
+              <?php if ($org_uuid) : ?>
+                  <a href="/manage/organizations/<?php echo urlencode($org_uuid); ?>/users/" class="btn btn-secondary">Cancel</a>
+              <?php endif; ?>
             </div>
           </form>
         </div>

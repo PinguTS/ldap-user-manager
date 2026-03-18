@@ -805,8 +805,22 @@ function render_menu()
          #print "<p>$module - access is $access & show is $show_this_module</p>";
             if ($show_this_module == true) {
                 $active_class = ($module == $THIS_MODULE) ? " active" : "";
-                // Use /manage/index.php for Manage so the request hits the app with cookie (avoids /manage/ redirect issues)
-                $module_href = ($module === 'manage') ? $SERVER_PATH . $module . '/index.php' : $SERVER_PATH . $module . '/';
+                // Canonical module hrefs (single-word routes).
+                if ($module === 'manage') {
+                    // Use /manage/index.php so the request hits the app with cookie (avoids /manage/ redirect issues)
+                    $module_href = $SERVER_PATH . 'manage/index.php';
+                } elseif ($module === 'log_in') {
+                    $module_href = $SERVER_PATH . 'login/';
+                } elseif ($module === 'log_out') {
+                    $module_href = $SERVER_PATH . 'logout/';
+                } elseif ($module === 'change_password') {
+                    $module_href = $SERVER_PATH . 'password/change/';
+                } elseif ($module === 'request_account') {
+                    $module_href = $SERVER_PATH . 'account/request/';
+                } else {
+                    // Fallback: module directory name (should not be used by canonical routing).
+                    $module_href = $SERVER_PATH . $module . '/';
+                }
                 print '<li class="nav-item"><a class="nav-link' . $active_class . '" href="' . $module_href . '">' . $this_module_name . '</a></li>' . "\n";
             }
         }
@@ -854,9 +868,9 @@ function set_page_access($allowed_levels)
  #   - 'user': Any authenticated user
  #
  # Special paths:
- # - /change_password and below: Available to any authenticated user
- # - /log_out and below: Available to any authenticated user
- # - /log_in and below: Available to any non-authenticated user
+ # - /password/change and below: Available to any authenticated user
+ # - /logout and below: Available to any authenticated user
+ # - /login and below: Available to any non-authenticated user
 
  // Convert single level to array for consistent handling
     if (!is_array($allowed_levels)) {
@@ -877,8 +891,8 @@ function set_page_access($allowed_levels)
         error_log("$log_prefix set_page_access: User roles - Admin: " . ($IS_ADMIN ? 'YES' : 'NO') . ", Maintainer: " . ($IS_MAINTAINER ? 'YES' : 'NO') . ", Org Admin: " . ($IS_ORG_ADMIN ? 'YES' : 'NO') . ", Setup: " . ($IS_SETUP_ADMIN ? 'YES' : 'NO'));
     }
 
- // Special path handling for change_password, log_out, and log_in
-    if (strpos($current_path, '/change_password') === 0 || strpos($current_path, '/log_out') === 0) {
+ // Special path handling for password change and logout
+    if (strpos($current_path, '/password/change') === 0 || strpos($current_path, '/logout') === 0) {
       // These paths are available to any authenticated user
         if ($VALIDATED == true) {
             if ($LDAP_DEBUG) {
@@ -888,7 +902,7 @@ function set_page_access($allowed_levels)
         } else {
        // Redirect to login
             $reason = ($SESSION_TIMED_OUT == true) ? "session_timeout" : "unauthorised";
-            header("Location: " . get_base_url() . "log_in/index.php?$reason&redirect_to=" . base64_encode($_SERVER['REQUEST_URI']));
+            header("Location: " . get_base_url() . "login/?$reason&redirect_to=" . base64_encode($_SERVER['REQUEST_URI']));
             if ($SESSION_DEBUG == true) {
                 error_log("$log_prefix set_page_access: Redirecting unauthenticated user to login from $current_path");
             }
@@ -896,7 +910,7 @@ function set_page_access($allowed_levels)
         }
     }
 
-    if (strpos($current_path, '/log_in') === 0) {
+    if (strpos($current_path, '/login') === 0) {
       // Login pages are available to any non-authenticated user
         if ($VALIDATED == true) {
          // User is already logged in, redirect to appropriate default
@@ -1040,7 +1054,7 @@ function get_default_redirect_for_user()
  // If user is not validated, redirect to login
     if (!$VALIDATED) {
         $reason = (!empty($SESSION_TIMED_OUT)) ? "session_timeout" : "unauthorised";
-        return get_base_url() . "log_in/index.php?$reason&redirect_to=" . base64_encode($_SERVER['REQUEST_URI']);
+        return get_base_url() . "login/?$reason&redirect_to=" . base64_encode($_SERVER['REQUEST_URI']);
     }
 
  // Determine default redirect based on user's highest access level
@@ -1055,16 +1069,13 @@ function get_default_redirect_for_user()
         global $USER_ORG_NAME, $USER_ORG_UUID;
 
         if (isset($USER_ORG_UUID) && $USER_ORG_UUID) {
-            return get_base_url() . "manage/organizations/show/index.php?uuid=" . urlencode($USER_ORG_UUID);
-        } elseif (isset($USER_ORG_NAME) && $USER_ORG_NAME) {
-            return get_base_url() . "manage/organizations/show/index.php?org=" . urlencode($USER_ORG_NAME);
-        } else {
-       // Fallback to change password if org info not available
-            return get_base_url() . "change_password/";
+            return get_base_url() . "manage/organizations/" . urlencode($USER_ORG_UUID) . "/";
         }
+        // Fallback to password change if org info not available
+        return get_base_url() . "password/change/";
     } else {
-      // Regular user, redirect to change password
-        return get_base_url() . "change_password/";
+      // Regular user, redirect to password change
+        return get_base_url() . "password/change/";
     }
 }
 

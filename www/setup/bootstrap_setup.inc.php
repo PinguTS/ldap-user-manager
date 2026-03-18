@@ -27,7 +27,7 @@ render_header('Account manager – Setup');
     </div>
   </div>
   <div class="p-3 bg-light rounded">
-    <form action="<?php print get_base_url(); ?>log_in">
+    <form action="<?php print get_base_url(); ?>login/">
       <input type="submit" class="btn btn-success d-block mx-auto" value="Go to Login">
     </form>
   </div>

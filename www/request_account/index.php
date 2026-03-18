@@ -60,7 +60,7 @@ if ($_POST) {
     } else {
         $mail_subject = "$firstname $lastname has requested an account for $ORGANISATION_NAME.";
 
-        $link_url = "{$SITE_PROTOCOL}{$SERVER_HOSTNAME}{$SERVER_PATH}manage/users/new.php?account_request&first_name=$firstname&last_name=$lastname&email=$email";
+        $link_url = "{$SITE_PROTOCOL}{$SERVER_HOSTNAME}{$SERVER_PATH}manage/users/new/?account_request&first_name=$firstname&last_name=$lastname&email=$email";
 
         if (!isset($email)) {
             $email = "n/a";

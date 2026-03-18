@@ -506,8 +506,10 @@ if ($orgExists) {
         ?>
         <div class="d-flex align-items-center justify-content-start flex-wrap gap-2">
             <div class="btn-group btn-group-sm" role="group" aria-label="Users actions">
-                <a href="/manage/organizations/users/index.php?<?php echo $org_uuid !== '' ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>" class="btn btn-info">View users</a>
-                <a href="/manage/organizations/users/add.php?<?php echo $org_uuid !== '' ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>" class="btn btn-success">Add user</a>
+                <?php if ($org_uuid !== '') : ?>
+                    <a href="/manage/organizations/<?php echo urlencode($org_uuid); ?>/users/" class="btn btn-info">View users</a>
+                    <a href="/manage/organizations/<?php echo urlencode($org_uuid); ?>/users/new/" class="btn btn-success">Add user</a>
+                <?php endif; ?>
             </div>
 
             <?php if ($can_modify_org) : ?>
@@ -580,7 +582,9 @@ if ($orgExists) {
                          <td>
                                 <div class="d-inline-flex align-items-center flex-wrap gap-1">
                                     <div class="btn-group btn-group-sm" role="group" aria-label="Recent user actions">
-                                        <a href="/manage/organizations/users/index.php?<?php echo $org_uuid !== '' ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>&edit_user=<?php echo urlencode((string) ($user['entryUUID'] ?? $user['mail'] ?? $user['cn'] ?? '')); ?>" class="btn btn-secondary btn-sm">Edit</a>
+                                        <?php if ($org_uuid !== '' && isset($user['entryUUID'])) : ?>
+                                            <a href="/manage/organizations/<?php echo urlencode($org_uuid); ?>/users/?edit_user=<?php echo urlencode((string) $user['entryUUID']); ?>" class="btn btn-secondary btn-sm">Edit</a>
+                                        <?php endif; ?>
                                     </div>
                                     <div class="vr"></div>
                                     <div class="btn-group btn-group-sm" role="group" aria-label="Recent user delete">
@@ -594,7 +598,9 @@ if ($orgExists) {
                     </table>
                     </div>
                     <div class="text-center mt-3">
-                        <a href="/manage/organizations/users/index.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>">View all users</a>
+                        <?php if ($org_uuid !== '') : ?>
+                            <a href="/manage/organizations/<?php echo urlencode($org_uuid); ?>/users/">View all users</a>
+                        <?php endif; ?>
                     </div>
           <?php if (count($org_users) > 5) { ?>
         <p><em>Showing 5 of <?php print count($org_users); ?> users. 

@@ -21,7 +21,7 @@ if (isset($_POST["admin_password"])) {
 
     if ($user_auth != false) {
         set_setup_cookie($user_auth);
-        header("Location: " . get_base_url() . "setup/run_checks.php");
+        header("Location: " . get_base_url() . "setup/check/");
         exit;
     } else {
         header("Location: " . get_base_url() . "setup/index.php?invalid");

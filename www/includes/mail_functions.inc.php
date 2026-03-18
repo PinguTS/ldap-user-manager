@@ -82,7 +82,7 @@ function parse_mail_template(string $template, array $vars): string
     $defaults = [
         'organisation' => (string) $ORGANISATION_NAME,
         'site_url' => $baseUrl,
-        'change_password_url' => $baseUrl . 'change_password',
+        'change_password_url' => $baseUrl . 'password/change',
     ];
 
     $vars = array_merge($defaults, $vars);

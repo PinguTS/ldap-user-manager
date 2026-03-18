@@ -61,7 +61,7 @@ render_header('Set password');
                     <div class="alert alert-success">
                         Your password has been updated. You can now log in.
                     </div>
-                    <a class="btn btn-primary" href="<?php echo htmlspecialchars(get_base_url() . 'log_in/'); ?>">Go to login</a>
+                    <a class="btn btn-primary" href="<?php echo htmlspecialchars(get_base_url() . 'login/'); ?>">Go to login</a>
                 <?php else : ?>
                     <?php if (!empty($errors)) : ?>
                         <div class="alert alert-warning">

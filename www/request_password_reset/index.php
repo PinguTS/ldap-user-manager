@@ -83,7 +83,7 @@ render_header('Request password reset');
                     </div>
                     <div class="form-group mt-2">
                         <button type="submit" class="btn btn-primary">Send reset link</button>
-                        <a class="btn btn-secondary" href="<?php echo htmlspecialchars(get_base_url() . 'log_in/'); ?>">Back to login</a>
+                        <a class="btn btn-secondary" href="<?php echo htmlspecialchars(get_base_url() . 'login/'); ?>">Back to login</a>
                     </div>
                 </form>
             </div>

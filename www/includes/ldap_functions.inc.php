@@ -55,7 +55,6 @@ function open_ldap_connection($ldap_bind = true)
     if (!$ldap_connection) {
         print "Problem: Can't connect to the LDAP server at {$LDAP['uri']}";
         die("Can't connect to the LDAP server at {$LDAP['uri']}");
-        exit(1);
     }
 
     ldap_set_option($ldap_connection, LDAP_OPT_PROTOCOL_VERSION, 3);

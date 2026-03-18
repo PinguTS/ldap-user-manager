@@ -39,42 +39,41 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.+)/$ /$1 [R=301,L]
 
-# Clean URL: /manage/users/show → /manage/users/show.php
+# ----------------------------
+# Canonical application routes
+# ----------------------------
+
+# API
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^manage/users/show/?$ /manage/users/show.php [L]
+RewriteRule ^api/v1/organizations/?$ /api/v1/organizations.php [L]
 
-# Clean URL: /manage/users/new → /manage/users/new.php
+# Auth / account (single-word paths)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^manage/users/new/?$ /manage/users/new.php [L]
+RewriteRule ^login/?$ /log_in/index.php [L]
 
-# Clean URL: /manage/organizations/show → /manage/organizations/show/index.php
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^manage/organizations/show/?$ /manage/organizations/show/index.php [L]
+RewriteRule ^logout/?$ /log_out/index.php [L]
 
-# Clean URL: /manage/organizations/add → /manage/organizations/add.php
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^manage/organizations/add/?$ /manage/organizations/add.php [L]
+RewriteRule ^password/change/?$ /change_password/index.php [L]
 
-# Clean URL: /manage/organizations/users/add → /manage/organizations/users/add.php
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^manage/organizations/users/add/?$ /manage/organizations/users/add.php [L]
+RewriteRule ^password/reset/?$ /request_password_reset/index.php [L]
 
-# Clean URL: /manage/roles → /manage/roles/index.php
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^manage/roles/?$ /manage/roles/index.php [L]
+RewriteRule ^password/set/?$ /set_password/index.php [L]
 
-# Clean URL: /manage/download → /manage/download.php
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^manage/download/?$ /manage/download.php [L]
+RewriteRule ^account/request/?$ /request_account/index.php [L]
 
-# Clean URL: /setup/ldap → /setup/ldap.php
+# Setup
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^setup/ldap/?$ /setup/ldap.php [L]
@@ -84,37 +83,44 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^setup/verify/?$ /setup/verify.php [L]
 
-# Clean URL: /setup/run_checks → /setup/run_checks.php
+# Canonical: /setup/check → /setup/run_checks.php
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^setup/run_checks/?$ /setup/run_checks.php [L]
+RewriteRule ^setup/check/?$ /setup/run_checks.php [L]
 
-# Clean URL: /change_password → /change_password/index.php
+# Manage (UUID-in-path)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^change_password/?$ /change_password/index.php [L]
+RewriteRule ^manage/users/new/?$ /manage/users/new.php [L]
 
-# Clean URL: /request_account → /request_account/index.php
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^request_account/?$ /request_account/index.php [L]
+RewriteRule ^manage/users/([0-9a-fA-F-]{36})/?$ /manage/users/show.php?uuid=$1 [L,QSA]
 
-# Clean URL: /log_out → /log_out/index.php
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^log_out/?$ /log_out/index.php [L]
+RewriteRule ^manage/organizations/new/?$ /manage/organizations/add.php [L]
 
-# Handle organization show URLs with parameters
-# /manage/organizations/show/CompanyName → /manage/organizations/show/index.php?org=CompanyName
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^manage/organizations/show/([^/]+)/?$ /manage/organizations/show/index.php?org=$1 [L,QSA]
+RewriteRule ^manage/organizations/([0-9a-fA-F-]{36})/?$ /manage/organizations/show/index.php?uuid=$1 [L,QSA]
 
-# Handle user show URLs with parameters
-# /manage/users/show/username → /manage/users/show.php?user=username
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^manage/users/show/([^/]+)/?$ /manage/users/show.php?user=$1 [L,QSA]
+RewriteRule ^manage/organizations/([0-9a-fA-F-]{36})/users/?$ /manage/organizations/users/index.php?uuid=$1 [L,QSA]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^manage/organizations/([0-9a-fA-F-]{36})/users/new/?$ /manage/organizations/users/add.php?uuid=$1 [L,QSA]
+
+# Manage convenience routes
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^manage/roles/?$ /manage/roles/index.php [L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^manage/download/?$ /manage/download.php [L]
 
 # Fallback: Only rewrite non-existing URLs that don't match static file patterns
 # This should be the last rule and should NOT catch static files

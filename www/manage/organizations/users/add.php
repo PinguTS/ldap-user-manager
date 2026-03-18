@@ -288,8 +288,11 @@ if (isset($_POST['create_org_user'])) {
 
                 // Redirect back to organization users page
                 // Redirect back to organization users page, preserving UUID if available
-                $redirect_param = $org_uuid ? "uuid=" . urlencode($org_uuid) : "org=" . urlencode($org_name);
-                header("Location: org_users.php?" . $redirect_param);
+                if ($org_uuid) {
+                    header("Location: /manage/organizations/" . urlencode((string) $org_uuid) . "/users/");
+                } else {
+                    header("Location: /manage/organizations/");
+                }
                 exit(0);
             } else {
                 render_alert_banner("Failed to create user account. Check the logs for more information.", "danger");
@@ -339,8 +342,10 @@ if ($errors != "") { ?>
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="/manage/">Dashboard</a></li>
             <li class="breadcrumb-item"><a href="/manage/organizations/">Organizations</a></li>
-            <li class="breadcrumb-item"><a href="/manage/organizations/show/index.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>"><?php echo htmlspecialchars($org_name); ?></a></li>
-            <li class="breadcrumb-item"><a href="/manage/organizations/users/index.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>">Users</a></li>
+            <?php if ($org_uuid) : ?>
+                <li class="breadcrumb-item"><a href="/manage/organizations/<?php echo urlencode((string) $org_uuid); ?>/"><?php echo htmlspecialchars($org_name); ?></a></li>
+                <li class="breadcrumb-item"><a href="/manage/organizations/<?php echo urlencode((string) $org_uuid); ?>/users/">Users</a></li>
+            <?php endif; ?>
             <li class="breadcrumb-item active" aria-current="page">Add User</li>
         </ol>
     </nav>
@@ -488,7 +493,9 @@ if ($errors != "") { ?>
                         <div class="form-group">
                             <div class="col-sm-6 offset-sm-3">
                                 <button type="submit" name="create_user" class="btn btn-success">Create User</button>
-                                <a href="/manage/organizations/users/index.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>" class="btn btn-secondary">Cancel</a>
+                                <?php if ($org_uuid) : ?>
+                                    <a href="/manage/organizations/<?php echo urlencode((string) $org_uuid); ?>/users/" class="btn btn-secondary">Cancel</a>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </form>

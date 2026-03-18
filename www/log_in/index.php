@@ -19,7 +19,7 @@ if (isset($_POST["user_id"]) && isset($_POST["password"])) {
   // Check rate limiting before attempting authentication
     if (is_rate_limited($_POST["user_id"])) {
         http_response_code(429); // Too Many Requests
-        header("Location: " . get_base_url() . "log_in/index.php?rate_limited");
+        header("Location: " . get_base_url() . "login/?rate_limited");
         exit;
     }
 
@@ -33,7 +33,7 @@ if (isset($_POST["user_id"]) && isset($_POST["password"])) {
         ldap_close($ldap_connection);
 
       // If we get here, the login failed
-        header("Location: " . get_base_url() . "log_in/index.php?invalid");
+        header("Location: " . get_base_url() . "login/?invalid");
         exit;
     }
 
@@ -45,7 +45,7 @@ if (isset($_POST["user_id"]) && isset($_POST["password"])) {
         if ($user_entries['count'] > 0 && $first_entry !== [] && function_exists('isUserAccountDisabled') && isUserAccountDisabled($first_entry)) {
             record_login_attempt($_POST["user_id"], false);
             ldap_close($ldap_connection);
-            header("Location: " . get_base_url() . "log_in/index.php?account_locked");
+            header("Location: " . get_base_url() . "login/?account_locked");
             exit;
         }
     }
@@ -58,7 +58,7 @@ if (isset($_POST["user_id"]) && isset($_POST["password"])) {
         ldap_close($ldap_connection);
 
       // Redirect with locked account message
-        header("Location: " . get_base_url() . "log_in/index.php?account_locked");
+        header("Location: " . get_base_url() . "login/?account_locked");
         exit;
     }
 
@@ -198,12 +198,12 @@ if (isset($_POST["user_id"]) && isset($_POST["password"])) {
         $default_module = "manage/organizations/index.php";
     } elseif ($is_org_admin && $user_org_name && $org_uuid) {
       // Use UUID-based URL for better security
-        $default_module = "manage/organizations/show/index.php?uuid=" . urlencode($org_uuid);
+        $default_module = "manage/organizations/" . urlencode($org_uuid) . "/";
     } elseif ($is_org_admin && $user_org_name) {
       // Fallback to name-based URL if UUID not available
         $default_module = "manage/organizations/show/index.php?org=" . urlencode($user_org_name);
     } else {
-        $default_module = "change_password/index.php";
+        $default_module = "password/change/";
     }
 
     if ($LDAP_DEBUG) {

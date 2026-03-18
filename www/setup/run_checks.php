@@ -260,7 +260,7 @@ if ($show_finish_button == true) {
       <div class="p-3 bg-light rounded">
         <div class="row">
           <div class="col-md-6">
-            <form action="<?php print "{$SERVER_PATH}log_in"; ?>">
+            <form action="<?php print "{$SERVER_PATH}login/"; ?>">
               <input type='submit' class="btn btn-success d-block mx-auto" value='Done'>
             </form>
           </div>

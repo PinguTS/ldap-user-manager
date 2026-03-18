@@ -197,7 +197,7 @@ if (!empty($missing_components)) {
     print "<div class='p-3 bg-light rounded'>\n";
     print "  <div class='row'>\n";
     print "    <div class='col-md-6'>\n";
-    print "      <form action='{$SERVER_PATH}log_in'>\n";
+    print "      <form action='{$SERVER_PATH}login/'>\n";
     print "        <input type='submit' class='btn btn-success d-block mx-auto' value='Go to Login'>\n";
     print "      </form>\n";
     print "    </div>\n";

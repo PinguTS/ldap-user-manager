@@ -49,11 +49,13 @@ if (isset($VALIDATED) && $VALIDATED) {
         }
 
         if ($org_uuid) {
-            header("Location: manage/organizations/show/index.php?uuid=" . urlencode($org_uuid));
+            header("Location: manage/organizations/" . urlencode($org_uuid) . "/");
         } elseif ($org_name) {
-            header("Location: manage/organizations/show/index.php?org=" . urlencode($org_name));
+            // Organization name redirects are not supported for canonical routing.
+            // Fall back to password change if UUID is unavailable.
+            header("Location: password/change/");
         } else {
-            header("Location: change_password/");
+            header("Location: password/change/");
         }
         exit;
     }

@@ -76,9 +76,9 @@ render_submenu();
                     $org_uuid = currentUserGetOrgUuid();
 
                     if ($org_uuid) {
-                        echo '<a href="/manage/organizations/show/index.php?uuid=' . urlencode($org_uuid) . '" class="btn btn-warning">View My Organization</a>';
+                        echo '<a href="/manage/organizations/' . urlencode($org_uuid) . '/" class="btn btn-warning">View My Organization</a>';
                     } elseif ($org_name) {
-                        echo '<a href="/manage/organizations/show/index.php?org=' . urlencode($org_name) . '" class="btn btn-warning">View My Organization</a>';
+                        // Canonical routing is UUID-only; if UUID is missing, do not link by name.
                     }
                     ?>
                 </div>
