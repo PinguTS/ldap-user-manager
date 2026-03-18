@@ -34,19 +34,19 @@ set_page_access(["admin", "maintainer", "org_admin"]);
 // Check if user can modify this organization
 $can_modify_org = currentUserCanModifyOrganization($org_name);
 
-render_header("$ORGANISATION_NAME account manager");
+render_header((string) $ORGANISATION_NAME . ' ' . t('manage.orgs.show.account_manager'));
 render_submenu();
 
 // Handle org deletion action
 if (isset($_POST['action']) && $_POST['action'] === 'delete_organization') {
     if (session_status() !== PHP_SESSION_ACTIVE) {
-        render_alert_banner("Session expired. Please log in again.", "danger");
+        render_alert_banner(t('manage.orgs.show.msg.session_expired'), "danger");
     } elseif (!validate_csrf_token()) {
-        render_alert_banner("Security validation failed. Please refresh the page and try again.", "danger");
+        render_alert_banner(t('manage.common.msg.security_validation_failed'), "danger");
     } else {
         $ldap_connection_action = open_ldap_connection();
         if ($ldap_connection_action === false) {
-            render_alert_banner("LDAP connection failed. Please check configuration and logs.", "danger");
+            render_alert_banner(t('manage.orgs.msg.ldap_fail'), "danger");
         } else {
             if (currentUserCanDeleteOrganization($org_name)) {
                 $posted_uuid = isset($_POST['org_uuid']) ? trim((string) $_POST['org_uuid']) : '';
@@ -56,12 +56,12 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete_organization') {
                     exit;
                 }
                 render_alert_banner(
-                    "Failed to delete organization '$org_name'. Please check the logs for details.",
+                    t('manage.orgs.show.msg.delete_fail', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
                     "danger",
                     15000
                 );
             } else {
-                render_alert_banner("You do not have permission to delete this organization.", "danger");
+                render_alert_banner(t('manage.orgs.show.msg.permission_delete_org'), "danger");
             }
             ldap_close($ldap_connection_action);
         }
@@ -71,25 +71,39 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete_organization') {
 // Handle org lock/unlock actions (disable/enable org)
 if (isset($_POST['action']) && ($_POST['action'] === 'lock_organization' || $_POST['action'] === 'unlock_organization')) {
     if (session_status() !== PHP_SESSION_ACTIVE) {
-        render_alert_banner("Session expired. Please log in again.", "danger");
+        render_alert_banner(t('manage.orgs.show.msg.session_expired'), "danger");
     } elseif (!validate_csrf_token()) {
-        render_alert_banner("Security validation failed. Please refresh the page and try again.", "danger");
+        render_alert_banner(t('manage.common.msg.security_validation_failed'), "danger");
     } else {
         $ldap_connection_action = open_ldap_connection();
         if ($ldap_connection_action === false) {
-            render_alert_banner("LDAP connection failed. Please check configuration and logs.", "danger");
+            render_alert_banner(t('manage.orgs.msg.ldap_fail'), "danger");
         } else {
             if ($_POST['action'] === 'lock_organization') {
                 if (currentUserCanDisableOrganization($org_name) && ldap_lock_organization($ldap_connection_action, $org_name)) {
-                    render_alert_banner("Organization '$org_name' has been locked (disabled) successfully. Users in this organization cannot log in while disabled.", "success");
+                    render_alert_banner(
+                        t('manage.orgs.show.msg.lock_ok', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+                        "success"
+                    );
                 } else {
-                    render_alert_banner("Failed to lock (disable) organization '$org_name'. Please check the logs for details.", "danger", 15000);
+                    render_alert_banner(
+                        t('manage.orgs.show.msg.lock_fail', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+                        "danger",
+                        15000
+                    );
                 }
             } elseif ($_POST['action'] === 'unlock_organization') {
                 if (currentUserCanEnableOrganization($org_name) && ldap_unlock_organization($ldap_connection_action, $org_name)) {
-                    render_alert_banner("Organization '$org_name' has been unlocked (enabled) successfully.", "success");
+                    render_alert_banner(
+                        t('manage.orgs.show.msg.unlock_ok', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+                        "success"
+                    );
                 } else {
-                    render_alert_banner("Failed to unlock (enable) organization '$org_name'. Please check the logs for details.", "danger", 15000);
+                    render_alert_banner(
+                        t('manage.orgs.show.msg.unlock_fail', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+                        "danger",
+                        15000
+                    );
                 }
             }
             ldap_close($ldap_connection_action);
@@ -100,34 +114,48 @@ if (isset($_POST['action']) && ($_POST['action'] === 'lock_organization' || $_PO
 // Handle org membership actions (member/unmember org)
 if (isset($_POST['action']) && ($_POST['action'] === 'member_organization' || $_POST['action'] === 'unmember_organization')) {
     if (session_status() !== PHP_SESSION_ACTIVE) {
-        render_alert_banner("Session expired. Please log in again.", "danger");
+        render_alert_banner(t('manage.orgs.show.msg.session_expired'), "danger");
     } elseif (!validate_csrf_token()) {
-        render_alert_banner("Security validation failed. Please refresh the page and try again.", "danger");
+        render_alert_banner(t('manage.common.msg.security_validation_failed'), "danger");
     } elseif (!(currentUserIsGlobalAdmin() || currentUserIsMaintainer())) {
-        render_alert_banner("You do not have permission to modify organization membership.", "danger");
+        render_alert_banner(t('manage.orgs.show.msg.permission_modify_membership'), "danger");
     } else {
         $ldap_connection_action = open_ldap_connection();
         if ($ldap_connection_action === false) {
-            render_alert_banner("LDAP connection failed. Please check configuration and logs.", "danger");
+            render_alert_banner(t('manage.orgs.msg.ldap_fail'), "danger");
         } else {
             $base_dn = $LDAP['base_dn'] ?? '';
             $member_group_cn_post = getenv('LDAP_GROUP_MEMBER_ORGS') ?: 'memberOrganizations';
             $org_dn_action = "o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
 
             if ($base_dn === '' || !function_exists('addToStatusGroup') || !function_exists('removeFromStatusGroup')) {
-                render_alert_banner("Membership status configuration is not available (missing base DN or status helpers).", "danger", 15000);
+                render_alert_banner(t('manage.orgs.show.msg.membership_status_config_missing'), "danger", 15000);
             } else {
                 if ($_POST['action'] === 'member_organization') {
                     if (addToStatusGroup($ldap_connection_action, $org_dn_action, $member_group_cn_post, $base_dn)) {
-                        render_alert_banner("Organization '$org_name' has been marked as a member organization.", "success");
+                        render_alert_banner(
+                            t('manage.orgs.show.msg.member_ok', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+                            "success"
+                        );
                     } else {
-                        render_alert_banner("Failed to mark organization '$org_name' as member. Please check the logs for details.", "danger", 15000);
+                        render_alert_banner(
+                            t('manage.orgs.show.msg.member_fail', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+                            "danger",
+                            15000
+                        );
                     }
                 } else {
                     if (removeFromStatusGroup($ldap_connection_action, $org_dn_action, $member_group_cn_post, $base_dn)) {
-                        render_alert_banner("Organization '$org_name' has been removed from member organizations.", "success");
+                        render_alert_banner(
+                            t('manage.orgs.show.msg.unmember_ok', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+                            "success"
+                        );
                     } else {
-                        render_alert_banner("Failed to remove organization '$org_name' from member organizations. Please check the logs for details.", "danger", 15000);
+                        render_alert_banner(
+                            t('manage.orgs.show.msg.unmember_fail', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+                            "danger",
+                            15000
+                        );
                     }
                 }
             }
@@ -144,13 +172,13 @@ if (isset($_POST['update_organization'])) {
 
     // Check if session is still valid
     if (session_status() !== PHP_SESSION_ACTIVE) {
-        render_alert_banner("Session expired. Please log in again.", "danger");
+        render_alert_banner(t('manage.orgs.show.msg.session_expired'), "danger");
         error_log("Session not active during organization update");
     } elseif (!validate_csrf_token()) {
-        render_alert_banner("Security validation failed. Please refresh the page and try again.", "danger");
+        render_alert_banner(t('manage.common.msg.security_validation_failed'), "danger");
         error_log("CSRF token validation failed for organization update. Session token: " . ($_SESSION['csrf_token'] ?? 'NOT_SET') . ", Posted token: " . ($_POST['csrf_token'] ?? 'NOT_POSTED'));
     } elseif (!$can_modify_org) {
-        render_alert_banner("You do not have permission to modify this organization.", "danger");
+        render_alert_banner(t('manage.orgs.show.msg.permission_modify_org'), "danger");
     } else {
         $base_dn = $LDAP['base_dn'] ?? '';
         // Use the same field mapping logic as organization creation
@@ -200,13 +228,13 @@ if (isset($_POST['update_organization'])) {
                 if (ctype_digit($raw_limit)) {
                     $limit_val = (int) $raw_limit;
                 } else {
-                    render_alert_banner("User limit must be a positive integer (or empty for unlimited).", "warning", 15000);
+                    render_alert_banner(t('manage.orgs.show.msg.user_limit_invalid'), "warning", 15000);
                 }
             }
             $limit_ldap = open_ldap_connection();
             if ($limit_ldap !== false) {
                 if (!function_exists('ldap_org_set_user_limit') || !ldap_org_set_user_limit($limit_ldap, $org_name, $limit_val)) {
-                    render_alert_banner("Failed to update organization user limit. Check the logs for more information.", "danger", 15000);
+                    render_alert_banner(t('manage.orgs.show.msg.user_limit_update_fail'), "danger", 15000);
                 }
                 ldap_close($limit_ldap);
             }
@@ -216,9 +244,12 @@ if (isset($_POST['update_organization'])) {
         $update_identifier = $org_uuid ?: $org_name;
         $result = updateOrganization($update_identifier, $org_data);
         if ($result) {
-            render_alert_banner("Organization '$org_name' updated successfully.", "success");
+            render_alert_banner(
+                t('manage.orgs.show.msg.org_update_ok', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+                "success"
+            );
         } else {
-            render_alert_banner("Failed to update organization. Check the logs for more information.", "danger");
+            render_alert_banner(t('manage.orgs.show.msg.org_update_fail'), "danger");
         }
     }
 }
@@ -282,7 +313,10 @@ if ($org_uuid) {
     }
 
     if (!$organization) {
-        render_alert_banner("Organization '$org_name' not found.", "danger");
+        render_alert_banner(
+            t('manage.orgs.show.msg.org_not_found', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+            "danger"
+        );
         render_footer();
         exit(0);
     }
@@ -351,8 +385,8 @@ if ($orgExists) {
 
   <nav aria-label="breadcrumb">
    <ol class="breadcrumb">
-    <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/', ENT_QUOTES, 'UTF-8'); ?>">Dashboard</a></li>
-    <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>">Organizations</a></li>
+    <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.dashboard.breadcrumb_dashboard'), ENT_QUOTES, 'UTF-8'); ?></a></li>
+    <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.common.organizations'), ENT_QUOTES, 'UTF-8'); ?></a></li>
     <li class="breadcrumb-item active" aria-current="page"><?php print htmlspecialchars($org_name); ?></li>
    </ol>
   </nav>
@@ -360,24 +394,24 @@ if ($orgExists) {
   <div class="card">
    <div class="card-header clearfix">
     <span class="card-title mb-0 float-start"><h3 class="h5 mb-0"><?php print htmlspecialchars($org_name); ?></h3></span>
-    <a href="<?php print $THIS_MODULE_PATH; ?>/organizations" class="btn btn-secondary float-end">Back to Organizations</a>
+    <a href="<?php print $THIS_MODULE_PATH; ?>/organizations" class="btn btn-secondary float-end"><?php echo htmlspecialchars(t('manage.orgs.show.back_to_organizations'), ENT_QUOTES, 'UTF-8'); ?></a>
    </div>
    <div class="card-body">
     
     <div class="row">
      <div class="col-sm-6">
-      <h4>Organization Information</h4>
+     <h4><?php echo htmlspecialchars(t('manage.orgs.show.information_heading'), ENT_QUOTES, 'UTF-8'); ?></h4>
       <table class="table table-striped">
        <tr>
-        <th>Name:</th>
+        <th><?php echo htmlspecialchars(t('manage.orgs.show.name_header'), ENT_QUOTES, 'UTF-8'); ?></th>
         <td><?php print htmlspecialchars($org_name); ?></td>
        </tr>
        <tr>
-        <th>Description:</th>
-        <td><?php print htmlspecialchars($organization['description'] ?? 'No description'); ?></td>
+        <th><?php echo htmlspecialchars(t('manage.orgs.show.description_header'), ENT_QUOTES, 'UTF-8'); ?></th>
+        <td><?php print htmlspecialchars($organization['description'] ?? t('manage.orgs.show.no_description')); ?></td>
        </tr>
        <tr>
-        <th>Address:</th>
+        <th><?php echo htmlspecialchars(t('manage.orgs.show.address_header'), ENT_QUOTES, 'UTF-8'); ?></th>
         <td>
          <?php if (!empty($organization['postalAddress'])) { ?>
           <div>
@@ -413,57 +447,57 @@ if ($orgExists) {
                 <?php } ?>
           </div>
          <?php } else { ?>
-          <em>No address</em>
+          <em><?php echo htmlspecialchars(t('manage.orgs.show.no_address'), ENT_QUOTES, 'UTF-8'); ?></em>
          <?php } ?>
         </td>
        </tr>
        <tr>
-        <th>Phone:</th>
-        <td><?php print htmlspecialchars($organization['telephoneNumber'] ?? 'No phone'); ?></td>
+        <th><?php echo htmlspecialchars(t('manage.orgs.show.phone_header'), ENT_QUOTES, 'UTF-8'); ?></th>
+        <td><?php print htmlspecialchars($organization['telephoneNumber'] ?? t('manage.orgs.show.no_phone')); ?></td>
        </tr>
        <tr>
-        <th>Website:</th>
+        <th><?php echo htmlspecialchars(t('manage.orgs.show.website_header'), ENT_QUOTES, 'UTF-8'); ?></th>
         <td>
          <?php if (!empty($organization['labeledURI'])) { ?>
           <a href="<?php print htmlspecialchars($organization['labeledURI']); ?>" target="_blank"><?php print htmlspecialchars($organization['labeledURI']); ?></a>
          <?php } else { ?>
-          <em>No website</em>
+          <em><?php echo htmlspecialchars(t('manage.orgs.show.no_website'), ENT_QUOTES, 'UTF-8'); ?></em>
          <?php } ?>
         </td>
        </tr>
        <tr>
-        <th>Email:</th>
+        <th><?php echo htmlspecialchars(t('manage.orgs.show.email_header'), ENT_QUOTES, 'UTF-8'); ?></th>
         <td>
          <?php if (!empty($organization['mail'])) { ?>
           <a href="mailto:<?php print htmlspecialchars($organization['mail']); ?>"><?php print htmlspecialchars($organization['mail']); ?></a>
          <?php } else { ?>
-          <em>No email</em>
+          <em><?php echo htmlspecialchars(t('manage.orgs.show.no_email'), ENT_QUOTES, 'UTF-8'); ?></em>
          <?php } ?>
         </td>
        </tr>
        <tr>
-        <th>Membership:</th>
+        <th><?php echo htmlspecialchars(t('manage.orgs.show.membership_header'), ENT_QUOTES, 'UTF-8'); ?></th>
         <td>
          <?php if ($is_member_org) {
-                ?><span class="badge bg-primary">Member</span><?php
+               ?><span class="badge bg-primary"><?php echo htmlspecialchars(t('manage.orgs.show.badge_member'), ENT_QUOTES, 'UTF-8'); ?></span><?php
          } ?>
          <?php if ($is_disabled_org) {
-                ?><span class="badge bg-danger">Disabled</span><?php
+               ?><span class="badge bg-danger"><?php echo htmlspecialchars(t('manage.orgs.show.badge_disabled'), ENT_QUOTES, 'UTF-8'); ?></span><?php
          } ?>
          <?php if (!$is_member_org && !$is_disabled_org) {
-                ?><em>—</em><?php
+               ?><em><?php echo htmlspecialchars(t('manage.orgs.show.em_dash'), ENT_QUOTES, 'UTF-8'); ?></em><?php
          } ?>
         </td>
        </tr>
        <?php if ($is_member_org && (!empty($organization['memberNumber']) || !empty($organization['memberSince']))) : ?>
        <tr>
-        <th>Member details:</th>
+        <th><?php echo htmlspecialchars(t('manage.orgs.show.member_details_header'), ENT_QUOTES, 'UTF-8'); ?></th>
         <td>
             <?php if (!empty($organization['memberNumber'])) {
-                ?>Number: <?php print htmlspecialchars($organization['memberNumber']); ?><br><?php
+                ?><?php echo htmlspecialchars(t('manage.orgs.show.member_number_label'), ENT_QUOTES, 'UTF-8'); ?><?php print htmlspecialchars($organization['memberNumber']); ?><br><?php
             } ?>
             <?php if (!empty($organization['memberSince'])) {
-                ?>Since: <?php print htmlspecialchars($organization['memberSince']); ?><br><?php
+                ?><?php echo htmlspecialchars(t('manage.orgs.show.member_since_label'), ENT_QUOTES, 'UTF-8'); ?><?php print htmlspecialchars($organization['memberSince']); ?><br><?php
             } ?>
         </td>
        </tr>
@@ -472,71 +506,71 @@ if ($orgExists) {
      </div>
      
      <div class="col-sm-6">
-      <h4>Statistics</h4>
+      <h4><?php echo htmlspecialchars(t('manage.orgs.show.statistics_heading'), ENT_QUOTES, 'UTF-8'); ?></h4>
       <table class="table table-striped">
        <tr>
-        <th>Total Users:</th>
+        <th><?php echo htmlspecialchars(t('manage.orgs.show.total_users_header'), ENT_QUOTES, 'UTF-8'); ?></th>
         <td><?php print count($org_users); ?></td>
        </tr>
        <tr>
-        <th>User limit:</th>
+        <th><?php echo htmlspecialchars(t('manage.orgs.show.user_limit_header'), ENT_QUOTES, 'UTF-8'); ?></th>
         <td>
             <?php if ($org_user_limit === null) : ?>
-                <em>Unlimited</em>
+                <em><?php echo htmlspecialchars(t('manage.orgs.show.unlimited'), ENT_QUOTES, 'UTF-8'); ?></em>
             <?php else : ?>
                 <?php print (int) $org_user_limit; ?>
             <?php endif; ?>
         </td>
        </tr>
        <tr>
-        <th>Total Roles:</th>
+        <th><?php echo htmlspecialchars(t('manage.orgs.show.total_roles_header'), ENT_QUOTES, 'UTF-8'); ?></th>
         <td><?php print count($org_roles); ?></td>
        </tr>
        <tr>
-        <th>Created:</th>
-        <td><?php print isset($organization['created']) ? htmlspecialchars($organization['created']) : 'Unknown'; ?></td>
+        <th><?php echo htmlspecialchars(t('manage.orgs.show.created_header'), ENT_QUOTES, 'UTF-8'); ?></th>
+        <td><?php print isset($organization['created']) ? htmlspecialchars($organization['created']) : htmlspecialchars(t('manage.orgs.show.unknown')); ?></td>
        </tr>
       </table>
       
-      <h4>Actions</h4>
+      <h4><?php echo htmlspecialchars(t('manage.orgs.show.actions_heading'), ENT_QUOTES, 'UTF-8'); ?></h4>
         <?php
         $can_membership = currentUserIsGlobalAdmin() || currentUserIsMaintainer();
         $can_lock = currentUserCanDisableOrganization($org_name) || currentUserCanEnableOrganization($org_name);
         $can_delete = currentUserCanDeleteOrganization($org_name);
         ?>
         <div class="d-flex align-items-center justify-content-start flex-wrap gap-2">
-            <div class="btn-group btn-group-sm" role="group" aria-label="Users actions">
+            <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.common.user_actions_aria'), ENT_QUOTES, 'UTF-8'); ?>">
                 <?php if ($org_uuid !== '') : ?>
-                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info">View users</a>
-                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/users/new/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-success">Add user</a>
+                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info"><?php echo htmlspecialchars(t('manage.orgs.show.view_users'), ENT_QUOTES, 'UTF-8'); ?></a>
+                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/users/new/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-success"><?php echo htmlspecialchars(t('manage.orgs.show.add_user'), ENT_QUOTES, 'UTF-8'); ?></a>
                 <?php endif; ?>
             </div>
 
             <?php if ($can_modify_org) : ?>
-                <button type="button" class="btn btn-primary btn-sm" onclick="showEditForm()">Edit organization</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="showEditForm()"><?php echo htmlspecialchars(t('manage.orgs.show.edit_organization'), ENT_QUOTES, 'UTF-8'); ?></button>
             <?php endif; ?>
 
             <?php if ($can_membership) : ?>
                 <div class="vr"></div>
-                <div class="btn-group btn-group-sm" role="group" aria-label="Organization membership">
+                <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.orgs.show.organization_membership_aria'), ENT_QUOTES, 'UTF-8'); ?>">
                     <?php if ($is_member_org) : ?>
-                        <button type="button" class="btn btn-secondary" onclick="confirmUnmemberOrganization('<?php echo htmlspecialchars($org_name); ?>')">Unmember</button>
+                        <button type="button" class="btn btn-secondary" onclick="confirmUnmemberOrganization('<?php echo htmlspecialchars($org_name); ?>')"><?php echo htmlspecialchars(t('manage.orgs.show.unmember'), ENT_QUOTES, 'UTF-8'); ?></button>
                     <?php else : ?>
-                        <button type="button" class="btn btn-secondary" onclick="confirmMemberOrganization('<?php echo htmlspecialchars($org_name); ?>')">Member</button>
+                        <button type="button" class="btn btn-secondary" onclick="confirmMemberOrganization('<?php echo htmlspecialchars($org_name); ?>')"><?php echo htmlspecialchars(t('manage.orgs.show.member'), ENT_QUOTES, 'UTF-8'); ?></button>
                     <?php endif; ?>
                 </div>
             <?php endif; ?>
 
             <?php if ($can_lock) : ?>
                 <div class="vr"></div>
-                <div class="btn-group btn-group-sm" role="group" aria-label="Organization lock">
+                <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.orgs.show.organization_lock_aria'), ENT_QUOTES, 'UTF-8'); ?>">
                     <?php if ($is_locked_org) : ?>
                         <?php if (currentUserCanEnableOrganization($org_name)) : ?>
-                            <button type="button" class="btn btn-success" onclick="confirmUnlockOrganization('<?php echo htmlspecialchars($org_name); ?>')">Unlock</button>
+                            <button type="button" class="btn btn-success" onclick="confirmUnlockOrganization('<?php echo htmlspecialchars($org_name); ?>')"><?php echo htmlspecialchars(t('manage.orgs.show.unlock'), ENT_QUOTES, 'UTF-8'); ?></button>
                         <?php endif; ?>
                     <?php else : ?>
                         <?php if (currentUserCanDisableOrganization($org_name)) : ?>
-                            <button type="button" class="btn btn-warning" onclick="confirmLockOrganization('<?php echo htmlspecialchars($org_name); ?>')">Lock</button>
+                            <button type="button" class="btn btn-warning" onclick="confirmLockOrganization('<?php echo htmlspecialchars($org_name); ?>')"><?php echo htmlspecialchars(t('manage.orgs.show.lock'), ENT_QUOTES, 'UTF-8'); ?></button>
                         <?php endif; ?>
                     <?php endif; ?>
                 </div>
@@ -544,8 +578,8 @@ if ($orgExists) {
 
             <?php if ($can_delete) : ?>
                 <div class="vr"></div>
-                <div class="btn-group btn-group-sm" role="group" aria-label="Organization delete">
-                    <button type="button" class="btn btn-danger" onclick="confirmDeleteOrganization('<?php echo htmlspecialchars($org_name); ?>', '<?php echo htmlspecialchars($org_uuid); ?>')">Delete</button>
+                <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.orgs.show.organization_delete_aria'), ENT_QUOTES, 'UTF-8'); ?>">
+                    <button type="button" class="btn btn-danger" onclick="confirmDeleteOrganization('<?php echo htmlspecialchars($org_name); ?>', '<?php echo htmlspecialchars($org_uuid); ?>')"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
                 </div>
             <?php endif; ?>
         </div>
@@ -556,18 +590,18 @@ if ($orgExists) {
     
     <div class="row">
      <div class="col-sm-6">
-      <h4>Recent Users</h4>
+     <h4><?php echo htmlspecialchars(t('manage.orgs.show.recent_users_heading'), ENT_QUOTES, 'UTF-8'); ?></h4>
       <?php if (empty($org_users)) { ?>
-       <p>No users in this organization.</p>
+      <p><?php echo htmlspecialchars(t('manage.orgs.show.no_users_in_org'), ENT_QUOTES, 'UTF-8'); ?></p>
       <?php } else { ?>
                            <div class="table-responsive">
                      <table class="table table-striped table-hover">
                       <thead>
                        <tr>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Role</th>
-                        <th>Actions</th>
+                        <th><?php echo htmlspecialchars(t('manage.orgs.show.recent_name_header'), ENT_QUOTES, 'UTF-8'); ?></th>
+                        <th><?php echo htmlspecialchars(t('manage.common.email'), ENT_QUOTES, 'UTF-8'); ?></th>
+                        <th><?php echo htmlspecialchars(t('manage.orgs.show.recent_role_header'), ENT_QUOTES, 'UTF-8'); ?></th>
+                        <th><?php echo htmlspecialchars(t('manage.common.actions'), ENT_QUOTES, 'UTF-8'); ?></th>
                        </tr>
                       </thead>
                       <tbody>
@@ -581,14 +615,14 @@ if ($orgExists) {
                          <td><?php print htmlspecialchars(ucfirst(str_replace('_', ' ', $user['role'] ?? 'user'))); ?></td>
                          <td>
                                 <div class="d-inline-flex align-items-center flex-wrap gap-1">
-                                    <div class="btn-group btn-group-sm" role="group" aria-label="Recent user actions">
+                                    <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.common.user_actions_aria'), ENT_QUOTES, 'UTF-8'); ?>">
                                         <?php if ($org_uuid !== '' && isset($user['entryUUID'])) : ?>
-                                            <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/users/?edit_user=' . urlencode((string) $user['entryUUID']), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary btn-sm">Edit</a>
+                                            <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/users/?edit_user=' . urlencode((string) $user['entryUUID']), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary btn-sm"><?php echo htmlspecialchars(t('manage.common.edit'), ENT_QUOTES, 'UTF-8'); ?></a>
                                         <?php endif; ?>
                                     </div>
                                     <div class="vr"></div>
-                                    <div class="btn-group btn-group-sm" role="group" aria-label="Recent user delete">
-                                        <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteUser('<?php echo htmlspecialchars($user['entryUUID'] ?? $user['mail'] ?? $user['cn']); ?>')">Delete</button>
+                                    <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?>">
+                                        <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteUser('<?php echo htmlspecialchars($user['entryUUID'] ?? $user['mail'] ?? $user['cn']); ?>')"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
                                     </div>
                                 </div>
                          </td>
@@ -599,29 +633,30 @@ if ($orgExists) {
                     </div>
                     <div class="text-center mt-3">
                         <?php if ($org_uuid !== '') : ?>
-                            <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>">View all users</a>
+                            <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.orgs.show.view_all_users'), ENT_QUOTES, 'UTF-8'); ?></a>
                         <?php endif; ?>
                     </div>
           <?php if (count($org_users) > 5) { ?>
-        <p><em>Showing 5 of <?php print count($org_users); ?> users. 
-            <a href="<?php print $THIS_MODULE_PATH; ?>/org_users.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>">View all users</a>
+        <?php $shown_users_count = min(5, count($org_users)); ?>
+        <p><em><?php echo htmlspecialchars(t('manage.orgs.show.showing_users_summary', ['shown' => (string) $shown_users_count, 'total' => (string) count($org_users)]), ENT_QUOTES, 'UTF-8'); ?>
+            <a href="<?php print $THIS_MODULE_PATH; ?>/org_users.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>"><?php echo htmlspecialchars(t('manage.orgs.show.view_all_users'), ENT_QUOTES, 'UTF-8'); ?></a>
         </em></p>
           <?php } ?>
       <?php } ?>
      </div>
      
      <div class="col-sm-6">
-      <h4>Organization Roles</h4>
+      <h4><?php echo htmlspecialchars(t('manage.orgs.show.organization_roles_heading'), ENT_QUOTES, 'UTF-8'); ?></h4>
       <?php if (empty($org_roles)) { ?>
-       <p>No roles defined for this organization.</p>
+       <p><?php echo htmlspecialchars(t('manage.orgs.show.no_roles_defined'), ENT_QUOTES, 'UTF-8'); ?></p>
       <?php } else { ?>
        <div class="table-responsive">
         <table class="table table-striped table-hover">
          <thead>
           <tr>
-           <th>Role Name</th>
-           <th>Members</th>
-           <th>Description</th>
+           <th><?php echo htmlspecialchars(t('manage.orgs.show.role_name_header'), ENT_QUOTES, 'UTF-8'); ?></th>
+           <th><?php echo htmlspecialchars(t('manage.orgs.show.members_header'), ENT_QUOTES, 'UTF-8'); ?></th>
+           <th><?php echo htmlspecialchars(t('manage.orgs.show.role_description_header'), ENT_QUOTES, 'UTF-8'); ?></th>
           </tr>
          </thead>
          <tbody>
@@ -645,7 +680,7 @@ if ($orgExists) {
   <!-- Edit Organization Form (Hidden by default) -->
   <?php if ($can_modify_org) : ?>
   <div class="card" id="editForm" style="display: none;">
-   <div class="card-header text-center">Edit Organization</div>
+   <div class="card-header text-center"><?php echo htmlspecialchars(t('manage.orgs.show.edit_organization_form_heading'), ENT_QUOTES, 'UTF-8'); ?></div>
    <div class="card-body text-center">
     <form class="form-horizontal" action="" method="post">
         <?= csrf_token_field() ?>
@@ -782,10 +817,10 @@ if ($orgExists) {
         <?php if (currentUserIsGlobalAdmin() || currentUserIsMaintainer()) : ?>
      <div class="row mt-3">
       <div class="col-sm-12">
-       <h5 class="mb-2">Admin settings</h5>
+       <h5 class="mb-2"><?php echo htmlspecialchars(t('manage.orgs.show.admin_settings_heading'), ENT_QUOTES, 'UTF-8'); ?></h5>
        <div class="row mt-2">
         <div class="col-sm-6 mb-2">
-          <label for="org_user_limit" class="form-label">Max users (empty = unlimited)</label>
+          <label for="org_user_limit" class="form-label"><?php echo htmlspecialchars(t('manage.orgs.show.max_users_label'), ENT_QUOTES, 'UTF-8'); ?></label>
           <input type="text" class="form-control" id="org_user_limit" name="org_user_limit" value="<?php echo htmlspecialchars($org_user_limit !== null ? (string) $org_user_limit : ''); ?>">
         </div>
        </div>
@@ -794,8 +829,8 @@ if ($orgExists) {
         <?php endif; ?>
      
      <div class="form-group">
-      <button type="submit" class="btn btn-primary">Update Organization</button>
-      <button type="button" class="btn btn-secondary" onclick="hideEditForm()">Cancel</button>
+      <button type="submit" class="btn btn-primary"><?php echo htmlspecialchars(t('manage.orgs.show.update_organization'), ENT_QUOTES, 'UTF-8'); ?></button>
+      <button type="button" class="btn btn-secondary" onclick="hideEditForm()"><?php echo htmlspecialchars(t('modal.cancel'), ENT_QUOTES, 'UTF-8'); ?></button>
      </div>
     </form>
    </div>
@@ -823,61 +858,61 @@ document.addEventListener('DOMContentLoaded', function() {
 // Lock/Unlock Confirmation Modals
 render_confirm_modal(
     'lockModal',
-    'Confirm Organization Lock',
-    '<p>Are you sure you want to lock (disable) the organization "<span id="lockOrgName"></span>"?</p><p class="text-warning"><strong>Warning:</strong> Users in this organization will not be able to log in until the organization is unlocked.</p>',
+    t('manage.orgs.show.modal.lock_title'),
+    t('manage.orgs.show.modal.lock_body'),
     [
         ['name' => 'action', 'value' => 'lock_organization'],
         ['name' => 'org_name', 'id' => 'lockOrgNameInput'],
     ],
-    'Lock Organization',
+    t('manage.orgs.show.modal.lock_submit'),
     'btn-warning'
 );
 render_confirm_modal(
     'unlockModal',
-    'Confirm Organization Unlock',
-    '<p>Are you sure you want to unlock (enable) the organization "<span id="unlockOrgName"></span>"?</p><p class="text-success"><strong>Effect:</strong> Users in this organization will be able to log in again (unless individually locked).</p>',
+    t('manage.orgs.show.modal.unlock_title'),
+    t('manage.orgs.show.modal.unlock_body'),
     [
         ['name' => 'action', 'value' => 'unlock_organization'],
         ['name' => 'org_name', 'id' => 'unlockOrgNameInput'],
     ],
-    'Unlock Organization',
+    t('manage.orgs.show.modal.unlock_submit'),
     'btn-success'
 );
 
 render_confirm_modal(
     'memberModal',
-    'Confirm Organization Membership',
-    '<p>Mark the organization "<span id="memberOrgName"></span>" as a <strong>member organization</strong>?</p>',
+    t('manage.orgs.show.modal.member_title'),
+    t('manage.orgs.show.modal.member_body'),
     [
         ['name' => 'action', 'value' => 'member_organization'],
         ['name' => 'org_name', 'id' => 'memberOrgNameInput'],
     ],
-    'Mark as Member',
+    t('manage.orgs.show.modal.member_submit'),
     'btn-secondary'
 );
 
 render_confirm_modal(
     'unmemberModal',
-    'Confirm Remove Membership',
-    '<p>Remove the organization "<span id="unmemberOrgName"></span>" from <strong>member organizations</strong>?</p>',
+    t('manage.orgs.show.modal.unmember_title'),
+    t('manage.orgs.show.modal.unmember_body'),
     [
         ['name' => 'action', 'value' => 'unmember_organization'],
         ['name' => 'org_name', 'id' => 'unmemberOrgNameInput'],
     ],
-    'Remove Membership',
+    t('manage.orgs.show.modal.unmember_submit'),
     'btn-secondary'
 );
 
 render_confirm_modal(
     'deleteModal',
-    'Confirm Organization Deletion',
-    '<p>Are you sure you want to delete the organization "<span id="deleteOrgName"></span>"?</p><p class="text-danger"><strong>Warning:</strong> This action cannot be undone and will remove all associated users and data.</p>',
+    t('manage.orgs.show.modal.delete_title'),
+    t('manage.orgs.show.modal.delete_body'),
     [
         ['name' => 'action', 'value' => 'delete_organization'],
         ['name' => 'org_name', 'id' => 'deleteOrgNameInput'],
         ['name' => 'org_uuid', 'id' => 'deleteOrgUuidInput'],
     ],
-    'Delete Organization',
+    t('manage.orgs.show.modal.delete_submit'),
     'btn-danger'
 );
 ?>

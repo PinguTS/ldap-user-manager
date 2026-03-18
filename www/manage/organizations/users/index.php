@@ -11,7 +11,7 @@ get_csrf_token();
 
 $res = resolve_organization_from_request();
 if ($res['error'] !== null) {
-    render_header('Organization User Management');
+    render_header(t('manage.common.org_users_title'));
     echo "<div class='alert alert-warning'>" . htmlspecialchars($res['error']) . "</div>";
     render_footer();
     exit;
@@ -850,7 +850,7 @@ render_submenu();
     
     <div class="mt-3">
         <?php if ($org_uuid) : ?>
-            <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/users/new/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-success btn-sm ml-2">Create New User</a>
+            <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/users/new/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-success btn-sm ml-2"><?php echo htmlspecialchars(t('manage.common.create_new_user'), ENT_QUOTES, 'UTF-8'); ?></a>
         <?php endif; ?>
     </div>
     
@@ -867,9 +867,9 @@ render_submenu();
             <input type="text" class="form-control" name="sn" id="sn" required>
         </div>
         <div class="form-group">
-            <label for="cn">Display Name</label>
+            <label for="cn"><?php echo htmlspecialchars(t('manage.common.display_name'), ENT_QUOTES, 'UTF-8'); ?></label>
             <input type="text" class="form-control" name="cn" id="cn" required>
-            <small class="text-muted">Auto-filled from First Name + Last Name (you can edit it).</small>
+            <small class="text-muted"><?php echo htmlspecialchars(t('manage.common.display_name_hint'), ENT_QUOTES, 'UTF-8'); ?></small>
         </div>
         <div class="form-group">
             <label for="mail"><?php echo htmlspecialchars(t('manage.common.email_username'), ENT_QUOTES, 'UTF-8'); ?></label>
@@ -881,11 +881,11 @@ render_submenu();
         <input type="hidden" name="<?php echo $LDAP['account_attribute']; ?>" id="<?php echo $LDAP['account_attribute']; ?>" value="">
         
         <div class="form-group">
-            <label for="password">Password</label>
+            <label for="password"><?php echo htmlspecialchars(t('manage.common.new_password_label'), ENT_QUOTES, 'UTF-8'); ?></label>
             <input type="password" class="form-control" name="password" id="password" required>
         </div>
         <div class="form-group">
-            <label for="password_match">Confirm Password</label>
+            <label for="password_match"><?php echo htmlspecialchars(t('manage.common.confirm_new_password'), ENT_QUOTES, 'UTF-8'); ?></label>
             <input type="password" class="form-control" name="password_match" id="password_match" required>
         </div>
         <input type="hidden" id="pass_score" value="0" name="pass_score">
@@ -895,18 +895,18 @@ render_submenu();
             <div class="form-check mt-2">
                 <input class="form-check-input" type="checkbox" id="send_password_set_link" name="send_password_set_link" <?php echo !is_password_reset_link_enabled() ? 'disabled' : ''; ?>>
                 <label class="form-check-label" for="send_password_set_link">
-                    Email password setup link (user sets their own password)
+                    <?php echo htmlspecialchars(t('manage.org_users.email_reset_checkbox'), ENT_QUOTES, 'UTF-8'); ?>
                 </label>
                 <?php if (!is_password_reset_link_enabled()) : ?>
                     <div class="alert alert-warning mt-2 mb-0 py-2">
-                        Password links are disabled because <code>PASSWORD_RESET_TOKEN_SECRET</code> is not configured.
+                        <?php echo htmlspecialchars(t('manage.users.new.error.password_set_link_disabled_secret_missing'), ENT_QUOTES, 'UTF-8'); ?>
                     </div>
                 <?php endif; ?>
             </div>
         <?php endif; ?>
         <input type="hidden" name="add_user" value="1">
         <button type="submit" name="add_user" class="btn btn-primary" id="add_user_btn"><?php echo htmlspecialchars(t('manage.common.add_user'), ENT_QUOTES, 'UTF-8'); ?></button>
-        <span id="add_user_spinner" style="display:none;"><span class="spinner-border spinner-border-sm"></span> Adding...</span>
+        <span id="add_user_spinner" style="display:none;"><span class="spinner-border spinner-border-sm"></span> <?php echo htmlspecialchars(t('manage.common.adding'), ENT_QUOTES, 'UTF-8'); ?></span>
     </form>
 
     <script src="<?php print get_asset_base(); ?>js/password_utils.js"></script>
@@ -960,20 +960,20 @@ render_submenu();
             <div class="modal-body">
               <input type="hidden" name="edit_uid" id="edit_uid_input" value="<?= htmlspecialchars(get_ldap_attribute($editUser, 'uid')) ?>">
               <div class="form-group">
-                <label for="edit_givenname">First Name</label>
+                <label for="edit_givenname"><?php echo htmlspecialchars(t('manage.common.first_name'), ENT_QUOTES, 'UTF-8'); ?></label>
                 <input type="text" class="form-control" name="edit_givenname" id="edit_givenname" value="<?= htmlspecialchars(get_ldap_attribute($editUser, 'givenName')) ?>" required>
               </div>
               <div class="form-group">
-                <label for="edit_sn">Last Name</label>
+                <label for="edit_sn"><?php echo htmlspecialchars(t('manage.common.last_name'), ENT_QUOTES, 'UTF-8'); ?></label>
                 <input type="text" class="form-control" name="edit_sn" id="edit_sn" value="<?= htmlspecialchars(get_ldap_attribute($editUser, 'sn')) ?>" required>
               </div>
               <div class="form-group">
-                <label for="edit_cn">Display Name</label>
+                <label for="edit_cn"><?php echo htmlspecialchars(t('manage.common.display_name'), ENT_QUOTES, 'UTF-8'); ?></label>
                 <input type="text" class="form-control" name="edit_cn" id="edit_cn" value="<?= htmlspecialchars(get_ldap_attribute($editUser, 'cn')) ?>" required>
-                <small class="text-muted">Auto-filled from First Name + Last Name (you can edit it).</small>
+                <small class="text-muted"><?php echo htmlspecialchars(t('manage.common.display_name_hint'), ENT_QUOTES, 'UTF-8'); ?></small>
               </div>
               <div class="form-group">
-                <label for="edit_mail">Email</label>
+                <label for="edit_mail"><?php echo htmlspecialchars(t('manage.common.email'), ENT_QUOTES, 'UTF-8'); ?></label>
                 <input type="email" class="form-control" name="edit_mail" id="edit_mail" value="<?= htmlspecialchars(get_ldap_attribute($editUser, 'mail')) ?>" required>
               </div>
               <div class="form-group">
@@ -987,8 +987,8 @@ render_submenu();
               <input type="hidden" id="edit_pass_score" value="0" name="edit_pass_score">
             </div>
             <div class="modal-footer">
-              <button type="submit" name="save_user" class="btn btn-primary">Save Changes</button>
-              <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="btn btn-secondary">Cancel</a>
+              <button type="submit" name="save_user" class="btn btn-primary"><?php echo htmlspecialchars(t('manage.common.save_changes'), ENT_QUOTES, 'UTF-8'); ?></button>
+              <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="btn btn-secondary"><?php echo htmlspecialchars(t('manage.common.cancel'), ENT_QUOTES, 'UTF-8'); ?></a>
             </div>
           </form>
         </div>
@@ -1007,20 +1007,20 @@ render_submenu();
             <div class="modal-body">
               <input type="hidden" name="edit_uid" id="edit_uid_input" value="">
               <div class="form-group">
-                <label for="edit_givenname">First Name</label>
+                <label for="edit_givenname"><?php echo htmlspecialchars(t('manage.common.first_name'), ENT_QUOTES, 'UTF-8'); ?></label>
                 <input type="text" class="form-control" name="edit_givenname" id="edit_givenname" required>
               </div>
               <div class="form-group">
-                <label for="edit_sn">Last Name</label>
+                <label for="edit_sn"><?php echo htmlspecialchars(t('manage.common.last_name'), ENT_QUOTES, 'UTF-8'); ?></label>
                 <input type="text" class="form-control" name="edit_sn" id="edit_sn" required>
               </div>
               <div class="form-group">
-                <label for="edit_cn">Display Name</label>
+                <label for="edit_cn"><?php echo htmlspecialchars(t('manage.common.display_name'), ENT_QUOTES, 'UTF-8'); ?></label>
                 <input type="text" class="form-control" name="edit_cn" id="edit_cn" required>
-                <small class="text-muted">Auto-filled from First Name + Last Name (you can edit it).</small>
+                <small class="text-muted"><?php echo htmlspecialchars(t('manage.common.display_name_hint'), ENT_QUOTES, 'UTF-8'); ?></small>
               </div>
               <div class="form-group">
-                <label for="edit_mail">Email</label>
+                <label for="edit_mail"><?php echo htmlspecialchars(t('manage.common.email'), ENT_QUOTES, 'UTF-8'); ?></label>
                 <input type="email" class="form-control" name="edit_mail" id="edit_mail" required>
               </div>
               <div class="form-group">
@@ -1125,16 +1125,16 @@ render_submenu();
                   </label>
                     <?php if (!is_password_reset_link_enabled()) : ?>
                         <div class="alert alert-warning mt-2 mb-0 py-2">
-                            Password links are disabled because <code>PASSWORD_RESET_TOKEN_SECRET</code> is not configured.
+                            <?php echo htmlspecialchars(t('manage.users.new.error.password_set_link_disabled_secret_missing'), ENT_QUOTES, 'UTF-8'); ?>
                         </div>
                     <?php endif; ?>
                 </div>
               <?php endif; ?>
             </div>
             <div class="modal-footer">
-              <button type="submit" name="reset_creds" class="btn btn-warning">Reset</button>
+              <button type="submit" name="reset_creds" class="btn btn-warning"><?php echo htmlspecialchars(t('manage.org_users.reset_submit'), ENT_QUOTES, 'UTF-8'); ?></button>
               <?php if ($org_uuid) : ?>
-                  <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary">Cancel</a>
+                  <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary"><?php echo htmlspecialchars(t('modal.cancel'), ENT_QUOTES, 'UTF-8'); ?></a>
               <?php endif; ?>
             </div>
           </form>

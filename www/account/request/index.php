@@ -7,10 +7,10 @@ session_start();
 
 include_once "web_functions.inc.php";
 
-render_header("$ORGANISATION_NAME - request an account");
+render_header((string) $ORGANISATION_NAME . ' - ' . t('nav.request_account'));
 
 if ($ACCOUNT_REQUESTS_ENABLED == false) {
-    ?><div class='alert alert-warning'><p class='text-center'>Account requesting is disabled.</p></div><?php
+    ?><div class='alert alert-warning'><p class='text-center'><?php echo htmlspecialchars(t('account.request.disabled'), ENT_QUOTES, 'UTF-8'); ?></p></div><?php
 
 render_footer();
 exit(0);
@@ -20,17 +20,17 @@ if ($_POST) {
     $error_messages = array();
 
     if (! isset($_POST['validate']) or strcasecmp($_POST['validate'], $_SESSION['proof_of_humanity']) != 0) {
-        array_push($error_messages, "The validation text didn't match the image.");
+        array_push($error_messages, t('account.request.error.validation_mismatch'));
     }
 
     if (! isset($_POST['firstname']) or $_POST['firstname'] == "") {
-        array_push($error_messages, "You didn't enter your first name.");
+        array_push($error_messages, t('account.request.error.first_name_required'));
     } else {
         $firstname = filter_var($_POST['firstname'], FILTER_SANITIZE_FULL_SPECIAL_CHARS);
     }
 
     if (! isset($_POST['lastname']) or $_POST['lastname'] == "") {
-        array_push($error_messages, "You didn't enter your last name.");
+        array_push($error_messages, t('account.request.error.last_name_required'));
     } else {
         $lastname = filter_var($_POST['lastname'], FILTER_SANITIZE_FULL_SPECIAL_CHARS);
     }
@@ -46,7 +46,7 @@ if ($_POST) {
 
     if (count($error_messages) > 0) { ?>
     <div class="alert alert-danger" role="alert">
-    The request couldn't be sent because:
+    <?php echo htmlspecialchars(t('account.request.errors_intro'), ENT_QUOTES, 'UTF-8'); ?>
     <p>
     <ul>
         <?php
@@ -58,7 +58,7 @@ if ($_POST) {
     </div>
         <?php
     } else {
-        $mail_subject = "$firstname $lastname has requested an account for $ORGANISATION_NAME.";
+        $mail_subject = t('account.request.mail_subject', ['first_name' => $firstname, 'last_name' => $lastname, 'org' => $ORGANISATION_NAME]);
 
         $link_url = "{$SITE_PROTOCOL}{$SERVER_HOSTNAME}{$SERVER_PATH}manage/users/new/?account_request&first_name=$firstname&last_name=$lastname&email=$email";
 
@@ -69,26 +69,29 @@ if ($_POST) {
             $notes = "n/a";
         }
 
-        $mail_body = <<<EoT
-A request for an $ORGANISATION_NAME account has been sent:
-<p>
-First name: <b>$firstname</b><br>
-Last name: <b>$lastname</b><br>
-Email: <b>$email</b><br>
-Notes: <pre>$notes</pre><br>
-<p>
-<a href="$link_url">Create this account.</a>
-EoT;
+        $mail_body = t('account.request.mail_body', [
+            'org' => $ORGANISATION_NAME,
+            'first_name' => $firstname,
+            'last_name' => $lastname,
+            'email' => $email,
+            'notes' => $notes,
+            'link_url' => $link_url,
+        ]);
 
         include_once "mail_functions.inc.php";
-        $sent_email = send_email($ACCOUNT_REQUESTS_EMAIL, "$ORGANISATION_NAME account requests", $mail_subject, $mail_body);
+        $sent_email = send_email(
+            $ACCOUNT_REQUESTS_EMAIL,
+            t('account.request.mail_heading', ['org' => $ORGANISATION_NAME]),
+            $mail_subject,
+            $mail_body
+        );
         if ($sent_email) { ?>
        <div class="container">
          <div class="col-sm-6 offset-sm-3">
            <div class="card border-success">
-             <div class="card-header bg-success text-white">Thank you</div>
+             <div class="card-header bg-success text-white"><?php echo htmlspecialchars(t('account.request.success_heading'), ENT_QUOTES, 'UTF-8'); ?></div>
              <div class="card-body">
-               The request was sent and the administrator will process it as soon as possible.
+               <?php echo htmlspecialchars(t('account.request.success_message'), ENT_QUOTES, 'UTF-8'); ?>
              </div>
            </div>
          </div>
@@ -97,9 +100,9 @@ EoT;
        <div class="container">
          <div class="col-sm-6 offset-sm-3">
            <div class="card border-danger">
-             <div class="card-header bg-danger text-white">Error</div>
+             <div class="card-header bg-danger text-white"><?php echo htmlspecialchars(t('account.request.error_heading'), ENT_QUOTES, 'UTF-8'); ?></div>
              <div class="card-body">
-               Unfortunately the account request wasn't sent because of a technical issue.
+               <?php echo htmlspecialchars(t('account.request.error_message'), ENT_QUOTES, 'UTF-8'); ?>
              </div>
            </div>
          </div>
@@ -116,51 +119,52 @@ EoT;
 
   <div class="card">
     <div class="card-body">
-    Use this form to send a request for an account to an administrator at <?php print $ORGANISATION_NAME; ?>.
-    If the administrator approves your request they'll get in touch with you to give you your new credentials.
+    <?php echo htmlspecialchars(t('account.request.form_intro', ['org' => $ORGANISATION_NAME]), ENT_QUOTES, 'UTF-8'); ?>
+    <br>
+    <?php echo htmlspecialchars(t('account.request.form_approval_note'), ENT_QUOTES, 'UTF-8'); ?>
     </div>
    <div class="card-body text-center">
 
     <form class="form-horizontal" action='' method='post'>
 
     <div class="form-group">
-     <label for="firstname" class="col-sm-4 form-label">First name</label>
+     <label for="firstname" class="col-sm-4 form-label"><?php echo htmlspecialchars(t('account.request.field_first_name'), ENT_QUOTES, 'UTF-8'); ?></label>
      <div class="col-sm-6">
       <input type="text" class="form-control" id="firstname" name="firstname">
      </div>
     </div>
 
     <div class="form-group">
-     <label for="lastname" class="col-sm-4 form-label">Last name</label>
+     <label for="lastname" class="col-sm-4 form-label"><?php echo htmlspecialchars(t('account.request.field_last_name'), ENT_QUOTES, 'UTF-8'); ?></label>
      <div class="col-sm-6">
       <input type="text" class="form-control" id="lastname" name="lastname">
      </div>
     </div>
 
     <div class="form-group">
-     <label for="email" class="col-sm-4 form-label">Email</label>
+     <label for="email" class="col-sm-4 form-label"><?php echo htmlspecialchars(t('account.request.field_email'), ENT_QUOTES, 'UTF-8'); ?></label>
      <div class="col-sm-6">
       <input type="text" class="form-control" id="email" name="email">
      </div>
     </div>
 
     <div class="form-group">
-     <label for="notes" class="col-sm-4 form-label">Notes</label>
+     <label for="notes" class="col-sm-4 form-label"><?php echo htmlspecialchars(t('account.request.field_notes'), ENT_QUOTES, 'UTF-8'); ?></label>
      <div class="col-sm-6">
       <textarea class="form-control" id="notes" name="notes" rows="5"></textarea>
      </div>
     </div>
 
     <div class="form-group">
-     <label for="validate" class="col-sm-4 form-label">Validation text</label>
+     <label for="validate" class="col-sm-4 form-label"><?php echo htmlspecialchars(t('account.request.field_validation_text'), ENT_QUOTES, 'UTF-8'); ?></label>
      <div class="col-sm-6">
-      <img src="human.php" alt="human proof image">
+      <img src="human.php" alt="<?php echo htmlspecialchars(t('account.request.human_proof_alt'), ENT_QUOTES, 'UTF-8'); ?>">
       <input type="text" class="form-control" id="validate" name="validate">
      </div>
     </div>
 
     <div class="form-group">
-     <button type="submit" class="btn btn-secondary">Send request</button>
+     <button type="submit" class="btn btn-secondary"><?php echo htmlspecialchars(t('account.request.submit'), ENT_QUOTES, 'UTF-8'); ?></button>
     </div>
 
     </form>

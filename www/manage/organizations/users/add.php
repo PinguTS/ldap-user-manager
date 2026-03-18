@@ -14,7 +14,7 @@ $org_uuid = $_GET['uuid'] ?? null;
 $org_name = $_GET['org'] ?? null;
 
 if (!$org_uuid && !$org_name) {
-    render_alert_banner("Organization identifier is required.", "warning");
+    render_alert_banner(t('manage.org_users.add.msg.org_identifier_required'), "warning");
     render_footer();
     exit(0);
 }
@@ -23,7 +23,7 @@ if (!$org_uuid && !$org_name) {
 if ($org_uuid) {
     $ldap = open_ldap_connection();
     if (!$ldap) {
-        render_alert_banner("Failed to connect to LDAP server.", "danger");
+        render_alert_banner(t('manage.orgs.ldap_conn_failed'), "danger");
         render_footer();
         exit(0);
     }
@@ -38,7 +38,10 @@ if ($org_uuid) {
     if (!$organization) {
         // Debug: log the UUID and search details
         error_log("add_org_user.php: Failed to find organization with UUID: $org_uuid");
-        render_alert_banner("Organization with UUID '$org_uuid' not found. Check logs for details.", "danger");
+        render_alert_banner(t(
+            'manage.org_users.add.msg.org_uuid_not_found',
+            ['org_uuid' => htmlspecialchars((string) $org_uuid, ENT_QUOTES, 'UTF-8')]
+        ), "danger");
         render_footer();
         exit(0);
     }
@@ -59,7 +62,7 @@ if ($org_uuid) {
     if (!$org_name) {
         // Debug: log the organization structure to help troubleshoot
         error_log("add_org_user.php: Organization data structure: " . print_r($organization, true));
-        render_alert_banner("Could not determine organization name from UUID. Check logs for details.", "danger");
+        render_alert_banner(t('manage.org_users.add.msg.cannot_determine_org_name'), "danger");
         render_footer();
         exit(0);
     }
@@ -81,7 +84,10 @@ if (!$organization) {
     }
 
     if (!$organization) {
-        render_alert_banner("Organization '$org_name' not found.", "danger");
+        render_alert_banner(t(
+            'manage.org_users.add.msg.org_not_found',
+            ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]
+        ), "danger");
         render_footer();
         exit(0);
     }
@@ -116,7 +122,7 @@ $account_attribute = $LDAP['account_attribute'];
 // Handle form submission
 if (isset($_POST['create_org_user'])) {
     if (!validate_csrf_token()) {
-        render_alert_banner("Security validation failed. Please refresh the page and try again.", "danger");
+        render_alert_banner(t('manage.common.msg.security_validation_failed'), "danger");
     } else {
         // Process form data
         foreach ($attribute_map as $attribute => $attr_r) {
@@ -133,15 +139,27 @@ if (isset($_POST['create_org_user'])) {
                 finfo_close($finfo);
 
                 if ($file_error !== UPLOAD_ERR_OK) {
-                    render_alert_banner('File upload error for ' . htmlspecialchars($attribute) . '.', 'danger', 10000);
+                    render_alert_banner(
+                        t('manage.org_users.add.msg.file_upload_error', ['attribute' => htmlspecialchars((string) $attribute, ENT_QUOTES, 'UTF-8')]),
+                        'danger',
+                        10000
+                    );
                     continue;
                 }
                 if ($file_size > $max_file_size) {
-                    render_alert_banner('File for ' . htmlspecialchars($attribute) . ' is too large (max 2MB).', 'danger', 10000);
+                    render_alert_banner(
+                        t('manage.org_users.add.msg.file_too_large', ['attribute' => htmlspecialchars((string) $attribute, ENT_QUOTES, 'UTF-8'), 'max' => '2MB']),
+                        'danger',
+                        10000
+                    );
                     continue;
                 }
                 if (!in_array($mime_type, $allowed_mime_types)) {
-                    render_alert_banner('Invalid file type for ' . htmlspecialchars($attribute) . '. Allowed: images, PDF, text.', 'danger', 10000);
+                    render_alert_banner(
+                        t('manage.org_users.add.msg.file_invalid_type', ['attribute' => htmlspecialchars((string) $attribute, ENT_QUOTES, 'UTF-8')]),
+                        'danger',
+                        10000
+                    );
                     continue;
                 }
 
@@ -185,7 +203,7 @@ if (isset($_POST['create_org_user'])) {
         $send_password_set_link = isset($_POST['send_password_set_link']) && $_POST['send_password_set_link'] === 'on';
         if ($send_password_set_link && !is_password_reset_link_enabled()) {
             $send_password_set_link = false;
-            render_alert_banner('Password set links are disabled because PASSWORD_RESET_TOKEN_SECRET is not configured.', 'warning', 10000);
+            render_alert_banner(t('manage.users.new.error.password_set_link_disabled_secret_missing'), 'warning', 10000);
         }
 
         // Validation
@@ -248,13 +266,19 @@ if (isset($_POST['create_org_user'])) {
             $new_account = ldap_new_account($ldap_connection, $new_account_r);
 
             if ($new_account) {
-                $creation_message = "User account '$account_identifier' was created successfully in organization '$org_name'.";
+                $creation_message = t(
+                    'manage.org_users.add.msg.created_ok',
+                    [
+                        'account' => htmlspecialchars((string) $account_identifier, ENT_QUOTES, 'UTF-8'),
+                        'org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8'),
+                    ]
+                );
 
                 // Add user to organization admin role if selected
                 if ($user_role === $LDAP['org_admin_role']) {
                     $org_admin_add = addUserToOrgAdmin($org_name, $new_account);
                     if (!$org_admin_add) {
-                        $creation_message .= " Warning: Failed to add user to organization admin role.";
+                        $creation_message .= ' ' . t('manage.org_users.add.msg.warn_org_admin_failed');
                     }
                 }
 
@@ -278,9 +302,12 @@ if (isset($_POST['create_org_user'])) {
 
                     $sent_email = send_email($this_mail, "$this_givenName $this_sn", $mail_subject, $mail_body);
                     if ($sent_email) {
-                        $creation_message .= " An email was sent to $this_mail.";
+                        $creation_message .= ' ' . t(
+                            'manage.org_users.add.msg.email_sent_ok',
+                            ['email' => htmlspecialchars((string) $this_mail, ENT_QUOTES, 'UTF-8')]
+                        );
                     } else {
-                        $creation_message .= " Email sending failed. Check the logs for more information.";
+                        $creation_message .= ' ' . t('manage.org_users.add.msg.email_send_failed');
                     }
                 }
 
@@ -295,7 +322,7 @@ if (isset($_POST['create_org_user'])) {
                 }
                 exit(0);
             } else {
-                render_alert_banner("Failed to create user account. Check the logs for more information.", "danger");
+                render_alert_banner(t('manage.org_users.add.msg.create_failed'), "danger");
             }
 
             ldap_close($ldap_connection);
@@ -303,36 +330,36 @@ if (isset($_POST['create_org_user'])) {
     }
 }
 
-render_header("$ORGANISATION_NAME - Add User to Organization");
+render_header(t('manage.org_users.add.page_title', ['org' => $org_name]));
 render_submenu();
 
 // Display any validation errors
 $errors = "";
 if ($invalid_givenname) {
-    $errors .= "<li>First Name (givenName) is required</li>\n";
+    $errors .= "<li>" . t('manage.org_users.add.error.first_name_required') . "</li>\n";
 }
 if ($invalid_sn) {
-    $errors .= "<li>Last Name (sn) is required</li>\n";
+    $errors .= "<li>" . t('manage.org_users.add.error.last_name_required') . "</li>\n";
 }
 if ($invalid_account_identifier) {
-    $errors .= "<li>The email address (username) is invalid or already exists</li>\n";
+    $errors .= "<li>" . t('manage.org_users.add.error.email_invalid_or_exists') . "</li>\n";
 }
 if ($invalid_password) {
-    $errors .= "<li>The password is required</li>\n";
+    $errors .= "<li>" . t('manage.org_users.add.error.password_required') . "</li>\n";
 }
 if ($mismatched_passwords) {
-    $errors .= "<li>The passwords do not match</li>\n";
+    $errors .= "<li>" . t('manage.org_users.add.error.passwords_do_not_match') . "</li>\n";
 }
 if ($invalid_email) {
-    $errors .= "<li>The email address is invalid</li>\n";
+    $errors .= "<li>" . t('manage.org_users.add.error.email_invalid') . "</li>\n";
 }
 if ($invalid_user_role) {
-    $errors .= "<li>Please select a valid user role</li>\n";
+    $errors .= "<li>" . t('manage.org_users.add.error.role_invalid') . "</li>\n";
 }
 
 if ($errors != "") { ?>
     <div class="alert alert-warning">
-        <p>There were issues with the form:</p>
+        <p><?php echo htmlspecialchars(t('manage.org_users.add.error.form_issues'), ENT_QUOTES, 'UTF-8'); ?></p>
         <ul><?php print strip_tags($errors, '<li>'); ?></ul>
     </div>
 <?php } ?>
@@ -340,24 +367,24 @@ if ($errors != "") { ?>
 <div class="container">
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/', ENT_QUOTES, 'UTF-8'); ?>">Dashboard</a></li>
-            <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>">Organizations</a></li>
+            <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.common.dashboard'), ENT_QUOTES, 'UTF-8'); ?></a></li>
+            <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.common.organizations'), ENT_QUOTES, 'UTF-8'); ?></a></li>
             <?php if ($org_uuid) : ?>
                 <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode((string) $org_uuid) . '/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($org_name); ?></a></li>
-                <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode((string) $org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>">Users</a></li>
+                <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode((string) $org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.common.users'), ENT_QUOTES, 'UTF-8'); ?></a></li>
             <?php endif; ?>
-            <li class="breadcrumb-item active" aria-current="page">Add User</li>
+            <li class="breadcrumb-item active" aria-current="page"><?php echo htmlspecialchars(t('manage.common.add_user'), ENT_QUOTES, 'UTF-8'); ?></li>
         </ol>
     </nav>
     <div class="row">
         <div class="col-md-8 offset-md-2">
             <div class="card">
                 <div class="card-header">
-                    <h3>Add New User to Organization: <?php echo htmlspecialchars($org_name); ?></h3>
+                    <h3><?php echo htmlspecialchars(t('manage.org_users.add.card_title', ['org' => $org_name]), ENT_QUOTES, 'UTF-8'); ?></h3>
                 </div>
                 <div class="card-body">
                     <div class="alert alert-info">
-                        <strong>Note:</strong> The email address you enter will automatically be used as the username for login. Users will sign in using their email address and password.
+                        <strong><?php echo htmlspecialchars(t('manage.org_users.add.note_label'), ENT_QUOTES, 'UTF-8'); ?></strong> <?php echo htmlspecialchars(t('manage.org_users.add.note_text'), ENT_QUOTES, 'UTF-8'); ?>
                     </div>
                     
                     <form class="form-horizontal" action="" enctype="multipart/form-data" method="post">
@@ -366,19 +393,19 @@ if ($errors != "") { ?>
                         
                         <!-- Organization (pre-selected and locked) -->
                         <div class="form-group">
-                            <label class="col-sm-3 form-label">Organization</label>
+                            <label class="col-sm-3 form-label"><?php echo htmlspecialchars(t('manage.org_users.add.organization_label'), ENT_QUOTES, 'UTF-8'); ?></label>
                             <div class="col-sm-6">
                                 <input type="text" class="form-control" value="<?php echo htmlspecialchars($org_name); ?>" readonly>
-                                <small class="text-muted">Organization is pre-selected and cannot be changed</small>
+                                <small class="text-muted"><?php echo htmlspecialchars(t('manage.org_users.add.organization_preselected_locked_hint'), ENT_QUOTES, 'UTF-8'); ?></small>
                             </div>
                         </div>
 
                         <!-- User Role -->
                         <div class="form-group">
-                            <label for="user_role" class="col-sm-3 form-label">User Role</label>
+                            <label for="user_role" class="col-sm-3 form-label"><?php echo htmlspecialchars(t('manage.users.new.user_role_label'), ENT_QUOTES, 'UTF-8'); ?></label>
                             <div class="col-sm-6">
                                 <select class="form-control" name="user_role" id="user_role" required>
-                                    <option value="">Select a role...</option>
+                                    <option value=""><?php echo htmlspecialchars(t('manage.roles.select_role'), ENT_QUOTES, 'UTF-8'); ?></option>
                                     <option value="<?php echo $LDAP['user_role']; ?>" <?php echo (isset($_POST['user_role']) && $_POST['user_role'] === $LDAP['user_role']) ? 'selected' : ''; ?>><?php echo $LDAP['role_display_labels']['user_role']; ?></option>
                                     <option value="<?php echo $LDAP['org_admin_role']; ?>" <?php echo (isset($_POST['user_role']) && $_POST['user_role'] === $LDAP['org_admin_role']) ? 'selected' : ''; ?>><?php echo $LDAP['role_display_labels']['org_admin_role']; ?></option>
                                 </select>
@@ -394,26 +421,26 @@ if ($errors != "") { ?>
                                 <input type="hidden" name="<?php echo $account_attribute; ?>" 
                                        id="<?php echo $account_attribute; ?>" 
                                        value="<?php echo htmlspecialchars($_POST[$account_attribute] ?? ''); ?>">
-                                <small class="text-muted">Auto-generated from email address</small>
+                                <small class="text-muted"><?php echo htmlspecialchars(t('manage.org_users.add.auto_generated_email_address'), ENT_QUOTES, 'UTF-8'); ?></small>
                             </div>
                         </div>
 
                         <!-- Display Name (cn) -->
                         <div class="form-group">
                             <label for="cn" class="col-sm-3 form-label">
-                                <strong>Display Name</strong><sup>*</sup>
+                                <strong><?php echo htmlspecialchars(t('manage.common.display_name'), ENT_QUOTES, 'UTF-8'); ?></strong><sup>*</sup>
                             </label>
                             <div class="col-sm-6">
                                 <input type="text" class="form-control" name="cn" id="cn"
                                        value="<?php echo htmlspecialchars($_POST['cn'] ?? ''); ?>" required>
-                                <small class="text-muted">Auto-filled from First Name + Last Name (you can edit it).</small>
+                                <small class="text-muted"><?php echo htmlspecialchars(t('manage.common.display_name_hint'), ENT_QUOTES, 'UTF-8'); ?></small>
                             </div>
                         </div>
 
                         <!-- First Name -->
                         <div class="form-group">
                             <label for="givenName" class="col-sm-3 form-label">
-                                <strong>First Name</strong><sup>*</sup>
+                                <strong><?php echo htmlspecialchars(t('manage.common.first_name'), ENT_QUOTES, 'UTF-8'); ?></strong><sup>*</sup>
                             </label>
                             <div class="col-sm-6">
                                 <input type="text" class="form-control" name="givenName" id="givenName" 
@@ -425,7 +452,7 @@ if ($errors != "") { ?>
                         <!-- Last Name -->
                         <div class="form-group">
                             <label for="sn" class="col-sm-3 form-label">
-                                <strong>Last Name</strong><sup>*</sup>
+                                <strong><?php echo htmlspecialchars(t('manage.common.last_name'), ENT_QUOTES, 'UTF-8'); ?></strong><sup>*</sup>
                             </label>
                             <div class="col-sm-6">
                                 <input type="text" class="form-control" name="sn" id="sn" 
@@ -437,13 +464,13 @@ if ($errors != "") { ?>
                         <!-- Email (Account UID) -->
                         <div class="form-group">
                             <label for="mail" class="col-sm-3 form-label">
-                                <strong>Email (Username)</strong><sup>*</sup>
+                                <strong><?php echo htmlspecialchars(t('manage.common.email_username'), ENT_QUOTES, 'UTF-8'); ?></strong><sup>*</sup>
                             </label>
                             <div class="col-sm-6">
                                 <input type="email" class="form-control" name="mail" id="mail" 
                                        value="<?php echo htmlspecialchars($_POST['mail'] ?? ''); ?>" 
                                        required>
-                                <small class="text-muted">Email will be used as the username for login</small>
+                                <small class="text-muted"><?php echo htmlspecialchars(t('manage.common.email_username_hint'), ENT_QUOTES, 'UTF-8'); ?></small>
                             </div>
                         </div>
 
@@ -451,7 +478,7 @@ if ($errors != "") { ?>
                             <!-- Password -->
                             <div class="form-group">
                                 <label for="password" class="col-sm-3 form-label">
-                                    <strong>Password</strong><sup>*</sup>
+                                    <strong><?php echo htmlspecialchars(t('login.password_label'), ENT_QUOTES, 'UTF-8'); ?></strong><sup>*</sup>
                                 </label>
                                 <div class="col-sm-6">
                                     <input type="password" class="form-control" name="password" id="password" required>
@@ -461,7 +488,7 @@ if ($errors != "") { ?>
                             <!-- Confirm Password -->
                             <div class="form-group">
                                 <label for="password_match" class="col-sm-3 form-label">
-                                    <strong>Confirm Password</strong><sup>*</sup>
+                                    <strong><?php echo htmlspecialchars(t('manage.users.new.confirm_password_label'), ENT_QUOTES, 'UTF-8'); ?></strong><sup>*</sup>
                                 </label>
                                 <div class="col-sm-6">
                                     <input type="password" class="form-control" name="password_match" id="password_match" required>
@@ -477,11 +504,11 @@ if ($errors != "") { ?>
                                 <div class="checkbox">
                                     <label>
                                         <input type="checkbox" id="send_password_set_link" name="send_password_set_link" <?php echo (isset($_POST['send_password_set_link']) && $_POST['send_password_set_link'] === 'on') ? 'checked' : ''; ?> <?php echo !is_password_reset_link_enabled() ? 'disabled' : ''; ?>>
-                                        Email password setup link (user sets their own password)
+                                        <?php echo htmlspecialchars(t('manage.org_users.email_reset_checkbox'), ENT_QUOTES, 'UTF-8'); ?>
                                     </label>
                                     <?php if (!is_password_reset_link_enabled()) : ?>
                                         <div class="alert alert-warning mt-2 mb-0 py-2">
-                                            Password links are disabled because <code>PASSWORD_RESET_TOKEN_SECRET</code> is not configured.
+                                            <?php echo htmlspecialchars(t('manage.users.new.error.password_set_link_disabled_secret_missing'), ENT_QUOTES, 'UTF-8'); ?>
                                         </div>
                                     <?php endif; ?>
                                 </div>
@@ -492,9 +519,9 @@ if ($errors != "") { ?>
                         <!-- Submit Buttons -->
                         <div class="form-group">
                             <div class="col-sm-6 offset-sm-3">
-                                <button type="submit" name="create_user" class="btn btn-success">Create User</button>
+                                <button type="submit" name="create_user" class="btn btn-success"><?php echo htmlspecialchars(t('manage.org_users.add.create_user_submit'), ENT_QUOTES, 'UTF-8'); ?></button>
                                 <?php if ($org_uuid) : ?>
-                                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode((string) $org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary">Cancel</a>
+                                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode((string) $org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary"><?php echo htmlspecialchars(t('modal.cancel'), ENT_QUOTES, 'UTF-8'); ?></a>
                                 <?php endif; ?>
                             </div>
                         </div>

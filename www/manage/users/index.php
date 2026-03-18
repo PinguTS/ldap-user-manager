@@ -25,19 +25,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 }
 
                 if ($user_dn && ldap_lock_user_account($ldap_connection, $user_dn)) {
-                    $message = "User '$user_identifier' has been locked successfully.";
+                    $message = t('manage.users.msg.lock_ok', ['user' => $user_identifier]);
                     $message_type = 'success';
                 } else {
                     // Get the actual LDAP error for debugging
                     $ldap_error = ldap_error($ldap_connection);
-                    $message = "Failed to lock user '$user_identifier'. LDAP Error: $ldap_error";
+                    $message = t('manage.users.msg.lock_fail', ['user' => $user_identifier, 'error' => $ldap_error]);
                     $message_type = 'danger';
 
                     // Log additional debugging information
                     error_log("Lock user failed - User: $user_identifier, DN: $user_dn, LDAP Error: $ldap_error");
                 }
             } else {
-                $message = "Permission denied or invalid user identifier.";
+                $message = t('manage.users.msg.permission_denied_invalid_user');
                 $message_type = 'danger';
             }
             break;
@@ -56,19 +56,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 }
 
                 if ($user_dn && ldap_unlock_user_account($ldap_connection, $user_dn)) {
-                    $message = "User '$user_identifier' has been unlocked successfully.";
+                    $message = t('manage.users.msg.unlock_ok', ['user' => $user_identifier]);
                     $message_type = 'success';
                 } else {
                     // Get the actual LDAP error for debugging
                     $ldap_error = ldap_error($ldap_connection);
-                    $message = "Failed to unlock user '$user_identifier'. LDAP Error: $ldap_error";
+                    $message = t('manage.users.msg.unlock_fail', ['user' => $user_identifier, 'error' => $ldap_error]);
                     $message_type = 'danger';
 
                     // Log additional debugging information
                     error_log("Unlock user failed - User: $user_identifier, DN: $user_dn, LDAP Error: $ldap_error");
                 }
             } else {
-                $message = "Permission denied or invalid user identifier.";
+                $message = t('manage.users.msg.permission_denied_invalid_user');
                 $message_type = 'danger';
             }
             break;
@@ -85,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     // Convert UUID to account identifier for delete operation
                     $user_entry = ldap_get_entry_by_uuid($ldap_connection, $this_user, $LDAP['people_dn']);
                     if (!$user_entry || !isset($user_entry['uid'][0])) {
-                        render_alert_banner("User not found with UUID: $this_user", "danger");
+                        render_alert_banner(t('manage.users.msg.user_not_found_uuid', ['uuid' => $this_user]), "danger");
                         return;
                     }
                     $this_user = $user_entry['uid'][0];
@@ -97,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
                 // Prevent self-deletion
                 if ($this_user === $USER_ID) {
-                    render_alert_banner("You cannot delete your own account.", "danger");
+                    render_alert_banner(t('manage.users.msg.cannot_delete_self'), "danger");
                 }
                 // Check role-based permissions
             } elseif (currentUserIsGlobalAdmin()) {
@@ -118,12 +118,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             if ($can_delete) {
                 $del_user = ldap_delete_account($ldap_connection, $this_user);
                 if ($del_user) {
-                    render_alert_banner("User <strong>$this_user</strong> was deleted.");
+                    render_alert_banner(t('manage.users.msg.delete_ok', ['user' => $this_user]));
                 } else {
-                    render_alert_banner("User <strong>$this_user</strong> wasn't deleted. See the logs for more information.", "danger", 15000);
+                    render_alert_banner(t('manage.users.msg.delete_fail'), "danger", 15000);
                 }
             } else {
-                render_alert_banner("Permission denied: $delete_reason", "danger");
+                render_alert_banner(t('manage.users.msg.permission_denied_reason', ['reason' => $delete_reason]), "danger");
             }
             break;
         } // phpcs:ignore Generic.WhiteSpace.ScopeIndent.IncorrectExact,Squiz.WhiteSpace.ScopeClosingBrace.Indent -- switch at 8 spaces
@@ -135,12 +135,13 @@ get_csrf_token();
 
 set_page_access(["admin", "maintainer"]);
 
-render_header(($ORGANISATION_NAME ?? 'System') . ' - System User Management');
+$orgName = (string) ($ORGANISATION_NAME ?? 'System');
+render_header(t('manage.users.page_title', ['org' => $orgName]));
 render_submenu();
 
 $ldap_connection = open_ldap_connection();
 if ($ldap_connection === false) {
-    $message = 'LDAP configuration or connection is not available. Check that config is loaded and the LDAP server is reachable.';
+    $message = t('manage.users.msg.ldap_unavailable');
     $message_type = 'danger';
     $people = [];
 } else {
@@ -152,7 +153,7 @@ if ($ldap_connection === false) {
 <div class="container">
     <div class="row">
         <div class="col-md-12">
-            <h2>System User Management</h2>
+            <h2><?php echo htmlspecialchars(t('manage.users.heading'), ENT_QUOTES, 'UTF-8'); ?></h2>
             
             <?php if (isset($message)) : ?>
                 <div class="alert alert-<?php echo $message_type; ?> alert-dismissible fade show" role="alert">
@@ -165,43 +166,53 @@ if ($ldap_connection === false) {
                 <div class="col-md-6">
                     <?php if (currentUserIsGlobalAdmin() || currentUserIsMaintainer()) : ?>
                     <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/users/new/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-success">
-                        <i class="bi bi-plus-lg"></i> New System User
+                        <i class="bi bi-plus-lg"></i> <?php echo htmlspecialchars(t('manage.users.new_system_user'), ENT_QUOTES, 'UTF-8'); ?>
                     </a>
                     <?php endif; ?>
-                    <span class="badge bg-info"><?php print count($people);?> system user<?php if (count($people) != 1) {
-                        print "s";
-                                                }?></span>
+                    <?php $systemUserCount = count($people); ?>
+                    <span class="badge bg-info">
+                        <?php
+                        echo htmlspecialchars(
+                            $systemUserCount === 1
+                                ? t('manage.users.system_user_count_one', ['count' => (string) $systemUserCount])
+                                : t('manage.users.system_user_count_many', ['count' => (string) $systemUserCount]),
+                            ENT_QUOTES,
+                            'UTF-8'
+                        );
+                        ?>
+                    </span>
                 </div>
                 <div class="col-md-6 text-end">
                     <?php if (currentUserIsGlobalAdmin()) : ?>
-                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info">Manage Organizations</a>
-                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/roles/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-warning">Role Management</a>
+                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info"><?php echo htmlspecialchars(t('manage.dashboard.manage_orgs'), ENT_QUOTES, 'UTF-8'); ?></a>
+                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/roles/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-warning"><?php echo htmlspecialchars(t('manage.submenu.role_management'), ENT_QUOTES, 'UTF-8'); ?></a>
                     <?php elseif (currentUserIsMaintainer()) : ?>
-                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info">Manage Organizations</a>
+                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info"><?php echo htmlspecialchars(t('manage.dashboard.manage_orgs'), ENT_QUOTES, 'UTF-8'); ?></a>
                     <?php elseif (currentUserIsOrgAdmin()) : ?>
-                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info">Manage Organizations</a>
+                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info"><?php echo htmlspecialchars(t('manage.dashboard.manage_orgs'), ENT_QUOTES, 'UTF-8'); ?></a>
                     <?php endif; ?>
                 </div>
             </div>
             
             <div class="alert alert-info">
-                <strong>System Users Only:</strong> This view shows only system-level users. Organization users are managed through their respective organization pages.
+                <strong><?php echo htmlspecialchars(t('manage.users.system_users_only_title'), ENT_QUOTES, 'UTF-8'); ?></strong>
+                <?php echo htmlspecialchars(t('manage.users.system_users_only_body'), ENT_QUOTES, 'UTF-8'); ?>
             </div>
             
             <div class="form-group">
-                <input class="form-control" id="user_search_input" type="text" placeholder="Search system users...">
+                <input class="form-control" id="user_search_input" type="text" placeholder="<?php echo htmlspecialchars(t('manage.users.search_placeholder'), ENT_QUOTES, 'UTF-8'); ?>">
             </div>
             
             <table class="table table-striped" id="user_table">
                 <thead>
                     <tr>
-                        <th>Account ID</th>
-                        <th>Given Name</th>
-                        <th>Surname</th>
-                        <th>Email</th>
-                        <th>Roles</th>
-                        <th>Status</th>
-                        <th>Actions</th>
+                        <th><?php echo htmlspecialchars(t('manage.common.account_id'), ENT_QUOTES, 'UTF-8'); ?></th>
+                        <th><?php echo htmlspecialchars(t('manage.common.first_name'), ENT_QUOTES, 'UTF-8'); ?></th>
+                        <th><?php echo htmlspecialchars(t('manage.common.last_name'), ENT_QUOTES, 'UTF-8'); ?></th>
+                        <th><?php echo htmlspecialchars(t('manage.common.email'), ENT_QUOTES, 'UTF-8'); ?></th>
+                        <th><?php echo htmlspecialchars(t('manage.common.roles'), ENT_QUOTES, 'UTF-8'); ?></th>
+                        <th><?php echo htmlspecialchars(t('manage.common.status'), ENT_QUOTES, 'UTF-8'); ?></th>
+                        <th><?php echo htmlspecialchars(t('manage.common.actions'), ENT_QUOTES, 'UTF-8'); ?></th>
                     </tr>
                 </thead>
                 <tbody id="userlist">
@@ -241,20 +252,20 @@ if ($ldap_connection === false) {
                         $user_dn_for_status = get_user_dn_from_identifier($ldap_connection, $account_identifier);
                         if ($user_dn_for_status) {
                             if (ldap_user_is_locked($ldap_connection, $user_dn_for_status)) {
-                                print '<span class="badge bg-danger">Locked</span>';
+                                print '<span class="badge bg-danger">' . htmlspecialchars(t('manage.common.locked'), ENT_QUOTES, 'UTF-8') . '</span>';
                             } else {
-                                print '<span class="badge bg-success">Active</span>';
+                                print '<span class="badge bg-success">' . htmlspecialchars(t('manage.common.active'), ENT_QUOTES, 'UTF-8') . '</span>';
                             }
                         } else {
-                            print '<span class="badge bg-secondary">Unknown</span>';
+                            print '<span class="badge bg-secondary">' . htmlspecialchars(t('manage.common.unknown'), ENT_QUOTES, 'UTF-8') . '</span>';
                         }
 
                         print "</td>\n";
                         print "   <td>";
                         print "     <span class='d-inline-flex align-items-center flex-wrap gap-1'>";
-                        print "       <span class='btn-group btn-group-sm' role='group' aria-label='User actions'>";
+                        print "       <span class='btn-group btn-group-sm' role='group' aria-label='" . htmlspecialchars(t('manage.common.user_actions_aria'), ENT_QUOTES, 'UTF-8') . "'>";
                         if ($user_href !== '') {
-                            print "         <a href='{$user_href}' class='btn btn-sm btn-info'>View</a>";
+                            print "         <a href='{$user_href}' class='btn btn-sm btn-info'>" . htmlspecialchars(t('manage.common.view'), ENT_QUOTES, 'UTF-8') . "</a>";
                         }
 
                         // Check if current user can delete this user
@@ -263,7 +274,7 @@ if ($ldap_connection === false) {
 
                         // Prevent self-deletion
                         if ($account_identifier === $USER_ID) {
-                            $delete_reason = 'Cannot delete yourself';
+                            $delete_reason = t('manage.users.msg.cannot_delete_self');
                         } elseif (currentUserIsGlobalAdmin()) {
                             $can_delete = true;
                         } elseif (currentUserIsMaintainer()) {
@@ -292,9 +303,9 @@ if ($ldap_connection === false) {
                             $user_dn_for_lock = get_user_dn_from_identifier($ldap_connection, $account_identifier);
                             if ($user_dn_for_lock) {
                                 if (ldap_user_is_locked($ldap_connection, $user_dn_for_lock)) {
-                                    print "         <button type='button' class='btn btn-sm btn-success' onclick='confirmUnlockUser(\"" . htmlspecialchars($account_identifier) . "\")'>Unlock</button>";
+                                    print "         <button type='button' class='btn btn-sm btn-success' onclick='confirmUnlockUser(\"" . htmlspecialchars($account_identifier) . "\")'>" . htmlspecialchars(t('manage.common.unlock'), ENT_QUOTES, 'UTF-8') . "</button>";
                                 } else {
-                                    print "         <button type='button' class='btn btn-sm btn-warning' onclick='confirmLockUser(\"" . htmlspecialchars($account_identifier) . "\")'>Lock</button>";
+                                    print "         <button type='button' class='btn btn-sm btn-warning' onclick='confirmLockUser(\"" . htmlspecialchars($account_identifier) . "\")'>" . htmlspecialchars(t('manage.common.lock'), ENT_QUOTES, 'UTF-8') . "</button>";
                                 }
                             }
                         }
@@ -304,9 +315,9 @@ if ($ldap_connection === false) {
                         if ($can_delete) {
                             // Use UUID for deletes (canonical).
                             $delete_param = $user_uuid;
-                            print "         <button type='button' class='btn btn-sm btn-danger' onclick='confirmDelete(\"" . htmlspecialchars($delete_param) . "\", \"" . htmlspecialchars($account_identifier) . "\")'>Delete</button>";
+                            print "         <button type='button' class='btn btn-sm btn-danger' onclick='confirmDelete(\"" . htmlspecialchars($delete_param) . "\", \"" . htmlspecialchars($account_identifier) . "\")'>" . htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8') . "</button>";
                         } else {
-                            print "         <button type='button' class='btn btn-sm btn-danger' disabled title='" . htmlspecialchars($delete_reason) . "'>Delete</button>";
+                            print "         <button type='button' class='btn btn-sm btn-danger' disabled title='" . htmlspecialchars($delete_reason) . "'>" . htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8') . "</button>";
                         }
                         print "       </span>"; // delete separator
                         print "     </span>"; // d-inline-flex
@@ -324,35 +335,35 @@ if ($ldap_connection === false) {
 <?php
 render_confirm_modal(
     'deleteModal',
-    'Confirm User Deletion',
-    '<p>Are you sure you want to delete the user "<span id="deleteUserName"></span>"?</p><p class="text-danger"><strong>Warning:</strong> This action cannot be undone and will remove all associated data.</p>',
+    t('manage.users.index.modal.delete_title'),
+    t('manage.users.index.modal.delete_body'),
     [
         ['name' => 'action', 'value' => 'delete_user'],
         ['name' => 'user_identifier', 'id' => 'deleteUserInput'],
     ],
-    'Delete User',
+    t('manage.users.index.modal.delete_submit'),
     'btn-danger'
 );
 render_confirm_modal(
     'lockUserModal',
-    'Confirm User Lock',
-    '<p>Are you sure you want to lock the user "<span id="lockUserName"></span>"?</p><p class="text-warning"><strong>Warning:</strong> This will disable the user account. The user will not be able to log in until the account is unlocked.</p><p><strong>Note:</strong> This action is reversible. You can unlock the user at any time.</p>',
+    t('manage.users.index.modal.lock_title'),
+    t('manage.users.index.modal.lock_body'),
     [
         ['name' => 'action', 'value' => 'lock_user'],
         ['name' => 'user_identifier', 'id' => 'lockUserInput'],
     ],
-    'Lock User',
+    t('manage.users.index.modal.lock_submit'),
     'btn-warning'
 );
 render_confirm_modal(
     'unlockUserModal',
-    'Confirm User Unlock',
-    '<p>Are you sure you want to unlock the user "<span id="unlockUserName"></span>"?</p><p class="text-success"><strong>Effect:</strong> This will re-enable the user account. The user will be able to log in again.</p>',
+    t('manage.users.index.modal.unlock_title'),
+    t('manage.users.index.modal.unlock_body'),
     [
         ['name' => 'action', 'value' => 'unlock_user'],
         ['name' => 'user_identifier', 'id' => 'unlockUserInput'],
     ],
-    'Unlock User',
+    t('manage.users.index.modal.unlock_submit'),
     'btn-success'
 );
 ?>

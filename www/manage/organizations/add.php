@@ -76,7 +76,7 @@ if (isset($_POST['action']) && $_POST['action'] == 'create_organization') {
     }
 }
 
-render_header("$ORGANISATION_NAME - Add New Organization");
+render_header((string) $ORGANISATION_NAME . ' - ' . t('manage.orgs.add_new'));
 render_submenu();
 
 ?>
@@ -84,7 +84,7 @@ render_submenu();
 <div class="container">
     <div class="row">
         <div class="col-md-12">
-            <h2>Add New Organization</h2>
+            <h2><?php echo htmlspecialchars(t('manage.orgs.add_new'), ENT_QUOTES, 'UTF-8'); ?></h2>
             
             <?php if ($message) : ?>
                 <div class="alert alert-<?php echo $message_type; ?> alert-dismissible" role="alert">
@@ -95,7 +95,7 @@ render_submenu();
             
             <div class="card border-primary">
                 <div class="card-header bg-primary text-white">
-                    <h3 class="card-title">Create New Organization</h3>
+                    <h3 class="card-title"><?php echo htmlspecialchars(t('manage.orgs.add.create_new_heading'), ENT_QUOTES, 'UTF-8'); ?></h3>
                 </div>
                 <div class="card-body">
                     <form method="post" action="" id="createOrgForm">
@@ -182,8 +182,8 @@ render_submenu();
                         ?>
                         
                         <div class="form-group">
-                            <button type="submit" class="btn btn-success">Create Organization</button>
-                            <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-success"><?php echo htmlspecialchars(t('manage.orgs.add.create_submit'), ENT_QUOTES, 'UTF-8'); ?></button>
+                            <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary"><?php echo htmlspecialchars(t('manage.common.cancel'), ENT_QUOTES, 'UTF-8'); ?></a>
                         </div>
                     </form>
                 </div>

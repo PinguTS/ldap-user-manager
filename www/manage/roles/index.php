@@ -11,18 +11,19 @@ get_csrf_token();
 
 set_page_access("admin");
 
-render_header(($ORGANISATION_NAME ?? 'System') . ' - System Role Management');
+$orgName = (string) ($ORGANISATION_NAME ?? 'System');
+render_header(t('manage.roles.page_title', ['org' => $orgName]));
 render_submenu();
 
 $ldap_connection = open_ldap_connection();
 if ($ldap_connection === false) {
-    render_alert_banner('LDAP configuration or connection is not available. Check that the LDAP server is reachable.', 'danger');
+    render_alert_banner(t('manage.users.msg.ldap_unavailable'), 'danger');
     $users = [];
     $all_roles = [];
 } else {
     if (isset($_POST['add_user_to_role'])) {
         if (!validate_csrf_token()) {
-            render_alert_banner("Security validation failed. Please refresh the page and try again.", "danger");
+            render_alert_banner(t('manage.common.msg.security_validation_failed'), "danger");
         } else {
             $user_identifier = $_POST['username'];
             $role_name = $_POST['role_name'];
@@ -31,16 +32,16 @@ if ($ldap_connection === false) {
             $username = get_username_from_identifier($ldap_connection, $user_identifier);
 
             if (ldap_add_member_to_group($ldap_connection, $role_name, $username)) {
-                render_alert_banner("User <strong>$username</strong> was added to role <strong>$role_name</strong>.");
+                render_alert_banner(t('manage.roles.msg.add_ok', ['user' => $username, 'role' => $role_name]));
             } else {
-                render_alert_banner("Failed to add user <strong>$username</strong> to role <strong>$role_name</strong>.", "danger", 15000);
+                render_alert_banner(t('manage.roles.msg.add_fail', ['user' => $username, 'role' => $role_name]), "danger", 15000);
             }
         }
     }
 
     if (isset($_POST['remove_user_from_role'])) {
         if (!validate_csrf_token()) {
-            render_alert_banner("Security validation failed. Please refresh the page and try again.", "danger");
+            render_alert_banner(t('manage.common.msg.security_validation_failed'), "danger");
         } else {
             $user_identifier = $_POST['username'];
             $role_name = $_POST['role_name'];
@@ -51,12 +52,12 @@ if ($ldap_connection === false) {
             // Prevent user from removing themselves from administrators role
             $current_user = $_SESSION['username'] ?? '';
             if ($username === $current_user && $role_name === $LDAP['admin_role']) {
-                render_alert_banner("You cannot remove yourself from the administrators role. This would lock you out of the system.", "danger", 15000);
+                render_alert_banner(t('manage.roles.msg.cannot_remove_self_admin'), "danger", 15000);
             } else {
                 if (ldap_delete_member_from_group($ldap_connection, $role_name, $username)) {
-                    render_alert_banner("User <strong>$username</strong> was removed from role <strong>$role_name</strong>.");
+                    render_alert_banner(t('manage.roles.msg.remove_ok', ['user' => $username, 'role' => $role_name]));
                 } else {
-                    render_alert_banner("Failed to remove user <strong>$username</strong> from role <strong>$role_name</strong>.", "danger", 15000);
+                    render_alert_banner(t('manage.roles.msg.remove_fail', ['user' => $username, 'role' => $role_name]), "danger", 15000);
                 }
             }
         }
@@ -139,27 +140,29 @@ if ($ldap_connection === false) {
 ?>
 
 <div class="container">
-  <h2>System Role Management</h2>
+  <h2><?php echo htmlspecialchars(t('manage.roles.heading'), ENT_QUOTES, 'UTF-8'); ?></h2>
   
   <div class="alert alert-info">
-    <strong>Global System Roles:</strong> This page manages system-level roles (administrator, maintainer) for system users only. 
-    Organization user roles are managed within their respective organization pages.
+    <strong><?php echo htmlspecialchars(t('manage.roles.global_roles_title'), ENT_QUOTES, 'UTF-8'); ?></strong>
+    <?php echo htmlspecialchars(t('manage.roles.global_roles_body'), ENT_QUOTES, 'UTF-8'); ?>
   </div>
   
   <div class="alert alert-warning">
-    <strong>Organization Role Management:</strong> To manage roles for organization users, go to 
-    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>">Organizations</a> → select an organization → Users → manage individual user roles.
+    <strong><?php echo htmlspecialchars(t('manage.roles.org_roles_title'), ENT_QUOTES, 'UTF-8'); ?></strong>
+    <?php echo htmlspecialchars(t('manage.roles.org_roles_body_prefix'), ENT_QUOTES, 'UTF-8'); ?>
+    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.submenu.organizations'), ENT_QUOTES, 'UTF-8'); ?></a>
+    <?php echo htmlspecialchars(t('manage.roles.org_roles_body_suffix'), ENT_QUOTES, 'UTF-8'); ?>
   </div>
   
   <div class="row">
     <div class="col-md-6">
-      <h3>Add System User to Role</h3>
+      <h3><?php echo htmlspecialchars(t('manage.roles.add.heading'), ENT_QUOTES, 'UTF-8'); ?></h3>
       <form method="post" class="form">
         <?= csrf_token_field() ?>
         <div class="form-group">
-          <label for="username">System User:</label>
+          <label for="username"><?php echo htmlspecialchars(t('manage.roles.system_user_label'), ENT_QUOTES, 'UTF-8'); ?></label>
           <select name="username" id="username" class="form-control" required>
-            <option value="">Select a system user...</option>
+            <option value=""><?php echo htmlspecialchars(t('manage.roles.select_system_user'), ENT_QUOTES, 'UTF-8'); ?></option>
             <?php foreach ($users as $username => $attribs) : ?>
                 <?php
                 if ($LDAP_DEBUG) {
@@ -184,10 +187,10 @@ if ($ldap_connection === false) {
         </div>
         
         <div class="form-group">
-          <label for="role_name">Role:</label>
+          <label for="role_name"><?php echo htmlspecialchars(t('manage.roles.role_label'), ENT_QUOTES, 'UTF-8'); ?></label>
           <select name="role_name" id="role_name" class="form-control" required>
-            <option value="">Select a role...</option>
-            <optgroup label="Global Roles">
+            <option value=""><?php echo htmlspecialchars(t('manage.roles.select_role'), ENT_QUOTES, 'UTF-8'); ?></option>
+            <optgroup label="<?php echo htmlspecialchars(t('manage.roles.global_roles_optgroup'), ENT_QUOTES, 'UTF-8'); ?>">
               <?php foreach ($global_roles as $role) : ?>
                 <option value="<?php print htmlspecialchars($role); ?>">
                     <?php print htmlspecialchars(ucfirst($role)); ?>
@@ -197,18 +200,18 @@ if ($ldap_connection === false) {
           </select>
         </div>
         
-        <button type="submit" name="add_user_to_role" class="btn btn-success">Add System User to Role</button>
+        <button type="submit" name="add_user_to_role" class="btn btn-success"><?php echo htmlspecialchars(t('manage.roles.add.submit'), ENT_QUOTES, 'UTF-8'); ?></button>
       </form>
     </div>
     
     <div class="col-md-6">
-      <h3>Remove System User from Role</h3>
+      <h3><?php echo htmlspecialchars(t('manage.roles.remove.heading'), ENT_QUOTES, 'UTF-8'); ?></h3>
       <form method="post" class="form">
         <?= csrf_token_field() ?>
         <div class="form-group">
-          <label for="remove_username">System User:</label>
+          <label for="remove_username"><?php echo htmlspecialchars(t('manage.roles.system_user_label'), ENT_QUOTES, 'UTF-8'); ?></label>
           <select name="username" id="remove_username" class="form-control" required>
-            <option value="">Select a system user...</option>
+            <option value=""><?php echo htmlspecialchars(t('manage.roles.select_system_user'), ENT_QUOTES, 'UTF-8'); ?></option>
             <?php foreach ($users as $username => $attribs) : ?>
                 <?php
                 if ($LDAP_DEBUG) {
@@ -231,10 +234,10 @@ if ($ldap_connection === false) {
         </div>
         
         <div class="form-group">
-          <label for="remove_role_name">Role:</label>
+          <label for="remove_role_name"><?php echo htmlspecialchars(t('manage.roles.role_label'), ENT_QUOTES, 'UTF-8'); ?></label>
           <select name="role_name" id="remove_role_name" class="form-control" required>
-            <option value="">Select a role...</option>
-            <optgroup label="Global Roles">
+            <option value=""><?php echo htmlspecialchars(t('manage.roles.select_role'), ENT_QUOTES, 'UTF-8'); ?></option>
+            <optgroup label="<?php echo htmlspecialchars(t('manage.roles.global_roles_optgroup'), ENT_QUOTES, 'UTF-8'); ?>">
               <?php foreach ($global_roles as $role) : ?>
                 <option value="<?php print htmlspecialchars($role); ?>">
                     <?php print htmlspecialchars(ucfirst($role)); ?>
@@ -244,13 +247,14 @@ if ($ldap_connection === false) {
           </select>
         </div>
         
-        <button type="submit" name="remove_user_from_role" class="btn btn-danger">Remove System User from Role</button>
+        <button type="submit" name="remove_user_from_role" class="btn btn-danger"><?php echo htmlspecialchars(t('manage.roles.remove.submit'), ENT_QUOTES, 'UTF-8'); ?></button>
       </form>
       
       <div class="alert alert-warning" style="margin-top: 15px;">
-        <strong>Security Note:</strong> You cannot remove yourself from the administrators role as this would lock you out of the system.
+        <strong><?php echo htmlspecialchars(t('manage.roles.security_note_title'), ENT_QUOTES, 'UTF-8'); ?></strong>
+        <?php echo htmlspecialchars(t('manage.roles.security_note_body'), ENT_QUOTES, 'UTF-8'); ?>
         <?php if (!empty($_SESSION['username'])) : ?>
-          <br><small>Currently logged in as: <strong><?php print htmlspecialchars($_SESSION['username']); ?></strong></small>
+          <br><small><?php echo htmlspecialchars(t('manage.roles.current_user', ['user' => (string) $_SESSION['username']]), ENT_QUOTES, 'UTF-8'); ?></small>
         <?php endif; ?>
       </div>
     </div>
@@ -258,10 +262,10 @@ if ($ldap_connection === false) {
   
   <hr>
   
-  <h3>Current System Role Memberships</h3>
+  <h3><?php echo htmlspecialchars(t('manage.roles.current_memberships_heading'), ENT_QUOTES, 'UTF-8'); ?></h3>
   <div class="alert alert-info">
-    <strong>Global Roles Only:</strong> This section shows members of system-level roles only. 
-    Organization user role management is done within each organization's user management page.
+    <strong><?php echo htmlspecialchars(t('manage.roles.global_roles_only_title'), ENT_QUOTES, 'UTF-8'); ?></strong>
+    <?php echo htmlspecialchars(t('manage.roles.global_roles_only_body'), ENT_QUOTES, 'UTF-8'); ?>
   </div>
   <div class="row">
     <?php foreach ($all_roles as $role) : ?>
@@ -269,7 +273,7 @@ if ($ldap_connection === false) {
         <div class="card">
           <div class="card-header">
             <h4 class="card-title">
-              <?php print htmlspecialchars(ucfirst($role)); ?> Role
+              <?php echo htmlspecialchars(t('manage.roles.role_heading', ['role' => ucfirst($role)]), ENT_QUOTES, 'UTF-8'); ?>
               <span class="badge bg-primary">Global</span>
             </h4>
           </div>
@@ -311,6 +315,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const removeRoleSelect = document.getElementById('remove_role_name');
   const currentUser = '<?php print htmlspecialchars($_SESSION['username'] ?? ''); ?>';
   const adminRole = '<?php print htmlspecialchars($LDAP['admin_role']); ?>';
+  const adminRoleWarningHtml = <?php echo json_encode(t('manage.roles.admin_role_warning_html')); ?>;
   
   function checkSelfRemoval() {
     const selectedUserIdentifier = removeUsernameSelect.value;
@@ -331,7 +336,7 @@ document.addEventListener('DOMContentLoaded', function() {
       warning.id = 'self-removal-warning';
       warning.className = 'alert alert-warning';
       warning.style.marginTop = '15px';
-      warning.innerHTML = '<strong>⚠️ Security Note:</strong> Removing users from the administrators role requires careful consideration. You cannot remove yourself from this role.';
+      warning.innerHTML = adminRoleWarningHtml;
       
       // Insert warning after the form
       const form = removeUsernameSelect.closest('form');

@@ -20,7 +20,8 @@ get_csrf_token();
 
 set_page_access(["admin", "user"]); // Allow both admin and user roles
 
-render_header("$ORGANISATION_NAME - User Profile");
+$orgName = (string) ($ORGANISATION_NAME ?? 'System');
+render_header(t('manage.users.profile.page_title', ['org' => $orgName]));
 render_submenu();
 
 $invalid_password = false;
@@ -35,19 +36,19 @@ if ($SMTP['host'] != "") {
     $can_send_email = false;
 }
 
-$LDAP['default_attribute_map']["mail"]  = array("label" => "Email", "onkeyup" => "check_if_we_should_enable_sending_email();");
+$LDAP['default_attribute_map']["mail"]  = array("label" => t('manage.common.email'), "onkeyup" => "check_if_we_should_enable_sending_email();");
 
 $attribute_map = $LDAP['default_attribute_map'];
 if (isset($LDAP['account_additional_attributes'])) {
     $attribute_map = ldap_complete_attribute_map($attribute_map, $LDAP['account_additional_attributes']);
 }
 if (! array_key_exists($LDAP['account_attribute'], $attribute_map)) {
-    $attribute_r = array_merge($attribute_map, array($LDAP['account_attribute'] => array("label" => "Account UID")));
+    $attribute_r = array_merge($attribute_map, array($LDAP['account_attribute'] => array("label" => t('manage.common.account_id'))));
 }
 
 // Ensure common attributes used in the profile form are included in updates
 if (!array_key_exists('telephonenumber', $attribute_map)) {
-    $attribute_map['telephonenumber'] = ['label' => 'Phone Number'];
+    $attribute_map['telephonenumber'] = ['label' => t('manage.users.phone_number')];
 }
 
 // Check if user parameter is provided (support both UUID and legacy account_identifier)
@@ -58,7 +59,7 @@ if (isset($_GET['uuid']) && !empty($_GET['uuid'])) {
     // UUID-based lookup
     $user_uuid = $_GET['uuid'];
     if (!is_valid_uuid($user_uuid)) {
-        render_alert_banner("Invalid user UUID provided.", "warning");
+        render_alert_banner(t('manage.users.msg.invalid_uuid'), "warning");
         render_footer();
         exit(0);
     }
@@ -69,7 +70,7 @@ if (isset($_GET['uuid']) && !empty($_GET['uuid'])) {
     ldap_close($ldap_connection);
 
     if (!$user_by_uuid) {
-        render_alert_banner("User with UUID '$user_uuid' not found.", "warning");
+        render_alert_banner(t('manage.users.msg.user_not_found_uuid', ['uuid' => $user_uuid]), "warning");
         error_log("show_user.php: UUID lookup failed for UUID: $user_uuid");
         render_footer();
         exit(0);
@@ -82,7 +83,7 @@ if (isset($_GET['uuid']) && !empty($_GET['uuid'])) {
     $account_identifier = (isset($_POST['account_identifier']) ? $_POST['account_identifier'] : $_GET['account_identifier']);
     $account_identifier = urldecode($account_identifier);
 } else {
-    render_alert_banner("User identifier (UUID or account identifier) is required.", "warning");
+    render_alert_banner(t('manage.users.msg.identifier_required'), "warning");
     render_footer();
     exit(0);
 }
@@ -130,7 +131,7 @@ if ($user_uuid) {
 }
 
 if (!$user || $user['count'] == 0) {
-    render_alert_banner("User not found.", "warning");
+    render_alert_banner(t('manage.users.msg.user_not_found'), "warning");
     render_footer();
     exit(0);
 }
@@ -192,7 +193,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile']) && 
     if (empty($errors)) {
         $result = updateUser($user_data['dn'], $update_data);
         if ($result) {
-            render_alert_banner('User profile updated successfully!', 'success', 10000);
+            render_alert_banner(t('manage.users.msg.profile_update_ok'), 'success', 10000);
             // Refresh user data
             $ldap_search = ldap_read($ldap_connection, $user_data['dn'], '(objectClass=*)');
             if ($ldap_search) {
@@ -202,10 +203,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile']) && 
                 }
             }
         } else {
-            render_alert_banner('Error updating user profile. Please check the logs for details.', 'danger', 10000);
+            render_alert_banner(t('manage.users.msg.profile_update_fail'), 'danger', 10000);
         }
     } else {
-        render_alert_banner('Please correct the following errors: ' . implode(', ', $errors), 'danger', 10000);
+        render_alert_banner(
+            t('manage.users.msg.profile_validation_failed', ['errors' => implode(', ', $errors)]),
+            'danger',
+            10000
+        );
     }
 }
 
@@ -216,7 +221,10 @@ ldap_close($ldap_connection);
 <div class="container">
     <div class="row">
         <div class="col-md-12">
-            <h2>User Profile: <?php echo htmlspecialchars(get_ldap_attribute($user_data, 'cn') ?: get_ldap_attribute($user_data, $LDAP['account_attribute']) ?: 'Unknown User'); ?></h2>
+            <?php
+            $profileName = (string) (get_ldap_attribute($user_data, 'cn') ?: get_ldap_attribute($user_data, $LDAP['account_attribute']) ?: t('user.no_name_available'));
+            ?>
+            <h2><?php echo htmlspecialchars(t('manage.users.profile.heading', ['name' => $profileName]), ENT_QUOTES, 'UTF-8'); ?></h2>
             
             <?php
             // Reopen LDAP connection for role lookup in display
@@ -226,58 +234,58 @@ ldap_close($ldap_connection);
             <?php if ($can_edit) : ?>
             <div class="card border-primary">
                 <div class="card-header bg-primary text-white">
-                    <h3 class="card-title">Edit User Profile</h3>
+                    <h3 class="card-title"><?php echo htmlspecialchars(t('manage.users.edit_profile_title'), ENT_QUOTES, 'UTF-8'); ?></h3>
                 </div>
                 <div class="card-body">
                     <form method="post" action="" enctype="multipart/form-data">
                         <?php echo csrf_token_field(); ?>
                         
                         <!-- Account Information -->
-                        <h4>Account Information</h4>
+                        <h4><?php echo htmlspecialchars(t('manage.users.section.account_information'), ENT_QUOTES, 'UTF-8'); ?></h4>
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="<?php echo $LDAP['account_attribute']; ?>"><?php echo $attribute_map[$LDAP['account_attribute']]['label'] ?? 'Account ID'; ?></label>
+                                    <label for="<?php echo $LDAP['account_attribute']; ?>"><?php echo htmlspecialchars((string) ($attribute_map[$LDAP['account_attribute']]['label'] ?? t('manage.common.account_id')), ENT_QUOTES, 'UTF-8'); ?></label>
                                     <input type="text" class="form-control" id="<?php echo $LDAP['account_attribute']; ?>" name="<?php echo $LDAP['account_attribute']; ?>" 
                                            value="<?php echo htmlspecialchars(get_ldap_attribute($user_data, $LDAP['account_attribute'])); ?>" readonly>
-                                    <small class="form-text text-muted">Account ID cannot be changed.</small>
+                                    <small class="form-text text-muted"><?php echo htmlspecialchars(t('manage.users.account_id_immutable_help'), ENT_QUOTES, 'UTF-8'); ?></small>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="userRoles">User Roles</label>
+                                    <label for="userRoles"><?php echo htmlspecialchars(t('manage.common.roles'), ENT_QUOTES, 'UTF-8'); ?></label>
                                     <?php
                                     // Get user's role memberships
                                     $user_roles = ldap_user_group_membership($ldap_connection, $user_data['dn']);
-                                    $role_display = !empty($user_roles) ? implode(', ', $user_roles) : 'No roles assigned';
+                                    $role_display = !empty($user_roles) ? implode(', ', $user_roles) : t('manage.users.no_roles_assigned');
                                     ?>
                                     <input type="text" class="form-control" id="userRoles" name="userRoles" 
                                            value="<?php echo htmlspecialchars($role_display); ?>" readonly>
-                                    <small class="form-text text-muted">User roles are managed through group memberships and cannot be changed from this interface.</small>
+                                    <small class="form-text text-muted"><?php echo htmlspecialchars(t('manage.users.roles_readonly_help'), ENT_QUOTES, 'UTF-8'); ?></small>
                                 </div>
                             </div>
                         </div>
                         
                         <!-- Personal Information -->
-                        <h4>Personal Information</h4>
+                        <h4><?php echo htmlspecialchars(t('manage.users.section.personal_information'), ENT_QUOTES, 'UTF-8'); ?></h4>
                         <div class="row">
                             <div class="col-md-4">
                                 <div class="form-group">
-                                    <label for="givenName">Given Name *</label>
+                                    <label for="givenName"><?php echo htmlspecialchars(t('manage.common.first_name'), ENT_QUOTES, 'UTF-8'); ?> *</label>
                                     <input type="text" class="form-control" id="givenName" name="givenName" 
                                            value="<?php echo htmlspecialchars(get_ldap_attribute($user_data, 'givenName')); ?>" required>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="form-group">
-                                    <label for="sn">Surname *</label>
+                                    <label for="sn"><?php echo htmlspecialchars(t('manage.common.last_name'), ENT_QUOTES, 'UTF-8'); ?> *</label>
                                     <input type="text" class="form-control" id="sn" name="sn" 
                                            value="<?php echo htmlspecialchars(get_ldap_attribute($user_data, 'sn')); ?>" required>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="form-group">
-                                    <label for="cn">Display Name *</label>
+                                    <label for="cn"><?php echo htmlspecialchars(t('manage.common.display_name'), ENT_QUOTES, 'UTF-8'); ?> *</label>
                                     <input type="text" class="form-control" id="cn" name="cn" 
                                            value="<?php echo htmlspecialchars(get_ldap_attribute($user_data, 'cn')); ?>" required>
                                 </div>
@@ -285,18 +293,18 @@ ldap_close($ldap_connection);
                         </div>
                         
                         <!-- Contact Information -->
-                        <h4>Contact Information</h4>
+                        <h4><?php echo htmlspecialchars(t('manage.users.section.contact_information'), ENT_QUOTES, 'UTF-8'); ?></h4>
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="mail">Email Address</label>
+                                    <label for="mail"><?php echo htmlspecialchars(t('manage.common.email'), ENT_QUOTES, 'UTF-8'); ?></label>
                                     <input type="email" class="form-control" id="mail" name="mail" 
                                            value="<?php echo htmlspecialchars(get_ldap_attribute($user_data, 'mail')); ?>">
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="telephoneNumber">Phone Number</label>
+                                    <label for="telephoneNumber"><?php echo htmlspecialchars(t('manage.users.phone_number'), ENT_QUOTES, 'UTF-8'); ?></label>
                                     <input type="tel" class="form-control" id="telephoneNumber" name="telephoneNumber" 
                                            value="<?php echo htmlspecialchars(get_ldap_attribute($user_data, 'telephoneNumber')); ?>">
                                 </div>
@@ -304,20 +312,20 @@ ldap_close($ldap_connection);
                         </div>
                         
                         <!-- Password Change -->
-                        <h4>Change Password</h4>
+                        <h4><?php echo htmlspecialchars(t('manage.users.section.change_password'), ENT_QUOTES, 'UTF-8'); ?></h4>
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group <?php echo $mismatched_passwords ? 'is-invalid' : ''; ?>">
-                                    <label for="new_password">New Password</label>
+                                    <label for="new_password"><?php echo htmlspecialchars(t('manage.common.new_password_label'), ENT_QUOTES, 'UTF-8'); ?></label>
                                     <input type="password" class="form-control" id="new_password" name="new_password">
                                     <?php if ($mismatched_passwords) : ?>
-                                        <span class="help-block">Passwords do not match.</span>
+                                        <span class="help-block"><?php echo htmlspecialchars(t('manage.users.msg.passwords_do_not_match'), ENT_QUOTES, 'UTF-8'); ?></span>
                                     <?php endif; ?>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="confirm_new_password">Confirm New Password</label>
+                                    <label for="confirm_new_password"><?php echo htmlspecialchars(t('manage.common.confirm_new_password'), ENT_QUOTES, 'UTF-8'); ?></label>
                                     <input type="password" class="form-control" id="confirm_new_password" name="confirm_new_password">
                                 </div>
                             </div>
@@ -326,7 +334,7 @@ ldap_close($ldap_connection);
                         
                         <!-- Additional Attributes -->
                         <?php if (isset($LDAP['account_additional_attributes'])) : ?>
-                        <h4>Additional Information</h4>
+                        <h4><?php echo htmlspecialchars(t('manage.users.section.additional_information'), ENT_QUOTES, 'UTF-8'); ?></h4>
                         <div class="row">
                             <?php foreach ($LDAP['account_additional_attributes'] as $attr_name => $attr_config) : ?>
                                 <div class="col-md-6">
@@ -345,8 +353,8 @@ ldap_close($ldap_connection);
                         <?php endif; ?>
                         
                         <div class="form-group">
-                            <button type="submit" name="update_profile" class="btn btn-success">Update Profile</button>
-                            <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary">Back to Users</a>
+                            <button type="submit" name="update_profile" class="btn btn-success"><?php echo htmlspecialchars(t('manage.users.update_profile'), ENT_QUOTES, 'UTF-8'); ?></button>
+                            <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary"><?php echo htmlspecialchars(t('manage.users.back_to_users'), ENT_QUOTES, 'UTF-8'); ?></a>
                         </div>
                     </form>
                 </div>
@@ -354,11 +362,11 @@ ldap_close($ldap_connection);
             <?php else : ?>
             <div class="card border-info">
                 <div class="card-header bg-info text-white">
-                    <h3 class="card-title">User Information (Read Only)</h3>
+                    <h3 class="card-title"><?php echo htmlspecialchars(t('manage.users.read_only_title'), ENT_QUOTES, 'UTF-8'); ?></h3>
                 </div>
                 <div class="card-body">
-                    <p class="text-muted">You do not have permission to edit this user profile.</p>
-                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary">Back to Users</a>
+                    <p class="text-muted"><?php echo htmlspecialchars(t('manage.users.read_only_body'), ENT_QUOTES, 'UTF-8'); ?></p>
+                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary"><?php echo htmlspecialchars(t('manage.users.back_to_users'), ENT_QUOTES, 'UTF-8'); ?></a>
                 </div>
             </div>
             <?php endif; ?>
@@ -366,25 +374,25 @@ ldap_close($ldap_connection);
             <!-- User Details Display -->
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">User Details</h3>
+                    <h3 class="card-title"><?php echo htmlspecialchars(t('manage.users.details_title'), ENT_QUOTES, 'UTF-8'); ?></h3>
                 </div>
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-6">
                             <dl class="dl-horizontal">
-                                <dt>Account ID:</dt>
+                                <dt><?php echo htmlspecialchars(t('manage.common.account_id'), ENT_QUOTES, 'UTF-8'); ?>:</dt>
                                 <dd><?php echo htmlspecialchars(get_ldap_attribute($user_data, $LDAP['account_attribute'])); ?></dd>
                                 
-                                <dt>Display Name:</dt>
+                                <dt><?php echo htmlspecialchars(t('manage.common.display_name'), ENT_QUOTES, 'UTF-8'); ?>:</dt>
                                 <dd><?php echo htmlspecialchars(get_ldap_attribute($user_data, 'cn')); ?></dd>
                                 
-                                <dt>Given Name:</dt>
+                                <dt><?php echo htmlspecialchars(t('manage.common.first_name'), ENT_QUOTES, 'UTF-8'); ?>:</dt>
                                 <dd><?php echo htmlspecialchars(get_ldap_attribute($user_data, 'givenName')); ?></dd>
                                 
-                                <dt>Surname:</dt>
+                                <dt><?php echo htmlspecialchars(t('manage.common.last_name'), ENT_QUOTES, 'UTF-8'); ?>:</dt>
                                 <dd><?php echo htmlspecialchars(get_ldap_attribute($user_data, 'sn')); ?></dd>
                                 
-                                <dt>User Roles:</dt>
+                                <dt><?php echo htmlspecialchars(t('manage.common.roles'), ENT_QUOTES, 'UTF-8'); ?>:</dt>
                                 <dd>
                                     <?php
                                     // Get user's role memberships for display
@@ -392,7 +400,7 @@ ldap_close($ldap_connection);
                                     if (!empty($user_roles)) {
                                         echo htmlspecialchars(implode(', ', $user_roles));
                                     } else {
-                                        echo '<span class="text-muted">No roles assigned</span>';
+                                        echo '<span class="text-muted">' . htmlspecialchars(t('manage.users.no_roles_assigned'), ENT_QUOTES, 'UTF-8') . '</span>';
                                     }
                                     ?>
                                 </dd>
@@ -400,16 +408,16 @@ ldap_close($ldap_connection);
                         </div>
                         <div class="col-md-6">
                             <dl class="dl-horizontal">
-                                <dt>Email:</dt>
+                                <dt><?php echo htmlspecialchars(t('manage.common.email'), ENT_QUOTES, 'UTF-8'); ?>:</dt>
                                 <dd><?php echo htmlspecialchars(get_ldap_attribute($user_data, 'mail')); ?></dd>
                                 
-                                <dt>Phone:</dt>
+                                <dt><?php echo htmlspecialchars(t('manage.users.phone_number'), ENT_QUOTES, 'UTF-8'); ?>:</dt>
                                 <dd><?php echo htmlspecialchars(get_ldap_attribute($user_data, 'telephoneNumber')); ?></dd>
                                 
-                                <dt>Location:</dt>
-                                <dd><?php echo ucfirst($user_location); ?> User</dd>
+                                <dt><?php echo htmlspecialchars(t('manage.users.location'), ENT_QUOTES, 'UTF-8'); ?>:</dt>
+                                <dd><?php echo htmlspecialchars(t('manage.users.location_user', ['location' => ucfirst($user_location)]), ENT_QUOTES, 'UTF-8'); ?></dd>
                                 
-                                <dt>DN:</dt>
+                                <dt><?php echo htmlspecialchars(t('manage.users.dn'), ENT_QUOTES, 'UTF-8'); ?>:</dt>
                                 <dd><code><?php echo htmlspecialchars($user_data['dn']); ?></code></dd>
                             </dl>
                         </div>

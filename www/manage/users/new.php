@@ -14,10 +14,11 @@ get_csrf_token();
 set_page_access(["admin", "maintainer"]);
 
 $completed_action = "{$SERVER_PATH}manage/users/";
-$page_title = "New System User";
+$page_title = t('manage.users.new.page_title');
 $admin_setup = false;
 
-render_header("$ORGANISATION_NAME - New User Account");
+$orgName = (string) ($ORGANISATION_NAME ?? 'System');
+render_header(t('manage.users.new.header', ['org' => $orgName]));
 render_submenu();
 
 $invalid_password = false;
@@ -84,22 +85,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
 
     if (empty($new_account_r['mail'])) {
         $invalid_email = true;
-        $errors[] = "Email address is required and will be used as the account ID.";
+        $errors[] = t('manage.users.new.error.email_required');
     }
 
     if (empty($new_account_r['cn'])) {
         $invalid_cn = true;
-        $errors[] = "Common name is required.";
+        $errors[] = t('manage.users.new.error.common_name_required');
     }
 
     if (empty($new_account_r['givenName'])) {
         $invalid_givenname = true;
-        $errors[] = "Given name is required.";
+        $errors[] = t('manage.users.new.error.first_name_required');
     }
 
     if (empty($new_account_r['sn'])) {
         $invalid_sn = true;
-        $errors[] = "Surname is required.";
+        $errors[] = t('manage.users.new.error.last_name_required');
     }
 
     $send_password_set_link = isset($_POST['send_password_set_link']) && $_POST['send_password_set_link'] === 'on';
@@ -107,18 +108,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
         global $EMAIL_SENDING_ENABLED;
         if ($EMAIL_SENDING_ENABLED !== true || !is_password_reset_link_enabled()) {
             $errors[] = !is_password_reset_link_enabled()
-                ? "Password set links are disabled because PASSWORD_RESET_TOKEN_SECRET is not configured."
-                : "Email sending is not configured.";
+                ? t('manage.users.new.error.password_set_link_disabled_secret_missing')
+                : t('manage.users.new.error.email_sending_not_configured');
         }
     } else {
         if (empty($new_account_r['userPassword'])) {
             $invalid_password = true;
-            $errors[] = "Password is required.";
+            $errors[] = t('manage.users.new.error.password_required');
         }
 
         if (isset($new_account_r['userPassword']) && isset($_POST['confirm_password']) && $new_account_r['userPassword'] !== $_POST['confirm_password']) {
             $mismatched_passwords = true;
-            $errors[] = "Passwords do not match.";
+            $errors[] = t('manage.users.new.error.passwords_do_not_match');
         }
     }
 
@@ -126,7 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
 
     if (empty($new_account_r['userRole'])) {
         $invalid_user_role = true;
-        $errors[] = "User role is required.";
+        $errors[] = t('manage.users.new.error.role_required');
     }
 
   // Validate role permissions
@@ -139,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
 
         if (!in_array($new_account_r['userRole'], $available_user_roles)) {
             $invalid_user_role = true;
-            $errors[] = "You do not have permission to create users with this role.";
+            $errors[] = t('manage.users.new.error.role_not_permitted');
         }
     }
 
@@ -155,7 +156,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
 
         $result = createUserAccount($new_account_r);
         if ($result[0]) {
-            render_alert_banner('User account created successfully!', 'success', 10000);
+            render_alert_banner(t('manage.users.new.msg.created_ok'), 'success', 10000);
 
             if ($send_password_set_link) {
                 global $new_account_mail_subject, $new_account_mail_body, $EMAIL_SENDING_ENABLED;
@@ -186,10 +187,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
           // Clear form data
             $new_account_r = array();
         } else {
-            render_alert_banner('Error creating user account: ' . $result[1], 'danger', 10000);
+            render_alert_banner(t('manage.users.new.msg.created_fail', ['error' => $result[1]]), 'danger', 10000);
         }
     } else {
-        render_alert_banner('Please correct the following errors: ' . implode(', ', $errors), 'danger', 10000);
+        render_alert_banner(t('manage.users.new.msg.validation_failed', ['errors' => implode(', ', $errors)]), 'danger', 10000);
     }
 }
 
@@ -198,38 +199,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
 <div class="container">
     <div class="row">
         <div class="col-md-12">
-            <h2>Create New System User</h2>
+            <h2><?php echo htmlspecialchars(t('manage.users.new.heading'), ENT_QUOTES, 'UTF-8'); ?></h2>
             <div class="alert alert-info">
-                <strong>System User:</strong> This user will have system-wide access and will not be associated with any specific organization. 
-                System users can manage the entire system and all organizations.
+                <strong><?php echo htmlspecialchars(t('manage.users.new.system_user_title'), ENT_QUOTES, 'UTF-8'); ?></strong>
+                <?php echo htmlspecialchars(t('manage.users.new.system_user_body'), ENT_QUOTES, 'UTF-8'); ?>
             </div>
             
             <div class="card border-primary">
                 <div class="card-header bg-primary text-white">
-                    <h3 class="card-title">System User Information</h3>
+                    <h3 class="card-title"><?php echo htmlspecialchars(t('manage.users.new.card_title'), ENT_QUOTES, 'UTF-8'); ?></h3>
                 </div>
                 <div class="card-body">
                     <form method="post" action="" enctype="multipart/form-data" id="newUserForm">
                         <?php echo csrf_token_field(); ?>
                         
                         <!-- Account Information -->
-                        <h4>Account Information</h4>
+                        <h4><?php echo htmlspecialchars(t('manage.users.section.account_information'), ENT_QUOTES, 'UTF-8'); ?></h4>
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group <?php echo $invalid_email ? 'is-invalid' : ''; ?>">
-                                    <label for="mail">Email Address (Account ID) *</label>
+                                    <label for="mail"><?php echo htmlspecialchars(t('manage.users.new.email_account_id_label'), ENT_QUOTES, 'UTF-8'); ?> *</label>
                                     <input type="email" class="form-control" id="mail" name="mail" 
                                            value="<?php echo htmlspecialchars($new_account_r['mail'] ?? ''); ?>" required>
                                     <?php if ($invalid_email) : ?>
-                                        <span class="help-block">Valid email address is required and will be used as the account ID.</span>
+                                        <span class="help-block"><?php echo htmlspecialchars(t('manage.users.new.error.email_required'), ENT_QUOTES, 'UTF-8'); ?></span>
                                     <?php endif; ?>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group <?php echo $invalid_user_role ? 'is-invalid' : ''; ?>">
-                                    <label for="userRole">User Role *</label>
+                                    <label for="userRole"><?php echo htmlspecialchars(t('manage.users.new.user_role_label'), ENT_QUOTES, 'UTF-8'); ?> *</label>
                                     <select class="form-control" id="userRole" name="userRole" required>
-                                        <option value="">Select Role</option>
+                                        <option value=""><?php echo htmlspecialchars(t('manage.users.new.select_role'), ENT_QUOTES, 'UTF-8'); ?></option>
                                         <?php foreach ($available_user_roles as $role) : ?>
                                             <option value="<?php echo htmlspecialchars($role); ?>" <?php echo ($new_account_r['userRole'] ?? '') === $role ? 'selected' : ''; ?>>
                                                 <?php
@@ -244,32 +245,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
                                         <?php endforeach; ?>
                                     </select>
                                     <?php if ($invalid_user_role) : ?>
-                                        <span class="help-block">User role is required.</span>
+                                        <span class="help-block"><?php echo htmlspecialchars(t('manage.users.new.error.role_required'), ENT_QUOTES, 'UTF-8'); ?></span>
                                     <?php endif; ?>
                                 </div>
                             </div>
                         </div>
                         
                         <!-- Personal Information -->
-                        <h4>Personal Information</h4>
+                        <h4><?php echo htmlspecialchars(t('manage.users.section.personal_information'), ENT_QUOTES, 'UTF-8'); ?></h4>
                         <div class="row">
                             <div class="col-md-4">
                                 <div class="form-group <?php echo $invalid_givenname ? 'is-invalid' : ''; ?>">
-                                    <label for="givenName">Given Name *</label>
+                                    <label for="givenName"><?php echo htmlspecialchars(t('manage.common.first_name'), ENT_QUOTES, 'UTF-8'); ?> *</label>
                                     <input type="text" class="form-control" id="givenName" name="givenName" 
                                            value="<?php echo htmlspecialchars($new_account_r['givenName'] ?? ''); ?>" required>
                                     <?php if ($invalid_givenname) : ?>
-                                        <span class="help-block">Given name is required.</span>
+                                        <span class="help-block"><?php echo htmlspecialchars(t('manage.users.new.error.first_name_required'), ENT_QUOTES, 'UTF-8'); ?></span>
                                     <?php endif; ?>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="form-group <?php echo $invalid_sn ? 'is-invalid' : ''; ?>">
-                                    <label for="sn">Surname *</label>
+                                    <label for="sn"><?php echo htmlspecialchars(t('manage.common.last_name'), ENT_QUOTES, 'UTF-8'); ?> *</label>
                                     <input type="text" class="form-control" id="sn" name="sn" 
                                            value="<?php echo htmlspecialchars($new_account_r['sn'] ?? ''); ?>" required>
                                     <?php if ($invalid_sn) : ?>
-                                        <span class="help-block">Surname is required.</span>
+                                        <span class="help-block"><?php echo htmlspecialchars(t('manage.users.new.error.last_name_required'), ENT_QUOTES, 'UTF-8'); ?></span>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -286,11 +287,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
                         </div>
                         
                         <!-- Contact Information -->
-                        <h4>Contact Information</h4>
+                        <h4><?php echo htmlspecialchars(t('manage.users.section.contact_information'), ENT_QUOTES, 'UTF-8'); ?></h4>
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label for="telephoneNumber">Phone Number</label>
+                                    <label for="telephoneNumber"><?php echo htmlspecialchars(t('manage.users.phone_number'), ENT_QUOTES, 'UTF-8'); ?></label>
                                     <input type="tel" class="form-control" id="telephoneNumber" name="telephoneNumber" 
                                            value="<?php echo htmlspecialchars($new_account_r['telephoneNumber'] ?? ''); ?>">
                                 </div>
@@ -300,23 +301,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
 
                         
                         <!-- Security -->
-                        <h4>Security</h4>
+                        <h4><?php echo htmlspecialchars(t('manage.users.new.section.security'), ENT_QUOTES, 'UTF-8'); ?></h4>
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group <?php echo $invalid_password ? 'is-invalid' : ''; ?>">
-                                    <label for="userPassword">Password *</label>
+                                    <label for="userPassword"><?php echo htmlspecialchars(t('login.password_label'), ENT_QUOTES, 'UTF-8'); ?> *</label>
                                     <input type="password" class="form-control" id="userPassword" name="userPassword" required>
                                     <?php if ($invalid_password) : ?>
-                                        <span class="help-block">Password is required.</span>
+                                        <span class="help-block"><?php echo htmlspecialchars(t('manage.users.new.error.password_required'), ENT_QUOTES, 'UTF-8'); ?></span>
                                     <?php endif; ?>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group <?php echo $mismatched_passwords ? 'is-invalid' : ''; ?>">
-                                    <label for="confirm_password">Confirm Password *</label>
+                                    <label for="confirm_password"><?php echo htmlspecialchars(t('manage.users.new.confirm_password_label'), ENT_QUOTES, 'UTF-8'); ?> *</label>
                                     <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
                                     <?php if ($mismatched_passwords) : ?>
-                                        <span class="help-block">Passwords do not match.</span>
+                                        <span class="help-block"><?php echo htmlspecialchars(t('manage.users.new.error.passwords_do_not_match'), ENT_QUOTES, 'UTF-8'); ?></span>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -332,14 +333,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
                             </div>
                             <?php if (!is_password_reset_link_enabled()) : ?>
                                 <div class="alert alert-warning mt-2 mb-0">
-                                    Password set links are disabled because <code>PASSWORD_RESET_TOKEN_SECRET</code> is not configured.
+                                    <?php echo htmlspecialchars(t('manage.users.new.password_set_link_disabled_help'), ENT_QUOTES, 'UTF-8'); ?>
                                 </div>
                             <?php endif; ?>
                         <?php endif; ?>
                         
                         <!-- Additional Attributes -->
                         <?php if (isset($LDAP['account_additional_attributes'])) : ?>
-                        <h4>Additional Information</h4>
+                        <h4><?php echo htmlspecialchars(t('manage.users.section.additional_information'), ENT_QUOTES, 'UTF-8'); ?></h4>
                         <div class="row">
                             <?php foreach ($LDAP['account_additional_attributes'] as $attr_name => $attr_config) : ?>
                                 <div class="col-md-6">
@@ -358,8 +359,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
                         <?php endif; ?>
                         
                         <div class="form-group">
-                            <button type="submit" name="create_account" class="btn btn-success">Create User Account</button>
-                            <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" name="create_account" class="btn btn-success"><?php echo htmlspecialchars(t('manage.users.new.create_account_submit'), ENT_QUOTES, 'UTF-8'); ?></button>
+                            <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary"><?php echo htmlspecialchars(t('manage.common.cancel'), ENT_QUOTES, 'UTF-8'); ?></a>
                         </div>
                     </form>
                 </div>
