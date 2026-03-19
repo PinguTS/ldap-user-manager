@@ -102,4 +102,44 @@ final class I18nTest extends TestCase
             @rmdir($dir);
         }
     }
+
+    public function testResolveLocalePrefersExplicitOverride(): void
+    {
+        $available = ['en', 'de', 'fr'];
+        $resolved = lum_i18n_resolve_locale($available, 'fr', 'de', 'en-US,en;q=0.9');
+        self::assertSame('fr', $resolved);
+    }
+
+    public function testResolveLocaleFallsBackToPersistedPreference(): void
+    {
+        $available = ['en', 'de', 'fr'];
+        $resolved = lum_i18n_resolve_locale($available, null, 'de', 'fr-CH,fr;q=0.8');
+        self::assertSame('de', $resolved);
+    }
+
+    public function testResolveLocaleFallsBackToAcceptLanguage(): void
+    {
+        $available = ['en', 'de', 'fr'];
+        $resolved = lum_i18n_resolve_locale($available, null, null, 'fr-CH,fr;q=0.8,en;q=0.6');
+        self::assertSame('fr', $resolved);
+    }
+
+    public function testResolveLocaleInvalidValuesUseFallback(): void
+    {
+        $available = ['en', 'de'];
+        $resolved = lum_i18n_resolve_locale($available, '../../etc/passwd', 'xx', 'de-DE,de;q=0.9');
+        self::assertSame('de', $resolved);
+    }
+
+    public function testLocaleOptionsUseAvailableLocalesOnly(): void
+    {
+        $options = lum_i18n_locale_options(['en', 'de']);
+        self::assertCount(2, $options);
+        self::assertSame('en', $options[0]['code']);
+        self::assertSame('English', $options[0]['native']);
+        self::assertSame('en.svg', $options[0]['flag']);
+        self::assertSame('de', $options[1]['code']);
+        self::assertSame('Deutsch', $options[1]['native']);
+        self::assertSame('de.svg', $options[1]['flag']);
+    }
 }

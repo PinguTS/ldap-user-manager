@@ -277,15 +277,17 @@ render_header(t('login.page_title', ['org' => $ORGANISATION_NAME]));
    </div>
    <?php } ?>
 
+   <?php render_language_chooser_inline(); ?>
+
    <?php if (isset($display_unauth)) { ?>
    <div class="alert alert-warning">
-    <?php echo htmlspecialchars(t('login.please_log_in'), ENT_QUOTES, 'UTF-8'); ?>
+        <?php echo htmlspecialchars(t('login.please_log_in'), ENT_QUOTES, 'UTF-8'); ?>
    </div>
    <?php } ?>
 
    <?php if (isset($display_logged_out)) { ?>
    <div class="alert alert-warning">
-    <?php echo htmlspecialchars(t('login.session_expired'), ENT_QUOTES, 'UTF-8'); ?>
+        <?php echo htmlspecialchars(t('login.session_expired'), ENT_QUOTES, 'UTF-8'); ?>
    </div>
    <?php } ?>
 

@@ -46,7 +46,7 @@ if ($_POST) {
 
     if (count($error_messages) > 0) { ?>
     <div class="alert alert-danger" role="alert">
-    <?php echo htmlspecialchars(t('account.request.errors_intro'), ENT_QUOTES, 'UTF-8'); ?>
+        <?php echo htmlspecialchars(t('account.request.errors_intro'), ENT_QUOTES, 'UTF-8'); ?>
     <p>
     <ul>
         <?php

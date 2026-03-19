@@ -54,7 +54,77 @@ if (
 include_once __DIR__ . "/config.inc.php";
 include_once __DIR__ . "/modules.inc.php";
 include_once __DIR__ . "/i18n.inc.php";
-lum_i18n_bootstrap();
+
+/**
+ * Remove one query parameter from URL and return relative app path/query.
+ */
+function lum_remove_query_param_from_request_uri(string $paramName): string
+{
+    $uri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
+    $parts = parse_url($uri);
+    $path = (string) ($parts['path'] ?? '/');
+    $query = (string) ($parts['query'] ?? '');
+
+    if ($query === '') {
+        return $path;
+    }
+
+    parse_str($query, $params);
+    unset($params[$paramName]);
+    $newQuery = http_build_query($params);
+    return $newQuery === '' ? $path : ($path . '?' . $newQuery);
+}
+
+/**
+ * Apply language request/cookie and bootstrap i18n with proper precedence.
+ */
+function lum_i18n_init_from_request(): void
+{
+    global $SERVER_PATH, $NO_HTTPS;
+
+    $cookieName = 'lum_lang';
+    $dir = __DIR__ . '/../locales';
+    $available = lum_i18n_discover_locales($dir);
+
+    $requestedRaw = isset($_GET['lang']) ? (string) $_GET['lang'] : null;
+    $requested = lum_i18n_normalize_locale((string) $requestedRaw);
+    $cookieLocaleRaw = isset($_COOKIE[$cookieName]) ? (string) $_COOKIE[$cookieName] : null;
+    $cookieLocale = lum_i18n_normalize_locale((string) $cookieLocaleRaw);
+
+    $validRequested = ($requested !== '' && lum_i18n_is_available_locale($requested, $available));
+    $validCookieLocale = ($cookieLocale !== '' && lum_i18n_is_available_locale($cookieLocale, $available))
+        ? $cookieLocale
+        : null;
+
+    lum_i18n_bootstrap(
+        null,
+        $dir,
+        $validRequested ? $requested : null,
+        $validCookieLocale
+    );
+
+    if ($requestedRaw !== null && $validRequested) {
+        $cookiePath = (rtrim((string) ($SERVER_PATH ?? '/'), '/') === '') ? '/' : rtrim((string) $SERVER_PATH, '/');
+        setcookie(
+            $cookieName,
+            $requested,
+            [
+                'expires' => time() + (86400 * 365),
+                'path' => $cookiePath,
+                'domain' => '',
+                'secure' => $NO_HTTPS ? false : true,
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]
+        );
+
+        $cleanUri = lum_remove_query_param_from_request_uri('lang');
+        header('Location: ' . $cleanUri);
+        exit;
+    }
+}
+
+lum_i18n_init_from_request();
 
 // When this file is included from inside a function (e.g. bootstrap_manage()), config vars are in global scope
 global $SERVER_PATH, $SESSION_TIMEOUT, $NO_HTTPS, $REMOTE_HTTP_HEADERS_LOGIN, $COOKIE_PATH, $THIS_MODULE_PATH, $DEFAULT_COOKIE_OPTIONS;
@@ -836,12 +906,79 @@ function render_menu()
         ?>
      </ul>
      <ul class="navbar-nav">
+      <li class="nav-item dropdown me-3">
+        <?php
+            $assetBase = get_asset_base();
+            $currentLocale = lum_current_locale();
+            $localeOptions = lum_i18n_locale_options();
+            $currentFlag = $currentLocale . '.svg';
+            $currentNative = strtoupper($currentLocale);
+        foreach ($localeOptions as $option) {
+            if ($option['code'] === $currentLocale) {
+                $currentFlag = $option['flag'];
+                $currentNative = $option['native'];
+                break;
+            }
+        }
+        ?>
+        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="langChooser" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <img src="<?php echo htmlspecialchars($assetBase . 'flags/' . $currentFlag, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?>" alt="" width="18" height="12" class="me-2 border rounded-1">
+            <span><?php echo htmlspecialchars($currentNative, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?></span>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="langChooser">
+            <?php foreach ($localeOptions as $option) { ?>
+                <li>
+                    <a class="dropdown-item d-flex align-items-center" href="<?php echo htmlspecialchars(lum_build_language_switch_url($option['code']), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?>">
+                        <img src="<?php echo htmlspecialchars($assetBase . 'flags/' . $option['flag'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?>" alt="" width="18" height="12" class="me-2 border rounded-1">
+                        <span><?php echo htmlspecialchars($option['native'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?></span>
+                    </a>
+                </li>
+            <?php } ?>
+        </ul>
+      </li>
       <li class="nav-item"><span class="navbar-text"><?php if (isset($USER_ID)) {
             print htmlspecialchars($USER_DISPLAY_NAME !== null && $USER_DISPLAY_NAME !== '' ? $USER_DISPLAY_NAME : $USER_ID);
                                                      } ?></span></li>
      </ul>
    </div>
   </nav>
+    <?php
+}
+
+/**
+ * Build relative URL for switching language while preserving current query params.
+ */
+function lum_build_language_switch_url(string $locale): string
+{
+    $uri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
+    $parts = parse_url($uri);
+    $path = (string) ($parts['path'] ?? '/');
+    $query = (string) ($parts['query'] ?? '');
+    $params = [];
+    if ($query !== '') {
+        parse_str($query, $params);
+    }
+    $params['lang'] = $locale;
+    $newQuery = http_build_query($params);
+    return $newQuery === '' ? $path : ($path . '?' . $newQuery);
+}
+
+/**
+ * Render language chooser block for pages without navbar usage.
+ */
+function render_language_chooser_inline(): void
+{
+    $assetBase = get_asset_base();
+    $localeOptions = lum_i18n_locale_options();
+    ?>
+<div class="text-center mb-3">
+    <?php foreach ($localeOptions as $option) { ?>
+        <a class="btn btn-sm btn-outline-secondary me-1 mb-1 d-inline-flex align-items-center" href="<?php echo htmlspecialchars(lum_build_language_switch_url($option['code']), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?>">
+            <img src="<?php echo htmlspecialchars($assetBase . 'flags/' . $option['flag'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?>" alt="" width="18" height="12" class="me-2 border rounded-1">
+            <span><?php echo htmlspecialchars($option['native'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?></span>
+        </a>
+    <?php } ?>
+</div>
     <?php
 }
 

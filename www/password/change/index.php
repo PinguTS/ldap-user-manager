@@ -54,9 +54,9 @@ render_header(t('password.change.page_title', ['org' => $ORGANISATION_NAME]));
 if (isset($not_strong_enough)) {  ?>
 <div class="alert alert-warning">
  <p class="text-center">
-   <?php echo htmlspecialchars(t('password.change.weak'), ENT_QUOTES, 'UTF-8'); ?>
+    <?php echo htmlspecialchars(t('password.change.weak'), ENT_QUOTES, 'UTF-8'); ?>
     <?php if (isset($_POST['pass_score'])) : ?>
-     <?php echo htmlspecialchars(t('password.change.score_help', ['score' => (string) $_POST['pass_score'], 'min' => (string) $PASSWORD_STRENGTH_MIN_SCORE]), ENT_QUOTES, 'UTF-8'); ?>
+        <?php echo htmlspecialchars(t('password.change.score_help', ['score' => (string) $_POST['pass_score'], 'min' => (string) $PASSWORD_STRENGTH_MIN_SCORE]), ENT_QUOTES, 'UTF-8'); ?>
     <?php endif; ?>
  </p>
 </div>

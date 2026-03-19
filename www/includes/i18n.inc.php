@@ -10,6 +10,31 @@ $GLOBALS['lum_i18n_messages'] = [];
 $GLOBALS['lum_i18n_locale'] = 'en';
 
 /**
+ * Native display names and flag asset filenames by locale code.
+ *
+ * @return array<string, array{native: string, flag: string}>
+ */
+function lum_i18n_locale_catalog(): array
+{
+    return [
+        'da' => ['native' => 'Dansk', 'flag' => 'da.svg'],
+        'de' => ['native' => 'Deutsch', 'flag' => 'de.svg'],
+        'en' => ['native' => 'English', 'flag' => 'en.svg'],
+        'es' => ['native' => 'Español', 'flag' => 'es.svg'],
+        'fr' => ['native' => 'Français', 'flag' => 'fr.svg'],
+        'hi' => ['native' => 'हिन्दी', 'flag' => 'hi.svg'],
+        'it' => ['native' => 'Italiano', 'flag' => 'it.svg'],
+        'ja' => ['native' => '日本語', 'flag' => 'ja.svg'],
+        'ko' => ['native' => '한국어', 'flag' => 'ko.svg'],
+        'nb' => ['native' => 'Norsk bokmål', 'flag' => 'nb.svg'],
+        'nl' => ['native' => 'Nederlands', 'flag' => 'nl.svg'],
+        'no' => ['native' => 'Norsk', 'flag' => 'no.svg'],
+        'sv' => ['native' => 'Svenska', 'flag' => 'sv.svg'],
+        'zh' => ['native' => '中文', 'flag' => 'zh.svg'],
+    ];
+}
+
+/**
  * Parse Accept-Language into primary language codes, highest q first, each code once.
  *
  * @return list<string> e.g. ['de', 'en']
@@ -83,6 +108,24 @@ function lum_i18n_discover_locales(string $dir): array
     return in_array('en', $out, true) ? $out : array_merge(['en'], $out);
 }
 
+function lum_i18n_normalize_locale(string $raw): string
+{
+    $normalized = strtolower(trim($raw));
+    $normalized = str_replace('_', '-', $normalized);
+    if (!preg_match('/^[a-z]{2}(-[a-z0-9]+)?$/', $normalized)) {
+        return '';
+    }
+    return $normalized;
+}
+
+/**
+ * @param list<string> $available
+ */
+function lum_i18n_is_available_locale(string $code, array $available): bool
+{
+    return in_array(lum_i18n_normalize_locale($code), $available, true);
+}
+
 /**
  * First preferred language that exists in $available; otherwise English if present.
  *
@@ -100,6 +143,32 @@ function lum_i18n_pick_locale(array $preferredOrder, array $available): string
     }
 
     return isset($set['en']) ? 'en' : (string) ($available[0] ?? 'en');
+}
+
+/**
+ * Resolve locale by precedence:
+ * explicit override -> persisted preference -> Accept-Language -> English fallback.
+ *
+ * @param list<string> $available
+ */
+function lum_i18n_resolve_locale(
+    array $available,
+    ?string $explicitLocaleOverride = null,
+    ?string $persistedLocalePreference = null,
+    ?string $acceptLanguageHeader = null
+): string {
+    $explicit = lum_i18n_normalize_locale((string) $explicitLocaleOverride);
+    if ($explicit !== '' && lum_i18n_is_available_locale($explicit, $available)) {
+        return $explicit;
+    }
+
+    $persisted = lum_i18n_normalize_locale((string) $persistedLocalePreference);
+    if ($persisted !== '' && lum_i18n_is_available_locale($persisted, $available)) {
+        return $persisted;
+    }
+
+    $preferred = lum_parse_accept_language((string) $acceptLanguageHeader);
+    return lum_i18n_pick_locale($preferred, $available);
 }
 
 /**
@@ -133,15 +202,18 @@ function lum_i18n_load_json_file(string $path): array
  *
  * @param string|null $localesDirectory Absolute path; default www/locales. Tests may pass a temp dir.
  */
-function lum_i18n_bootstrap(?string $acceptLanguageOverride = null, ?string $localesDirectory = null): void
-{
+function lum_i18n_bootstrap(
+    ?string $acceptLanguageOverride = null,
+    ?string $localesDirectory = null,
+    ?string $explicitLocaleOverride = null,
+    ?string $persistedLocalePreference = null
+): void {
     global $lum_i18n_messages, $lum_i18n_locale;
 
     $dir = $localesDirectory ?? (__DIR__ . '/../locales');
     $available = lum_i18n_discover_locales($dir);
     $header = $acceptLanguageOverride ?? (string) ($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '');
-    $preferred = lum_parse_accept_language($header);
-    $chosen = lum_i18n_pick_locale($preferred, $available);
+    $chosen = lum_i18n_resolve_locale($available, $explicitLocaleOverride, $persistedLocalePreference, $header);
 
     $enPath = $dir . '/en.json';
     $messages = lum_i18n_load_json_file($enPath);
@@ -154,6 +226,30 @@ function lum_i18n_bootstrap(?string $acceptLanguageOverride = null, ?string $loc
 
     $lum_i18n_messages = $messages;
     $lum_i18n_locale = $chosen;
+}
+
+/**
+ * Locale options for chooser UI.
+ *
+ * @param list<string>|null $availableLocales
+ * @return list<array{code: string, native: string, flag: string}>
+ */
+function lum_i18n_locale_options(?array $availableLocales = null): array
+{
+    $dir = __DIR__ . '/../locales';
+    $available = $availableLocales ?? lum_i18n_discover_locales($dir);
+    $catalog = lum_i18n_locale_catalog();
+    $options = [];
+    foreach ($available as $code) {
+        $meta = $catalog[$code] ?? ['native' => strtoupper($code), 'flag' => $code . '.svg'];
+        $options[] = [
+            'code' => $code,
+            'native' => $meta['native'],
+            'flag' => $meta['flag'],
+        ];
+    }
+
+    return $options;
 }
 
 /**

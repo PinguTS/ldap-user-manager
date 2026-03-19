@@ -479,13 +479,13 @@ if ($orgExists) {
         <th><?php echo htmlspecialchars(t('manage.orgs.show.membership_header'), ENT_QUOTES, 'UTF-8'); ?></th>
         <td>
          <?php if ($is_member_org) {
-               ?><span class="badge bg-primary"><?php echo htmlspecialchars(t('manage.orgs.show.badge_member'), ENT_QUOTES, 'UTF-8'); ?></span><?php
+                ?><span class="badge bg-primary"><?php echo htmlspecialchars(t('manage.orgs.show.badge_member'), ENT_QUOTES, 'UTF-8'); ?></span><?php
          } ?>
          <?php if ($is_disabled_org) {
-               ?><span class="badge bg-danger"><?php echo htmlspecialchars(t('manage.orgs.show.badge_disabled'), ENT_QUOTES, 'UTF-8'); ?></span><?php
+                ?><span class="badge bg-danger"><?php echo htmlspecialchars(t('manage.orgs.show.badge_disabled'), ENT_QUOTES, 'UTF-8'); ?></span><?php
          } ?>
          <?php if (!$is_member_org && !$is_disabled_org) {
-               ?><em><?php echo htmlspecialchars(t('manage.orgs.show.em_dash'), ENT_QUOTES, 'UTF-8'); ?></em><?php
+                ?><em><?php echo htmlspecialchars(t('manage.orgs.show.em_dash'), ENT_QUOTES, 'UTF-8'); ?></em><?php
          } ?>
         </td>
        </tr>
@@ -637,7 +637,7 @@ if ($orgExists) {
                         <?php endif; ?>
                     </div>
           <?php if (count($org_users) > 5) { ?>
-        <?php $shown_users_count = min(5, count($org_users)); ?>
+                <?php $shown_users_count = min(5, count($org_users)); ?>
         <p><em><?php echo htmlspecialchars(t('manage.orgs.show.showing_users_summary', ['shown' => (string) $shown_users_count, 'total' => (string) count($org_users)]), ENT_QUOTES, 'UTF-8'); ?>
             <a href="<?php print $THIS_MODULE_PATH; ?>/org_users.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>"><?php echo htmlspecialchars(t('manage.orgs.show.view_all_users'), ENT_QUOTES, 'UTF-8'); ?></a>
         </em></p>
