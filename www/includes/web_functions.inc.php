@@ -1007,6 +1007,9 @@ function render_footer()
 #Finish rendering an HTML page.
 
     ?>
+ <footer class="mt-4 mb-3">
+  <p class="text-center mb-0">Made with &#10084;&#65039; and help by &#129302;.</p>
+ </footer>
  </BODY>
 </html>
     <?php
