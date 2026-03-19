@@ -506,6 +506,11 @@ after_add_user:
 // Handle delete user
 if (isset($_GET['delete_user'])) {
     $deleteUserParam = $_GET['delete_user'];
+    if (!currentUserCanDisableUser($deleteUserParam)) {
+        $message = t('manage.users.msg.permission_denied_invalid_user');
+        $message_type = 'danger';
+        goto after_delete_user;
+    }
 
     // Check if this is a UUID or uid
     $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $deleteUserParam);

@@ -38,6 +38,168 @@ function buildPostalAddress(string $street, string $zip, string $city, string $c
 }
 
 /**
+ * ISO 3166-1 alpha-2 country picker options (code => display name).
+ *
+ * @return array<string, string>
+ */
+function getCountryOptions(): array
+{
+    return [
+        'AF' => 'Afghanistan', 'AL' => 'Albania', 'DZ' => 'Algeria', 'AD' => 'Andorra', 'AO' => 'Angola',
+        'AG' => 'Antigua and Barbuda', 'AR' => 'Argentina', 'AM' => 'Armenia', 'AU' => 'Australia', 'AT' => 'Austria',
+        'AZ' => 'Azerbaijan', 'BS' => 'Bahamas', 'BH' => 'Bahrain', 'BD' => 'Bangladesh', 'BB' => 'Barbados',
+        'BY' => 'Belarus', 'BE' => 'Belgium', 'BZ' => 'Belize', 'BJ' => 'Benin', 'BT' => 'Bhutan',
+        'BO' => 'Bolivia', 'BA' => 'Bosnia and Herzegovina', 'BW' => 'Botswana', 'BR' => 'Brazil', 'BN' => 'Brunei',
+        'BG' => 'Bulgaria', 'BF' => 'Burkina Faso', 'BI' => 'Burundi', 'CV' => 'Cabo Verde', 'KH' => 'Cambodia',
+        'CM' => 'Cameroon', 'CA' => 'Canada', 'CF' => 'Central African Republic', 'TD' => 'Chad', 'CL' => 'Chile',
+        'CN' => 'China', 'CO' => 'Colombia', 'KM' => 'Comoros', 'CG' => 'Congo', 'CR' => 'Costa Rica',
+        'CI' => 'Cote d\'Ivoire', 'HR' => 'Croatia', 'CU' => 'Cuba', 'CY' => 'Cyprus', 'CZ' => 'Czechia',
+        'CD' => 'Democratic Republic of the Congo', 'DK' => 'Denmark', 'DJ' => 'Djibouti', 'DM' => 'Dominica',
+        'DO' => 'Dominican Republic', 'EC' => 'Ecuador', 'EG' => 'Egypt', 'SV' => 'El Salvador',
+        'GQ' => 'Equatorial Guinea', 'ER' => 'Eritrea', 'EE' => 'Estonia', 'SZ' => 'Eswatini', 'ET' => 'Ethiopia',
+        'FJ' => 'Fiji', 'FI' => 'Finland', 'FR' => 'France', 'GA' => 'Gabon', 'GM' => 'Gambia',
+        'GE' => 'Georgia', 'DE' => 'Germany', 'GH' => 'Ghana', 'GR' => 'Greece', 'GD' => 'Grenada',
+        'GT' => 'Guatemala', 'GN' => 'Guinea', 'GW' => 'Guinea-Bissau', 'GY' => 'Guyana', 'HT' => 'Haiti',
+        'HN' => 'Honduras', 'HU' => 'Hungary', 'IS' => 'Iceland', 'IN' => 'India', 'ID' => 'Indonesia',
+        'IR' => 'Iran', 'IQ' => 'Iraq', 'IE' => 'Ireland', 'IL' => 'Israel', 'IT' => 'Italy',
+        'JM' => 'Jamaica', 'JP' => 'Japan', 'JO' => 'Jordan', 'KZ' => 'Kazakhstan', 'KE' => 'Kenya',
+        'KI' => 'Kiribati', 'KW' => 'Kuwait', 'KG' => 'Kyrgyzstan', 'LA' => 'Laos', 'LV' => 'Latvia',
+        'LB' => 'Lebanon', 'LS' => 'Lesotho', 'LR' => 'Liberia', 'LY' => 'Libya', 'LI' => 'Liechtenstein',
+        'LT' => 'Lithuania', 'LU' => 'Luxembourg', 'MG' => 'Madagascar', 'MW' => 'Malawi', 'MY' => 'Malaysia',
+        'MV' => 'Maldives', 'ML' => 'Mali', 'MT' => 'Malta', 'MH' => 'Marshall Islands', 'MR' => 'Mauritania',
+        'MU' => 'Mauritius', 'MX' => 'Mexico', 'FM' => 'Micronesia', 'MD' => 'Moldova', 'MC' => 'Monaco',
+        'MN' => 'Mongolia', 'ME' => 'Montenegro', 'MA' => 'Morocco', 'MZ' => 'Mozambique', 'MM' => 'Myanmar',
+        'NA' => 'Namibia', 'NR' => 'Nauru', 'NP' => 'Nepal', 'NL' => 'Netherlands', 'NZ' => 'New Zealand',
+        'NI' => 'Nicaragua', 'NE' => 'Niger', 'NG' => 'Nigeria', 'KP' => 'North Korea', 'MK' => 'North Macedonia',
+        'NO' => 'Norway', 'OM' => 'Oman', 'PK' => 'Pakistan', 'PW' => 'Palau', 'PA' => 'Panama',
+        'PG' => 'Papua New Guinea', 'PY' => 'Paraguay', 'PE' => 'Peru', 'PH' => 'Philippines', 'PL' => 'Poland',
+        'PT' => 'Portugal', 'QA' => 'Qatar', 'RO' => 'Romania', 'RU' => 'Russia', 'RW' => 'Rwanda',
+        'KN' => 'Saint Kitts and Nevis', 'LC' => 'Saint Lucia', 'VC' => 'Saint Vincent and the Grenadines',
+        'WS' => 'Samoa', 'SM' => 'San Marino', 'ST' => 'Sao Tome and Principe', 'SA' => 'Saudi Arabia',
+        'SN' => 'Senegal', 'RS' => 'Serbia', 'SC' => 'Seychelles', 'SL' => 'Sierra Leone', 'SG' => 'Singapore',
+        'SK' => 'Slovakia', 'SI' => 'Slovenia', 'SB' => 'Solomon Islands', 'SO' => 'Somalia', 'ZA' => 'South Africa',
+        'KR' => 'South Korea', 'SS' => 'South Sudan', 'ES' => 'Spain', 'LK' => 'Sri Lanka', 'SD' => 'Sudan',
+        'SR' => 'Suriname', 'SE' => 'Sweden', 'CH' => 'Switzerland', 'SY' => 'Syria', 'TJ' => 'Tajikistan',
+        'TZ' => 'Tanzania', 'TH' => 'Thailand', 'TL' => 'Timor-Leste', 'TG' => 'Togo', 'TO' => 'Tonga',
+        'TT' => 'Trinidad and Tobago', 'TN' => 'Tunisia', 'TR' => 'Turkey', 'TM' => 'Turkmenistan', 'TV' => 'Tuvalu',
+        'UG' => 'Uganda', 'UA' => 'Ukraine', 'AE' => 'United Arab Emirates', 'GB' => 'United Kingdom',
+        'US' => 'United States', 'UY' => 'Uruguay', 'UZ' => 'Uzbekistan', 'VU' => 'Vanuatu',
+        'VA' => 'Vatican City', 'VE' => 'Venezuela', 'VN' => 'Vietnam', 'YE' => 'Yemen', 'ZM' => 'Zambia',
+        'ZW' => 'Zimbabwe',
+    ];
+}
+
+/**
+ * Return a localized country name for an ISO 3166-1 alpha-2 code.
+ * Falls back to the built-in English label when intl is unavailable.
+ */
+function getLocalizedCountryName(string $countryCode): string
+{
+    $code = strtoupper(trim($countryCode));
+    $fallback = getCountryOptions()[$code] ?? $code;
+
+    if ($code === '') {
+        return '';
+    }
+
+    if (!class_exists('Locale')) {
+        return $fallback;
+    }
+
+    $locale = function_exists('lum_current_locale') ? (string) lum_current_locale() : 'en';
+    $locale = str_replace('-', '_', $locale);
+
+    $localized = Locale::getDisplayRegion('-' . $code, $locale);
+    if (!is_string($localized) || trim($localized) === '') {
+        return $fallback;
+    }
+
+    return $localized;
+}
+
+/**
+ * ISO country picker options localized to active UI language.
+ *
+ * @return array<string, string>
+ */
+function getLocalizedCountryOptions(): array
+{
+    $out = [];
+    foreach (getCountryOptions() as $code => $name) {
+        $out[$code] = getLocalizedCountryName($code) ?: $name;
+    }
+    return $out;
+}
+
+/**
+ * Decode membership metadata stored in LDAP's `documentIdentifier` attribute.
+ *
+ * Expected (app-encoded) values:
+ * - `ref:<memberNumber>`
+ * - `validFrom:<YYYY-MM-DD>`
+ * - `validUntil:<YYYY-MM-DD>`
+ *
+ * @param array<int|string, string> $documentIdentifiers Values of `documentIdentifier`
+ * @return array{memberNumber: string, memberSince: string, memberUntil: string}
+ */
+function parseDocumentIdentifierMembership(array $documentIdentifiers): array
+{
+    $memberNumber = '';
+    $memberSince = '';
+    $memberUntil = '';
+
+    foreach ($documentIdentifiers as $raw) {
+        $val = trim((string) $raw);
+        if ($val === '') {
+            continue;
+        }
+        if (str_starts_with($val, 'ref:')) {
+            $memberNumber = trim(substr($val, 4));
+        } elseif (str_starts_with($val, 'validFrom:')) {
+            $memberSince = trim(substr($val, strlen('validFrom:')));
+        } elseif (str_starts_with($val, 'validUntil:')) {
+            $memberUntil = trim(substr($val, strlen('validUntil:')));
+        }
+    }
+
+    return [
+        'memberNumber' => $memberNumber,
+        'memberSince' => $memberSince,
+        'memberUntil' => $memberUntil,
+    ];
+}
+
+/**
+ * Encode membership metadata into values for LDAP's `documentIdentifier`.
+ *
+ * @param string|null $memberNumber
+ * @param string|null $memberSince
+ * @param string|null $memberUntil
+ * @return array<int, string>
+ */
+function buildDocumentIdentifierMembership(?string $memberNumber, ?string $memberSince, ?string $memberUntil = null): array
+{
+    $vals = [];
+
+    $mn = trim((string) ($memberNumber ?? ''));
+    if ($mn !== '') {
+        $vals[] = 'ref:' . $mn;
+    }
+
+    $ms = trim((string) ($memberSince ?? ''));
+    if ($ms !== '') {
+        $vals[] = 'validFrom:' . $ms;
+    }
+
+    $mu = trim((string) ($memberUntil ?? ''));
+    if ($mu !== '') {
+        $vals[] = 'validUntil:' . $mu;
+    }
+
+    return $vals;
+}
+
+/**
  * Resolve organization from request parameters (uuid or org).
  * Uses $_GET['uuid'] or $_GET['org']; opens/closes LDAP when resolving by UUID.
  *
@@ -118,6 +280,23 @@ function createOrganization($orgData)
 
     // Add the organization name (required)
     $orgEntry['o'] = $orgData['o'];
+
+    // Membership metadata:
+    // Persist member number / since information via LDAP's `documentIdentifier` attribute.
+    // The app encodes values as:
+    // - `ref:<memberNumber>`
+    // - `validFrom:<memberSince>` (YYYY-MM-DD)
+    if (isset($orgData['memberNumber']) || isset($orgData['memberSince']) || isset($orgData['memberUntil'])) {
+        $docVals = buildDocumentIdentifierMembership(
+            $orgData['memberNumber'] ?? null,
+            $orgData['memberSince'] ?? null,
+            $orgData['memberUntil'] ?? null
+        );
+        if (!empty($docVals)) {
+            $orgEntry['documentIdentifier'] = $docVals;
+        }
+        unset($orgData['memberNumber'], $orgData['memberSince'], $orgData['memberUntil']);
+    }
 
     // Add optional fields that are present in the input data
     foreach ($LDAP['org_optional_fields'] as $ldap_attr) {
@@ -402,6 +581,31 @@ function updateOrganization($orgIdentifier, $orgData)
     } else {
         // Get error message before closing the connection
         $error_msg = ldap_error($ldap);
+        if (stripos((string) $error_msg, 'Undefined attribute type') !== false) {
+            $successful_attrs = [];
+            $failed_attrs = [];
+            foreach ($modifications as $attr => $value) {
+                $single_mod = [$attr => $value];
+                $single_ok = @ldap_modify($ldap, $org_dn, $single_mod);
+                if ($single_ok) {
+                    $successful_attrs[] = $attr;
+                    continue;
+                }
+                $failed_attrs[$attr] = ldap_error($ldap);
+            }
+
+            $non_schema_failures = [];
+            foreach ($failed_attrs as $attr => $single_error) {
+                if (stripos((string) $single_error, 'Undefined attribute type') === false) {
+                    $non_schema_failures[$attr] = $single_error;
+                }
+            }
+
+            if (!empty($successful_attrs) && empty($non_schema_failures)) {
+                ldap_close($ldap);
+                return true;
+            }
+        }
         ldap_close($ldap);
         error_log("updateOrganization: Failed to update organization $orgIdentifier: " . $error_msg);
         return false;

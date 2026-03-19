@@ -166,21 +166,16 @@ if (isset($_POST['action']) && ($_POST['action'] === 'member_organization' || $_
 
 // Handle organization updates
 if (isset($_POST['update_organization'])) {
-    // Debug logging for form submission
-    error_log("Organization update form submitted. POST data: " . print_r($_POST, true));
-    error_log("Session CSRF token: " . ($_SESSION['csrf_token'] ?? 'NOT_SET'));
-
     // Check if session is still valid
     if (session_status() !== PHP_SESSION_ACTIVE) {
         render_alert_banner(t('manage.orgs.show.msg.session_expired'), "danger");
-        error_log("Session not active during organization update");
     } elseif (!validate_csrf_token()) {
         render_alert_banner(t('manage.common.msg.security_validation_failed'), "danger");
-        error_log("CSRF token validation failed for organization update. Session token: " . ($_SESSION['csrf_token'] ?? 'NOT_SET') . ", Posted token: " . ($_POST['csrf_token'] ?? 'NOT_POSTED'));
     } elseif (!$can_modify_org) {
         render_alert_banner(t('manage.orgs.show.msg.permission_modify_org'), "danger");
     } else {
         $base_dn = $LDAP['base_dn'] ?? '';
+        $can_edit_membership_meta = currentUserIsGlobalAdmin() || currentUserIsMaintainer();
         // Use the same field mapping logic as organization creation
         $org_data = [];
 
@@ -195,6 +190,9 @@ if (isset($_POST['update_organization'])) {
             }
         }
 
+        if (!$can_edit_membership_meta) {
+            unset($org_data['memberNumber'], $org_data['memberSince'], $org_data['memberUntil']);
+        }
         // Special handling for postalAddress from individual address fields
         // These fields are not in the LDAP schema but are used for form input
         $address_fields = ['org_address', 'org_zip', 'org_city', 'org_state', 'org_country'];
@@ -218,6 +216,24 @@ if (isset($_POST['update_organization'])) {
             if (!empty(trim($postal_address, '$'))) {
                 $org_data['postalAddress'] = $postal_address;
             }
+        }
+
+        // Membership metadata mapping:
+        // Store member number / member since in LDAP's `documentIdentifier` attribute.
+        // We intentionally do NOT write `memberNumber` / `memberSince` attributes anymore.
+        if ($can_edit_membership_meta) {
+            $member_number = isset($_POST['org_member_number']) ? trim((string) $_POST['org_member_number']) : '';
+            $member_since = isset($_POST['org_member_since']) ? trim((string) $_POST['org_member_since']) : '';
+            $member_until = isset($_POST['org_member_until']) ? trim((string) $_POST['org_member_until']) : '';
+            $docIdentifiers = buildDocumentIdentifierMembership(
+                $member_number !== '' ? $member_number : null,
+                $member_since !== '' ? $member_since : null,
+                $member_until !== '' ? $member_until : null
+            );
+            if (!empty($docIdentifiers)) {
+                $org_data['documentIdentifier'] = $docIdentifiers;
+            }
+            unset($org_data['memberNumber'], $org_data['memberSince'], $org_data['memberUntil']);
         }
 
         // Per-org user limit (stored under ou=config as cn=userLimit)
@@ -254,6 +270,19 @@ if (isset($_POST['update_organization'])) {
     }
 }
 
+// Refresh UUID-backed organization data after any POST handling so
+// the detail section reflects updates immediately in the same response.
+if ($org_uuid !== '') {
+    $ldap_refresh = open_ldap_connection();
+    if ($ldap_refresh !== false) {
+        $refreshed_org = ldap_get_organization_by_uuid($ldap_refresh, $org_uuid);
+        if ($refreshed_org !== false) {
+            $organization_by_uuid = $refreshed_org;
+        }
+        ldap_close($ldap_refresh);
+    }
+}
+
 // Get organization details
 if ($org_uuid) {
     // Use the organization data we already retrieved by UUID
@@ -267,8 +296,10 @@ if ($org_uuid) {
         'telephoneNumber' => isset($organization['telephonenumber'][0]) ? $organization['telephonenumber'][0] : '',
         'labeledURI' => isset($organization['labeleduri'][0]) ? $organization['labeleduri'][0] : '',
         'postalAddress' => isset($organization['postaladdress'][0]) ? $organization['postaladdress'][0] : '',
-        'memberNumber' => isset($organization['membernumber'][0]) ? $organization['membernumber'][0] : '',
-        'memberSince' => isset($organization['membersince'][0]) ? $organization['membersince'][0] : '',
+        // Membership metadata is stored in LDAP's `documentIdentifier` attribute
+        'memberNumber' => '',
+        'memberSince' => '',
+        'memberUntil' => '',
         // Add individual address fields for backward compatibility
         'street' => '',
         'city' => '',
@@ -276,6 +307,25 @@ if ($org_uuid) {
         'postalCode' => '',
         'country' => ''
     ];
+
+    $docIdentifiers = [];
+    if (isset($organization_by_uuid['documentidentifier'])) {
+        $docIdentifiersRaw = $organization_by_uuid['documentidentifier'];
+        $docIdentifiers = is_array($docIdentifiersRaw) ? $docIdentifiersRaw : [$docIdentifiersRaw];
+    } elseif (isset($organization['documentidentifier'])) {
+        $docIdentifiersRaw = $organization['documentidentifier'];
+        $docIdentifiers = is_array($docIdentifiersRaw) ? $docIdentifiersRaw : [$docIdentifiersRaw];
+    }
+    $decodedMembership = parseDocumentIdentifierMembership($docIdentifiers);
+
+    // Backward compatible fallback for older installs
+    $legacyMemberNumber = isset($organization['membernumber'][0]) ? $organization['membernumber'][0] : '';
+    $legacyMemberSince = isset($organization['membersince'][0]) ? $organization['membersince'][0] : '';
+    $legacyMemberUntil = isset($organization['memberuntil'][0]) ? $organization['memberuntil'][0] : '';
+
+    $organization['memberNumber'] = $decodedMembership['memberNumber'] !== '' ? $decodedMembership['memberNumber'] : $legacyMemberNumber;
+    $organization['memberSince'] = $decodedMembership['memberSince'] !== '' ? $decodedMembership['memberSince'] : $legacyMemberSince;
+    $organization['memberUntil'] = $decodedMembership['memberUntil'] !== '' ? $decodedMembership['memberUntil'] : $legacyMemberUntil;
 
     // Parse postalAddress if available (format: Street$ZIP$City$State$Country)
     if (!empty($organization['postalAddress'])) {
@@ -328,6 +378,9 @@ if (!isset($organization['memberNumber'])) {
 }
 if (!isset($organization['memberSince'])) {
     $organization['memberSince'] = '';
+}
+if (!isset($organization['memberUntil'])) {
+    $organization['memberUntil'] = '';
 }
 
 // Get organization users
@@ -440,7 +493,18 @@ if ($orgExists) {
                 </div>
                     <?php } ?>
                     <?php if (!empty($address_parts[4])) { ?>
-                <div><?php print htmlspecialchars($address_parts[4]); ?></div>
+                <div>
+                        <?php
+                        $country_raw = trim((string) $address_parts[4]);
+                        $country_code = strtoupper($country_raw);
+                        $country_options = getLocalizedCountryOptions();
+                        if (isset($country_options[$country_code])) {
+                            print htmlspecialchars($country_options[$country_code] . ' (' . $country_code . ')');
+                        } else {
+                            print htmlspecialchars($country_raw);
+                        }
+                        ?>
+                </div>
                     <?php } ?>
                 <?php } else { ?>
             <div><?php print htmlspecialchars($organization['postalAddress']); ?></div>
@@ -489,7 +553,7 @@ if ($orgExists) {
          } ?>
         </td>
        </tr>
-       <?php if ($is_member_org && (!empty($organization['memberNumber']) || !empty($organization['memberSince']))) : ?>
+       <?php if ((currentUserIsGlobalAdmin() || currentUserIsMaintainer()) && (!empty($organization['memberNumber']) || !empty($organization['memberSince']) || !empty($organization['memberUntil']))) : ?>
        <tr>
         <th><?php echo htmlspecialchars(t('manage.orgs.show.member_details_header'), ENT_QUOTES, 'UTF-8'); ?></th>
         <td>
@@ -498,6 +562,9 @@ if ($orgExists) {
             } ?>
             <?php if (!empty($organization['memberSince'])) {
                 ?><?php echo htmlspecialchars(t('manage.orgs.show.member_since_label'), ENT_QUOTES, 'UTF-8'); ?><?php print htmlspecialchars($organization['memberSince']); ?><br><?php
+            } ?>
+            <?php if (!empty($organization['memberUntil'])) {
+                ?><?php echo htmlspecialchars(t('manage.orgs.show.member_until_label'), ENT_QUOTES, 'UTF-8'); ?><?php print htmlspecialchars($organization['memberUntil']); ?><br><?php
             } ?>
         </td>
        </tr>
@@ -695,6 +762,10 @@ if ($orgExists) {
         unset($form_fields_to_display[array_search('org_name', $form_fields_to_display)]);
 
         foreach ($form_fields_to_display as $form_field) {
+            // Membership metadata fields are rendered in the admin section only.
+            if (in_array($form_field, ['org_member_number', 'org_member_since', 'org_member_until'], true)) {
+                continue;
+            }
             if (isset($LDAP['org_field_labels'][$form_field]) && isset($LDAP['org_field_types'][$form_field])) {
                 $label = $LDAP['org_field_labels'][$form_field];
                 $field_type = $LDAP['org_field_types'][$form_field];
@@ -711,7 +782,12 @@ if ($orgExists) {
                     echo '<div class="row">';
                 }
 
-                echo '<div class="col-sm-6">';
+                $is_membership_date_field = ($form_field === 'org_member_since' || $form_field === 'org_member_until');
+                $column_class = $is_membership_date_field ? 'col-sm-3' : 'col-sm-6';
+                $label_class = $is_membership_date_field ? 'col-sm-12 form-label' : 'col-sm-4 form-label';
+                $input_wrapper_class = $is_membership_date_field ? 'col-sm-12' : 'col-sm-8';
+
+                echo '<div class="' . $column_class . '">';
                 echo '<div class="form-group">';
 
                 // Add required indicator if field is required
@@ -719,8 +795,8 @@ if ($orgExists) {
                     $label .= ' <sup>*</sup>';
                 }
 
-                echo '<label for="' . $form_field . '" class="col-sm-4 form-label">' . $label . '</label>';
-                echo '<div class="col-sm-8">';
+                echo '<label for="' . $form_field . '" class="' . $label_class . '">' . $label . '</label>';
+                echo '<div class="' . $input_wrapper_class . '">';
 
                 // Get current value from organization data
                 $current_value = '';
@@ -798,10 +874,26 @@ if ($orgExists) {
             echo '<label for="' . $field_name . '" class="col-sm-4 form-label">' . $label . '</label>';
             echo '<div class="col-sm-8">';
 
-            // Generate input field
+            // Generate input field (country picker as select)
             $required_attr = $field_config['required'] ? ' required' : '';
-            echo '<input type="' . $field_config['type'] . '" class="form-control" id="' . $field_name . '" name="' . $field_name . '" ' .
-              'value="' . htmlspecialchars($current_value) . '"' . $required_attr . '>';
+            if ($field_name === 'org_country') {
+                $country_options = getLocalizedCountryOptions();
+                $selected_value = strtoupper((string) $current_value);
+                if ($selected_value !== '' && !isset($country_options[$selected_value])) {
+                    $selected_value = '';
+                }
+                echo '<select class="form-select" id="' . $field_name . '" name="' . $field_name . '"' . $required_attr . '>';
+                echo '<option value=""></option>';
+                foreach ($country_options as $country_code => $country_name) {
+                    $selected = ($selected_value === $country_code) ? ' selected' : '';
+                    echo '<option value="' . htmlspecialchars($country_code, ENT_QUOTES, 'UTF-8') . '"' . $selected . '>' .
+                        htmlspecialchars($country_name . ' (' . $country_code . ')', ENT_QUOTES, 'UTF-8') . '</option>';
+                }
+                echo '</select>';
+            } else {
+                echo '<input type="' . $field_config['type'] . '" class="form-control" id="' . $field_name . '" name="' . $field_name . '" ' .
+                  'value="' . htmlspecialchars($current_value) . '"' . $required_attr . '>';
+            }
 
             echo '</div></div></div>';
             $address_col_count++;
@@ -819,6 +911,18 @@ if ($orgExists) {
       <div class="col-sm-12">
        <h5 class="mb-2"><?php echo htmlspecialchars(t('manage.orgs.show.admin_settings_heading'), ENT_QUOTES, 'UTF-8'); ?></h5>
        <div class="row mt-2">
+        <div class="col-sm-6 mb-2">
+          <label for="org_member_number" class="form-label"><?php echo htmlspecialchars($LDAP['org_field_labels']['org_member_number'] ?? 'Member number', ENT_QUOTES, 'UTF-8'); ?></label>
+          <input type="text" class="form-control" id="org_member_number" name="org_member_number" value="<?php echo htmlspecialchars((string) ($organization['memberNumber'] ?? '')); ?>">
+        </div>
+        <div class="col-sm-3 mb-2">
+          <label for="org_member_since" class="form-label"><?php echo htmlspecialchars($LDAP['org_field_labels']['org_member_since'] ?? 'Member since', ENT_QUOTES, 'UTF-8'); ?></label>
+          <input type="date" class="form-control" id="org_member_since" name="org_member_since" value="<?php echo htmlspecialchars((string) ($organization['memberSince'] ?? '')); ?>">
+        </div>
+        <div class="col-sm-3 mb-2">
+          <label for="org_member_until" class="form-label"><?php echo htmlspecialchars($LDAP['org_field_labels']['org_member_until'] ?? 'Member until', ENT_QUOTES, 'UTF-8'); ?></label>
+          <input type="date" class="form-control" id="org_member_until" name="org_member_until" value="<?php echo htmlspecialchars((string) ($organization['memberUntil'] ?? '')); ?>">
+        </div>
         <div class="col-sm-6 mb-2">
           <label for="org_user_limit" class="form-label"><?php echo htmlspecialchars(t('manage.orgs.show.max_users_label'), ENT_QUOTES, 'UTF-8'); ?></label>
           <input type="text" class="form-control" id="org_user_limit" name="org_user_limit" value="<?php echo htmlspecialchars($org_user_limit !== null ? (string) $org_user_limit : ''); ?>">

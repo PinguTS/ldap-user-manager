@@ -312,6 +312,7 @@
   "manage.orgs.show.member_details_header": "Member details:",
   "manage.orgs.show.member_number_label": "Number: ",
   "manage.orgs.show.member_since_label": "Since: ",
+  "manage.orgs.show.member_until_label": "Until: ",
   "manage.orgs.show.statistics_heading": "Statistics",
   "manage.orgs.show.total_users_header": "Total Users:",
   "manage.orgs.show.user_limit_header": "User limit:",

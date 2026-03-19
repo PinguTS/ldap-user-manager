@@ -816,7 +816,7 @@ function canMaintainerDisableUser(string $targetUserIdentifier): bool
  */
 function canOrgAdminDisableUser(string $targetUserIdentifier): bool
 {
-    global $LDAP;
+    global $LDAP, $USER_DN;
 
     $ldap = open_ldap_connection();
     if (!$ldap) {
@@ -826,6 +826,12 @@ function canOrgAdminDisableUser(string $targetUserIdentifier): bool
     try {
         $currentUserOrg = currentUserGetOrgName();
         $targetUserOrg = getUserOrganizationByIdentifier($ldap, $targetUserIdentifier);
+        $targetUserDn = findUserDn($ldap, $targetUserIdentifier);
+
+        // Organization admins must never lock/unlock/delete themselves.
+        if (!empty($USER_DN) && !empty($targetUserDn) && strcasecmp($targetUserDn, $USER_DN) === 0) {
+            return false;
+        }
 
         // Organization admins can only disable users in their own organization
         return ($targetUserOrg === $currentUserOrg);
@@ -845,11 +851,24 @@ function findUserDn($ldap, string $userIdentifier): ?string
 {
     global $LDAP;
 
+    // UUID-based lookup (preferred when identifier is a UUID)
+    if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $userIdentifier)) {
+        $uuidAttr = $LDAP['uuid_attribute'] ?? 'entryUUID';
+        $uuidFilter = '(' . $uuidAttr . '=' . ldap_escape($userIdentifier, '', LDAP_ESCAPE_FILTER) . ')';
+        $uuidSearch = @ldap_search($ldap, $LDAP['base_dn'], $uuidFilter, ['dn']);
+        if ($uuidSearch) {
+            $uuidResult = ldap_get_entries($ldap, $uuidSearch);
+            if ($uuidResult['count'] > 0) {
+                return $uuidResult[0]['dn'];
+            }
+        }
+    }
+
     // Search in system users first
     $search = @ldap_search(
         $ldap,
         $LDAP['people_dn'],
-        "({$LDAP['account_attribute']}={$userIdentifier})",
+        "({$LDAP['account_attribute']}=" . ldap_escape($userIdentifier, '', LDAP_ESCAPE_FILTER) . ")",
         ['dn']
     );
 
@@ -864,7 +883,7 @@ function findUserDn($ldap, string $userIdentifier): ?string
     $search = @ldap_search(
         $ldap,
         $LDAP['org_dn'],
-        "({$LDAP['account_attribute']}={$userIdentifier})",
+        "({$LDAP['account_attribute']}=" . ldap_escape($userIdentifier, '', LDAP_ESCAPE_FILTER) . ")",
         ['dn']
     );
 
@@ -960,21 +979,9 @@ function currentUserCanPerformBulkLockOperations(): bool
  */
 function getUserOrganizationByIdentifier($ldap, string $userIdentifier): ?string
 {
-    global $LDAP;
-
-    $search = @ldap_search(
-        $ldap,
-        $LDAP['org_dn'],
-        "({$LDAP['account_attribute']}={$userIdentifier})",
-        ['dn']
-    );
-
-    if ($search) {
-        $result = ldap_get_entries($ldap, $search);
-        if ($result['count'] > 0) {
-            return ldap_user_get_organization($ldap, $result[0]['dn']);
-        }
+    $targetUserDn = findUserDn($ldap, $userIdentifier);
+    if (!$targetUserDn) {
+        return null;
     }
-
-    return null;
+    return ldap_user_get_organization($ldap, $targetUserDn);
 }

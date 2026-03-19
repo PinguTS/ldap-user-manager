@@ -173,9 +173,20 @@ render_submenu();
 
                             echo "<label for='{$field_name}'>{$label}</label>";
 
-                            // Generate input field
+                            // Generate input field (country picker as select)
                             $required_attr = $field_config['required'] ? ' required' : '';
-                            echo "<input type='{$field_config['type']}' class='form-control' id='{$field_name}' name='{$field_name}'{$required_attr}>";
+                            if ($field_name === 'org_country') {
+                                $country_options = getLocalizedCountryOptions();
+                                echo "<select class='form-select' id='{$field_name}' name='{$field_name}'{$required_attr}>";
+                                echo "<option value=''></option>";
+                                foreach ($country_options as $country_code => $country_name) {
+                                    echo "<option value='" . htmlspecialchars($country_code, ENT_QUOTES, 'UTF-8') . "'>" .
+                                        htmlspecialchars($country_name . " ({$country_code})", ENT_QUOTES, 'UTF-8') . "</option>";
+                                }
+                                echo "</select>";
+                            } else {
+                                echo "<input type='{$field_config['type']}' class='form-control' id='{$field_name}' name='{$field_name}'{$required_attr}>";
+                            }
 
                             echo "</div>";
                         }
