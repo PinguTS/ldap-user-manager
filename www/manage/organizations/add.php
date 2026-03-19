@@ -18,13 +18,13 @@ $message_type = '';
 // Handle organization creation
 if (isset($_POST['action']) && $_POST['action'] == 'create_organization') {
     if (!isset($_POST['csrf_token']) || !isset($_SESSION['csrf_token'])) {
-        $message = 'Security validation failed. Please refresh the page and try again.';
+        $message = t('manage.common.msg.security_validation_failed');
         $message_type = 'danger';
     } elseif (!hash_equals($_SESSION['csrf_token'], $_POST['csrf_token'])) {
-        $message = 'Security validation failed. Please refresh the page and try again.';
+        $message = t('manage.common.msg.security_validation_failed');
         $message_type = 'danger';
     } elseif (!currentUserCanCreateOrganization()) {
-        $message = 'You do not have permission to create organizations.';
+        $message = t('manage.orgs.add.msg.permission_create_org');
         $message_type = 'danger';
     } else {
         // Build organization data using field mappings
@@ -32,7 +32,7 @@ if (isset($_POST['action']) && $_POST['action'] == 'create_organization') {
 
         // Debug: Check LDAP configuration
         if (!isset($LDAP['org_field_mappings'])) {
-            $message = 'Organization field mappings not configured. Please check LDAP configuration.';
+            $message = t('manage.orgs.add.msg.field_mappings_missing');
             $message_type = 'danger';
         } else {
             // Map form fields to LDAP attributes using the configuration
@@ -44,7 +44,7 @@ if (isset($_POST['action']) && $_POST['action'] == 'create_organization') {
 
             // Ensure required field 'o' (organization name) is present
             if (!isset($org_data['o']) || empty($org_data['o'])) {
-                $message = "Required field 'organization name' is missing.";
+                $message = t('manage.orgs.add.msg.required_org_name_missing');
                 $message_type = 'danger';
             }
 
@@ -66,10 +66,10 @@ if (isset($_POST['action']) && $_POST['action'] == 'create_organization') {
             // Create organization using the createOrganization function
             $result = createOrganization($org_data);
             if ($result[0]) {
-                $message = 'Organization created successfully!';
+                $message = t('manage.orgs.add.msg.created_ok');
                 $message_type = 'success';
             } else {
-                $message = 'Error creating organization: ' . $result[1];
+                $message = t('manage.orgs.add.msg.create_fail', ['error' => (string) $result[1]]);
                 $message_type = 'danger';
             }
         }
@@ -88,7 +88,7 @@ render_submenu();
             
             <?php if ($message) : ?>
                 <div class="alert alert-<?php echo $message_type; ?> alert-dismissible" role="alert">
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="<?php echo htmlspecialchars(t('modal.close_aria'), ENT_QUOTES, 'UTF-8'); ?>"></button>
                     <?php echo htmlspecialchars($message); ?>
                 </div>
             <?php endif; ?>

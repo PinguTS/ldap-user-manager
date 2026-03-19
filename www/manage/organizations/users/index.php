@@ -173,7 +173,7 @@ if (isset($_GET['toggle_manager']) && isset($_GET['uid'])) {
         if ($user_by_uuid) {
             $userDn = $user_by_uuid['dn'];
         } else {
-            $message = 'User not found with UUID: ' . $toggleUserParam;
+            $message = t('manage.users.msg.user_not_found_uuid', ['uuid' => $toggleUserParam]);
             $message_type = 'danger';
             goto after_toggle_manager;
         }
@@ -202,7 +202,7 @@ if (isset($_GET['toggle_manager']) && isset($_GET['uid'])) {
         if (!$createRolesDir) {
             $ldap_err = ldap_error($ldap);
             error_log("Failed to create roles directory at DN: $rolesDN -- LDAP error: $ldap_err");
-            $message = 'Failed to create roles directory: ' . htmlspecialchars($ldap_err);
+            $message = t('manage.org_users.msg.roles_directory_create_fail', ['error' => $ldap_err]);
             $message_type = 'danger';
             ldap_close($ldap);
             goto after_toggle_manager;
@@ -229,7 +229,7 @@ if (isset($_GET['toggle_manager']) && isset($_GET['uid'])) {
         if (!$orgAdmins_create) {
             $ldap_err = ldap_error($ldap);
             error_log("Failed to create OrgAdmins group at DN: $orgAdminsDn -- LDAP error: $ldap_err");
-            $message = 'Failed to create organization administrators group: ' . htmlspecialchars($ldap_err);
+            $message = t('manage.org_users.msg.org_admin_group_create_fail', ['error' => $ldap_err]);
             $message_type = 'danger';
             ldap_close($ldap);
             goto after_toggle_manager;
@@ -240,15 +240,15 @@ if (isset($_GET['toggle_manager']) && isset($_GET['uid'])) {
     try {
         if (in_array($userDn, $orgManagerDns)) {
             removeUserFromOrgAdmin($orgName, $userDn);
-            $message = 'User removed from Org Manager role.';
+            $message = t('manage.org_users.msg.removed_org_manager');
             $message_type = 'warning';
         } else {
             addUserToOrgAdmin($orgName, $userDn);
-            $message = 'User assigned as Org Manager.';
+            $message = t('manage.org_users.msg.assigned_org_manager');
             $message_type = 'success';
         }
     } catch (Exception $e) {
-        $message = 'Error updating Org Manager role: ' . htmlspecialchars($e->getMessage());
+        $message = t('manage.org_users.msg.update_org_manager_fail', ['error' => $e->getMessage()]);
         $message_type = 'danger';
     }
     after_toggle_manager:
@@ -272,7 +272,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($user_by_uuid) {
                 $user_dn = $user_by_uuid['dn'];
             } else {
-                $message = 'User not found with UUID: ' . $user_identifier;
+                $message = t('manage.users.msg.user_not_found_uuid', ['uuid' => $user_identifier]);
                 $message_type = 'danger';
                 ldap_close($ldap_connection);
                 goto after_lock_user;
@@ -284,11 +284,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if (ldap_lock_user_account($ldap_connection, $user_dn)) {
-            $message = "User has been locked successfully.";
+            $message = t('manage.users.msg.lock_ok', ['user' => $user_identifier]);
             $message_type = 'success';
         } else {
             $ldap_error = ldap_error($ldap_connection);
-            $message = "Failed to lock user. LDAP Error: $ldap_error";
+            $message = t('manage.users.msg.lock_fail', ['user' => $user_identifier, 'error' => $ldap_error]);
             $message_type = 'danger';
         }
         ldap_close($ldap_connection);
@@ -309,7 +309,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($user_by_uuid) {
                 $user_dn = $user_by_uuid['dn'];
             } else {
-                $message = 'User not found with UUID: ' . $user_identifier;
+                $message = t('manage.users.msg.user_not_found_uuid', ['uuid' => $user_identifier]);
                 $message_type = 'danger';
                 ldap_close($ldap_connection);
                 goto after_unlock_user;
@@ -321,11 +321,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if (ldap_unlock_user_account($ldap_connection, $user_dn)) {
-            $message = "User has been unlocked successfully.";
+            $message = t('manage.users.msg.unlock_ok', ['user' => $user_identifier]);
             $message_type = 'success';
         } else {
             $ldap_error = ldap_error($ldap_connection);
-            $message = "Failed to unlock user. LDAP Error: $ldap_error";
+            $message = t('manage.users.msg.unlock_fail', ['user' => $user_identifier, 'error' => $ldap_error]);
             $message_type = 'danger';
         }
         ldap_close($ldap_connection);
@@ -346,7 +346,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($user_by_uuid) {
                 $user_dn = $user_by_uuid['dn'];
             } else {
-                $message = 'User not found with UUID: ' . $user_identifier;
+                $message = t('manage.users.msg.user_not_found_uuid', ['uuid' => $user_identifier]);
                 $message_type = 'danger';
                 ldap_close($ldap_connection);
                 goto after_delete_user;
@@ -358,11 +358,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if (ldap_delete($ldap_connection, $user_dn)) {
-            $message = "User has been deleted successfully.";
+            $message = t('manage.users.msg.delete_ok', ['user' => $user_identifier]);
             $message_type = 'success';
         } else {
             $ldap_error = ldap_error($ldap_connection);
-            $message = "Failed to delete user. LDAP Error: $ldap_error";
+            $message = t('manage.org_users.msg.delete_fail_ldap', ['error' => $ldap_error]);
             $message_type = 'danger';
         }
         ldap_close($ldap_connection);
@@ -375,7 +375,7 @@ $message_type = '';
 
 // Redirect success flag handling (used after POST/Redirect/GET)
 if (isset($_GET['updated']) && (string) $_GET['updated'] === '1') {
-    $message = 'User updated successfully.';
+    $message = t('manage.users.msg.profile_update_ok');
     $message_type = 'success';
 }
 
@@ -384,7 +384,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
     try {
         validate_csrf_token();
     } catch (Exception $e) {
-        $message = 'Security validation failed. Please refresh the page and try again.';
+        $message = t('manage.common.msg.security_validation_failed');
         $message_type = 'danger';
         goto after_add_user;
     }
@@ -404,7 +404,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
     $uid = $mail;
 
     if ($givenName === '' || $sn === '' || $cn === '' || $mail === '' || (!$sendPasswordSetLink && $password === '')) {
-        $message = 'All fields are required.';
+        $message = t('manage.org_users.msg.all_fields_required');
         $message_type = 'danger';
         goto after_add_user;
     }
@@ -428,7 +428,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
         if (!$createUsersDir) {
             $ldap_err = ldap_error($ldap);
             error_log("Failed to create users directory at DN: $usersDn -- LDAP error: $ldap_err");
-            $message = 'Failed to create users directory: ' . htmlspecialchars($ldap_err);
+            $message = t('manage.org_users.msg.users_directory_create_fail', ['error' => $ldap_err]);
             $message_type = 'danger';
             ldap_close($ldap);
             goto after_add_user;
@@ -438,7 +438,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
     $search = @ldap_search($ldap, $usersDn, "(uid=" . ldap_escape($uid, '', LDAP_ESCAPE_FILTER) . ")");
     $entries = $search ? ldap_get_entries($ldap, $search) : false;
     if ($entries && $entries['count'] > 0) {
-        $message = 'A user with this email address already exists in this organization.';
+        $message = t('manage.org_users.msg.email_exists_in_org');
         $message_type = 'danger';
         ldap_close($ldap);
         goto after_add_user;
@@ -470,7 +470,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
     );
     $add_result = @ldap_add($ldap, $userDn, $entry);
     if ($add_result) {
-        $message = 'User added successfully.';
+        $message = t('manage.org_users.msg.added_ok');
         $message_type = 'success';
 
         if ($sendPasswordSetLink) {
@@ -490,12 +490,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
                 $subject = parse_mail_template((string) $new_account_mail_subject, $vars);
                 $body = parse_mail_template((string) $new_account_mail_body, $vars);
                 send_email($mail, trim($givenName . ' ' . $sn), $subject, $body);
-                $message .= ' A password set link was sent by email.';
+                $message .= ' ' . t('manage.org_users.msg.password_set_link_sent');
             }
         }
     } else {
         $ldap_err = ldap_error($ldap);
-        $message = 'Failed to add user: ' . htmlspecialchars($ldap_err);
+        $message = t('manage.org_users.msg.add_fail', ['error' => $ldap_err]);
         $message_type = 'danger';
     }
 
@@ -521,7 +521,7 @@ if (isset($_GET['delete_user'])) {
         if ($user_by_uuid) {
             $userDn = $user_by_uuid['dn'];
         } else {
-            $message = 'User not found with UUID: ' . $deleteUserParam;
+            $message = t('manage.users.msg.user_not_found_uuid', ['uuid' => $deleteUserParam]);
             $message_type = 'danger';
             goto after_delete_user;
         }
@@ -543,10 +543,10 @@ if (isset($_GET['delete_user'])) {
 
     try {
         ldap_delete($ldap, $userDn);
-        $message = 'User deleted successfully.';
+        $message = t('manage.users.msg.delete_ok', ['user' => $deleteUserParam]);
         $message_type = 'warning';
     } catch (Exception $e) {
-        $message = 'Error deleting user: ' . htmlspecialchars($e->getMessage());
+        $message = t('manage.org_users.msg.delete_fail_exception', ['error' => $e->getMessage()]);
         $message_type = 'danger';
     }
     ldap_close($ldap);
@@ -613,7 +613,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
         if ($user_by_uuid) {
             $userDn = $user_by_uuid['dn'];
         } else {
-            $message = 'User not found with UUID: ' . $uid;
+            $message = t('manage.users.msg.user_not_found_uuid', ['uuid' => $uid]);
             $message_type = 'danger';
             goto after_edit_user;
         }
@@ -647,7 +647,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
         header('Location: ?' . $baseParam . '&updated=1');
         exit;
     } catch (Exception $e) {
-        $message = 'Error updating user: ' . htmlspecialchars($e->getMessage());
+        $message = t('manage.users.msg.profile_update_fail') . ' ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8');
         $message_type = 'danger';
     }
     ldap_close($ldap);
@@ -675,7 +675,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
         if ($user_by_uuid) {
             $userDn = $user_by_uuid['dn'];
         } else {
-            $message = 'User not found with UUID: ' . $resetUserParam;
+            $message = t('manage.users.msg.user_not_found_uuid', ['uuid' => $resetUserParam]);
             $message_type = 'danger';
             goto after_reset_user;
         }
@@ -728,7 +728,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
                 send_email($userMail, trim($first . ' ' . $last), $subject, $body);
             }
         }
-        $message = 'If the address exists, a password reset link has been sent.';
+        $message = t('password.reset.message');
         $message_type = 'success';
     } else {
         $validation = validate_password_submission($new_password, $new_password_match, $passScore);
@@ -741,10 +741,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
         $entry = ['userPassword' => ldap_hashed_password($new_password)];
         try {
             ldap_modify($ldap, $userDn, $entry);
-            $message = 'Credentials reset successfully.';
+            $message = t('manage.org_users.msg.credentials_reset_ok');
             $message_type = 'success';
         } catch (Exception $e) {
-            $message = 'Error resetting credentials: ' . htmlspecialchars($e->getMessage());
+            $message = t('manage.org_users.msg.credentials_reset_fail', ['error' => $e->getMessage()]);
             $message_type = 'danger';
         }
     }
@@ -955,7 +955,7 @@ render_submenu();
             <?= csrf_token_field() ?>
             <div class="modal-header">
               <h5 class="modal-title" id="editUserModalLabel"><?php echo htmlspecialchars(t('manage.common.edit_user'), ENT_QUOTES, 'UTF-8'); ?></h5>
-              <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="btn-close" aria-label="Close"></a>
+              <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="btn-close" aria-label="<?php echo htmlspecialchars(t('modal.close_aria'), ENT_QUOTES, 'UTF-8'); ?>"></a>
             </div>
             <div class="modal-body">
               <input type="hidden" name="edit_uid" id="edit_uid_input" value="<?= htmlspecialchars(get_ldap_attribute($editUser, 'uid')) ?>">
@@ -1002,7 +1002,7 @@ render_submenu();
             <?= csrf_token_field() ?>
             <div class="modal-header">
               <h5 class="modal-title" id="editUserModalLabel"><?php echo htmlspecialchars(t('manage.common.edit_user'), ENT_QUOTES, 'UTF-8'); ?></h5>
-<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?php echo htmlspecialchars(t('modal.close_aria'), ENT_QUOTES, 'UTF-8'); ?>"></button>
             </div>
             <div class="modal-body">
               <input type="hidden" name="edit_uid" id="edit_uid_input" value="">

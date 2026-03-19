@@ -226,14 +226,14 @@ $base_dn = $LDAP['base_dn'] ?? '';
                                                     $is_locked = ($ldap_connection && ldap_organization_is_locked($ldap_connection, $org_name));
                                                     ?>
                                                     <?php if ($is_member) : ?>
-                                                        <span class="badge bg-primary">Member</span>
+                                                        <span class="badge bg-primary"><?php echo htmlspecialchars(t('manage.orgs.show.badge_member'), ENT_QUOTES, 'UTF-8'); ?></span>
                                                     <?php endif; ?>
                                                     <?php if ($is_disabled) : ?>
-                                                        <span class="badge bg-danger">Disabled</span>
+                                                        <span class="badge bg-danger"><?php echo htmlspecialchars(t('manage.orgs.show.badge_disabled'), ENT_QUOTES, 'UTF-8'); ?></span>
                                                     <?php endif; ?>
-                                                    <strong>Account Status:</strong>
+                                                    <strong><?php echo htmlspecialchars(t('manage.orgs.status_label'), ENT_QUOTES, 'UTF-8'); ?></strong>
                                                     <span class="badge bg-<?php echo $is_locked ? 'danger' : 'success'; ?>">
-                                                        <?php echo $is_locked ? 'Locked' : 'Active'; ?>
+                                                        <?php echo htmlspecialchars($is_locked ? t('manage.common.locked') : t('manage.common.active'), ENT_QUOTES, 'UTF-8'); ?>
                                                     </span>
                                                 </p>
                                                 <?php
@@ -242,7 +242,7 @@ $base_dn = $LDAP['base_dn'] ?? '';
                                                 ?>
                                                 <div class="mt-2" style="max-width: 420px;">
                                                     <?php if ($limit_users === null) : ?>
-                                                        <small class="text-muted">User limit: unlimited (<?php echo (int) $current_users; ?> users)</small>
+                                                        <small class="text-muted"><?php echo htmlspecialchars(t('manage.orgs.index.user_limit_unlimited', ['current' => (string) (int) $current_users]), ENT_QUOTES, 'UTF-8'); ?></small>
                                                     <?php else : ?>
                                                         <?php
                                                         $pct = $limit_users > 0 ? ($current_users / $limit_users) : 0.0;
@@ -255,7 +255,7 @@ $base_dn = $LDAP['base_dn'] ?? '';
                                                         }
                                                         $width = (int) max(0, min(100, round($pct * 100)));
                                                         ?>
-                                                        <small class="text-muted">Users: <?php echo (int) $current_users; ?> / <?php echo (int) $limit_users; ?></small>
+                                                        <small class="text-muted"><?php echo htmlspecialchars(t('manage.orgs.index.users_usage', ['current' => (string) (int) $current_users, 'limit' => (string) (int) $limit_users]), ENT_QUOTES, 'UTF-8'); ?></small>
                                                         <div class="progress" title="<?php echo (int) $current_users; ?> / <?php echo (int) $limit_users; ?> (<?php echo $pct_display; ?>%)">
                                                             <div class="progress-bar <?php echo $bar_class; ?>" role="progressbar" style="width: <?php echo $width; ?>%;" aria-valuenow="<?php echo $width; ?>" aria-valuemin="0" aria-valuemax="100"></div>
                                                         </div>
@@ -272,10 +272,10 @@ $base_dn = $LDAP['base_dn'] ?? '';
                                             ?>
 
                                             <div class="d-flex align-items-center justify-content-end flex-wrap gap-2" style="min-width: 260px;">
-                                                <div class="btn-group btn-group-sm" role="group" aria-label="View and users">
+                                                <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.orgs.index.aria.view_users'), ENT_QUOTES, 'UTF-8'); ?>">
                                                     <?php if ($use_uuid) : ?>
-                                                        <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid_val) . '/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info">View</a>
-                                                        <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid_val) . '/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary">Users</a>
+                                                        <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid_val) . '/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info"><?php echo htmlspecialchars(t('manage.common.view'), ENT_QUOTES, 'UTF-8'); ?></a>
+                                                        <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid_val) . '/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary"><?php echo htmlspecialchars(t('manage.common.users'), ENT_QUOTES, 'UTF-8'); ?></a>
                                                     <?php else : ?>
                                                         <?php /* UUID-only canonical routing: do not link by name. */ ?>
                                                     <?php endif; ?>
@@ -283,30 +283,30 @@ $base_dn = $LDAP['base_dn'] ?? '';
 
                                                 <?php if ($can_membership) : ?>
                                                     <div class="vr"></div>
-                                                    <div class="btn-group btn-group-sm" role="group" aria-label="Membership actions">
+                                                    <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.orgs.show.organization_membership_aria'), ENT_QUOTES, 'UTF-8'); ?>">
                                                         <?php if ($is_member) : ?>
-                                                            <button type="button" class="btn btn-secondary" onclick="confirmUnmemberOrganization('<?php echo $org_name_safe; ?>', '<?php echo htmlspecialchars($org_uuid_val); ?>')">Unmember</button>
+                                                            <button type="button" class="btn btn-secondary" onclick="confirmUnmemberOrganization('<?php echo $org_name_safe; ?>', '<?php echo htmlspecialchars($org_uuid_val); ?>')"><?php echo htmlspecialchars(t('manage.orgs.show.unmember'), ENT_QUOTES, 'UTF-8'); ?></button>
                                                         <?php else : ?>
-                                                            <button type="button" class="btn btn-secondary" onclick="confirmMemberOrganization('<?php echo $org_name_safe; ?>', '<?php echo htmlspecialchars($org_uuid_val); ?>')">Member</button>
+                                                            <button type="button" class="btn btn-secondary" onclick="confirmMemberOrganization('<?php echo $org_name_safe; ?>', '<?php echo htmlspecialchars($org_uuid_val); ?>')"><?php echo htmlspecialchars(t('manage.orgs.show.member'), ENT_QUOTES, 'UTF-8'); ?></button>
                                                         <?php endif; ?>
                                                     </div>
                                                 <?php endif; ?>
 
                                                 <?php if ($can_lock) : ?>
                                                     <div class="vr"></div>
-                                                    <div class="btn-group btn-group-sm" role="group" aria-label="Lock actions">
+                                                    <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.orgs.show.organization_lock_aria'), ENT_QUOTES, 'UTF-8'); ?>">
                                                         <?php if ($is_locked) : ?>
-                                                            <button type="button" class="btn btn-success" onclick="confirmUnlockOrganization('<?php echo $org_name_safe; ?>', '<?php echo htmlspecialchars($org_uuid_val); ?>')">Unlock</button>
+                                                            <button type="button" class="btn btn-success" onclick="confirmUnlockOrganization('<?php echo $org_name_safe; ?>', '<?php echo htmlspecialchars($org_uuid_val); ?>')"><?php echo htmlspecialchars(t('manage.orgs.show.unlock'), ENT_QUOTES, 'UTF-8'); ?></button>
                                                         <?php else : ?>
-                                                            <button type="button" class="btn btn-warning" onclick="confirmLockOrganization('<?php echo $org_name_safe; ?>', '<?php echo htmlspecialchars($org_uuid_val); ?>')">Lock</button>
+                                                            <button type="button" class="btn btn-warning" onclick="confirmLockOrganization('<?php echo $org_name_safe; ?>', '<?php echo htmlspecialchars($org_uuid_val); ?>')"><?php echo htmlspecialchars(t('manage.orgs.show.lock'), ENT_QUOTES, 'UTF-8'); ?></button>
                                                         <?php endif; ?>
                                                     </div>
                                                 <?php endif; ?>
 
                                                 <?php if ($can_delete) : ?>
                                                     <div class="vr"></div>
-                                                    <div class="btn-group btn-group-sm" role="group" aria-label="Delete">
-                                                        <button type="button" class="btn btn-danger" onclick="confirmDelete('<?php echo $org_name_safe; ?>', '<?php echo htmlspecialchars($org_uuid_val); ?>')">Delete</button>
+                                                    <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.orgs.show.organization_delete_aria'), ENT_QUOTES, 'UTF-8'); ?>">
+                                                        <button type="button" class="btn btn-danger" onclick="confirmDelete('<?php echo $org_name_safe; ?>', '<?php echo htmlspecialchars($org_uuid_val); ?>')"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
                                                     </div>
                                                 <?php endif; ?>
                                             </div>
@@ -326,64 +326,64 @@ $base_dn = $LDAP['base_dn'] ?? '';
 <?php
 render_confirm_modal(
     'deleteModal',
-    'Confirm Organization Deletion',
-    '<p>Are you sure you want to delete the organization "<span id="deleteOrgName"></span>"?</p><p class="text-danger"><strong>Warning:</strong> This action cannot be undone and will remove all associated users and data.</p>',
+    t('manage.orgs.show.modal.delete_title'),
+    t('manage.orgs.show.modal.delete_body'),
     [
         ['name' => 'action', 'value' => 'delete_organization'],
         ['name' => 'org_name', 'id' => 'deleteOrgNameInput'],
         ['name' => 'org_uuid', 'id' => 'deleteOrgUuidInput'],
     ],
-    'Delete Organization',
+    t('manage.orgs.show.modal.delete_submit'),
     'btn-danger'
 );
 render_confirm_modal(
     'lockModal',
-    'Confirm Organization Lock',
-    '<p>Are you sure you want to lock the organization "<span id="lockOrgName"></span>"?</p><p class="text-warning"><strong>Warning:</strong> This will disable all user accounts in this organization. Users will not be able to log in until the organization is unlocked.</p><p><strong>Note:</strong> This action is reversible. You can unlock the organization at any time.</p>',
+    t('manage.orgs.show.modal.lock_title'),
+    t('manage.orgs.show.modal.lock_body'),
     [
         ['name' => 'action', 'value' => 'lock_organization'],
         ['name' => 'org_name', 'id' => 'lockOrgNameInput'],
         ['name' => 'org_uuid', 'id' => 'lockOrgUuidInput'],
     ],
-    'Lock Organization',
+    t('manage.orgs.show.modal.lock_submit'),
     'btn-warning'
 );
 render_confirm_modal(
     'unlockModal',
-    'Confirm Organization Unlock',
-    '<p>Are you sure you want to unlock the organization "<span id="unlockOrgName"></span>"?</p><p class="text-success"><strong>Effect:</strong> This will re-enable all user accounts in this organization. Users will be able to log in again.</p>',
+    t('manage.orgs.show.modal.unlock_title'),
+    t('manage.orgs.show.modal.unlock_body'),
     [
         ['name' => 'action', 'value' => 'unlock_organization'],
         ['name' => 'org_name', 'id' => 'unlockOrgNameInput'],
         ['name' => 'org_uuid', 'id' => 'unlockOrgUuidInput'],
     ],
-    'Unlock Organization',
+    t('manage.orgs.show.modal.unlock_submit'),
     'btn-success'
 );
 
 render_confirm_modal(
     'memberModal',
-    'Confirm Organization Membership',
-    '<p>Mark the organization "<span id="memberOrgName"></span>" as a <strong>member organization</strong>?</p>',
+    t('manage.orgs.show.modal.member_title'),
+    t('manage.orgs.show.modal.member_body'),
     [
         ['name' => 'action', 'value' => 'member_organization'],
         ['name' => 'org_name', 'id' => 'memberOrgNameInput'],
         ['name' => 'org_uuid', 'id' => 'memberOrgUuidInput'],
     ],
-    'Mark as Member',
+    t('manage.orgs.show.modal.member_submit'),
     'btn-secondary'
 );
 
 render_confirm_modal(
     'unmemberModal',
-    'Confirm Remove Membership',
-    '<p>Remove the organization "<span id="unmemberOrgName"></span>" from <strong>member organizations</strong>?</p>',
+    t('manage.orgs.show.modal.unmember_title'),
+    t('manage.orgs.show.modal.unmember_body'),
     [
         ['name' => 'action', 'value' => 'unmember_organization'],
         ['name' => 'org_name', 'id' => 'unmemberOrgNameInput'],
         ['name' => 'org_uuid', 'id' => 'unmemberOrgUuidInput'],
     ],
-    'Remove Membership',
+    t('manage.orgs.show.modal.unmember_submit'),
     'btn-secondary'
 );
 ?>
