@@ -762,7 +762,22 @@ function render_header($title = "", $menu = true)
  <meta name="viewport" content="width=device-width, initial-scale=1">
  <link rel="stylesheet" href="<?php print htmlspecialchars($asset_base, ENT_QUOTES, 'UTF-8'); ?>bootstrap/css/bootstrap.min.css">
  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
- <style>.form-group{margin-bottom:1rem;}</style>
+ <style>
+  .form-group{margin-bottom:1rem;}
+  .navbar-user-name{
+   display:inline-block;
+   max-width:min(42vw, 280px);
+   overflow:hidden;
+   text-overflow:ellipsis;
+   white-space:nowrap;
+   vertical-align:bottom;
+  }
+  @media (max-width: 576px){
+   .navbar-user-name{
+    max-width:34vw;
+   }
+  }
+ </style>
     <?php if ($CUSTOM_STYLES) {
         echo '<link rel="stylesheet" href="' . htmlspecialchars($CUSTOM_STYLES, ENT_QUOTES, 'UTF-8') . '">';
     } ?>
@@ -905,8 +920,13 @@ function render_menu()
         }
         ?>
      </ul>
-     <ul class="navbar-nav">
-      <li class="nav-item dropdown me-3">
+     <ul class="navbar-nav ms-auto flex-row align-items-center flex-nowrap">
+      <li class="nav-item me-3">
+        <span class="navbar-text navbar-user-name"><?php if (isset($USER_ID)) {
+            print htmlspecialchars($USER_DISPLAY_NAME !== null && $USER_DISPLAY_NAME !== '' ? $USER_DISPLAY_NAME : $USER_ID);
+                                               } ?></span>
+      </li>
+      <li class="nav-item dropdown">
         <?php
             $assetBase = get_asset_base();
             $currentLocale = lum_current_locale();
@@ -936,9 +956,6 @@ function render_menu()
             <?php } ?>
         </ul>
       </li>
-      <li class="nav-item"><span class="navbar-text"><?php if (isset($USER_ID)) {
-            print htmlspecialchars($USER_DISPLAY_NAME !== null && $USER_DISPLAY_NAME !== '' ? $USER_DISPLAY_NAME : $USER_ID);
-                                                     } ?></span></li>
      </ul>
    </div>
   </nav>
