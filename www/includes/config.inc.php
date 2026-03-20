@@ -220,7 +220,7 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
  # Required fields are those NOT listed here (e.g., 'o' for organization name is always required)
  $LDAP['org_optional_fields'] = getenv('LDAP_ORG_OPTIONAL_FIELDS') ?
     explode(',', getenv('LDAP_ORG_OPTIONAL_FIELDS')) :
-   ['telephoneNumber', 'labeledURI', 'mail', 'description', 'businessCategory', 'postalAddress', 'memberNumber', 'memberSince', 'memberUntil'];
+   ['telephoneNumber', 'facsimileTelephoneNumber', 'labeledURI', 'mail', 'description', 'businessCategory', 'postalAddress', 'memberNumber', 'memberSince', 'memberUntil'];
 
  # Field mappings from form names to LDAP attributes
  # Note: Individual address fields (street, city, state, postalCode, country) are combined into postalAddress
@@ -228,6 +228,7 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
  $LDAP['org_field_mappings'] = [
     'org_name' => 'o',
     'org_phone' => 'telephoneNumber',
+    'org_fax' => 'facsimileTelephoneNumber',
     'org_website' => 'labeledURI',
     'org_email' => 'mail',
     'org_description' => 'description',
@@ -253,6 +254,7 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
  $LDAP['org_field_labels'] = [
     'org_name' => 'Organization Name',
     'org_phone' => 'Phone Number',
+    'org_fax' => 'Fax number',
     'org_website' => 'Website',
     'org_email' => 'Email',
     'org_description' => 'Description',
@@ -266,6 +268,7 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
  $LDAP['org_field_types'] = [
     'org_name' => 'text',
     'org_phone' => 'tel',
+    'org_fax' => 'tel',
     'org_website' => 'url',
     'org_email' => 'email',
     'org_description' => 'textarea',

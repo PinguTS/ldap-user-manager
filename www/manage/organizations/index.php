@@ -216,6 +216,9 @@ $base_dn = $LDAP['base_dn'] ?? '';
                                                     <?php if (isset($org['telephoneNumber']) && !empty($org['telephoneNumber'])) : ?>
                                                         <strong><?php echo htmlspecialchars(t('manage.orgs.phone_label'), ENT_QUOTES, 'UTF-8'); ?></strong> <?php echo htmlspecialchars($org['telephoneNumber']); ?><br>
                                                     <?php endif; ?>
+                                                    <?php if (isset($org['facsimileTelephoneNumber']) && !empty($org['facsimileTelephoneNumber'])) : ?>
+                                                        <strong><?php echo htmlspecialchars(t('manage.orgs.fax_label'), ENT_QUOTES, 'UTF-8'); ?></strong> <?php echo htmlspecialchars($org['facsimileTelephoneNumber']); ?><br>
+                                                    <?php endif; ?>
                                                     <?php if (isset($org['description']) && !empty($org['description'])) : ?>
                                                         <strong><?php echo htmlspecialchars(t('manage.orgs.status_label'), ENT_QUOTES, 'UTF-8'); ?></strong> <?php echo htmlspecialchars($org['description']); ?><br>
                                                     <?php endif; ?>

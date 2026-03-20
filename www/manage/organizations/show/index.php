@@ -181,6 +181,10 @@ if (isset($_POST['update_organization'])) {
 
         // Map form fields to LDAP attributes using the configuration
         foreach ($LDAP['org_field_mappings'] as $form_field => $ldap_attr) {
+            // Organization name (o) is handled separately: LDAP rename + permission checks
+            if ($form_field === 'org_name') {
+                continue;
+            }
             if (isset($_POST[$form_field])) {
                 $val = trim((string) $_POST[$form_field]);
                 // Allow clearing optional fields by sending an empty value
@@ -196,15 +200,14 @@ if (isset($_POST['update_organization'])) {
         // Special handling for postalAddress from individual address fields
         // These fields are not in the LDAP schema but are used for form input
         $address_fields = ['org_address', 'org_zip', 'org_city', 'org_state', 'org_country'];
-        $has_address_data = false;
+        $address_in_post = false;
         foreach ($address_fields as $field) {
-            if (isset($_POST[$field]) && !empty(trim($_POST[$field]))) {
-                $has_address_data = true;
+            if (isset($_POST[$field])) {
+                $address_in_post = true;
                 break;
             }
         }
-
-        if ($has_address_data) {
+        if ($address_in_post) {
             $postal_parts = [
                 trim($_POST['org_address'] ?? ''),
                 trim($_POST['org_zip'] ?? ''),
@@ -213,8 +216,10 @@ if (isset($_POST['update_organization'])) {
                 trim($_POST['org_country'] ?? '')
             ];
             $postal_address = implode('$', $postal_parts);
-            if (!empty(trim($postal_address, '$'))) {
+            if (trim(str_replace('$', '', $postal_address)) !== '') {
                 $org_data['postalAddress'] = $postal_address;
+            } else {
+                $org_data['postalAddress'] = '';
             }
         }
 
@@ -230,42 +235,83 @@ if (isset($_POST['update_organization'])) {
                 $member_since !== '' ? $member_since : null,
                 $member_until !== '' ? $member_until : null
             );
-            if (!empty($docIdentifiers)) {
-                $org_data['documentIdentifier'] = $docIdentifiers;
-            }
+            // Always set so an empty list removes membership metadata from LDAP
+            $org_data['documentIdentifier'] = $docIdentifiers;
             unset($org_data['memberNumber'], $org_data['memberSince'], $org_data['memberUntil']);
         }
 
-        // Per-org user limit (stored under ou=config as cn=userLimit)
-        if (currentUserIsGlobalAdmin() || currentUserIsMaintainer()) {
-            $raw_limit = trim((string) ($_POST['org_user_limit'] ?? ''));
-            $limit_val = null;
-            if ($raw_limit !== '') {
-                if (ctype_digit($raw_limit)) {
-                    $limit_val = (int) $raw_limit;
-                } else {
-                    render_alert_banner(t('manage.orgs.show.msg.user_limit_invalid'), "warning", 15000);
-                }
+        $can_rename_org = currentUserIsGlobalAdmin() || currentUserIsMaintainer();
+        $posted_org_name = isset($_POST['org_name']) ? trim((string) $_POST['org_name']) : '';
+        $skip_org_save = false;
+
+        if (!$can_rename_org) {
+            if ($posted_org_name !== '' && $posted_org_name !== (string) $org_name) {
+                render_alert_banner(t('manage.orgs.show.msg.org_rename_denied'), "danger");
+                $skip_org_save = true;
             }
-            $limit_ldap = open_ldap_connection();
-            if ($limit_ldap !== false) {
-                if (!function_exists('ldap_org_set_user_limit') || !ldap_org_set_user_limit($limit_ldap, $org_name, $limit_val)) {
-                    render_alert_banner(t('manage.orgs.show.msg.user_limit_update_fail'), "danger", 15000);
-                }
-                ldap_close($limit_ldap);
-            }
+        } elseif ($posted_org_name === '') {
+            render_alert_banner(t('manage.orgs.show.msg.org_name_required'), "danger");
+            $skip_org_save = true;
         }
 
-        // Use UUID for update if available, otherwise fall back to name
-        $update_identifier = $org_uuid ?: $org_name;
-        $result = updateOrganization($update_identifier, $org_data);
-        if ($result) {
-            render_alert_banner(
-                t('manage.orgs.show.msg.org_update_ok', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
-                "success"
-            );
-        } else {
-            render_alert_banner(t('manage.orgs.show.msg.org_update_fail'), "danger");
+        unset($org_data['o']);
+
+        if (!$skip_org_save) {
+            // Per-org user limit (stored under ou=config as cn=userLimit); uses current org name (before rename)
+            if (currentUserIsGlobalAdmin() || currentUserIsMaintainer()) {
+                $raw_limit = trim((string) ($_POST['org_user_limit'] ?? ''));
+                $limit_val = null;
+                if ($raw_limit !== '') {
+                    if (ctype_digit($raw_limit)) {
+                        $limit_val = (int) $raw_limit;
+                    } else {
+                        render_alert_banner(t('manage.orgs.show.msg.user_limit_invalid'), "warning", 15000);
+                    }
+                }
+                $limit_ldap = open_ldap_connection();
+                if ($limit_ldap !== false) {
+                    if (!function_exists('ldap_org_set_user_limit') || !ldap_org_set_user_limit($limit_ldap, $org_name, $limit_val)) {
+                        render_alert_banner(t('manage.orgs.show.msg.user_limit_update_fail'), "danger", 15000);
+                    }
+                    ldap_close($limit_ldap);
+                }
+            }
+
+            // Use UUID for update if available, otherwise fall back to name
+            $update_identifier = $org_uuid !== '' ? $org_uuid : $org_name;
+            $result = updateOrganization($update_identifier, $org_data);
+
+            $rename_ok = true;
+            if (
+                $result
+                && $can_rename_org
+                && $posted_org_name !== ''
+                && $posted_org_name !== (string) $org_name
+            ) {
+                $rename_ok = renameOrganization($update_identifier, $posted_org_name);
+                if ($rename_ok) {
+                    $org_name = $posted_org_name;
+                    if (isset($_GET['org']) && (string) $_GET['org'] !== '' && (string) $_GET['org'] !== (string) $org_name) {
+                        $path = parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+                        if (!is_string($path) || $path === '') {
+                            $path = '/manage/organizations/show/';
+                        }
+                        header('Location: ' . $path . '?org=' . rawurlencode((string) $org_name));
+                        exit;
+                    }
+                } else {
+                    render_alert_banner(t('manage.orgs.show.msg.org_rename_fail'), "danger", 15000);
+                }
+            }
+
+            if ($result && $rename_ok) {
+                render_alert_banner(
+                    t('manage.orgs.show.msg.org_update_ok', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+                    "success"
+                );
+            } elseif (!$result) {
+                render_alert_banner(t('manage.orgs.show.msg.org_update_fail'), "danger");
+            }
         }
     }
 }
@@ -290,10 +336,12 @@ if ($org_uuid) {
     // Convert to the format expected by the rest of the code
     $organization = [
         'name' => $organization['o'][0],
+        'o' => $organization['o'][0],
         'entryUUID' => $org_uuid,
         'description' => isset($organization['description'][0]) ? $organization['description'][0] : '',
         'mail' => isset($organization['mail'][0]) ? $organization['mail'][0] : '',
         'telephoneNumber' => isset($organization['telephonenumber'][0]) ? $organization['telephonenumber'][0] : '',
+        'facsimileTelephoneNumber' => isset($organization['facsimiletelephonenumber'][0]) ? $organization['facsimiletelephonenumber'][0] : '',
         'labeledURI' => isset($organization['labeleduri'][0]) ? $organization['labeleduri'][0] : '',
         'postalAddress' => isset($organization['postaladdress'][0]) ? $organization['postaladdress'][0] : '',
         // Membership metadata is stored in LDAP's `documentIdentifier` attribute
@@ -381,6 +429,9 @@ if (!isset($organization['memberSince'])) {
 }
 if (!isset($organization['memberUntil'])) {
     $organization['memberUntil'] = '';
+}
+if (!isset($organization['facsimileTelephoneNumber'])) {
+    $organization['facsimileTelephoneNumber'] = '';
 }
 
 // Get organization users
@@ -517,7 +568,23 @@ if ($orgExists) {
        </tr>
        <tr>
         <th><?php echo htmlspecialchars(t('manage.orgs.show.phone_header'), ENT_QUOTES, 'UTF-8'); ?></th>
-        <td><?php print htmlspecialchars($organization['telephoneNumber'] ?? t('manage.orgs.show.no_phone')); ?></td>
+        <td>
+         <?php if (!empty($organization['telephoneNumber'])) { ?>
+          <?php print htmlspecialchars((string) $organization['telephoneNumber']); ?>
+         <?php } else { ?>
+          <em><?php echo htmlspecialchars(t('manage.orgs.show.no_phone'), ENT_QUOTES, 'UTF-8'); ?></em>
+         <?php } ?>
+        </td>
+       </tr>
+       <tr>
+        <th><?php echo htmlspecialchars(t('manage.orgs.show.fax_header'), ENT_QUOTES, 'UTF-8'); ?></th>
+        <td>
+         <?php if (!empty($organization['facsimileTelephoneNumber'])) { ?>
+          <?php print htmlspecialchars((string) $organization['facsimileTelephoneNumber']); ?>
+         <?php } else { ?>
+          <em><?php echo htmlspecialchars(t('manage.orgs.show.no_fax'), ENT_QUOTES, 'UTF-8'); ?></em>
+         <?php } ?>
+        </td>
        </tr>
        <tr>
         <th><?php echo htmlspecialchars(t('manage.orgs.show.website_header'), ENT_QUOTES, 'UTF-8'); ?></th>
@@ -754,12 +821,36 @@ if ($orgExists) {
      <input type="hidden" name="update_organization">
      
         <?php
+        $can_rename_org_form = currentUserIsGlobalAdmin() || currentUserIsMaintainer();
+        $org_display_name = (string) ($organization['o'] ?? $organization['name'] ?? $org_name);
+        $org_name_field_label = $LDAP['org_field_labels']['org_name'] ?? 'Organization Name';
+        ?>
+     <div class="row">
+      <div class="col-sm-6">
+       <div class="form-group">
+        <label for="org_name" class="col-sm-4 form-label"><?php echo htmlspecialchars($org_name_field_label, ENT_QUOTES, 'UTF-8'); ?> <sup>*</sup></label>
+        <div class="col-sm-8">
+         <?php if ($can_rename_org_form) : ?>
+          <input type="text" class="form-control" id="org_name" name="org_name" required value="<?php echo htmlspecialchars($org_display_name, ENT_QUOTES, 'UTF-8'); ?>" autocomplete="organization">
+         <?php else : ?>
+          <input type="hidden" name="org_name" value="<?php echo htmlspecialchars($org_display_name, ENT_QUOTES, 'UTF-8'); ?>">
+          <input type="text" class="form-control" id="org_name" value="<?php echo htmlspecialchars($org_display_name, ENT_QUOTES, 'UTF-8'); ?>" disabled autocomplete="organization" aria-readonly="true">
+         <?php endif; ?>
+        </div>
+       </div>
+      </div>
+     </div>
+        <?php
      // Generate form fields dynamically using configuration
         $col_count = 0;
 
-     // Get the list of form fields to display (excluding org_name which shouldn't be editable)
+     // Get the list of form fields to display (org_name is rendered above)
         $form_fields_to_display = array_keys($LDAP['org_field_mappings']);
-        unset($form_fields_to_display[array_search('org_name', $form_fields_to_display)]);
+        $on = array_search('org_name', $form_fields_to_display, true);
+        if ($on !== false) {
+            unset($form_fields_to_display[$on]);
+        }
+        $form_fields_to_display = array_values($form_fields_to_display);
 
         foreach ($form_fields_to_display as $form_field) {
             // Membership metadata fields are rendered in the admin section only.

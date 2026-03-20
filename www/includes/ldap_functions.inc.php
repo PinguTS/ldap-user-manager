@@ -2173,13 +2173,6 @@ function ldap_remove_user_from_all_groups($ldap_connection, $user_dn)
 ##################################
 
 /**
- * Check if a user account is locked/disabled
- *
- * @param resource $ldap_connection LDAP connection resource
- * @param string $user_dn User DN to check
- * @return bool True if user is locked/disabled, false otherwise
- */
-/**
  * Check whether a user account is administratively disabled (pwdAccountLockedTime = 000001010000Z).
  *
  * @param array<string, mixed> $ldapEntry LDAP entry array for the user (with pwdaccountlockedtime)
@@ -2226,6 +2219,9 @@ function enableUserAccount($ldap_connection, string $dn): bool
     return (bool) $result;
 }
 
+/**
+ * True if the user has pwdAccountLockedTime set or belongs to a disabled organization (status group).
+ */
 function ldap_user_is_locked($ldap_connection, $user_dn)
 {
     global $log_prefix, $LDAP_DEBUG;
@@ -2235,28 +2231,15 @@ function ldap_user_is_locked($ldap_connection, $user_dn)
     }
 
     // Check user's pwdAccountLockedTime attribute
-    $user_attrs = @ldap_read($ldap_connection, $user_dn, "(objectClass=*)", ['pwdAccountLockedTime', 'description']);
+    $user_attrs = @ldap_read($ldap_connection, $user_dn, "(objectClass=*)", ['pwdAccountLockedTime']);
     if ($user_attrs) {
         $user_entry = ldap_get_entries($ldap_connection, $user_attrs);
         if ($user_entry['count'] > 0) {
-            // Check for pwdAccountLockedTime lock
             if (isset($user_entry[0]['pwdaccountlockedtime'])) {
                 if ($LDAP_DEBUG) {
                     error_log("$log_prefix User $user_dn has pwdAccountLockedTime: " . $user_entry[0]['pwdaccountlockedtime'][0]);
                 }
                 return true;
-            }
-
-            // Check for description-based lock
-            if (isset($user_entry[0]['description'])) {
-                foreach ($user_entry[0]['description'] as $desc) {
-                    if ($desc === 'ACCOUNT_LOCKED') {
-                        if ($LDAP_DEBUG) {
-                            error_log("$log_prefix User $user_dn has description lock: $desc");
-                        }
-                        return true;
-                    }
-                }
             }
         }
     }
@@ -2294,32 +2277,12 @@ function ldap_organization_is_locked($ldap_connection, $org_name)
     $base_dn = $LDAP['base_dn'] ?? '';
     $disabled_group_cn = getenv('LDAP_GROUP_DISABLED_ORGS') ?: 'disabledOrganizations';
 
-    // Primary mechanism: membership in the disabledOrganizations status group
+    // Disabled when the organization DN is a member of the disabledOrganizations status group
     if ($base_dn !== '' && function_exists('isInStatusGroup') && isInStatusGroup($ldap_connection, $org_dn, $disabled_group_cn, $base_dn)) {
         if ($LDAP_DEBUG) {
             error_log("$log_prefix Organization $org_name is locked via status group: $disabled_group_cn");
         }
         return true;
-    }
-
-    // Legacy fallback: check for description-based lock markers (older installs)
-    $org_attrs = @ldap_read($ldap_connection, $org_dn, "(objectClass=*)", ['description']);
-
-    if ($org_attrs) {
-        $org_entry = ldap_get_entries($ldap_connection, $org_attrs);
-        if ($org_entry['count'] > 0) {
-            // Check for description-based lock
-            if (isset($org_entry[0]['description'])) {
-                foreach ($org_entry[0]['description'] as $desc) {
-                    if ($desc === 'ORGANIZATION_LOCKED') {
-                        if ($LDAP_DEBUG) {
-                            error_log("$log_prefix Organization $org_name has description lock: $desc");
-                        }
-                        return true;
-                    }
-                }
-            }
-        }
     }
 
     return false;
@@ -2343,7 +2306,6 @@ function ldap_lock_user_account($ldap_connection, $user_dn)
         return false;
     }
 
-    // Try standard pwdAccountLockedTime first
     $lock_value = '000001010000Z';
     $lock_attrs = ['pwdAccountLockedTime' => $lock_value];
 
@@ -2355,27 +2317,9 @@ function ldap_lock_user_account($ldap_connection, $user_dn)
         return true;
     }
 
-    // If pwdAccountLockedTime fails, try alternative method using description
     $ldap_error = ldap_error($ldap_connection);
-    if ($LDAP_DEBUG) {
-        error_log("$log_prefix pwdAccountLockedTime failed for $user_dn: $ldap_error");
-        error_log("$log_prefix Trying alternative locking method using description attribute");
-    }
-
-    // Alternative: Use description attribute to mark account as locked
-    $alt_lock_attrs = ['description' => 'ACCOUNT_LOCKED'];
-    $alt_result = @ldap_modify($ldap_connection, $user_dn, $alt_lock_attrs);
-
-    if ($alt_result) {
-        if ($LDAP_DEBUG) {
-            error_log("$log_prefix Successfully locked user account using description: $user_dn");
-        }
-        return true;
-    } else {
-        $alt_ldap_error = ldap_error($ldap_connection);
-        error_log("$log_prefix Failed to lock user account $user_dn using both methods. pwdAccountLockedTime error: $ldap_error, description error: $alt_ldap_error");
-        return false;
-    }
+    error_log("$log_prefix Failed to lock user account $user_dn using pwdAccountLockedTime: $ldap_error");
+    return false;
 }
 
 ##################################
@@ -2396,9 +2340,6 @@ function ldap_unlock_user_account($ldap_connection, $user_dn)
         return false;
     }
 
-    $success = false;
-
-    // Try to remove pwdAccountLockedTime first
     $unlock_attrs = ['pwdAccountLockedTime' => []];
     $result = @ldap_modify($ldap_connection, $user_dn, $unlock_attrs);
 
@@ -2406,31 +2347,13 @@ function ldap_unlock_user_account($ldap_connection, $user_dn)
         if ($LDAP_DEBUG) {
             error_log("$log_prefix Successfully unlocked user account by removing pwdAccountLockedTime: $user_dn");
         }
-        $success = true;
-    } else {
-        if ($LDAP_DEBUG) {
-            $ldap_error = ldap_error($ldap_connection);
-            error_log("$log_prefix pwdAccountLockedTime removal failed for $user_dn: $ldap_error");
-        }
+        return true;
     }
 
-    // Also try to remove description-based lock
-    $desc_unlock_attrs = ['description' => []];
-    $desc_result = @ldap_modify($ldap_connection, $user_dn, $desc_unlock_attrs);
-
-    if ($desc_result) {
-        if ($LDAP_DEBUG) {
-            error_log("$log_prefix Successfully unlocked user account by removing description lock: $user_dn");
-        }
-        $success = true;
-    } else {
-        if ($LDAP_DEBUG) {
-            $desc_ldap_error = ldap_error($ldap_connection);
-            error_log("$log_prefix Description lock removal failed for $user_dn: $desc_ldap_error");
-        }
+    if ($LDAP_DEBUG) {
+        error_log("$log_prefix pwdAccountLockedTime removal failed for $user_dn: " . ldap_error($ldap_connection));
     }
-
-    return $success;
+    return false;
 }
 
 ##################################

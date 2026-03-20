@@ -389,27 +389,6 @@ function deleteOrganization($orgName)
     }
 }
 
-function setOrganizationStatus($orgName, $status)
-{
-    global $LDAP;
-    $ldap = open_ldap_connection();
-
-    $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
-    $orgDN = "o={$orgRDN}," . $LDAP['org_dn'];
-
-    $modifications = ['description' => $status];
-    $result = ldap_modify($ldap, $orgDN, $modifications);
-    ldap_close($ldap);
-
-    if ($result) {
-        return [true, "Organization '$orgName' status updated successfully"];
-    } else {
-        $err = ldap_error($ldap);
-        error_log("setOrganizationStatus: Failed to update organization '$orgName' status: $err");
-        return [false, "Failed to update organization status: $err"];
-    }
-}
-
 function listOrganizations()
 {
     global $LDAP;
@@ -419,7 +398,7 @@ function listOrganizations()
         $ldap,
         $LDAP['org_dn'],
         '(objectClass=organization)',
-        ['o', 'postalAddress', 'telephoneNumber', 'labeledURI', 'mail', 'description', 'entryUUID']
+        ['o', 'postalAddress', 'telephoneNumber', 'facsimileTelephoneNumber', 'labeledURI', 'mail', 'description', 'entryUUID']
     );
 
     if (!$search) {
@@ -447,9 +426,9 @@ function listOrganizations()
             'postalCode' => isset($addressParts[3]) ? $addressParts[3] : '',
             'country' => isset($addressParts[4]) ? $addressParts[4] : '',
             'telephoneNumber' => isset($org['telephonenumber'][0]) ? $org['telephonenumber'][0] : '',
+            'facsimileTelephoneNumber' => isset($org['facsimiletelephonenumber'][0]) ? $org['facsimiletelephonenumber'][0] : '',
             'labeledURI' => isset($org['labeleduri'][0]) ? $org['labeleduri'][0] : '',
             'mail' => isset($org['mail'][0]) ? $org['mail'][0] : '',
-            'status' => isset($org['description'][0]) ? $org['description'][0] : 'enabled'
         ];
     }
 
@@ -535,6 +514,28 @@ function addUserToOrgAdmin($orgName, $userDn)
 }
 
 /**
+ * Remove all values for an LDAP attribute; treat "no such attribute" as success.
+ *
+ * @param resource $ldap Open LDAP connection
+ */
+function ldap_organization_attribute_delete_all($ldap, string $dn, string $attr): bool
+{
+    $ok = @ldap_mod_del($ldap, $dn, [$attr => []]);
+    if ($ok) {
+        return true;
+    }
+    $err = ldap_error($ldap);
+    if (preg_match('/no such attribute|nosuchattribute|no attribute/i', (string) $err)) {
+        return true;
+    }
+    if (stripos((string) $err, 'Undefined attribute type') !== false) {
+        return true;
+    }
+    error_log("ldap_organization_attribute_delete_all: cannot remove attribute '$attr' on $dn: $err");
+    return false;
+}
+
+/**
  * Update organization attributes
  * @param string $orgIdentifier Organization name or UUID
  * @param array $orgData Organization data to update
@@ -559,17 +560,63 @@ function updateOrganization($orgIdentifier, $orgData)
         $org_dn = "o=" . ldap_escape($orgIdentifier, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
     }
 
-    // Prepare modifications
+    $optional = $LDAP['org_optional_fields'] ?? [];
     $modifications = [];
+    $attrsToDelete = [];
+
     foreach ($orgData as $attr => $value) {
-        if ($attr !== 'o' && !empty($value)) { // Don't modify the organization name
+        if ($attr === 'o') {
+            continue;
+        }
+
+        if ($attr === 'documentIdentifier') {
+            if (!is_array($value)) {
+                continue;
+            }
+            if (count($value) === 0) {
+                $attrsToDelete[] = 'documentIdentifier';
+            } else {
+                $modifications[$attr] = $value;
+            }
+            continue;
+        }
+
+        if (in_array($attr, $optional, true)) {
+            if (is_array($value)) {
+                if (count($value) === 0) {
+                    $attrsToDelete[] = $attr;
+                } else {
+                    $modifications[$attr] = $value;
+                }
+            } elseif (trim((string) $value) === '') {
+                $attrsToDelete[] = $attr;
+            } else {
+                $modifications[$attr] = is_string($value) ? trim($value) : $value;
+            }
+            continue;
+        }
+
+        if (is_array($value)) {
+            if (!empty($value)) {
+                $modifications[$attr] = $value;
+            }
+        } elseif ($value !== null && trim((string) $value) !== '') {
             $modifications[$attr] = $value;
+        }
+    }
+
+    $attrsToDelete = array_values(array_unique($attrsToDelete));
+
+    foreach ($attrsToDelete as $attr) {
+        if (!ldap_organization_attribute_delete_all($ldap, $org_dn, $attr)) {
+            ldap_close($ldap);
+            return false;
         }
     }
 
     if (empty($modifications)) {
         ldap_close($ldap);
-        return true; // Nothing to update
+        return true;
     }
 
     // Perform the update
@@ -578,38 +625,106 @@ function updateOrganization($orgIdentifier, $orgData)
     if ($result) {
         ldap_close($ldap);
         return true;
-    } else {
-        // Get error message before closing the connection
-        $error_msg = ldap_error($ldap);
-        if (stripos((string) $error_msg, 'Undefined attribute type') !== false) {
-            $successful_attrs = [];
-            $failed_attrs = [];
-            foreach ($modifications as $attr => $value) {
-                $single_mod = [$attr => $value];
-                $single_ok = @ldap_modify($ldap, $org_dn, $single_mod);
-                if ($single_ok) {
-                    $successful_attrs[] = $attr;
-                    continue;
-                }
-                $failed_attrs[$attr] = ldap_error($ldap);
-            }
+    }
 
-            $non_schema_failures = [];
-            foreach ($failed_attrs as $attr => $single_error) {
-                if (stripos((string) $single_error, 'Undefined attribute type') === false) {
-                    $non_schema_failures[$attr] = $single_error;
-                }
+    // Get error message before closing the connection
+    $error_msg = ldap_error($ldap);
+    if (stripos((string) $error_msg, 'Undefined attribute type') !== false) {
+        $successful_attrs = [];
+        $failed_attrs = [];
+        foreach ($modifications as $attr => $value) {
+            $single_mod = [$attr => $value];
+            $single_ok = @ldap_modify($ldap, $org_dn, $single_mod);
+            if ($single_ok) {
+                $successful_attrs[] = $attr;
+                continue;
             }
+            $failed_attrs[$attr] = ldap_error($ldap);
+        }
 
-            if (!empty($successful_attrs) && empty($non_schema_failures)) {
-                ldap_close($ldap);
-                return true;
+        $non_schema_failures = [];
+        foreach ($failed_attrs as $attr => $single_error) {
+            if (stripos((string) $single_error, 'Undefined attribute type') === false) {
+                $non_schema_failures[$attr] = $single_error;
             }
         }
-        ldap_close($ldap);
-        error_log("updateOrganization: Failed to update organization $orgIdentifier: " . $error_msg);
+
+        if (!empty($successful_attrs) && empty($non_schema_failures)) {
+            ldap_close($ldap);
+            return true;
+        }
+    }
+    ldap_close($ldap);
+    error_log("updateOrganization: Failed to update organization $orgIdentifier: " . $error_msg);
+    return false;
+}
+
+/**
+ * Rename an organization by changing its naming RDN (o=). The entire subtree moves with the entry.
+ *
+ * @param string $orgIdentifier Current organization entryUUID or organization name (o)
+ * @param string $newOrgName    New organization name (must be non-empty and not already in use)
+ */
+function renameOrganization(string $orgIdentifier, string $newOrgName): bool
+{
+    global $LDAP;
+
+    $newOrgName = trim($newOrgName);
+    if ($newOrgName === '') {
         return false;
     }
+
+    $ldap = open_ldap_connection();
+    if ($ldap === false) {
+        return false;
+    }
+
+    if ($LDAP['use_uuid_identification'] && is_valid_uuid($orgIdentifier)) {
+        $org_entry = ldap_get_organization_by_uuid($ldap, $orgIdentifier);
+        if (!$org_entry) {
+            ldap_close($ldap);
+            return false;
+        }
+        $org_dn = $org_entry['dn'];
+        $current_o = (string) ($org_entry['o'][0] ?? '');
+    } else {
+        $org_dn = 'o=' . ldap_escape($orgIdentifier, '', LDAP_ESCAPE_DN) . ',' . $LDAP['org_dn'];
+        $read = @ldap_read($ldap, $org_dn, '(objectClass=organization)', ['o']);
+        if (!$read) {
+            ldap_close($ldap);
+            return false;
+        }
+        $entries = ldap_get_entries($ldap, $read);
+        if (!is_array($entries) || ($entries['count'] ?? 0) < 1) {
+            ldap_close($ldap);
+            return false;
+        }
+        $current_o = (string) ($entries[0]['o'][0] ?? '');
+    }
+
+    if ($current_o === $newOrgName) {
+        ldap_close($ldap);
+        return true;
+    }
+
+    $new_dn = 'o=' . ldap_escape($newOrgName, '', LDAP_ESCAPE_DN) . ',' . $LDAP['org_dn'];
+    $collision = @ldap_read($ldap, $new_dn, '(objectClass=*)', ['dn']);
+    if ($collision) {
+        error_log("renameOrganization: Target organization DN already exists: $new_dn");
+        ldap_close($ldap);
+        return false;
+    }
+
+    $new_rdn = 'o=' . ldap_escape($newOrgName, '', LDAP_ESCAPE_DN);
+    $ok = @ldap_rename($ldap, $org_dn, $new_rdn, null, true);
+    if (!$ok) {
+        error_log('renameOrganization: ldap_rename failed for ' . $org_dn . ': ' . ldap_error($ldap));
+        ldap_close($ldap);
+        return false;
+    }
+
+    ldap_close($ldap);
+    return true;
 }
 
 function removeUserFromOrgAdmin($orgName, $userDn)
