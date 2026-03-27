@@ -169,7 +169,7 @@ This checklist ensures your LDAP User Manager deployment meets security best pra
 ### ✅ Access Management
 - [ ] **User access reviews**
   - [ ] Regular access reviews scheduled
-  - [ ] Unused accounts disabled
+  - [ ] Unused accounts deactivated
   - [ ] Privileged access reviewed
   - [ ] Access changes documented
 

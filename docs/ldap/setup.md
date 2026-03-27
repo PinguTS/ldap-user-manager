@@ -163,13 +163,13 @@ show_organization.php?org=Company%20Name
 
 ---
 
-## 5. Account Locking Implementation
+## 5. Account Disabling Implementation
 
-### 5.1 Standard LDAP Account Locking
+### 5.1 Standard LDAP Account Disabling
 
-LDAP User Manager implements account locking using the **`pwdAccountLockedTime`** attribute (password policy / **ppolicy** in OpenLDAP).
+LDAP User Manager implements account disabling using the **`pwdAccountLockedTime`** attribute (password policy / **ppolicy** in OpenLDAP).
 
-**Lock value**
+**Disable value**
 
 - **Standard value**: `000001010000Z` (January 1, 1970 00:00:00 UTC)
 
@@ -196,9 +196,9 @@ As an alternative, **Bitnami** can turn on ppolicy using only environment variab
 
 See the [Bitnami OpenLDAP README](https://github.com/bitnami/containers/blob/main/bitnami/openldap/README.md) for ports (`LDAP_PORT_NUMBER` often **1389** inside the container), `LDAP_ROOT`, `LDAP_ADMIN_USERNAME`, and TLS.
 
-**Example LDIF (locked entries):**
+**Example LDIF (disabled entries):**
 ```ldif
-# Locked user account
+# Disabled user account
 dn: uid=user@org.com,ou=people,o=OrgName,ou=organizations,dc=example,dc=com
 objectClass: inetOrgPerson
 objectClass: top
@@ -207,89 +207,89 @@ cn: User Name
 sn: Name
 givenName: User
 mail: user@org.com
-pwdAccountLockedTime: 000001010000Z  # Account is locked
+pwdAccountLockedTime: 000001010000Z  # Account is disabled
 userPassword: {SSHA}hashed_password
 
-# Locked organization
+# Disabled organization
 dn: o=OrgName,ou=organizations,dc=example,dc=com
 objectClass: top
 objectClass: organization
 objectClass: extensibleObject
 o: OrgName
-pwdAccountLockedTime: 000001010000Z  # Organization is locked
+pwdAccountLockedTime: 000001010000Z  # Organization is disabled
 ```
 
-### 5.2 Account Locking Features
+### 5.2 Account Disabling Features
 
-**User Account Locking:**
-- **Individual Lock**: Lock specific user accounts
-- **Permission-Based**: Only authorized users can lock/unlock accounts
-- **Self-Protection**: Users cannot lock their own accounts
-- **Role Restrictions**: Maintainers cannot lock administrator accounts
+**User Account Disabling:**
+- **Individual Disable**: Disable specific user accounts
+- **Permission-Based**: Only authorized users can disable/enable accounts
+- **Self-Protection**: Users cannot disable their own accounts
+- **Role Restrictions**: Maintainers cannot disable administrator accounts
 
-**Organization Locking:**
-- **Bulk Lock**: Lock entire organizations and all their users
-- **Cascade Effect**: When an organization is locked, all users are automatically locked
-- **Permission-Based**: Only global admins and maintainers can lock organizations
-- **Self-Protection**: Organization admins cannot lock their own organization
+**Organization Disabling:**
+- **Bulk Disable**: Disable entire organizations and all their users
+- **Cascade Effect**: When an organization is disabled, all users are automatically disabled
+- **Permission-Based**: Only global admins and maintainers can disable organizations
+- **Self-Protection**: Organization admins cannot disable their own organization
 
 **Authentication Integration:**
-- **Login Prevention**: Locked accounts cannot authenticate
-- **Clear Messages**: Users see specific error messages for locked accounts
-- **Audit Trail**: All lock/unlock actions are logged
+- **Login Prevention**: Disabled accounts cannot authenticate
+- **Clear Messages**: Users see specific error messages for disabled accounts
+- **Audit Trail**: All disable/enable actions are logged
 
-### 5.3 Access Control for Account Locking
+### 5.3 Access Control for Account Disabling
 
-**User Lock/Unlock Permissions:**
-- **Global Administrators**: Can lock/unlock any user account
-- **Maintainers**: Can lock/unlock users (except administrators)
-- **Organization Administrators**: Can lock/unlock users in their organization only
+**User Disable/Enable Permissions:**
+- **Global Administrators**: Can disable/enable any user account
+- **Maintainers**: Can disable/enable users (except administrators)
+- **Organization Administrators**: Can disable/enable users in their organization only
 
-**Organization Lock/Unlock Permissions:**
-- **Global Administrators**: Can lock/unlock any organization
-- **Maintainers**: Can lock/unlock any organization
-- **Organization Administrators**: Cannot lock/unlock their own organization
+**Organization Disable/Enable Permissions:**
+- **Global Administrators**: Can disable/enable any organization
+- **Maintainers**: Can disable/enable any organization
+- **Organization Administrators**: Cannot disable/enable their own organization
 
-**Lock Status Viewing:**
-- **Administrators, Maintainers, Organization Admins**: Can view lock status
-- **Regular Users**: Cannot view lock status of other accounts
+**Disable Status Viewing:**
+- **Administrators, Maintainers, Organization Admins**: Can view disable status
+- **Regular Users**: Cannot view disable status of other accounts
 
 ### 5.4 Technical Implementation
 
 **LDAP Functions:**
 ```php
-// Check if user is locked
-ldap_user_is_locked($ldap_connection, $user_dn)
+// Check if user is disabled
+ldap_user_is_disabled($ldap_connection, $user_dn)
 
-// Check if organization is locked
-ldap_organization_is_locked($ldap_connection, $org_name)
+// Check if organization is disabled
+ldap_organization_is_disabled($ldap_connection, $org_name)
 
-// Lock user account
-ldap_lock_user_account($ldap_connection, $user_dn)
+// Disable user account
+ldap_disable_user_account($ldap_connection, $user_dn)
 
-// Unlock user account
-ldap_unlock_user_account($ldap_connection, $user_dn)
+// Enable user account
+ldap_enable_user_account($ldap_connection, $user_dn)
 
-// Lock organization and all users
-ldap_lock_organization($ldap_connection, $org_name)
+// Disable organization and all users
+ldap_disable_organization($ldap_connection, $org_name)
 
-// Unlock organization and all users
-ldap_unlock_organization($ldap_connection, $org_name)
+// Enable organization and all users
+ldap_enable_organization($ldap_connection, $org_name)
 ```
 
 **Authentication Flow:**
 1. User attempts login
 2. System checks `pwdAccountLockedTime` attribute
-3. If locked, login is denied with clear error message
-4. If organization is locked, user login is also denied
+3. If disabled, login is denied with clear error message
+4. If organization is disabled, user login is also denied
 5. Failed login attempts are logged for security
 
 **Benefits:**
 - ✅ **Standard practice on OpenLDAP**: Uses ppolicy’s `pwdAccountLockedTime` when the server provides it
 - ✅ **Security enhancement**: Immediate access control without deletion
-- ✅ **Audit Trail**: Complete logging of all lock/unlock operations
-- ✅ **Permission-Based**: Granular access control for lock operations
-- ✅ **Reversible**: Easy to unlock accounts when needed
+- ✅ **Audit Trail**: Complete logging of all disable/enable operations
+- ✅ **Permission-Based**: Granular access control for disable operations
+- ✅ **Reversible**: Easy to enable accounts when needed
 
 ---
 

@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $ldap_connection = open_ldap_connection();
 
     switch ($_POST['action']) {
-        case 'lock_user':
+        case 'disable_user':
             if (isset($_POST['user_identifier']) && currentUserCanDisableUser($_POST['user_identifier'])) {
                 $user_identifier = trim($_POST['user_identifier']);
 
@@ -24,17 +24,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $user_dn = get_user_dn_from_identifier($ldap_connection, $user_identifier);
                 }
 
-                if ($user_dn && ldap_lock_user_account($ldap_connection, $user_dn)) {
-                    $message = t('manage.users.msg.lock_ok', ['user' => $user_identifier]);
+                if ($user_dn && ldap_disable_user_account($ldap_connection, $user_dn)) {
+                    $message = t('manage.users.msg.deactivate_ok', ['user' => $user_identifier]);
                     $message_type = 'success';
                 } else {
                     // Get the actual LDAP error for debugging
                     $ldap_error = ldap_error($ldap_connection);
-                    $message = t('manage.users.msg.lock_fail', ['user' => $user_identifier, 'error' => $ldap_error]);
+                    $message = t('manage.users.msg.deactivate_fail', ['user' => $user_identifier, 'error' => $ldap_error]);
                     $message_type = 'danger';
 
                     // Log additional debugging information
-                    error_log("Lock user failed - User: $user_identifier, DN: $user_dn, LDAP Error: $ldap_error");
+                    error_log("Disable user failed - User: $user_identifier, DN: $user_dn, LDAP Error: $ldap_error");
                 }
             } else {
                 $message = t('manage.users.msg.permission_denied_invalid_user');
@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
             break;
 
-        case 'unlock_user':
+        case 'enable_user':
             if (isset($_POST['user_identifier']) && currentUserCanEnableUser($_POST['user_identifier'])) {
                 $user_identifier = trim($_POST['user_identifier']);
 
@@ -55,17 +55,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $user_dn = get_user_dn_from_identifier($ldap_connection, $user_identifier);
                 }
 
-                if ($user_dn && ldap_unlock_user_account($ldap_connection, $user_dn)) {
-                    $message = t('manage.users.msg.unlock_ok', ['user' => $user_identifier]);
+                if ($user_dn && ldap_enable_user_account($ldap_connection, $user_dn)) {
+                    $message = t('manage.users.msg.activate_ok', ['user' => $user_identifier]);
                     $message_type = 'success';
                 } else {
                     // Get the actual LDAP error for debugging
                     $ldap_error = ldap_error($ldap_connection);
-                    $message = t('manage.users.msg.unlock_fail', ['user' => $user_identifier, 'error' => $ldap_error]);
+                    $message = t('manage.users.msg.activate_fail', ['user' => $user_identifier, 'error' => $ldap_error]);
                     $message_type = 'danger';
 
                     // Log additional debugging information
-                    error_log("Unlock user failed - User: $user_identifier, DN: $user_dn, LDAP Error: $ldap_error");
+                    error_log("Enable user failed - User: $user_identifier, DN: $user_dn, LDAP Error: $ldap_error");
                 }
             } else {
                 $message = t('manage.users.msg.permission_denied_invalid_user');
@@ -248,11 +248,11 @@ if ($ldap_connection === false) {
                         print "   <td>" . htmlspecialchars(implode(", ", $role_membership)) . "</td>\n";
                         print "   <td>";
 
-                        // Display lock status
+                        // Display disabled status
                         $user_dn_for_status = get_user_dn_from_identifier($ldap_connection, $account_identifier);
                         if ($user_dn_for_status) {
-                            if (ldap_user_is_locked($ldap_connection, $user_dn_for_status)) {
-                                print '<span class="badge bg-danger">' . htmlspecialchars(t('manage.common.locked'), ENT_QUOTES, 'UTF-8') . '</span>';
+                            if (ldap_user_is_disabled($ldap_connection, $user_dn_for_status)) {
+                                print '<span class="badge bg-danger">' . htmlspecialchars(t('manage.common.inactive'), ENT_QUOTES, 'UTF-8') . '</span>';
                             } else {
                                 print '<span class="badge bg-success">' . htmlspecialchars(t('manage.common.active'), ENT_QUOTES, 'UTF-8') . '</span>';
                             }
@@ -298,14 +298,14 @@ if ($ldap_connection === false) {
                             }
                         }
 
-                        // Add lock/unlock functionality
+                        // Add disable/enable functionality
                         if (currentUserCanDisableUser($account_identifier)) {
-                            $user_dn_for_lock = get_user_dn_from_identifier($ldap_connection, $account_identifier);
-                            if ($user_dn_for_lock) {
-                                if (ldap_user_is_locked($ldap_connection, $user_dn_for_lock)) {
-                                    print "         <button type='button' class='btn btn-sm btn-success' onclick='confirmUnlockUser(\"" . htmlspecialchars($account_identifier) . "\")'>" . htmlspecialchars(t('manage.common.unlock'), ENT_QUOTES, 'UTF-8') . "</button>";
+                            $user_dn_for_status = get_user_dn_from_identifier($ldap_connection, $account_identifier);
+                            if ($user_dn_for_status) {
+                                if (ldap_user_is_disabled($ldap_connection, $user_dn_for_status)) {
+                                    print "         <button type='button' class='btn btn-sm btn-success' onclick='confirmEnableUser(\"" . htmlspecialchars($account_identifier) . "\")'>" . htmlspecialchars(t('manage.common.activate'), ENT_QUOTES, 'UTF-8') . "</button>";
                                 } else {
-                                    print "         <button type='button' class='btn btn-sm btn-warning' onclick='confirmLockUser(\"" . htmlspecialchars($account_identifier) . "\")'>" . htmlspecialchars(t('manage.common.lock'), ENT_QUOTES, 'UTF-8') . "</button>";
+                                    print "         <button type='button' class='btn btn-sm btn-warning' onclick='confirmDisableUser(\"" . htmlspecialchars($account_identifier) . "\")'>" . htmlspecialchars(t('manage.common.deactivate'), ENT_QUOTES, 'UTF-8') . "</button>";
                                 }
                             }
                         }
@@ -345,25 +345,25 @@ render_confirm_modal(
     'btn-danger'
 );
 render_confirm_modal(
-    'lockUserModal',
-    t('manage.users.index.modal.lock_title'),
-    t('manage.users.index.modal.lock_body'),
+    'disableUserModal',
+    t('manage.users.index.modal.deactivate_title'),
+    t('manage.users.index.modal.deactivate_body'),
     [
-        ['name' => 'action', 'value' => 'lock_user'],
-        ['name' => 'user_identifier', 'id' => 'lockUserInput'],
+        ['name' => 'action', 'value' => 'disable_user'],
+        ['name' => 'user_identifier', 'id' => 'disableUserInput'],
     ],
-    t('manage.users.index.modal.lock_submit'),
+    t('manage.users.index.modal.deactivate_submit'),
     'btn-warning'
 );
 render_confirm_modal(
-    'unlockUserModal',
-    t('manage.users.index.modal.unlock_title'),
-    t('manage.users.index.modal.unlock_body'),
+    'enableUserModal',
+    t('manage.users.index.modal.activate_title'),
+    t('manage.users.index.modal.activate_body'),
     [
-        ['name' => 'action', 'value' => 'unlock_user'],
-        ['name' => 'user_identifier', 'id' => 'unlockUserInput'],
+        ['name' => 'action', 'value' => 'enable_user'],
+        ['name' => 'user_identifier', 'id' => 'enableUserInput'],
     ],
-    t('manage.users.index.modal.unlock_submit'),
+    t('manage.users.index.modal.activate_submit'),
     'btn-success'
 );
 ?>
@@ -393,11 +393,11 @@ render_confirm_modal(
             }
         });
 
-        function confirmLockUser(userIdentifier) {
-            confirmAction('lockUserModal', { lockUserName: userIdentifier, lockUserInput: userIdentifier });
+        function confirmDisableUser(userIdentifier) {
+            confirmAction('disableUserModal', { disableUserName: userIdentifier, disableUserInput: userIdentifier });
         }
-        function confirmUnlockUser(userIdentifier) {
-            confirmAction('unlockUserModal', { unlockUserName: userIdentifier, unlockUserInput: userIdentifier });
+        function confirmEnableUser(userIdentifier) {
+            confirmAction('enableUserModal', { enableUserName: userIdentifier, enableUserInput: userIdentifier });
         }
         function confirmDelete(userIdentifier, displayName) {
             confirmAction('deleteModal', { deleteUserName: displayName, deleteUserInput: userIdentifier });

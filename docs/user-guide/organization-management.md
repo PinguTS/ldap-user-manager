@@ -8,7 +8,7 @@ Organization management allows you to:
 - Create new organizations
 - Edit organization information
 - Set membership status (member organization) and optional metadata (e.g. member number, member since)
-- Enable or disable organizations (disabled organizations are deactivated and excluded from exports)
+- Activate or deactivate organizations (deactivated organizations are excluded from exports)
 - Delete organizations
 - Manage users within organizations
 - Configure organization-specific settings
@@ -38,8 +38,8 @@ dc=example,dc=com
 - **Email**: Contact email address
 
 ### Membership and status in the UI
-- **Organization list** (`Manage → Organizations`): Each row can show status badges such as **Member** (active membership) and **Disabled** (organization deactivated). Admins and maintainers can change these from the list or from the organization detail page.
-- **Organization detail / edit page**: A **Membership** section lets you toggle "Member organization" and, when enabled, edit optional metadata (e.g. membership number, member since date, tax ID, primary contact). A separate toggle controls whether the organization is **enabled** or **disabled**.
+- **Organization list** (`Manage → Organizations`): Each row can show status badges such as **Member** (active membership) and **Inactive** (organization deactivated). Admins and maintainers can change these from the list or from the organization detail page.
+- **Organization detail / edit page**: A **Membership** section lets you toggle "Member organization" and, when enabled, edit optional metadata (e.g. membership number, member since date, tax ID, primary contact). A separate toggle controls whether the organization is **active** or **inactive**.
 
 ## Creating Organizations
 
@@ -88,10 +88,10 @@ Country
 - **Click** "Save" to update the organization
 - **Verify** changes are applied
 
-### Membership and disabled status (admins and maintainers)
+### Membership and activation status (admins and maintainers)
 On the organization detail/edit page you can:
 - **Member organization**: Turn membership on or off. When on, you can optionally set membership metadata (e.g. member number, member since date, tax identification number, primary contact person).
-- **Organization enabled / disabled**: Disable an organization to deactivate it (e.g. exclude it from member exports and treat it as inactive). Re-enable to restore normal status.
+- **Organization active / inactive**: Deactivate an organization to exclude it from member exports and treat it as inactive. Activate to restore normal status.
 These toggles and fields are in the **Membership** section of the same form; saving updates both the organization entry and the corresponding LDAP status groups.
 
 ## Deleting Organizations

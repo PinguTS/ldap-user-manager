@@ -754,7 +754,7 @@ function checkRoleGroupConflicts(array $roles, array $groups): array
 }
 
 /**
- * Checks if the current user can disable/lock a specific user account
+ * Checks if the current user can disable a specific user account
  *
  * @param string $targetUserIdentifier User identifier to check permissions for
  * @return bool True if user can disable the target user, false otherwise
@@ -828,7 +828,7 @@ function canOrgAdminDisableUser(string $targetUserIdentifier): bool
         $targetUserOrg = getUserOrganizationByIdentifier($ldap, $targetUserIdentifier);
         $targetUserDn = findUserDn($ldap, $targetUserIdentifier);
 
-        // Organization admins must never lock/unlock/delete themselves.
+        // Organization admins must never disable/enable/delete themselves.
         if (!empty($USER_DN) && !empty($targetUserDn) && strcasecmp($targetUserDn, $USER_DN) === 0) {
             return false;
         }
@@ -898,7 +898,7 @@ function findUserDn($ldap, string $userIdentifier): ?string
 }
 
 /**
- * Checks if the current user can enable/unlock a specific user account
+ * Checks if the current user can enable a specific user account
  *
  * @param string $targetUserIdentifier User identifier to check permissions for
  * @return bool True if user can enable the target user, false otherwise
@@ -910,7 +910,7 @@ function currentUserCanEnableUser(string $targetUserIdentifier): bool
 }
 
 /**
- * Checks if the current user can disable/lock a specific organization
+ * Checks if the current user can disable a specific organization
  *
  * @param string $orgName Organization name to check permissions for
  * @return bool True if user can disable the organization, false otherwise
@@ -937,7 +937,7 @@ function currentUserCanDisableOrganization(string $orgName): bool
 }
 
 /**
- * Checks if the current user can enable/unlock a specific organization
+ * Checks if the current user can enable a specific organization
  *
  * @param string $orgName Organization name to check permissions for
  * @return bool True if user can enable the organization, false otherwise
@@ -949,22 +949,22 @@ function currentUserCanEnableOrganization(string $orgName): bool
 }
 
 /**
- * Checks if the current user can view lock status information
+ * Checks if the current user can view disable status information
  *
- * @return bool True if user can view lock status, false otherwise
+ * @return bool True if user can view disable status, false otherwise
  */
-function currentUserCanViewLockStatus(): bool
+function currentUserCanViewDisableStatus(): bool
 {
-    // Administrators, maintainers, and organization admins can view lock status
+    // Administrators, maintainers, and organization admins can view disable status
     return (currentUserIsGlobalAdmin() || currentUserIsMaintainer() || currentUserIsOrgAdmin());
 }
 
 /**
- * Checks if the current user can perform bulk lock/unlock operations
+ * Checks if the current user can perform bulk disable/enable operations
  *
  * @return bool True if user can perform bulk operations, false otherwise
  */
-function currentUserCanPerformBulkLockOperations(): bool
+function currentUserCanPerformBulkDisableOperations(): bool
 {
     // Only global administrators and maintainers can perform bulk operations
     return (currentUserIsGlobalAdmin() || currentUserIsMaintainer());

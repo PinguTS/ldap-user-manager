@@ -45,20 +45,20 @@ if (isset($_POST["user_id"]) && isset($_POST["password"])) {
         if ($user_entries['count'] > 0 && $first_entry !== [] && function_exists('isUserAccountDisabled') && isUserAccountDisabled($first_entry)) {
             record_login_attempt($_POST["user_id"], false);
             ldap_close($ldap_connection);
-            header("Location: " . get_base_url() . "login/?account_locked");
+            header("Location: " . get_base_url() . "login/?account_disabled");
             exit;
         }
     }
 
-  // Check if user account is locked/disabled (org lock or other lock)
-    if (ldap_user_is_locked($ldap_connection, $user_dn)) {
-      // Record failed login attempt for locked account
+  // Check if user account is disabled (org disable or direct disable)
+    if (ldap_user_is_disabled($ldap_connection, $user_dn)) {
+      // Record failed login attempt for disabled account
         record_login_attempt($_POST["user_id"], false);
 
         ldap_close($ldap_connection);
 
-      // Redirect with locked account message
-        header("Location: " . get_base_url() . "login/?account_locked");
+      // Redirect with disabled account message
+        header("Location: " . get_base_url() . "login/?account_disabled");
         exit;
     }
 
@@ -297,9 +297,9 @@ render_header(t('login.page_title', ['org' => $ORGANISATION_NAME]));
             </div>
    <?php endif; ?>
         
-        <?php if (isset($_GET['account_locked'])) : ?>
+        <?php if (isset($_GET['account_disabled'])) : ?>
             <div class="alert alert-danger">
-                <strong><?php echo htmlspecialchars(t('login.account_locked_title'), ENT_QUOTES, 'UTF-8'); ?></strong> <?php echo htmlspecialchars(t('login.account_locked'), ENT_QUOTES, 'UTF-8'); ?>
+                <strong><?php echo htmlspecialchars(t('login.account_disabled_title'), ENT_QUOTES, 'UTF-8'); ?></strong> <?php echo htmlspecialchars(t('login.account_disabled'), ENT_QUOTES, 'UTF-8'); ?>
             </div>
         <?php endif; ?>
         

@@ -1583,7 +1583,7 @@ function render_alert_banner($message, $alert_class = "success", $timeout = 4000
 }
 
 /**
- * Render a Bootstrap 5 confirmation modal (e.g. lock/unlock/delete).
+ * Render a Bootstrap 5 confirmation modal (e.g. disable/enable/delete).
  *
  * @param string $id Modal element ID
  * @param string $title Modal title

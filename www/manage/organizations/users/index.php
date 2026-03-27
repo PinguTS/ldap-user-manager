@@ -257,10 +257,10 @@ if (isset($_GET['toggle_manager']) && isset($_GET['uid'])) {
     after_toggle_manager:
 }
 
-// Handle user lock/unlock
+// Handle user disable/enable
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['lock_user']) && currentUserCanDisableUser($_POST['lock_user'])) {
-        $user_identifier = trim($_POST['lock_user']);
+    if (isset($_POST['disable_user']) && currentUserCanDisableUser($_POST['disable_user'])) {
+        $user_identifier = trim($_POST['disable_user']);
 
         // Check if this is a UUID or uid
         $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $user_identifier);
@@ -278,7 +278,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $message = t('manage.users.msg.user_not_found_uuid', ['uuid' => $user_identifier]);
                 $message_type = 'danger';
                 ldap_close($ldap_connection);
-                goto after_lock_user;
+                goto after_disable_user;
             }
         } else {
             // Legacy uid-based lookup
@@ -286,18 +286,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $ldap_connection = open_ldap_connection();
         }
 
-        if (ldap_lock_user_account($ldap_connection, $user_dn)) {
-            $message = t('manage.users.msg.lock_ok', ['user' => $user_identifier]);
+        if (ldap_disable_user_account($ldap_connection, $user_dn)) {
+            $message = t('manage.users.msg.deactivate_ok', ['user' => $user_identifier]);
             $message_type = 'success';
         } else {
             $ldap_error = ldap_error($ldap_connection);
-            $message = t('manage.users.msg.lock_fail', ['user' => $user_identifier, 'error' => $ldap_error]);
+            $message = t('manage.users.msg.deactivate_fail', ['user' => $user_identifier, 'error' => $ldap_error]);
             $message_type = 'danger';
         }
         ldap_close($ldap_connection);
-        after_lock_user:
-    } elseif (isset($_POST['unlock_user']) && currentUserCanEnableUser($_POST['unlock_user'])) {
-        $user_identifier = trim($_POST['unlock_user']);
+        after_disable_user:
+    } elseif (isset($_POST['enable_user']) && currentUserCanEnableUser($_POST['enable_user'])) {
+        $user_identifier = trim($_POST['enable_user']);
 
         // Check if this is a UUID or uid
         $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $user_identifier);
@@ -315,7 +315,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $message = t('manage.users.msg.user_not_found_uuid', ['uuid' => $user_identifier]);
                 $message_type = 'danger';
                 ldap_close($ldap_connection);
-                goto after_unlock_user;
+                goto after_enable_user;
             }
         } else {
             // Legacy uid-based lookup
@@ -323,16 +323,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $ldap_connection = open_ldap_connection();
         }
 
-        if (ldap_unlock_user_account($ldap_connection, $user_dn)) {
-            $message = t('manage.users.msg.unlock_ok', ['user' => $user_identifier]);
+        if (ldap_enable_user_account($ldap_connection, $user_dn)) {
+            $message = t('manage.users.msg.activate_ok', ['user' => $user_identifier]);
             $message_type = 'success';
         } else {
             $ldap_error = ldap_error($ldap_connection);
-            $message = t('manage.users.msg.unlock_fail', ['user' => $user_identifier, 'error' => $ldap_error]);
+            $message = t('manage.users.msg.activate_fail', ['user' => $user_identifier, 'error' => $ldap_error]);
             $message_type = 'danger';
         }
         ldap_close($ldap_connection);
-        after_unlock_user:
+        after_enable_user:
     } elseif (isset($_POST['delete_user']) && currentUserCanDisableUser($_POST['delete_user'])) {
         $user_identifier = trim($_POST['delete_user']);
 
@@ -805,7 +805,7 @@ render_submenu();
             </tr>
         </thead>
         <tbody>
-            <?php $is_locked_org = ldap_organization_is_locked($ldap_connection, $orgName); ?>
+            <?php $is_disabled_org = ldap_organization_is_disabled($ldap_connection, $orgName); ?>
             <?php foreach ($users as $user) :
                 $isManager = in_array(getUserDn($orgName, get_ldap_attribute($user, 'uid')), $orgManagerDns);
                 // Use robust UUID extraction for user actions
@@ -818,20 +818,20 @@ render_submenu();
                     <td><?= htmlspecialchars(get_ldap_attribute($user, 'mail')) ?></td>
                     <td>
                         <?php
-                        $is_locked = ldap_user_is_locked($ldap_connection, $user['dn']);
+                        $is_disabled = ldap_user_is_disabled($ldap_connection, $user['dn']);
                         $is_individually_disabled = ldap_user_is_individually_disabled($ldap_connection, $user['dn']);
-                        if ($is_locked) {
-                            if ($is_individually_disabled && $is_locked_org) {
-                                $badge_title = t('manage.org_users.lock_reason.both');
+                        if ($is_disabled) {
+                            if ($is_individually_disabled && $is_disabled_org) {
+                                $badge_title = t('manage.org_users.deactivate_reason.both');
                             } elseif ($is_individually_disabled) {
-                                $badge_title = t('manage.org_users.lock_reason.individual');
-                            } elseif ($is_locked_org) {
-                                $badge_title = t('manage.org_users.lock_reason.org');
+                                $badge_title = t('manage.org_users.deactivate_reason.individual');
+                            } elseif ($is_disabled_org) {
+                                $badge_title = t('manage.org_users.deactivate_reason.org');
                             } else {
-                                $badge_title = t('manage.common.locked');
+                                $badge_title = t('manage.common.inactive');
                             }
                             echo '<span class="badge bg-danger" title="' . htmlspecialchars($badge_title, ENT_QUOTES, 'UTF-8') . '">'
-                                . htmlspecialchars(t('manage.common.locked'), ENT_QUOTES, 'UTF-8') . '</span>';
+                                . htmlspecialchars(t('manage.common.inactive'), ENT_QUOTES, 'UTF-8') . '</span>';
                         } else {
                             echo '<span class="badge bg-success">' . htmlspecialchars(t('manage.common.active'), ENT_QUOTES, 'UTF-8') . '</span>';
                         }
@@ -850,10 +850,10 @@ render_submenu();
                             <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.common.user_actions_aria'), ENT_QUOTES, 'UTF-8'); ?>">
                                 <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&edit_user=<?= urlencode($user_identifier) ?>" class="btn btn-secondary btn-sm"><?php echo htmlspecialchars(t('manage.common.edit'), ENT_QUOTES, 'UTF-8'); ?></a>
                             <?php if (currentUserCanDisableUser($user_identifier)) : ?>
-                                <?php if (ldap_user_is_locked($ldap_connection, $user['dn'])) : ?>
-                                    <button type="button" class="btn btn-success btn-sm" onclick="confirmUnlockUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')"><?php echo htmlspecialchars(t('manage.common.unlock'), ENT_QUOTES, 'UTF-8'); ?></button>
+                                <?php if (ldap_user_is_disabled($ldap_connection, $user['dn'])) : ?>
+                                    <button type="button" class="btn btn-success btn-sm" onclick="confirmEnableUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')"><?php echo htmlspecialchars(t('manage.common.activate'), ENT_QUOTES, 'UTF-8'); ?></button>
                                 <?php else : ?>
-                                    <button type="button" class="btn btn-warning btn-sm" onclick="confirmLockUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')"><?php echo htmlspecialchars(t('manage.common.lock'), ENT_QUOTES, 'UTF-8'); ?></button>
+                                    <button type="button" class="btn btn-warning btn-sm" onclick="confirmDisableUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')"><?php echo htmlspecialchars(t('manage.common.deactivate'), ENT_QUOTES, 'UTF-8'); ?></button>
                                 <?php endif; ?>
                             <?php endif; ?>
                                 <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&reset_user=<?= urlencode($user_identifier) ?>" class="btn btn-primary btn-sm"><?php echo htmlspecialchars(t('manage.common.new_password'), ENT_QUOTES, 'UTF-8'); ?></a>
@@ -1065,19 +1065,19 @@ render_submenu();
     
     <?php
     render_confirm_modal(
-        'lockUserModal',
-        t('manage.org_users.modal.lock_title'),
-        t('manage.org_users.modal.lock_body'),
-        [['name' => 'lock_user', 'id' => 'lockUserIdentifier']],
-        t('manage.org_users.modal.lock_submit'),
+        'disableUserModal',
+        t('manage.org_users.modal.deactivate_title'),
+        t('manage.org_users.modal.deactivate_body'),
+        [['name' => 'disable_user', 'id' => 'disableUserIdentifier']],
+        t('manage.org_users.modal.deactivate_submit'),
         'btn-warning'
     );
     render_confirm_modal(
-        'unlockUserModal',
-        t('manage.org_users.modal.unlock_title'),
-        t('manage.org_users.modal.unlock_body'),
-        [['name' => 'unlock_user', 'id' => 'unlockUserIdentifier']],
-        t('manage.org_users.modal.unlock_submit'),
+        'enableUserModal',
+        t('manage.org_users.modal.activate_title'),
+        t('manage.org_users.modal.activate_body'),
+        [['name' => 'enable_user', 'id' => 'enableUserIdentifier']],
+        t('manage.org_users.modal.activate_submit'),
         'btn-success'
     );
     render_confirm_modal(
@@ -1252,11 +1252,11 @@ render_submenu();
         }
     });
 
-    function confirmLockUser(userIdentifier, userName) {
-        confirmAction('lockUserModal', { lockUserIdentifier: userIdentifier, lockUserName: userName });
+    function confirmDisableUser(userIdentifier, userName) {
+        confirmAction('disableUserModal', { disableUserIdentifier: userIdentifier, disableUserName: userName });
     }
-    function confirmUnlockUser(userIdentifier, userName) {
-        confirmAction('unlockUserModal', { unlockUserIdentifier: userIdentifier, unlockUserName: userName });
+    function confirmEnableUser(userIdentifier, userName) {
+        confirmAction('enableUserModal', { enableUserIdentifier: userIdentifier, enableUserName: userName });
     }
     function confirmDeleteUser(userIdentifier, userName) {
         confirmAction('deleteUserModal', { deleteUserName: userName, deleteUserIdentifier: userIdentifier });

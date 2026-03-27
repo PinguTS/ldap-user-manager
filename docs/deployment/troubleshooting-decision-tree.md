@@ -213,7 +213,7 @@ Authentication Problems?
 │   │   ├── Wrong credentials → Use correct credentials
 │   │   └── Correct credentials → Check user account status
 │   ├── Check user account status
-│   │   ├── Account locked → Unlock account
+│   │   ├── Account deactivated → Activate account
 │   │   └── Account active → Check LDAP connection
 │   └── Check LDAP connection
 │       ├── Connection failed → Fix LDAP connection

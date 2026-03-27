@@ -396,7 +396,7 @@ if ($errors != "") { ?>
                             <label class="col-sm-3 form-label"><?php echo htmlspecialchars(t('manage.org_users.add.organization_label'), ENT_QUOTES, 'UTF-8'); ?></label>
                             <div class="col-sm-6">
                                 <input type="text" class="form-control" value="<?php echo htmlspecialchars($org_name); ?>" readonly>
-                                <small class="text-muted"><?php echo htmlspecialchars(t('manage.org_users.add.organization_preselected_locked_hint'), ENT_QUOTES, 'UTF-8'); ?></small>
+                                <small class="text-muted"><?php echo htmlspecialchars(t('manage.org_users.add.organization_preselected_hint'), ENT_QUOTES, 'UTF-8'); ?></small>
                             </div>
                         </div>
 

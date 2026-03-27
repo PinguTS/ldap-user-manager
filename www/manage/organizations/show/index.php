@@ -68,8 +68,8 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete_organization') {
     }
 }
 
-// Handle org lock/unlock actions (disable/enable org)
-if (isset($_POST['action']) && ($_POST['action'] === 'lock_organization' || $_POST['action'] === 'unlock_organization')) {
+// Handle org disable/enable actions
+if (isset($_POST['action']) && ($_POST['action'] === 'disable_organization' || $_POST['action'] === 'enable_organization')) {
     if (session_status() !== PHP_SESSION_ACTIVE) {
         render_alert_banner(t('manage.orgs.show.msg.session_expired'), "danger");
     } elseif (!validate_csrf_token()) {
@@ -79,41 +79,41 @@ if (isset($_POST['action']) && ($_POST['action'] === 'lock_organization' || $_PO
         if ($ldap_connection_action === false) {
             render_alert_banner(t('manage.orgs.msg.ldap_fail'), "danger");
         } else {
-            if ($_POST['action'] === 'lock_organization') {
-                if (currentUserCanDisableOrganization($org_name) && ldap_lock_organization($ldap_connection_action, $org_name)) {
+            if ($_POST['action'] === 'disable_organization') {
+                if (currentUserCanDisableOrganization($org_name) && ldap_disable_organization($ldap_connection_action, $org_name)) {
                     render_alert_banner(
-                        t('manage.orgs.show.msg.lock_ok', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+                        t('manage.orgs.show.msg.deactivate_ok', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
                         "success"
                     );
                 } else {
                     render_alert_banner(
-                        t('manage.orgs.show.msg.lock_fail', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+                        t('manage.orgs.show.msg.deactivate_fail', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
                         "danger",
                         15000
                     );
                 }
-            } elseif ($_POST['action'] === 'unlock_organization') {
+            } elseif ($_POST['action'] === 'enable_organization') {
                 if (!currentUserCanEnableOrganization($org_name)) {
                     render_alert_banner(
-                        t('manage.orgs.show.msg.unlock_fail', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+                        t('manage.orgs.show.msg.activate_fail', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
                         "danger",
                         15000
                     );
                 } else {
-                    $unlock_result = ldap_unlock_organization($ldap_connection_action, $org_name);
-                    if ($unlock_result !== false && $unlock_result['ok']) {
+                    $enable_result = ldap_enable_organization($ldap_connection_action, $org_name);
+                    if ($enable_result !== false && $enable_result['ok']) {
                         $safe_org = htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8');
-                        $msg = t('manage.orgs.show.msg.unlock_ok', ['org' => $safe_org]);
-                        if ($unlock_result['still_disabled'] > 0) {
-                            $msg .= ' ' . t('manage.orgs.show.msg.unlock_summary', [
-                                'unlocked' => $unlock_result['unlocked'],
-                                'still_disabled' => $unlock_result['still_disabled'],
+                        $msg = t('manage.orgs.show.msg.activate_ok', ['org' => $safe_org]);
+                        if ($enable_result['still_disabled'] > 0) {
+                            $msg .= ' ' . t('manage.orgs.show.msg.activate_summary', [
+                                'activated' => $enable_result['enabled'],
+                                'still_inactive' => $enable_result['still_disabled'],
                             ]);
                         }
                         render_alert_banner($msg, "success");
                     } else {
                         render_alert_banner(
-                            t('manage.orgs.show.msg.unlock_fail', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+                            t('manage.orgs.show.msg.activate_fail', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
                             "danger",
                             15000
                         );
@@ -457,7 +457,7 @@ $member_group_cn = getenv('LDAP_GROUP_MEMBER_ORGS') ?: 'memberOrganizations';
 $disabled_group_cn = getenv('LDAP_GROUP_DISABLED_ORGS') ?: 'disabledOrganizations';
 $is_member_org = ($ldap_connection !== false && $base_dn !== '' && function_exists('isInStatusGroup') && isInStatusGroup($ldap_connection, $org_dn, $member_group_cn, $base_dn));
 $is_disabled_org = ($ldap_connection !== false && $base_dn !== '' && function_exists('isInStatusGroup') && isInStatusGroup($ldap_connection, $org_dn, $disabled_group_cn, $base_dn));
-$is_locked_org = ($ldap_connection !== false && ldap_organization_is_locked($ldap_connection, $org_name));
+$org_disabled = ($ldap_connection !== false && ldap_organization_is_disabled($ldap_connection, $org_name));
 $org_user_limit = ($ldap_connection !== false && function_exists('ldap_org_get_user_limit')) ? ldap_org_get_user_limit($ldap_connection, $org_name) : null;
 
 // First check if the organization DN exists before searching for roles
@@ -624,7 +624,7 @@ if ($orgExists) {
                 ?><span class="badge bg-primary"><?php echo htmlspecialchars(t('manage.orgs.show.badge_member'), ENT_QUOTES, 'UTF-8'); ?></span><?php
          } ?>
          <?php if ($is_disabled_org) {
-                ?><span class="badge bg-danger"><?php echo htmlspecialchars(t('manage.orgs.show.badge_disabled'), ENT_QUOTES, 'UTF-8'); ?></span><?php
+                ?><span class="badge bg-danger"><?php echo htmlspecialchars(t('manage.orgs.show.badge_inactive'), ENT_QUOTES, 'UTF-8'); ?></span><?php
          } ?>
          <?php if (!$is_member_org && !$is_disabled_org) {
                 ?><em><?php echo htmlspecialchars(t('manage.orgs.show.em_dash'), ENT_QUOTES, 'UTF-8'); ?></em><?php
@@ -680,7 +680,7 @@ if ($orgExists) {
       <h4><?php echo htmlspecialchars(t('manage.orgs.show.actions_heading'), ENT_QUOTES, 'UTF-8'); ?></h4>
         <?php
         $can_membership = currentUserIsGlobalAdmin() || currentUserIsMaintainer();
-        $can_lock = currentUserCanDisableOrganization($org_name) || currentUserCanEnableOrganization($org_name);
+        $can_disable = currentUserCanDisableOrganization($org_name) || currentUserCanEnableOrganization($org_name);
         $can_delete = currentUserCanDeleteOrganization($org_name);
         ?>
         <div class="d-flex align-items-center justify-content-start flex-wrap gap-2">
@@ -706,16 +706,16 @@ if ($orgExists) {
                 </div>
             <?php endif; ?>
 
-            <?php if ($can_lock) : ?>
+            <?php if ($can_disable) : ?>
                 <div class="vr"></div>
-                <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.orgs.show.organization_lock_aria'), ENT_QUOTES, 'UTF-8'); ?>">
-                    <?php if ($is_locked_org) : ?>
+                <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.orgs.show.organization_status_aria'), ENT_QUOTES, 'UTF-8'); ?>">
+                    <?php if ($org_disabled) : ?>
                         <?php if (currentUserCanEnableOrganization($org_name)) : ?>
-                            <button type="button" class="btn btn-success" onclick="confirmUnlockOrganization('<?php echo htmlspecialchars($org_name); ?>')"><?php echo htmlspecialchars(t('manage.orgs.show.unlock'), ENT_QUOTES, 'UTF-8'); ?></button>
+                            <button type="button" class="btn btn-success" onclick="confirmEnableOrganization('<?php echo htmlspecialchars($org_name); ?>')"><?php echo htmlspecialchars(t('manage.orgs.show.activate'), ENT_QUOTES, 'UTF-8'); ?></button>
                         <?php endif; ?>
                     <?php else : ?>
                         <?php if (currentUserCanDisableOrganization($org_name)) : ?>
-                            <button type="button" class="btn btn-warning" onclick="confirmLockOrganization('<?php echo htmlspecialchars($org_name); ?>')"><?php echo htmlspecialchars(t('manage.orgs.show.lock'), ENT_QUOTES, 'UTF-8'); ?></button>
+                            <button type="button" class="btn btn-warning" onclick="confirmDisableOrganization('<?php echo htmlspecialchars($org_name); ?>')"><?php echo htmlspecialchars(t('manage.orgs.show.deactivate'), ENT_QUOTES, 'UTF-8'); ?></button>
                         <?php endif; ?>
                     <?php endif; ?>
                 </div>
@@ -1061,27 +1061,27 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <?php
-// Lock/Unlock Confirmation Modals
+// Disable/Enable Confirmation Modals
 render_confirm_modal(
-    'lockModal',
-    t('manage.orgs.show.modal.lock_title'),
-    t('manage.orgs.show.modal.lock_body'),
+    'disableModal',
+    t('manage.orgs.show.modal.deactivate_title'),
+    t('manage.orgs.show.modal.deactivate_body'),
     [
-        ['name' => 'action', 'value' => 'lock_organization'],
-        ['name' => 'org_name', 'id' => 'lockOrgNameInput'],
+        ['name' => 'action', 'value' => 'disable_organization'],
+        ['name' => 'org_name', 'id' => 'disableOrgNameInput'],
     ],
-    t('manage.orgs.show.modal.lock_submit'),
+    t('manage.orgs.show.modal.deactivate_submit'),
     'btn-warning'
 );
 render_confirm_modal(
-    'unlockModal',
-    t('manage.orgs.show.modal.unlock_title'),
-    t('manage.orgs.show.modal.unlock_body'),
+    'enableModal',
+    t('manage.orgs.show.modal.activate_title'),
+    t('manage.orgs.show.modal.activate_body'),
     [
-        ['name' => 'action', 'value' => 'unlock_organization'],
-        ['name' => 'org_name', 'id' => 'unlockOrgNameInput'],
+        ['name' => 'action', 'value' => 'enable_organization'],
+        ['name' => 'org_name', 'id' => 'enableOrgNameInput'],
     ],
-    t('manage.orgs.show.modal.unlock_submit'),
+    t('manage.orgs.show.modal.activate_submit'),
     'btn-success'
 );
 
@@ -1125,11 +1125,11 @@ render_confirm_modal(
 
 <script src="<?php print get_asset_base(); ?>js/modals.js"></script>
 <script>
-function confirmLockOrganization(orgName) {
-    confirmAction('lockModal', { lockOrgName: orgName, lockOrgNameInput: orgName });
+function confirmDisableOrganization(orgName) {
+    confirmAction('disableModal', { disableOrgName: orgName, disableOrgNameInput: orgName });
 }
-function confirmUnlockOrganization(orgName) {
-    confirmAction('unlockModal', { unlockOrgName: orgName, unlockOrgNameInput: orgName });
+function confirmEnableOrganization(orgName) {
+    confirmAction('enableModal', { enableOrgName: orgName, enableOrgNameInput: orgName });
 }
 function confirmMemberOrganization(orgName) {
     confirmAction('memberModal', { memberOrgName: orgName, memberOrgNameInput: orgName });

@@ -350,7 +350,7 @@ docker exec -it ldap-server ldapsearch -x -b ou=roles,dc=example,dc=com -D cn=ad
    - Base structure not loaded: Run the LDIF loading commands
    - Check if OUs exist: `ldapsearch -x -b dc=example,dc=com -D cn=admin,dc=example,dc=com -w admin123`
 
-4. **"Undefined attribute type" / lock has no effect**
+4. **"Undefined attribute type" / administrative disable has no effect**
    - **ppolicy** is not loaded: on **osixia** set `LDAP_BACKEND_OVERLAY_PPOLICY=true` (or use LDIF fallback / `ldapmodify`); on **Bitnami** set `LDAP_CONFIGURE_PPOLICY=yes` (`docs/ldap/setup.md` §5.1).
 
 ### Debug Commands
