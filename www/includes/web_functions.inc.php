@@ -924,7 +924,7 @@ function render_menu()
       <li class="nav-item me-3">
         <span class="navbar-text navbar-user-name"><?php if (isset($USER_ID)) {
             print htmlspecialchars($USER_DISPLAY_NAME !== null && $USER_DISPLAY_NAME !== '' ? $USER_DISPLAY_NAME : $USER_ID);
-                                               } ?></span>
+                                                   } ?></span>
       </li>
       <li class="nav-item dropdown">
         <?php

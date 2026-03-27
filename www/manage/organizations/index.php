@@ -71,8 +71,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             case 'unlock_organization':
                 if (isset($_POST['org_name']) && currentUserCanEnableOrganization($_POST['org_name'])) {
                     $org_name = trim($_POST['org_name']);
-                    if (ldap_unlock_organization($ldap_connection, $org_name)) {
+                    $unlock_result = ldap_unlock_organization($ldap_connection, $org_name);
+                    if ($unlock_result !== false && $unlock_result['ok']) {
                         $message = t('manage.orgs.msg.unlock_ok', ['org' => $org_name]);
+                        if ($unlock_result['still_disabled'] > 0) {
+                            $message .= ' ' . t('manage.orgs.show.msg.unlock_summary', [
+                                'unlocked' => $unlock_result['unlocked'],
+                                'still_disabled' => $unlock_result['still_disabled'],
+                            ]);
+                        }
                         $message_type = 'success';
                     } else {
                         $message = t('manage.orgs.msg.unlock_fail', ['org' => $org_name]);

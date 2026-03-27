@@ -716,7 +716,7 @@ function renameOrganization(string $orgIdentifier, string $newOrgName): bool
     }
 
     $new_rdn = 'o=' . ldap_escape($newOrgName, '', LDAP_ESCAPE_DN);
-    $ok = @ldap_rename($ldap, $org_dn, $new_rdn, null, true);
+    $ok = @ldap_rename($ldap, $org_dn, $new_rdn, $LDAP['org_dn'], true);
     if (!$ok) {
         error_log('renameOrganization: ldap_rename failed for ' . $org_dn . ': ' . ldap_error($ldap));
         ldap_close($ldap);

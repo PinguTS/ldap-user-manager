@@ -467,5 +467,9 @@
   "manage.org_users.msg.add_fail": "Fehler beim Hinzufügen des Benutzers: :error",
   "manage.org_users.msg.delete_fail_exception": "Fehler beim Löschen des Benutzers: :error",
   "manage.org_users.msg.credentials_reset_ok": "Zugangsdaten erfolgreich zurückgesetzt.",
-  "manage.org_users.msg.credentials_reset_fail": "Fehler beim Zurücksetzen der Zugangsdaten: :error"
+  "manage.org_users.msg.credentials_reset_fail": "Fehler beim Zurücksetzen der Zugangsdaten: :error",
+  "manage.org_users.lock_reason.individual": "Konto individuell deaktiviert",
+  "manage.org_users.lock_reason.org": "Durch Organisation deaktiviert",
+  "manage.org_users.lock_reason.both": "Konto individuell deaktiviert + Organisation deaktiviert",
+  "manage.orgs.show.msg.unlock_summary": ":unlocked Benutzer entsperrt, :still_disabled weiterhin individuell deaktiviert."
 }

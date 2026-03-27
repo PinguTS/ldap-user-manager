@@ -71,10 +71,7 @@ services:
       LDAP_BASE_DN: "dc=example,dc=com"
       LDAP_ADMIN_BIND_DN: "cn=admin,dc=example,dc=com"
       LDAP_ADMIN_BIND_PWD: "admin123"
-      # Keep true unless you enforce pwd-only locks; helps when ppolicy is missing on older data volumes.
-      # Primary lock still uses pwdAccountLockedTime when the server allows it.
-      LDAP_ACCOUNT_LOCK_DESCRIPTION_FALLBACK: "true"
-      
+
       # Application Settings
       ORGANISATION_NAME: "LDAP User Manager"
       SITE_NAME: "LDAP User Manager"

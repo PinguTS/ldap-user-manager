@@ -179,9 +179,7 @@ services:
       LDAP_BASE_DN: "dc=example,dc=com"
       LDAP_ADMIN_BIND_DN: "cn=admin,dc=example,dc=com"
       LDAP_ADMIN_BIND_PWD: "admin123"
-      # FALSE when LDAP has ppolicy (osixia: LDAP_BACKEND_OVERLAY_PPOLICY; Bitnami: LDAP_CONFIGURE_PPOLICY=yes)
-      LDAP_ACCOUNT_LOCK_DESCRIPTION_FALLBACK: "false"
-      
+
       # Application Settings
       ORGANISATION_NAME: "LDAP User Manager"
       SITE_NAME: "LDAP User Manager"
@@ -354,7 +352,6 @@ docker exec -it ldap-server ldapsearch -x -b ou=roles,dc=example,dc=com -D cn=ad
 
 4. **"Undefined attribute type" / lock has no effect**
    - **ppolicy** is not loaded: on **osixia** set `LDAP_BACKEND_OVERLAY_PPOLICY=true` (or use LDIF fallback / `ldapmodify`); on **Bitnami** set `LDAP_CONFIGURE_PPOLICY=yes` (`docs/ldap/setup.md` §5.1).
-   - Optionally set `LDAP_ACCOUNT_LOCK_DESCRIPTION_FALLBACK=TRUE` on the app only if you intentionally cannot enable ppolicy yet.
 
 ### Debug Commands
 

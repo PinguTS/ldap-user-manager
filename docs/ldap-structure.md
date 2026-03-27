@@ -111,13 +111,13 @@ dc=example,dc=com
 |    |    |    |-- uid=user3
 |    |    |-- ou=roles
 |    |    |    |-- cn=org_admin                  # Organization administrators (default; LDAP_ORG_ADMIN_ROLE)
+|    |    |    |-- cn=disabledAccounts           # Individually disabled users in this org (LDAP_GROUP_DISABLED_ACCOUNTS)
 |
 |-- ou=roles                            # Global system roles and status groups
 |    |-- cn=administrators
 |    |-- cn=maintainers
 |    |-- cn=memberOrganizations          # Orgs with active membership (LDAP_GROUP_MEMBER_ORGS)
 |    |-- cn=disabledOrganizations        # Deactivated orgs (LDAP_GROUP_DISABLED_ORGS)
-|    |-- cn=disabledUsers                # App-level disabled users (LDAP_GROUP_DISABLED_USERS)
 ```
 
 - **System Users**: Stored under `ou=people,dc=example,dc=com` (administrators, maintainers)
@@ -125,8 +125,9 @@ dc=example,dc=com
 - **Organizations**: Each as an `organization` entry under `ou=organizations`
 - **Organization Users**: Under `ou=people` within their org (consistent naming)
 - **Organization Administrators**: Group entries under `ou=roles` within their org (default `cn=org_admin`, configurable via `LDAP_ORG_ADMIN_ROLE`)
+- **Per-org disabled accounts**: `cn=disabledAccounts` under each org's `ou=roles` tracks individually disabled user accounts (configurable via `LDAP_GROUP_DISABLED_ACCOUNTS`)
 - **Global Roles**: Under `ou=roles,dc=example,dc=com` (system-wide roles)
-- **Global status groups**: `cn=memberOrganizations` (organizations with active membership), `cn=disabledOrganizations` (deactivated organizations), `cn=disabledUsers` (application-level disabled user accounts). Group membership is the authoritative flag. CNs are configurable via `LDAP_GROUP_MEMBER_ORGS`, `LDAP_GROUP_DISABLED_ORGS`, `LDAP_GROUP_DISABLED_USERS`.
+- **Global status groups**: `cn=memberOrganizations` (organizations with active membership), `cn=disabledOrganizations` (deactivated organizations). Group membership is the authoritative flag. CNs are configurable via `LDAP_GROUP_MEMBER_ORGS`, `LDAP_GROUP_DISABLED_ORGS`.
 
 ---
 
@@ -157,16 +158,24 @@ dc=example,dc=com
 - **Object Classes**: `groupOfNames`
 - **Required Attributes**: `cn`, `member`
 
-### Global status groups (membership and disabled flags)
-Under `ou=roles,dc=example,dc=com` the application uses three global `groupOfNames` entries whose **membership is the authoritative flag** (not boolean attributes on entries):
+### Status groups (membership and disabled flags)
+
+**Global groups** under `ou=roles,dc=example,dc=com` — `groupOfNames` entries whose **membership is the authoritative flag** (not boolean attributes on entries):
 
 | Group CN (default)        | Purpose | ENV variable |
 |---------------------------|---------|--------------|
 | `memberOrganizations`     | Organizations with active membership status | `LDAP_GROUP_MEMBER_ORGS` |
 | `disabledOrganizations`   | Organizations that have been deactivated | `LDAP_GROUP_DISABLED_ORGS` |
-| `disabledUsers`           | User accounts disabled at the application level (supplement to `pwdAccountLockedTime`) | `LDAP_GROUP_DISABLED_USERS` |
+
+**Per-organization group** under `ou=roles,o=<OrgName>,ou=organizations,dc=example,dc=com`:
+
+| Group CN (default)        | Purpose | ENV variable |
+|---------------------------|---------|--------------|
+| `disabledAccounts`        | Individually disabled user accounts within this org | `LDAP_GROUP_DISABLED_ACCOUNTS` |
 
 Each group requires at least one `member`; use a placeholder DN (e.g. `cn=placeholder,ou=roles,dc=example,dc=com`) when the group is empty.
+
+When an organization is disabled, `pwdAccountLockedTime` is materialized on all its users. When the organization is re-enabled, only users **not** in `disabledAccounts` have their `pwdAccountLockedTime` cleared.
 
 ---
 

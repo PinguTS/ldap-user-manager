@@ -196,10 +196,6 @@ As an alternative, **Bitnami** can turn on ppolicy using only environment variab
 
 See the [Bitnami OpenLDAP README](https://github.com/bitnami/containers/blob/main/bitnami/openldap/README.md) for ports (`LDAP_PORT_NUMBER` often **1389** inside the container), `LDAP_ROOT`, `LDAP_ADMIN_USERNAME`, and TLS.
 
-**Application fallback (non-Docker / broken LDAP)**
-
-If you cannot enable ppolicy yet, you may set `LDAP_ACCOUNT_LOCK_DESCRIPTION_FALLBACK=TRUE` (default) so the app can record a lock using a reserved `description` value; set **`FALSE`** when the directory supports `pwdAccountLockedTime` only.
-
 **Example LDIF (locked entries):**
 ```ldif
 # Locked user account

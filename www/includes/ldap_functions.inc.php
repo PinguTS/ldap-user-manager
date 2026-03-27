@@ -1001,6 +1001,48 @@ function get_organization_from_user_dn($user_dn)
 
 ##################################
 
+/**
+ * Build the full org DN for a user DN, or return empty string for non-org users.
+ *
+ * @param string $user_dn Full DN of the user entry
+ * @return string Full org DN (e.g. "o=OrgName,ou=organizations,dc=example,dc=com") or ''
+ */
+function ldap_get_org_dn_for_user(string $user_dn): string
+{
+    global $LDAP;
+
+    $org_name = get_organization_from_user_dn($user_dn);
+    if ($org_name === false || $org_name === '') {
+        return '';
+    }
+
+    return 'o=' . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . ',' . $LDAP['org_dn'];
+}
+
+/**
+ * Check if a user is individually disabled (member of per-org disabledAccounts group).
+ *
+ * @param resource|\LDAP\Connection|false $ldap_connection Active LDAP connection
+ * @param string                          $user_dn         Full DN of the user entry
+ * @return bool True if user is in the per-org disabledAccounts group
+ */
+function ldap_user_is_individually_disabled($ldap_connection, $user_dn): bool
+{
+    if (!$ldap_connection || !$user_dn) {
+        return false;
+    }
+
+    $org_dn = ldap_get_org_dn_for_user($user_dn);
+    if ($org_dn === '') {
+        return false;
+    }
+
+    $disabled_accounts_cn = getenv('LDAP_GROUP_DISABLED_ACCOUNTS') ?: 'disabledAccounts';
+    return isInStatusGroup($ldap_connection, $user_dn, $disabled_accounts_cn, $org_dn);
+}
+
+##################################
+
 function ldap_user_group_membership($ldap_connection, $user_dn)
 {
 
@@ -2224,29 +2266,11 @@ function enableUserAccount($ldap_connection, string $dn): bool
  */
 function ldap_user_entry_array_has_direct_lock(array $ldap_entry): bool
 {
-    global $LDAP;
-
-    if (isset($ldap_entry['pwdaccountlockedtime'])) {
-        return true;
-    }
-    if (!($LDAP['account_lock_description_fallback'] ?? true)) {
-        return false;
-    }
-    $marker = $LDAP['account_lock_description_marker'] ?? '__LDAPUM_ACCOUNT_LOCKED__';
-    if (isset($ldap_entry['description'])) {
-        $n = (int) ($ldap_entry['description']['count'] ?? 0);
-        for ($i = 0; $i < $n; $i++) {
-            if (($ldap_entry['description'][$i] ?? '') === $marker) {
-                return true;
-            }
-        }
-    }
-
-    return false;
+    return isset($ldap_entry['pwdaccountlockedtime']);
 }
 
 /**
- * User-level lock only: pwdAccountLockedTime and/or app description marker (not organization lock).
+ * User-level lock only: pwdAccountLockedTime (not organization lock).
  */
 function ldap_user_entry_has_direct_lock($ldap_connection, $user_dn): bool
 {
@@ -2254,7 +2278,7 @@ function ldap_user_entry_has_direct_lock($ldap_connection, $user_dn): bool
         return false;
     }
 
-    $user_attrs = @ldap_read($ldap_connection, $user_dn, '(objectClass=*)', ['pwdAccountLockedTime', 'description']);
+    $user_attrs = @ldap_read($ldap_connection, $user_dn, '(objectClass=*)', ['pwdAccountLockedTime']);
     if (!$user_attrs) {
         return false;
     }
@@ -2263,11 +2287,12 @@ function ldap_user_entry_has_direct_lock($ldap_connection, $user_dn): bool
         return false;
     }
 
-    return ldap_user_entry_array_has_direct_lock($user_entry[0]);
+    $entry = $user_entry[0];
+    return is_array($entry) && ldap_user_entry_array_has_direct_lock($entry);
 }
 
 /**
- * True if the user has pwdAccountLockedTime or app lock marker set, or belongs to a disabled organization (status group).
+ * True if the user has pwdAccountLockedTime set or belongs to a disabled organization (status group).
  */
 function ldap_user_is_locked($ldap_connection, $user_dn)
 {
@@ -2279,7 +2304,7 @@ function ldap_user_is_locked($ldap_connection, $user_dn)
 
     if (ldap_user_entry_has_direct_lock($ldap_connection, $user_dn)) {
         if ($LDAP_DEBUG) {
-            error_log("$log_prefix User $user_dn has direct account lock (ppolicy or description marker)");
+            error_log("$log_prefix User $user_dn has direct account lock (pwdAccountLockedTime)");
         }
         return true;
     }
@@ -2291,28 +2316,6 @@ function ldap_user_is_locked($ldap_connection, $user_dn)
             error_log("$log_prefix User $user_dn is locked due to locked organization: $org_name");
         }
         return true;
-    }
-
-    return false;
-}
-
-/**
- * Whether a pwdAccountLockedTime modify failure should trigger description-marker locking (schema missing ppolicy attribute).
- */
-function ldap_account_lock_pwd_error_allows_description_fallback(string $ldap_error): bool
-{
-    $e = strtolower($ldap_error);
-    foreach ([
-        'undefined attribute type',
-        'no such attribute',
-        'invalid attribute syntax',
-        'object class violation',
-        'constraint violation',
-        'attribute type undefined',
-    ] as $frag) {
-        if (str_contains($e, $frag)) {
-            return true;
-        }
     }
 
     return false;
@@ -2369,6 +2372,12 @@ function ldap_lock_user_account($ldap_connection, $user_dn)
     }
 
     if (ldap_user_entry_has_direct_lock($ldap_connection, $user_dn)) {
+        // Already locked at LDAP level; ensure the per-org group is consistent
+        $org_dn = ldap_get_org_dn_for_user($user_dn);
+        if ($org_dn !== '') {
+            $disabled_accounts_cn = getenv('LDAP_GROUP_DISABLED_ACCOUNTS') ?: 'disabledAccounts';
+            addToStatusGroup($ldap_connection, $user_dn, $disabled_accounts_cn, $org_dn);
+        }
         return true;
     }
 
@@ -2376,37 +2385,23 @@ function ldap_lock_user_account($ldap_connection, $user_dn)
     $lock_attrs = ['pwdAccountLockedTime' => $lock_value];
 
     $result = @ldap_modify($ldap_connection, $user_dn, $lock_attrs);
-    if ($result) {
-        if ($LDAP_DEBUG) {
-            error_log("$log_prefix Successfully locked user account using pwdAccountLockedTime: $user_dn");
-        }
-        return true;
-    }
-
-    $ldap_error = ldap_error($ldap_connection);
-    if (!($LDAP['account_lock_description_fallback'] ?? true)
-        || !ldap_account_lock_pwd_error_allows_description_fallback($ldap_error)) {
+    if (!$result) {
+        $ldap_error = ldap_error($ldap_connection);
         error_log("$log_prefix Failed to lock user account $user_dn using pwdAccountLockedTime: $ldap_error");
         return false;
     }
 
-    $marker = $LDAP['account_lock_description_marker'] ?? '__LDAPUM_ACCOUNT_LOCKED__';
-    $add_ok = @ldap_mod_add($ldap_connection, $user_dn, ['description' => [$marker]]);
-    if ($add_ok) {
-        if ($LDAP_DEBUG) {
-            error_log("$log_prefix Locked user account via description marker: $user_dn");
-        }
-        return true;
+    if ($LDAP_DEBUG) {
+        error_log("$log_prefix Successfully locked user account using pwdAccountLockedTime: $user_dn");
     }
 
-    $add_err = strtolower(ldap_error($ldap_connection));
-    if (str_contains($add_err, 'exists') || str_contains($add_err, 'type or value exists')) {
-        return true;
+    $org_dn = ldap_get_org_dn_for_user($user_dn);
+    if ($org_dn !== '') {
+        $disabled_accounts_cn = getenv('LDAP_GROUP_DISABLED_ACCOUNTS') ?: 'disabledAccounts';
+        addToStatusGroup($ldap_connection, $user_dn, $disabled_accounts_cn, $org_dn);
     }
 
-    error_log("$log_prefix Failed to lock user account $user_dn via description marker: " . ldap_error($ldap_connection));
-
-    return false;
+    return true;
 }
 
 ##################################
@@ -2427,17 +2422,28 @@ function ldap_unlock_user_account($ldap_connection, $user_dn)
         return false;
     }
 
-    @ldap_modify($ldap_connection, $user_dn, ['pwdAccountLockedTime' => []]);
-
-    if ($LDAP['account_lock_description_fallback'] ?? true) {
-        $marker = $LDAP['account_lock_description_marker'] ?? '__LDAPUM_ACCOUNT_LOCKED__';
-        @ldap_mod_del($ldap_connection, $user_dn, ['description' => $marker]);
+    // Remove from per-org disabledAccounts group
+    $org_dn = ldap_get_org_dn_for_user($user_dn);
+    if ($org_dn !== '') {
+        $disabled_accounts_cn = getenv('LDAP_GROUP_DISABLED_ACCOUNTS') ?: 'disabledAccounts';
+        removeFromStatusGroup($ldap_connection, $user_dn, $disabled_accounts_cn, $org_dn);
     }
+
+    // If the organization is still disabled, keep pwdAccountLockedTime set
+    $org_name = get_organization_from_user_dn($user_dn);
+    if ($org_name !== false && $org_name !== '' && ldap_organization_is_locked($ldap_connection, $org_name)) {
+        if ($LDAP_DEBUG) {
+            error_log("$log_prefix User $user_dn removed from disabledAccounts but pwdAccountLockedTime kept (organization is disabled)");
+        }
+        return true;
+    }
+
+    @ldap_modify($ldap_connection, $user_dn, ['pwdAccountLockedTime' => []]);
 
     $still = ldap_user_entry_has_direct_lock($ldap_connection, $user_dn);
     if (!$still) {
         if ($LDAP_DEBUG) {
-            error_log("$log_prefix Successfully unlocked user account (ppolicy and/or description marker cleared): $user_dn");
+            error_log("$log_prefix Successfully unlocked user account (pwdAccountLockedTime cleared): $user_dn");
         }
         return true;
     }
@@ -2476,14 +2482,35 @@ function ldap_lock_organization($ldap_connection, $org_name)
         return false;
     }
 
-    // LOCK = add organization DN to disabledOrganizations.
-    // We do not mass-lock user entries; login is blocked via ldap_user_is_locked() -> ldap_organization_is_locked().
     $ok = addToStatusGroup($ldap_connection, $org_dn, $disabled_group_cn, $base_dn);
-    if ($ok && $LDAP_DEBUG) {
+    if (!$ok) {
+        return false;
+    }
+
+    if ($LDAP_DEBUG) {
         error_log("$log_prefix Locked organization $org_name via status group $disabled_group_cn");
     }
 
-    return (bool) $ok;
+    // Materialize pwdAccountLockedTime on all org users
+    $users_dn = "ou=people," . $org_dn;
+    $user_search = @ldap_search($ldap_connection, $users_dn, "(objectClass=inetOrgPerson)", ['dn']);
+
+    $locked_count = 0;
+    if ($user_search) {
+        $users = ldap_get_entries($ldap_connection, $user_search);
+        $lock_value = '000001010000Z';
+        for ($i = 0; $i < $users['count']; $i++) {
+            $u_dn = $users[$i]['dn'];
+            @ldap_modify($ldap_connection, $u_dn, ['pwdAccountLockedTime' => $lock_value]);
+            $locked_count++;
+        }
+    }
+
+    if ($LDAP_DEBUG) {
+        error_log("$log_prefix Set pwdAccountLockedTime on $locked_count users in organization $org_name");
+    }
+
+    return true;
 }
 
 ##################################
@@ -2494,6 +2521,14 @@ function ldap_lock_organization($ldap_connection, $org_name)
  * @param resource $ldap_connection LDAP connection resource
  * @param string $org_name Organization name to unlock
  * @return bool True if successful, false otherwise
+ */
+/**
+ * Unlock an organization: remove from disabledOrganizations, then selectively clear
+ * pwdAccountLockedTime on users who are not individually disabled.
+ *
+ * @param resource|\LDAP\Connection $ldap_connection LDAP connection resource
+ * @param string                    $org_name        Organization name to unlock
+ * @return array{ok: bool, unlocked: int, still_disabled: int}|false Result counts, or false on error
  */
 function ldap_unlock_organization($ldap_connection, $org_name)
 {
@@ -2513,14 +2548,41 @@ function ldap_unlock_organization($ldap_connection, $org_name)
         return false;
     }
 
-    // UNLOCK = remove organization DN from disabledOrganizations.
-    // We do not mass-unlock user entries; this avoids accidentally undoing independent user locks.
     $ok = removeFromStatusGroup($ldap_connection, $org_dn, $disabled_group_cn, $base_dn);
-    if ($ok && $LDAP_DEBUG) {
+    if (!$ok) {
+        return false;
+    }
+
+    if ($LDAP_DEBUG) {
         error_log("$log_prefix Unlocked organization $org_name via status group $disabled_group_cn");
     }
 
-    return (bool) $ok;
+    // Selectively clear pwdAccountLockedTime: skip users in per-org disabledAccounts
+    $disabled_accounts_cn = getenv('LDAP_GROUP_DISABLED_ACCOUNTS') ?: 'disabledAccounts';
+    $users_dn = "ou=people," . $org_dn;
+    $user_search = @ldap_search($ldap_connection, $users_dn, "(objectClass=inetOrgPerson)", ['dn']);
+
+    $unlocked = 0;
+    $still_disabled = 0;
+
+    if ($user_search) {
+        $users = ldap_get_entries($ldap_connection, $user_search);
+        for ($i = 0; $i < $users['count']; $i++) {
+            $u_dn = $users[$i]['dn'];
+            if (isInStatusGroup($ldap_connection, $u_dn, $disabled_accounts_cn, $org_dn)) {
+                $still_disabled++;
+            } else {
+                @ldap_modify($ldap_connection, $u_dn, ['pwdAccountLockedTime' => []]);
+                $unlocked++;
+            }
+        }
+    }
+
+    if ($LDAP_DEBUG) {
+        error_log("$log_prefix Organization $org_name unlock: $unlocked users unlocked, $still_disabled individually disabled");
+    }
+
+    return ['ok' => true, 'unlocked' => $unlocked, 'still_disabled' => $still_disabled];
 }
 
 ##################################
@@ -2540,33 +2602,49 @@ function ldap_get_user_lock_status($ldap_connection, $user_dn)
         return false;
     }
 
-    $user_attrs = @ldap_read($ldap_connection, $user_dn, "(objectClass=*)", ['pwdAccountLockedTime', 'description', 'uid', 'cn']);
+    $user_attrs = @ldap_read($ldap_connection, $user_dn, "(objectClass=*)", ['pwdAccountLockedTime', 'uid', 'cn']);
     if (!$user_attrs) {
         return false;
     }
 
     $user_entry = ldap_get_entries($ldap_connection, $user_attrs);
-    if ($user_entry['count'] == 0) {
+    if ($user_entry['count'] === 0) {
         return false;
     }
 
     $user_info = $user_entry[0];
-    $is_direct = ldap_user_entry_array_has_direct_lock($user_info);
+    if (!is_array($user_info)) {
+        return false;
+    }
+    $has_pwd_lock = ldap_user_entry_array_has_direct_lock($user_info);
+    $individually_disabled = ldap_user_is_individually_disabled($ldap_connection, $user_dn);
+
+    $org_name = ldap_user_get_organization($ldap_connection, $user_dn);
+    $org_locked = ($org_name && ldap_organization_is_locked($ldap_connection, $org_name));
+
+    $is_locked = $has_pwd_lock || $individually_disabled || $org_locked;
+
+    if ($individually_disabled && $org_locked) {
+        $lock_reason = 'Account disabled + Organization disabled';
+    } elseif ($individually_disabled) {
+        $lock_reason = 'Account disabled by administrator';
+    } elseif ($org_locked) {
+        $lock_reason = 'Organization disabled by administrator';
+    } else {
+        $lock_reason = null;
+    }
 
     $status = [
         'dn' => $user_dn,
         'uid' => $user_info['uid'][0] ?? 'Unknown',
         'cn' => $user_info['cn'][0] ?? 'Unknown',
-        'is_locked' => $is_direct,
+        'is_locked' => $is_locked,
+        'individually_disabled' => $individually_disabled,
         'lock_time' => isset($user_info['pwdaccountlockedtime']) ? $user_info['pwdaccountlockedtime'][0] : null,
-        'lock_reason' => $is_direct ? 'Account locked by administrator' : null
+        'lock_reason' => $lock_reason,
     ];
 
-    // Check if user is locked due to organization lock
-    $org_name = ldap_user_get_organization($ldap_connection, $user_dn);
-    if ($org_name && ldap_organization_is_locked($ldap_connection, $org_name)) {
-        $status['is_locked'] = true;
-        $status['lock_reason'] = 'Organization locked by administrator';
+    if ($org_locked) {
         $status['org_locked'] = $org_name;
     }
 
@@ -2598,27 +2676,31 @@ function ldap_get_organization_lock_status($ldap_connection, $org_name)
     }
 
     $org_entry = ldap_get_entries($ldap_connection, $org_attrs);
-    if ($org_entry['count'] == 0) {
+    if ($org_entry['count'] === 0) {
         return false;
     }
 
     $org_info = $org_entry[0];
     $is_locked = ldap_organization_is_locked($ldap_connection, $org_name);
 
-    // Count locked users in the organization
     $users_dn = "ou=people,o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
     $user_search = @ldap_search($ldap_connection, $users_dn, "(objectClass=inetOrgPerson)", ['dn']);
 
     $total_users = 0;
     $locked_users = 0;
+    $individually_disabled_users = 0;
 
     if ($user_search) {
         $users = ldap_get_entries($ldap_connection, $user_search);
         $total_users = $users['count'];
 
         for ($i = 0; $i < $users['count']; $i++) {
-            if (ldap_user_is_locked($ldap_connection, $users[$i]['dn'])) {
+            $u_dn = $users[$i]['dn'];
+            if (ldap_user_is_locked($ldap_connection, $u_dn)) {
                 $locked_users++;
+            }
+            if (ldap_user_is_individually_disabled($ldap_connection, $u_dn)) {
+                $individually_disabled_users++;
             }
         }
     }
@@ -2631,7 +2713,8 @@ function ldap_get_organization_lock_status($ldap_connection, $org_name)
         'lock_time' => null,
         'lock_reason' => $is_locked ? 'Organization disabled by administrator' : null,
         'total_users' => $total_users,
-        'locked_users' => $locked_users
+        'locked_users' => $locked_users,
+        'individually_disabled_users' => $individually_disabled_users,
     ];
 
     return $status;

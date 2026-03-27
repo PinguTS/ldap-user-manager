@@ -36,9 +36,3 @@ objectClass: groupOfNames
 cn: disabledOrganizations
 description: Organizations that have been deactivated
 member: cn=placeholder,ou=roles,dc=example,dc=com
-
-dn: cn=disabledUsers,ou=roles,dc=example,dc=com
-objectClass: groupOfNames
-cn: disabledUsers
-description: User accounts disabled at the application level
-member: cn=placeholder,ou=roles,dc=example,dc=com

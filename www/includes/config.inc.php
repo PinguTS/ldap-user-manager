@@ -100,11 +100,6 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
  #Default attributes and objectclasses
 
  $LDAP['account_attribute'] = (getenv('LDAP_ACCOUNT_ATTRIBUTE') ? getenv('LDAP_ACCOUNT_ATTRIBUTE') : 'mail');
- # pwdAccountLockedTime requires OpenLDAP ppolicy (e.g. osixia LDAP_BACKEND_OVERLAY_PPOLICY, Bitnami LDAP_CONFIGURE_PPOLICY, or manual overlay). Otherwise: "Undefined attribute type".
- # If ppolicy cannot be enabled yet, LDAP_ACCOUNT_LOCK_DESCRIPTION_FALLBACK=TRUE (default) uses a description marker; FALSE when the directory supports pwdAccountLockedTime only.
- $LDAP['account_lock_description_fallback'] = (strtolower(getenv('LDAP_ACCOUNT_LOCK_DESCRIPTION_FALLBACK') ?: 'true') === 'true');
- # When fallback is enabled and pwdAccountLockedTime cannot be written, lock adds this description value (multi-valued add).
- $LDAP['account_lock_description_marker'] = getenv('LDAP_ACCOUNT_LOCK_DESCRIPTION_MARKER') ?: '__LDAPUM_ACCOUNT_LOCKED__';
  $LDAP['account_objectclasses'] = array( 'person', 'inetOrgPerson' );
  $LDAP['default_attribute_map'] = array(
     "givenname" => array(

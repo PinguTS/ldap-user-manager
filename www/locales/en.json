@@ -474,5 +474,9 @@
   "manage.org_users.msg.add_fail": "Failed to add user: :error",
   "manage.org_users.msg.delete_fail_exception": "Error deleting user: :error",
   "manage.org_users.msg.credentials_reset_ok": "Credentials reset successfully.",
-  "manage.org_users.msg.credentials_reset_fail": "Error resetting credentials: :error"
+  "manage.org_users.msg.credentials_reset_fail": "Error resetting credentials: :error",
+  "manage.org_users.lock_reason.individual": "Account individually disabled",
+  "manage.org_users.lock_reason.org": "Disabled by organization",
+  "manage.org_users.lock_reason.both": "Account individually disabled + Organization disabled",
+  "manage.orgs.show.msg.unlock_summary": ":unlocked user(s) unlocked, :still_disabled still individually disabled."
 }

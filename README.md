@@ -33,7 +33,7 @@ Key environment variables (see [env.example](env.example) and [Environment Varia
 
 - **LDAP**: `LDAP_URI`, `LDAP_BASE_DN`, `LDAP_ADMIN_BIND_DN`, `LDAP_ADMIN_BIND_PWD`; optional `LDAP_USER_OU`, `LDAP_ORG_OU`, `LDAP_GROUP_OU`, `LDAP_ACCOUNT_ATTRIBUTE`, `LDAP_USE_UUID_IDENTIFICATION`.
 - **Roles**: `LDAP_ADMIN_ROLE`, `LDAP_MAINTAINER_ROLE`, `LDAP_ORG_ADMIN_ROLE`, `LDAP_USER_ROLE` (must be unique).
-- **Status groups** (membership/disabled flags): `LDAP_GROUP_MEMBER_ORGS`, `LDAP_GROUP_DISABLED_ORGS`, `LDAP_GROUP_DISABLED_USERS`.
+- **Status groups** (membership/disabled flags): `LDAP_GROUP_MEMBER_ORGS`, `LDAP_GROUP_DISABLED_ORGS`, `LDAP_GROUP_DISABLED_ACCOUNTS`.
 - **Session**: `SESSION_TIMEOUT`, `SESSION_SAVE_PATH`.
 - **Password policy**: `PASSWORD_STRENGTH_MIN_SCORE`, `PASSWORD_STRENGTH_MIN_LENGTH`, `PASSWORD_STRENGTH_REQUIRE_*`, `ACCEPT_WEAK_PASSWORDS`.
 - **Password set/reset links**: `PASSWORD_RESET_TOKEN_SECRET` (signing secret; generate with `openssl rand -hex 32`), `PASSWORD_RESET_TOKEN_TTL_SECONDS`.

@@ -93,17 +93,31 @@ if (isset($_POST['action']) && ($_POST['action'] === 'lock_organization' || $_PO
                     );
                 }
             } elseif ($_POST['action'] === 'unlock_organization') {
-                if (currentUserCanEnableOrganization($org_name) && ldap_unlock_organization($ldap_connection_action, $org_name)) {
-                    render_alert_banner(
-                        t('manage.orgs.show.msg.unlock_ok', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
-                        "success"
-                    );
-                } else {
+                if (!currentUserCanEnableOrganization($org_name)) {
                     render_alert_banner(
                         t('manage.orgs.show.msg.unlock_fail', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
                         "danger",
                         15000
                     );
+                } else {
+                    $unlock_result = ldap_unlock_organization($ldap_connection_action, $org_name);
+                    if ($unlock_result !== false && $unlock_result['ok']) {
+                        $safe_org = htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8');
+                        $msg = t('manage.orgs.show.msg.unlock_ok', ['org' => $safe_org]);
+                        if ($unlock_result['still_disabled'] > 0) {
+                            $msg .= ' ' . t('manage.orgs.show.msg.unlock_summary', [
+                                'unlocked' => $unlock_result['unlocked'],
+                                'still_disabled' => $unlock_result['still_disabled'],
+                            ]);
+                        }
+                        render_alert_banner($msg, "success");
+                    } else {
+                        render_alert_banner(
+                            t('manage.orgs.show.msg.unlock_fail', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+                            "danger",
+                            15000
+                        );
+                    }
                 }
             }
             ldap_close($ldap_connection_action);
@@ -360,16 +374,13 @@ if ($org_uuid) {
     if (isset($organization_by_uuid['documentidentifier'])) {
         $docIdentifiersRaw = $organization_by_uuid['documentidentifier'];
         $docIdentifiers = is_array($docIdentifiersRaw) ? $docIdentifiersRaw : [$docIdentifiersRaw];
-    } elseif (isset($organization['documentidentifier'])) {
-        $docIdentifiersRaw = $organization['documentidentifier'];
-        $docIdentifiers = is_array($docIdentifiersRaw) ? $docIdentifiersRaw : [$docIdentifiersRaw];
     }
     $decodedMembership = parseDocumentIdentifierMembership($docIdentifiers);
 
-    // Backward compatible fallback for older installs
-    $legacyMemberNumber = isset($organization['membernumber'][0]) ? $organization['membernumber'][0] : '';
-    $legacyMemberSince = isset($organization['membersince'][0]) ? $organization['membersince'][0] : '';
-    $legacyMemberUntil = isset($organization['memberuntil'][0]) ? $organization['memberuntil'][0] : '';
+    // Backward compatible fallback for older installs (raw LDAP entry)
+    $legacyMemberNumber = isset($organization_by_uuid['membernumber'][0]) ? $organization_by_uuid['membernumber'][0] : '';
+    $legacyMemberSince = isset($organization_by_uuid['membersince'][0]) ? $organization_by_uuid['membersince'][0] : '';
+    $legacyMemberUntil = isset($organization_by_uuid['memberuntil'][0]) ? $organization_by_uuid['memberuntil'][0] : '';
 
     $organization['memberNumber'] = $decodedMembership['memberNumber'] !== '' ? $decodedMembership['memberNumber'] : $legacyMemberNumber;
     $organization['memberSince'] = $decodedMembership['memberSince'] !== '' ? $decodedMembership['memberSince'] : $legacyMemberSince;
@@ -570,7 +581,7 @@ if ($orgExists) {
         <th><?php echo htmlspecialchars(t('manage.orgs.show.phone_header'), ENT_QUOTES, 'UTF-8'); ?></th>
         <td>
          <?php if (!empty($organization['telephoneNumber'])) { ?>
-          <?php print htmlspecialchars((string) $organization['telephoneNumber']); ?>
+                <?php print htmlspecialchars((string) $organization['telephoneNumber']); ?>
          <?php } else { ?>
           <em><?php echo htmlspecialchars(t('manage.orgs.show.no_phone'), ENT_QUOTES, 'UTF-8'); ?></em>
          <?php } ?>
@@ -580,7 +591,7 @@ if ($orgExists) {
         <th><?php echo htmlspecialchars(t('manage.orgs.show.fax_header'), ENT_QUOTES, 'UTF-8'); ?></th>
         <td>
          <?php if (!empty($organization['facsimileTelephoneNumber'])) { ?>
-          <?php print htmlspecialchars((string) $organization['facsimileTelephoneNumber']); ?>
+                <?php print htmlspecialchars((string) $organization['facsimileTelephoneNumber']); ?>
          <?php } else { ?>
           <em><?php echo htmlspecialchars(t('manage.orgs.show.no_fax'), ENT_QUOTES, 'UTF-8'); ?></em>
          <?php } ?>

@@ -109,10 +109,10 @@ These settings define the organization of your LDAP directory:
 - `LDAP_GROUP_ATTRIBUTE` - Group identifier attribute (default: 'cn')
 
 ### Status Group Names (Membership and Disabled Flags)
-These settings define the CNs of global status groups under `ou=roles` used for organization membership and disabled states. Group membership is the authoritative flag (not boolean attributes on entries):
-- `LDAP_GROUP_MEMBER_ORGS` - CN for organizations with active membership status (default: 'memberOrganizations')
-- `LDAP_GROUP_DISABLED_ORGS` - CN for deactivated organizations (default: 'disabledOrganizations')
-- `LDAP_GROUP_DISABLED_USERS` - CN for application-level disabled user accounts (default: 'disabledUsers')
+These settings define the CNs of status groups used for organization membership and disabled states. Group membership is the authoritative flag (not boolean attributes on entries):
+- `LDAP_GROUP_MEMBER_ORGS` - CN for organizations with active membership status (default: 'memberOrganizations') — global group under `ou=roles`
+- `LDAP_GROUP_DISABLED_ORGS` - CN for deactivated organizations (default: 'disabledOrganizations') — global group under `ou=roles`
+- `LDAP_GROUP_DISABLED_ACCOUNTS` - CN for individually disabled user accounts within an organization (default: 'disabledAccounts') — per-org group under `ou=roles,o=<OrgName>,…`
 
 ### Member Organizations Export (TYPO3)
 These settings control the export endpoint used by external systems (e.g. TYPO3) to fetch member organization data:

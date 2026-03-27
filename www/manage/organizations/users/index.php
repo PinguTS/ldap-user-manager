@@ -805,6 +805,7 @@ render_submenu();
             </tr>
         </thead>
         <tbody>
+            <?php $is_locked_org = ldap_organization_is_locked($ldap_connection, $orgName); ?>
             <?php foreach ($users as $user) :
                 $isManager = in_array(getUserDn($orgName, get_ldap_attribute($user, 'uid')), $orgManagerDns);
                 // Use robust UUID extraction for user actions
@@ -818,7 +819,22 @@ render_submenu();
                     <td>
                         <?php
                         $is_locked = ldap_user_is_locked($ldap_connection, $user['dn']);
-                        echo $is_locked ? '<span class="badge bg-danger">' . htmlspecialchars(t('manage.common.locked'), ENT_QUOTES, 'UTF-8') . '</span>' : '<span class="badge bg-success">' . htmlspecialchars(t('manage.common.active'), ENT_QUOTES, 'UTF-8') . '</span>';
+                        $is_individually_disabled = ldap_user_is_individually_disabled($ldap_connection, $user['dn']);
+                        if ($is_locked) {
+                            if ($is_individually_disabled && $is_locked_org) {
+                                $badge_title = t('manage.org_users.lock_reason.both');
+                            } elseif ($is_individually_disabled) {
+                                $badge_title = t('manage.org_users.lock_reason.individual');
+                            } elseif ($is_locked_org) {
+                                $badge_title = t('manage.org_users.lock_reason.org');
+                            } else {
+                                $badge_title = t('manage.common.locked');
+                            }
+                            echo '<span class="badge bg-danger" title="' . htmlspecialchars($badge_title, ENT_QUOTES, 'UTF-8') . '">'
+                                . htmlspecialchars(t('manage.common.locked'), ENT_QUOTES, 'UTF-8') . '</span>';
+                        } else {
+                            echo '<span class="badge bg-success">' . htmlspecialchars(t('manage.common.active'), ENT_QUOTES, 'UTF-8') . '</span>';
+                        }
                         ?>
                     </td>
                     <td>
