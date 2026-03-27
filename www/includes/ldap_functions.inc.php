@@ -1256,6 +1256,8 @@ function ldap_new_account($ldap_connection, $account_r)
         if ($result['count'] == 0) {
             $hashed_pass = ldap_hashed_password($account_r['password'][0]);
             unset($account_r['password']);
+            // Internal control field used to resolve org DN; not guaranteed to exist in LDAP schema.
+            unset($account_r['organization']);
 
             $objectclasses = $LDAP['account_objectclasses'];
 
@@ -1306,7 +1308,7 @@ function ldap_new_account($ldap_connection, $account_r)
                 if (
                     isset($account_attributes['description'][0]) &&
                     $account_attributes['description'][0] === $LDAP['org_admin_role'] &&
-                    isset($account_attributes['o'][0]) &&
+                    !empty($organization) &&
                     strpos($user_dn, $LDAP['org_dn']) !== false
                 ) {
                     addUserToOrgAdmin($organization, "{$LDAP['account_attribute']}=$account_identifier,{$user_dn}");

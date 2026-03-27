@@ -99,6 +99,26 @@ if (!array_key_exists($LDAP['account_attribute'], $attribute_map)) {
     $attribute_map = array_merge($attribute_map, array($LDAP['account_attribute'] => array("label" => "Account UID")));
 }
 
+// Normalize common LDAP attribute aliases used by forms/config.
+$get_attribute_post_value = static function (string $attribute): string {
+    $aliases = [
+        $attribute,
+    ];
+    if ($attribute === 'givenname') {
+        $aliases[] = 'givenName';
+    } elseif ($attribute === 'givenName') {
+        $aliases[] = 'givenname';
+    }
+
+    foreach ($aliases as $alias) {
+        if (isset($_POST[$alias]) && $_POST[$alias] !== '') {
+            return (string) $_POST[$alias];
+        }
+    }
+
+    return '';
+};
+
 $invalid_password = false;
 $mismatched_passwords = false;
 $invalid_username = false;
@@ -166,13 +186,19 @@ if (isset($_POST['create_org_user'])) {
                 $new_account_r[$attribute] = $this_attribute;
             } else {
                 // Regular form field
-                if (isset($_POST[$attribute]) && !empty($_POST[$attribute])) {
-                    $$attribute = array(0 => $_POST[$attribute]);
-                    $new_account_r[$attribute] = array(0 => $_POST[$attribute]);
+                $attribute_value = $get_attribute_post_value((string) $attribute);
+                if ($attribute_value !== '') {
+                    $$attribute = array(0 => $attribute_value);
+                    $new_account_r[$attribute] = array(0 => $attribute_value);
                 } else {
                     $$attribute = array();
                 }
             }
+        }
+
+        // Keep canonical first-name key available for validation/template usage.
+        if (empty($givenName[0]) && !empty($givenname[0])) {
+            $givenName = $givenname;
         }
 
         // Ensure Account UID is set from email if not already provided
@@ -516,7 +542,7 @@ if ($errors != "") { ?>
                         <!-- Submit Buttons -->
                         <div class="form-group">
                             <div class="col-sm-6 offset-sm-3">
-                                <button type="submit" name="create_user" class="btn btn-success"><?php echo htmlspecialchars(t('manage.org_users.add.create_user_submit'), ENT_QUOTES, 'UTF-8'); ?></button>
+                                <button type="submit" name="create_org_user" value="1" class="btn btn-success"><?php echo htmlspecialchars(t('manage.org_users.add.create_user_submit'), ENT_QUOTES, 'UTF-8'); ?></button>
                                 <?php if ($org_uuid) : ?>
                                     <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode((string) $org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary"><?php echo htmlspecialchars(t('modal.cancel'), ENT_QUOTES, 'UTF-8'); ?></a>
                                 <?php endif; ?>
