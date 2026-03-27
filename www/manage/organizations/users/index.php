@@ -158,6 +158,46 @@ function getOrgManagerDns($orgName)
     return $dns;
 }
 
+// Helper: DN match utility (case-insensitive)
+function dnInList(string $dn, array $dns): bool
+{
+    foreach ($dns as $entryDn) {
+        if (is_string($entryDn) && strcasecmp($dn, $entryDn) === 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// Helper: count managers excluding placeholder entries
+function getRealManagerCount(array $orgManagerDns): int
+{
+    return count(array_filter($orgManagerDns, function ($dn) {
+        return is_string($dn) && stripos($dn, 'cn=placeholder') === false;
+    }));
+}
+
+// Helper: count managers that are users of this specific organization
+function getOrgScopedManagerCount(string $orgName, array $orgManagerDns): int
+{
+    global $LDAP;
+
+    $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
+    $orgUsersBaseDn = 'ou=people,o=' . $orgRDN . ',' . $LDAP['org_dn'];
+
+    return count(array_filter($orgManagerDns, function ($dn) use ($orgUsersBaseDn) {
+        if (!is_string($dn) || stripos($dn, 'cn=placeholder') !== false) {
+            return false;
+        }
+
+        $dnLower = strtolower($dn);
+        $orgUsersBaseDnLower = strtolower($orgUsersBaseDn);
+
+        return str_ends_with($dnLower, $orgUsersBaseDnLower);
+    }));
+}
+
 // Handle org manager role toggle
 if (isset($_GET['toggle_manager']) && isset($_GET['uid'])) {
     $toggleUserParam = $_GET['uid'];
@@ -243,10 +283,8 @@ if (isset($_GET['toggle_manager']) && isset($_GET['uid'])) {
         $orgManagerDns = getOrgManagerDns($orgName);
     }
     try {
-        if (in_array($userDn, $orgManagerDns)) {
-            $managerCount = count(array_filter($orgManagerDns, function ($dn) {
-                return stripos($dn, 'cn=placeholder') === false;
-            }));
+        if (dnInList($userDn, $orgManagerDns)) {
+            $managerCount = getOrgScopedManagerCount($orgName, $orgManagerDns);
             if ($managerCount <= 1) {
                 $message = t('manage.org_users.msg.cannot_remove_last_manager');
                 $message_type = 'danger';
@@ -382,7 +420,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $ldap_connection = open_ldap_connection();
         }
 
-        if (ldap_delete($ldap_connection, $user_dn)) {
+        $orgManagerDnsForDelete = getOrgManagerDns($orgName);
+        $isOrgManagerToDelete = dnInList($user_dn, $orgManagerDnsForDelete);
+        $managerCountForDelete = getOrgScopedManagerCount($orgName, $orgManagerDnsForDelete);
+        if ($isOrgManagerToDelete && $managerCountForDelete <= 1) {
+            $message = t('manage.org_users.msg.cannot_remove_last_manager');
+            $message_type = 'danger';
+        } elseif (ldap_delete($ldap_connection, $user_dn)) {
             $message = t('manage.users.msg.delete_ok', ['user' => $user_display]);
             $message_type = 'success';
         } else {
@@ -562,19 +606,28 @@ if (isset($_GET['delete_user'])) {
 
     $ldap = open_ldap_connection();
 
-    // Remove user from all groups before deletion
-    $group_cleanup_success = ldap_remove_user_from_all_groups($ldap, $userDn);
-    if (!$group_cleanup_success) {
-        error_log("Warning: Failed to remove user from some groups before deletion");
-    }
+    $orgManagerDnsForDelete = getOrgManagerDns($orgName);
+    $isOrgManagerToDelete = dnInList($userDn, $orgManagerDnsForDelete);
+    $managerCountForDelete = getOrgScopedManagerCount($orgName, $orgManagerDnsForDelete);
 
-    try {
-        ldap_delete($ldap, $userDn);
-        $message = t('manage.users.msg.delete_ok', ['user' => $deleteUserDisplay]);
-        $message_type = 'warning';
-    } catch (Exception $e) {
-        $message = t('manage.org_users.msg.delete_fail_exception', ['error' => $e->getMessage()]);
+    if ($isOrgManagerToDelete && $managerCountForDelete <= 1) {
+        $message = t('manage.org_users.msg.cannot_remove_last_manager');
         $message_type = 'danger';
+    } else {
+        // Remove user from all groups before deletion
+        $group_cleanup_success = ldap_remove_user_from_all_groups($ldap, $userDn);
+        if (!$group_cleanup_success) {
+            error_log("Warning: Failed to remove user from some groups before deletion");
+        }
+
+        try {
+            ldap_delete($ldap, $userDn);
+            $message = t('manage.users.msg.delete_ok', ['user' => $deleteUserDisplay]);
+            $message_type = 'warning';
+        } catch (Exception $e) {
+            $message = t('manage.org_users.msg.delete_fail_exception', ['error' => $e->getMessage()]);
+            $message_type = 'danger';
+        }
     }
     ldap_close($ldap);
 }
@@ -829,22 +882,21 @@ render_submenu();
                 <th><?php echo htmlspecialchars(t('manage.common.full_name'), ENT_QUOTES, 'UTF-8'); ?></th>
                 <th><?php echo htmlspecialchars(t('manage.common.email'), ENT_QUOTES, 'UTF-8'); ?></th>
                 <th><?php echo htmlspecialchars(t('manage.common.status'), ENT_QUOTES, 'UTF-8'); ?></th>
-                <th><?php echo htmlspecialchars(t('manage.common.org_manager'), ENT_QUOTES, 'UTF-8'); ?></th>
+                <th><?php echo htmlspecialchars(t('manage.org_users.manager_header'), ENT_QUOTES, 'UTF-8'); ?></th>
                 <th><?php echo htmlspecialchars(t('manage.common.actions'), ENT_QUOTES, 'UTF-8'); ?></th>
             </tr>
         </thead>
         <tbody>
             <?php
-            $orgManagerCount = count(array_filter($orgManagerDns, function ($dn) {
-                return stripos($dn, 'cn=placeholder') === false;
-            }));
+            $orgManagerCount = getOrgScopedManagerCount($orgName, $orgManagerDns);
             ?>
             <?php foreach ($users as $user) :
-                $isManager = in_array(getUserDn($orgName, get_ldap_attribute($user, 'uid')), $orgManagerDns);
-                $isLastManager = $isManager && $orgManagerCount <= 1;
                 // Use robust UUID extraction for user actions
                 $user_uuid = get_user_uuid($user);
                 $user_identifier = $user_uuid ?: get_ldap_attribute($user, 'uid');
+                $user_dn = $user['dn'] ?? getUserDn($orgName, get_ldap_attribute($user, 'uid'));
+                $isManager = is_string($user_dn) && dnInList($user_dn, $orgManagerDns);
+                $isLastManager = $isManager && $orgManagerCount <= 1;
                 ?>
                 <tr<?= $isManager ? ' class="table-success"' : '' ?>>
                     <td><?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?></td>
@@ -854,54 +906,60 @@ render_submenu();
                         <?php
                         $is_disabled = ldap_user_is_disabled($ldap_connection, $user['dn']);
                         $is_individually_disabled = ldap_user_is_individually_disabled($ldap_connection, $user['dn']);
-                        if ($is_disabled) {
-                            if ($is_individually_disabled && $is_disabled_org) {
-                                $badge_title = t('manage.org_users.deactivate_reason.both');
-                            } elseif ($is_individually_disabled) {
-                                $badge_title = t('manage.org_users.deactivate_reason.individual');
-                            } elseif ($is_disabled_org) {
-                                $badge_title = t('manage.org_users.deactivate_reason.org');
-                            } else {
-                                $badge_title = t('manage.common.inactive');
-                            }
-                            echo '<span class="badge bg-danger" title="' . htmlspecialchars($badge_title, ENT_QUOTES, 'UTF-8') . '">'
+                        if ($is_disabled_org) {
+                            echo '<span class="badge bg-danger" title="' . htmlspecialchars(t('manage.org_users.deactivate_reason.org'), ENT_QUOTES, 'UTF-8') . '">'
                                 . htmlspecialchars(t('manage.common.inactive'), ENT_QUOTES, 'UTF-8') . '</span>';
                         } else {
-                            echo '<span class="badge bg-success">' . htmlspecialchars(t('manage.common.active'), ENT_QUOTES, 'UTF-8') . '</span>';
+                            $can_enable_user = currentUserCanEnableUser($user_identifier);
+                            $can_disable_user = currentUserCanDisableUser($user_identifier);
+                            $status_form_target = $is_individually_disabled ? 'enable_user' : 'disable_user';
+                            $status_title = $is_individually_disabled ? t('manage.common.activate') : t('manage.common.deactivate');
+                            $can_toggle_status = $is_individually_disabled ? $can_enable_user : $can_disable_user;
+                            ?>
+                            <form method="post" class="d-inline-flex align-items-center justify-content-center m-0">
+                                <?= csrf_token_field() ?>
+                                <input type="hidden" name="<?= $status_form_target ?>" value="<?= htmlspecialchars($user_identifier, ENT_QUOTES, 'UTF-8') ?>">
+                                <div class="form-check form-switch m-0">
+                                    <input
+                                        class="form-check-input"
+                                        type="checkbox"
+                                        role="switch"
+                                        <?= !$is_individually_disabled ? 'checked' : '' ?>
+                                        <?= !$can_toggle_status ? 'disabled' : '' ?>
+                                        onchange="this.form.submit()"
+                                        title="<?= htmlspecialchars($status_title, ENT_QUOTES, 'UTF-8') ?>"
+                                        aria-label="<?= htmlspecialchars(t('manage.common.status'), ENT_QUOTES, 'UTF-8') ?>"
+                                    >
+                                </div>
+                            </form>
+                            <?php
                         }
                         ?>
                     </td>
                     <td class="text-center">
-                        <form method="get" style="display:inline">
+                        <form method="get" class="d-inline-flex align-items-center justify-content-center">
                             <input type="hidden" name="<?= $org_uuid ? 'uuid' : 'org' ?>" value="<?= htmlspecialchars($org_uuid ?: $orgName) ?>">
-                            <input type="hidden" name="uid" value="<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>">
+                            <input type="hidden" name="uid" value="<?= htmlspecialchars($user_identifier) ?>">
                             <input type="hidden" name="toggle_manager" value="1">
-                            <?php if ($isManager) : ?>
-                                <?php if ($isLastManager) : ?>
-                                    <button type="button" class="btn btn-outline-danger btn-sm" disabled title="<?php echo htmlspecialchars(t('manage.org_users.msg.cannot_remove_last_manager'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.org_users.remove_manager'), ENT_QUOTES, 'UTF-8'); ?></button>
-                                <?php else : ?>
-                                    <button type="submit" class="btn btn-outline-danger btn-sm" title="<?php echo htmlspecialchars(t('manage.common.toggle_manager_title'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.org_users.remove_manager'), ENT_QUOTES, 'UTF-8'); ?></button>
-                                <?php endif; ?>
-                            <?php else : ?>
-                                <button type="submit" class="btn btn-outline-success btn-sm" title="<?php echo htmlspecialchars(t('manage.common.toggle_manager_title'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.org_users.assign_manager'), ENT_QUOTES, 'UTF-8'); ?></button>
-                            <?php endif; ?>
+                            <div class="form-check form-switch m-0">
+                                <input
+                                    class="form-check-input"
+                                    type="checkbox"
+                                    role="switch"
+                                    id="org-manager-switch-<?= htmlspecialchars((string) $user_identifier, ENT_QUOTES, 'UTF-8') ?>"
+                                    <?= $isManager ? 'checked' : '' ?>
+                                    <?= $isLastManager ? 'disabled' : '' ?>
+                                    onchange="this.form.submit()"
+                                    title="<?= htmlspecialchars($isLastManager ? t('manage.org_users.msg.cannot_remove_last_manager') : t('manage.common.toggle_manager_title'), ENT_QUOTES, 'UTF-8') ?>"
+                                    aria-label="<?= htmlspecialchars(t('manage.common.org_manager'), ENT_QUOTES, 'UTF-8') ?>"
+                                >
+                            </div>
                         </form>
                     </td>
                     <td>
                         <div class="d-inline-flex align-items-center flex-wrap gap-1">
                             <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.common.user_actions_aria'), ENT_QUOTES, 'UTF-8'); ?>">
                                 <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&edit_user=<?= urlencode($user_identifier) ?>" class="btn btn-secondary btn-sm"><?php echo htmlspecialchars(t('manage.common.edit'), ENT_QUOTES, 'UTF-8'); ?></a>
-                            <?php if (currentUserCanDisableUser($user_identifier)) : ?>
-                                <?php
-                                $activate_title_attr = $is_disabled_org ? ' title="' . htmlspecialchars(t('manage.org_users.activate_tooltip_org_disabled'), ENT_QUOTES, 'UTF-8') . '"' : '';
-                                $deactivate_title_attr = $is_disabled_org ? ' title="' . htmlspecialchars(t('manage.org_users.deactivate_tooltip_org_disabled'), ENT_QUOTES, 'UTF-8') . '"' : '';
-                                ?>
-                                <?php if ($is_individually_disabled) : ?>
-                                    <button type="button" class="btn btn-success btn-sm"<?= $activate_title_attr ?> onclick="confirmEnableUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')"><?php echo htmlspecialchars(t('manage.common.activate'), ENT_QUOTES, 'UTF-8'); ?></button>
-                                <?php else : ?>
-                                    <button type="button" class="btn btn-warning btn-sm"<?= $deactivate_title_attr ?> onclick="confirmDisableUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')"><?php echo htmlspecialchars(t('manage.common.deactivate'), ENT_QUOTES, 'UTF-8'); ?></button>
-                                <?php endif; ?>
-                            <?php endif; ?>
                                 <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&reset_user=<?= urlencode($user_identifier) ?>" class="btn btn-primary btn-sm"><?php echo htmlspecialchars(t('manage.common.new_password'), ENT_QUOTES, 'UTF-8'); ?></a>
                             </div>
                             <div class="ms-2 ps-2 border-start">
@@ -1115,22 +1173,6 @@ render_submenu();
     
     <?php
     render_confirm_modal(
-        'disableUserModal',
-        t('manage.org_users.modal.deactivate_title'),
-        t('manage.org_users.modal.deactivate_body'),
-        [['name' => 'disable_user', 'id' => 'disableUserIdentifier']],
-        t('manage.org_users.modal.deactivate_submit'),
-        'btn-warning'
-    );
-    render_confirm_modal(
-        'enableUserModal',
-        t('manage.org_users.modal.activate_title'),
-        t('manage.org_users.modal.activate_body'),
-        [['name' => 'enable_user', 'id' => 'enableUserIdentifier']],
-        t('manage.org_users.modal.activate_submit'),
-        'btn-success'
-    );
-    render_confirm_modal(
         'deleteUserModal',
         t('manage.org_users.modal.delete_title'),
         t('manage.org_users.modal.delete_body'),
@@ -1302,12 +1344,6 @@ render_submenu();
         }
     });
 
-    function confirmDisableUser(userIdentifier, userName) {
-        confirmAction('disableUserModal', { disableUserIdentifier: userIdentifier, disableUserName: userName });
-    }
-    function confirmEnableUser(userIdentifier, userName) {
-        confirmAction('enableUserModal', { enableUserIdentifier: userIdentifier, enableUserName: userName });
-    }
     function confirmDeleteUser(userIdentifier, userName) {
         confirmAction('deleteUserModal', { deleteUserName: userName, deleteUserIdentifier: userIdentifier });
     }
