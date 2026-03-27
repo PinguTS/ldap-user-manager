@@ -105,7 +105,7 @@ postalAddress: 123 Main St$10001$New York$NY$USA
 **Status**: ✅ **Available**
 
 **What It Provides:**
-- **Disable / re-enable user accounts** (via `pwdAccountLockedTime`; admins and maintainers only)
+- **Disable / re-enable user accounts** (via `pwdAccountLockedTime` with OpenLDAP **ppolicy** — osixia `LDAP_BACKEND_OVERLAY_PPOLICY`, LDIF fallback in `docker/openldap/`, or Bitnami `LDAP_CONFIGURE_PPOLICY=yes`; admins and maintainers only)
 - **Disable / re-enable organizations** (via status group `LDAP_GROUP_DISABLED_ORGS`)
 - **Grant / revoke organization membership** (via status group `LDAP_GROUP_MEMBER_ORGS`); optional metadata (e.g. memberNumber, memberSince) on organization entries
 - **Export member organizations** for TYPO3 (e.g. `tt_address`): `GET /export/organizations.php` with Bearer token; see [Export endpoint](deployment/export-endpoint.md) and status groups in [LDAP Structure](ldap-structure.md)

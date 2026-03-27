@@ -9,6 +9,9 @@ bootstrap_manage(['ldap', 'organization', 'user', 'mail', 'password_reset']);
 // Ensure CSRF token is generated early
 get_csrf_token();
 
+$message = '';
+$message_type = '';
+
 $res = resolve_organization_from_request();
 if ($res['error'] !== null) {
     render_header(t('manage.common.org_users_title'));
@@ -368,10 +371,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ldap_close($ldap_connection);
     }
 }
-
-// Message handling
-$message = '';
-$message_type = '';
 
 // Redirect success flag handling (used after POST/Redirect/GET)
 if (isset($_GET['updated']) && (string) $_GET['updated'] === '1') {

@@ -2220,7 +2220,54 @@ function enableUserAccount($ldap_connection, string $dn): bool
 }
 
 /**
- * True if the user has pwdAccountLockedTime set or belongs to a disabled organization (status group).
+ * @param array<string, mixed> $ldap_entry Single entry from ldap_get_entries (lowercase keys)
+ */
+function ldap_user_entry_array_has_direct_lock(array $ldap_entry): bool
+{
+    global $LDAP;
+
+    if (isset($ldap_entry['pwdaccountlockedtime'])) {
+        return true;
+    }
+    if (!($LDAP['account_lock_description_fallback'] ?? true)) {
+        return false;
+    }
+    $marker = $LDAP['account_lock_description_marker'] ?? '__LDAPUM_ACCOUNT_LOCKED__';
+    if (isset($ldap_entry['description'])) {
+        $n = (int) ($ldap_entry['description']['count'] ?? 0);
+        for ($i = 0; $i < $n; $i++) {
+            if (($ldap_entry['description'][$i] ?? '') === $marker) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+/**
+ * User-level lock only: pwdAccountLockedTime and/or app description marker (not organization lock).
+ */
+function ldap_user_entry_has_direct_lock($ldap_connection, $user_dn): bool
+{
+    if (!$user_dn) {
+        return false;
+    }
+
+    $user_attrs = @ldap_read($ldap_connection, $user_dn, '(objectClass=*)', ['pwdAccountLockedTime', 'description']);
+    if (!$user_attrs) {
+        return false;
+    }
+    $user_entry = ldap_get_entries($ldap_connection, $user_attrs);
+    if ($user_entry['count'] < 1) {
+        return false;
+    }
+
+    return ldap_user_entry_array_has_direct_lock($user_entry[0]);
+}
+
+/**
+ * True if the user has pwdAccountLockedTime or app lock marker set, or belongs to a disabled organization (status group).
  */
 function ldap_user_is_locked($ldap_connection, $user_dn)
 {
@@ -2230,18 +2277,11 @@ function ldap_user_is_locked($ldap_connection, $user_dn)
         return false;
     }
 
-    // Check user's pwdAccountLockedTime attribute
-    $user_attrs = @ldap_read($ldap_connection, $user_dn, "(objectClass=*)", ['pwdAccountLockedTime']);
-    if ($user_attrs) {
-        $user_entry = ldap_get_entries($ldap_connection, $user_attrs);
-        if ($user_entry['count'] > 0) {
-            if (isset($user_entry[0]['pwdaccountlockedtime'])) {
-                if ($LDAP_DEBUG) {
-                    error_log("$log_prefix User $user_dn has pwdAccountLockedTime: " . $user_entry[0]['pwdaccountlockedtime'][0]);
-                }
-                return true;
-            }
+    if (ldap_user_entry_has_direct_lock($ldap_connection, $user_dn)) {
+        if ($LDAP_DEBUG) {
+            error_log("$log_prefix User $user_dn has direct account lock (ppolicy or description marker)");
         }
+        return true;
     }
 
     // Check if user's organization is locked
@@ -2251,6 +2291,28 @@ function ldap_user_is_locked($ldap_connection, $user_dn)
             error_log("$log_prefix User $user_dn is locked due to locked organization: $org_name");
         }
         return true;
+    }
+
+    return false;
+}
+
+/**
+ * Whether a pwdAccountLockedTime modify failure should trigger description-marker locking (schema missing ppolicy attribute).
+ */
+function ldap_account_lock_pwd_error_allows_description_fallback(string $ldap_error): bool
+{
+    $e = strtolower($ldap_error);
+    foreach ([
+        'undefined attribute type',
+        'no such attribute',
+        'invalid attribute syntax',
+        'object class violation',
+        'constraint violation',
+        'attribute type undefined',
+    ] as $frag) {
+        if (str_contains($e, $frag)) {
+            return true;
+        }
     }
 
     return false;
@@ -2299,11 +2361,15 @@ function ldap_organization_is_locked($ldap_connection, $org_name)
  */
 function ldap_lock_user_account($ldap_connection, $user_dn)
 {
-    global $log_prefix, $LDAP_DEBUG;
+    global $log_prefix, $LDAP, $LDAP_DEBUG;
 
     if (!$user_dn) {
         error_log("$log_prefix Cannot lock user: No DN provided");
         return false;
+    }
+
+    if (ldap_user_entry_has_direct_lock($ldap_connection, $user_dn)) {
+        return true;
     }
 
     $lock_value = '000001010000Z';
@@ -2318,7 +2384,28 @@ function ldap_lock_user_account($ldap_connection, $user_dn)
     }
 
     $ldap_error = ldap_error($ldap_connection);
-    error_log("$log_prefix Failed to lock user account $user_dn using pwdAccountLockedTime: $ldap_error");
+    if (!($LDAP['account_lock_description_fallback'] ?? true)
+        || !ldap_account_lock_pwd_error_allows_description_fallback($ldap_error)) {
+        error_log("$log_prefix Failed to lock user account $user_dn using pwdAccountLockedTime: $ldap_error");
+        return false;
+    }
+
+    $marker = $LDAP['account_lock_description_marker'] ?? '__LDAPUM_ACCOUNT_LOCKED__';
+    $add_ok = @ldap_mod_add($ldap_connection, $user_dn, ['description' => [$marker]]);
+    if ($add_ok) {
+        if ($LDAP_DEBUG) {
+            error_log("$log_prefix Locked user account via description marker: $user_dn");
+        }
+        return true;
+    }
+
+    $add_err = strtolower(ldap_error($ldap_connection));
+    if (str_contains($add_err, 'exists') || str_contains($add_err, 'type or value exists')) {
+        return true;
+    }
+
+    error_log("$log_prefix Failed to lock user account $user_dn via description marker: " . ldap_error($ldap_connection));
+
     return false;
 }
 
@@ -2333,26 +2420,32 @@ function ldap_lock_user_account($ldap_connection, $user_dn)
  */
 function ldap_unlock_user_account($ldap_connection, $user_dn)
 {
-    global $log_prefix, $LDAP_DEBUG;
+    global $log_prefix, $LDAP, $LDAP_DEBUG;
 
     if (!$user_dn) {
         error_log("$log_prefix Cannot unlock user: No DN provided");
         return false;
     }
 
-    $unlock_attrs = ['pwdAccountLockedTime' => []];
-    $result = @ldap_modify($ldap_connection, $user_dn, $unlock_attrs);
+    @ldap_modify($ldap_connection, $user_dn, ['pwdAccountLockedTime' => []]);
 
-    if ($result) {
+    if ($LDAP['account_lock_description_fallback'] ?? true) {
+        $marker = $LDAP['account_lock_description_marker'] ?? '__LDAPUM_ACCOUNT_LOCKED__';
+        @ldap_mod_del($ldap_connection, $user_dn, ['description' => $marker]);
+    }
+
+    $still = ldap_user_entry_has_direct_lock($ldap_connection, $user_dn);
+    if (!$still) {
         if ($LDAP_DEBUG) {
-            error_log("$log_prefix Successfully unlocked user account by removing pwdAccountLockedTime: $user_dn");
+            error_log("$log_prefix Successfully unlocked user account (ppolicy and/or description marker cleared): $user_dn");
         }
         return true;
     }
 
     if ($LDAP_DEBUG) {
-        error_log("$log_prefix pwdAccountLockedTime removal failed for $user_dn: " . ldap_error($ldap_connection));
+        error_log("$log_prefix Unlock incomplete for $user_dn: " . ldap_error($ldap_connection));
     }
+
     return false;
 }
 
@@ -2447,7 +2540,7 @@ function ldap_get_user_lock_status($ldap_connection, $user_dn)
         return false;
     }
 
-    $user_attrs = @ldap_read($ldap_connection, $user_dn, "(objectClass=*)", ['pwdAccountLockedTime', 'uid', 'cn']);
+    $user_attrs = @ldap_read($ldap_connection, $user_dn, "(objectClass=*)", ['pwdAccountLockedTime', 'description', 'uid', 'cn']);
     if (!$user_attrs) {
         return false;
     }
@@ -2458,15 +2551,15 @@ function ldap_get_user_lock_status($ldap_connection, $user_dn)
     }
 
     $user_info = $user_entry[0];
-    $is_locked = isset($user_info['pwdaccountlockedtime']);
+    $is_direct = ldap_user_entry_array_has_direct_lock($user_info);
 
     $status = [
         'dn' => $user_dn,
         'uid' => $user_info['uid'][0] ?? 'Unknown',
         'cn' => $user_info['cn'][0] ?? 'Unknown',
-        'is_locked' => $is_locked,
-        'lock_time' => $is_locked ? $user_info['pwdaccountlockedtime'][0] : null,
-        'lock_reason' => $is_locked ? 'Account locked by administrator' : null
+        'is_locked' => $is_direct,
+        'lock_time' => isset($user_info['pwdaccountlockedtime']) ? $user_info['pwdaccountlockedtime'][0] : null,
+        'lock_reason' => $is_direct ? 'Account locked by administrator' : null
     ];
 
     // Check if user is locked due to organization lock

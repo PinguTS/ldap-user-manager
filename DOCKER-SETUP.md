@@ -117,6 +117,7 @@ services:
       LDAP_READONLY_USER: "false"
       LDAP_RFC2307BIS_SCHEMA: "false"
       LDAP_BACKEND: "mdb"
+      LDAP_BACKEND_OVERLAY_PPOLICY: "true"
       LDAP_TLS: "false"
     volumes:
       - ldap_data:/var/lib/ldap
@@ -137,6 +138,8 @@ networks:
 ```
 
 3. **Deploy the stack and wait for it to be healthy**
+
+**Account locking (`pwdAccountLockedTime`):** Enable **ppolicy** — **osixia:** `LDAP_BACKEND_OVERLAY_PPOLICY=true` (do not also mount `06-ppolicy.ldif`). **Bitnami:** `LDAP_CONFIGURE_PPOLICY=yes`. LDIF fallback: `docker/openldap/README.md` and `docs/ldap/setup.md` §5.1.
 
 ### Step 2: Load LDAP Structure
 
@@ -176,6 +179,8 @@ services:
       LDAP_BASE_DN: "dc=example,dc=com"
       LDAP_ADMIN_BIND_DN: "cn=admin,dc=example,dc=com"
       LDAP_ADMIN_BIND_PWD: "admin123"
+      # FALSE when LDAP has ppolicy (osixia: LDAP_BACKEND_OVERLAY_PPOLICY; Bitnami: LDAP_CONFIGURE_PPOLICY=yes)
+      LDAP_ACCOUNT_LOCK_DESCRIPTION_FALLBACK: "false"
       
       # Application Settings
       ORGANISATION_NAME: "LDAP User Manager"
@@ -309,13 +314,14 @@ ldapsearch -x -H ldap://localhost:389 -b dc=example,dc=com -D cn=admin,dc=exampl
 docker exec -it ldap-user-manager ldapsearch -x -H ldap://ldap-server:389 -b dc=example,dc=com -D cn=admin,dc=example,dc=com -w admin123
 ```
 
-### Check Schema
+### Check schema (ppolicy / `pwdAccountLockedTime`)
+
+Account lock uses **`pwdAccountLockedTime`**, which requires **ppolicy** (osixia **`LDAP_BACKEND_OVERLAY_PPOLICY`**, Bitnami **`LDAP_CONFIGURE_PPOLICY=yes`**, or osixia LDIF fallback — §5.1).
 
 ```bash
-# Verify LDAP server is accessible
-docker exec -it ldap-server ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=schema,cn=configuration -s base
-
-- The system uses existing LDAP attributes - no custom schema required
+# Subschema entry (includes ppolicy attribute types when loaded)
+docker exec -it ldap-server ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=subschema -s base attributetypes \
+  | grep -i pwdAccountLockedTime || echo "ppolicy not active — check LDAP_BACKEND_OVERLAY_PPOLICY / Bitnami LDAP_CONFIGURE_PPOLICY / LDIF fallback"
 ```
 
 ### Verify Users
@@ -346,9 +352,9 @@ docker exec -it ldap-server ldapsearch -x -b ou=roles,dc=example,dc=com -D cn=ad
    - Base structure not loaded: Run the LDIF loading commands
    - Check if OUs exist: `ldapsearch -x -b dc=example,dc=com -D cn=admin,dc=example,dc=com -w admin123`
 
-4. **"attribute type undefined"**
-   - The system uses existing LDAP attributes - no custom schema required
-   - Check if the web-based setup wizard completed successfully
+4. **"Undefined attribute type" / lock has no effect**
+   - **ppolicy** is not loaded: on **osixia** set `LDAP_BACKEND_OVERLAY_PPOLICY=true` (or use LDIF fallback / `ldapmodify`); on **Bitnami** set `LDAP_CONFIGURE_PPOLICY=yes` (`docs/ldap/setup.md` §5.1).
+   - Optionally set `LDAP_ACCOUNT_LOCK_DESCRIPTION_FALLBACK=TRUE` on the app only if you intentionally cannot enable ppolicy yet.
 
 ### Debug Commands
 

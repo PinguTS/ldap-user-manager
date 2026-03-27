@@ -137,10 +137,13 @@ services:
 
   ldap:
     image: osixia/openldap:latest
+    command: ["--copy-service"]
     environment:
       - LDAP_ORGANISATION=Development
       - LDAP_DOMAIN=example.com
       - LDAP_ADMIN_PASSWORD=admin
+      - LDAP_BACKEND=mdb
+      - LDAP_BACKEND_OVERLAY_PPOLICY=true
     ports:
       - "389:389"
       - "636:636"

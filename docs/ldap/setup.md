@@ -167,14 +167,40 @@ show_organization.php?org=Company%20Name
 
 ### 5.1 Standard LDAP Account Locking
 
-LDAP User Manager implements **RFC-compliant account locking** using the standard `pwdAccountLockedTime` attribute:
+LDAP User Manager implements account locking using the **`pwdAccountLockedTime`** attribute (password policy / **ppolicy** in OpenLDAP).
 
-**Lock Value:**
-- **Standard Value**: `000001010000Z` (January 1, 1970 00:00:00 UTC)
-- **RFC Compliance**: Follows LDAP standards for account locking
-- **No Schema Changes**: Uses existing LDAP attributes
+**Lock value**
 
-**Implementation:**
+- **Standard value**: `000001010000Z` (January 1, 1970 00:00:00 UTC)
+
+**OpenLDAP schema requirement**
+
+`pwdAccountLockedTime` is **not** part of core `inetOrgPerson`. On OpenLDAP it comes from the **ppolicy** overlay: the module must be loaded, the overlay attached to your main database, and a **default password policy** configured (e.g. `olcPPolicyDefault`). Until that is in place, modifying user entries can produce **`Undefined attribute type`**.
+
+**Docker: osixia/openldap (default in this repository’s `docker-compose.yml`)**
+
+Ppolicy works with **osixia** once the module and overlay are applied. Prefer:
+
+- **`LDAP_BACKEND_OVERLAY_PPOLICY=true`** (Docker Compose: `"true"`) — supported on current **osixia/openldap** images for automatic ppolicy overlay; behaviour can depend on image tag (see root `docker-compose.yml`).
+
+**Do not** enable this **and** mount **`06-ppolicy.ldif`** — the overlay would be added twice.
+
+**Fallback** if your tag does not honour that variable: mount `docker/openldap/bootstrap/ldif/custom/06-ppolicy.ldif` → `/container/service/slapd/assets/config/bootstrap/ldif/custom` with **`--copy-service`** (first init only, empty `slapd.d`), or **`ldapmodify` on `cn=config`**.
+
+**Docker: Bitnami OpenLDAP (ppolicy via env, no repo LDIF)**
+
+As an alternative, **Bitnami** can turn on ppolicy using only environment variables:
+
+- **`LDAP_CONFIGURE_PPOLICY=yes`**
+- Optional: **`LDAP_PPOLICY_USE_LOCKOUT=yes`**, **`LDAP_PPOLICY_HASH_CLEARTEXT=yes`**
+
+See the [Bitnami OpenLDAP README](https://github.com/bitnami/containers/blob/main/bitnami/openldap/README.md) for ports (`LDAP_PORT_NUMBER` often **1389** inside the container), `LDAP_ROOT`, `LDAP_ADMIN_USERNAME`, and TLS.
+
+**Application fallback (non-Docker / broken LDAP)**
+
+If you cannot enable ppolicy yet, you may set `LDAP_ACCOUNT_LOCK_DESCRIPTION_FALLBACK=TRUE` (default) so the app can record a lock using a reserved `description` value; set **`FALSE`** when the directory supports `pwdAccountLockedTime` only.
+
+**Example LDIF (locked entries):**
 ```ldif
 # Locked user account
 dn: uid=user@org.com,ou=people,o=OrgName,ou=organizations,dc=example,dc=com
@@ -263,9 +289,8 @@ ldap_unlock_organization($ldap_connection, $org_name)
 5. Failed login attempts are logged for security
 
 **Benefits:**
-- ✅ **Standard Compliance**: Uses RFC-compliant LDAP attributes
-- ✅ **No Schema Changes**: Works with existing LDAP infrastructure
-- ✅ **Security Enhancement**: Immediate access control without deletion
+- ✅ **Standard practice on OpenLDAP**: Uses ppolicy’s `pwdAccountLockedTime` when the server provides it
+- ✅ **Security enhancement**: Immediate access control without deletion
 - ✅ **Audit Trail**: Complete logging of all lock/unlock operations
 - ✅ **Permission-Based**: Granular access control for lock operations
 - ✅ **Reversible**: Easy to unlock accounts when needed
@@ -363,7 +388,7 @@ ldapsearch -x -b ou=people,dc=example,dc=com -D cn=admin,dc=example,dc=com -w yo
 
 The easiest way to set up LDAP in Docker is to use the web-based setup wizard:
 
-1. **Start your LDAP container**
+1. **Start your LDAP container** with ppolicy enabled (**osixia:** `LDAP_BACKEND_OVERLAY_PPOLICY=true`, or LDIF fallback in §5.1; **Bitnami:** `LDAP_CONFIGURE_PPOLICY=yes`)
 2. **Start the LDAP User Manager container**
 3. **Access the setup wizard** at `/setup/` in your web browser
 4. **The wizard will automatically** create all necessary LDAP structure
@@ -372,14 +397,42 @@ The easiest way to set up LDAP in Docker is to use the web-based setup wizard:
 
 If you prefer to set up manually or use Docker Compose:
 
-**Step 1: Start LDAP Container**
+**Step 1a: osixia (`LDAP_BACKEND_OVERLAY_PPOLICY` — same idea as root `docker-compose.yml`)**
+
 ```bash
 docker run --name ldap -d \
   -p 389:389 \
   -e LDAP_ORGANISATION="Example Org" \
   -e LDAP_DOMAIN="example.com" \
   -e LDAP_ADMIN_PASSWORD="admin" \
-  osixia/openldap:latest
+  -e LDAP_BACKEND="mdb" \
+  -e LDAP_BACKEND_OVERLAY_PPOLICY=true \
+  osixia/openldap:latest --copy-service
+```
+
+**Fallback — osixia with bootstrap LDIF only** (omit `LDAP_BACKEND_OVERLAY_PPOLICY` if you use this):
+
+```bash
+docker run --name ldap -d \
+  -p 389:389 \
+  -e LDAP_ORGANISATION="Example Org" \
+  -e LDAP_DOMAIN="example.com" \
+  -e LDAP_ADMIN_PASSWORD="admin" \
+  -e LDAP_BACKEND="mdb" \
+  -v "$(pwd)/docker/openldap/bootstrap/ldif/custom:/container/service/slapd/assets/config/bootstrap/ldif/custom:ro" \
+  osixia/openldap:latest --copy-service
+```
+
+**Step 1b: Bitnami (ppolicy via env — no custom LDIF)**
+
+```bash
+docker run --name ldap -d \
+  -p 389:1389 \
+  -e LDAP_ROOT="dc=example,dc=com" \
+  -e LDAP_ADMIN_USERNAME="admin" \
+  -e LDAP_ADMIN_PASSWORD="adminpassword" \
+  -e LDAP_CONFIGURE_PPOLICY=yes \
+  bitnami/openldap:latest
 ```
 
 **Step 2: Complete Setup**
@@ -438,8 +491,9 @@ CMD ["/container/tool/run"]
 # Test LDAP connection from user manager container
 docker exec -it ldap-user-manager ldapsearch -x -H ldap://ldap-server:389 -b dc=example,dc=com -D cn=admin,dc=example,dc=com -w admin123
 
-# Check LDAP server accessibility
-docker exec -it ldap-server ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=schema,cn=configuration -s base
+# Confirm pwdAccountLockedTime exists in schema (ppolicy loaded)
+docker exec -it ldap-server ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=subschema -s base attributetypes \
+  | grep -i pwdAccountLockedTime || echo "ppolicy not active — check LDAP_BACKEND_OVERLAY_PPOLICY, LDAP_CONFIGURE_PPOLICY, or LDIF fallback"
 
 # Verify users exist
 docker exec -it ldap-server ldapsearch -x -b ou=people,dc=example,dc=com -D cn=admin,dc=example,dc=com -w admin123
