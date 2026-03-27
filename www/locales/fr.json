@@ -191,6 +191,7 @@
   "manage.common.account_id": "ID de compte",
   "manage.common.roles": "Rôles",
   "manage.common.unknown": "Inconnu",
+  "manage.common.org_not_found": "Organization not found.",
   "manage.common.view": "Voir",
   "manage.common.msg.security_validation_failed": "La validation de sécurité a échoué. Veuillez rafraîchir la page.",
   "manage.users.page_title": ":org – Gestion des utilisateurs système",
@@ -455,9 +456,11 @@
   "manage.orgs.add.msg.create_fail": "Erreur lors de la création de l'organisation : :error",
   "manage.org_users.msg.roles_directory_create_fail": "Échec de la création du répertoire des rôles : :error",
   "manage.org_users.msg.org_admin_group_create_fail": "Échec de la création du groupe d'administrateurs de l'organisation : :error",
-  "manage.org_users.msg.removed_org_manager": "Utilisateur retiré du rôle de gestionnaire d'organisation.",
-  "manage.org_users.msg.assigned_org_manager": "Utilisateur affecté en tant que gestionnaire d'organisation.",
+  "manage.org_users.msg.removed_org_manager": "Utilisateur \":user\" retiré du rôle de gestionnaire d'organisation.",
+  "manage.org_users.msg.assigned_org_manager": "Utilisateur \":user\" affecté en tant que gestionnaire d'organisation.",
   "manage.org_users.msg.update_org_manager_fail": "Erreur lors de la mise à jour du rôle de gestionnaire d'organisation : :error",
+  "manage.org_users.msg.cannot_remove_last_manager": "Cannot remove the last Org Manager. At least one manager is required.",
+  "manage.org_users.msg.cannot_delete_org_manager": "This user is an Org Manager and cannot be deleted. Remove the Org Manager role first.",
   "manage.org_users.msg.delete_fail_ldap": "L'utilisateur n'a pas pu être supprimé. Erreur LDAP : :error",
   "manage.org_users.msg.all_fields_required": "Tous les champs sont obligatoires.",
   "manage.org_users.msg.users_directory_create_fail": "Échec de la création du répertoire des utilisateurs : :error",
@@ -467,5 +470,10 @@
   "manage.org_users.msg.add_fail": "Échec de l'ajout de l'utilisateur : :error",
   "manage.org_users.msg.delete_fail_exception": "Erreur lors de la suppression de l'utilisateur : :error",
   "manage.org_users.msg.credentials_reset_ok": "Identifiants réinitialisés avec succès.",
-  "manage.org_users.msg.credentials_reset_fail": "Échec de la réinitialisation des identifiants : :error"
+  "manage.org_users.msg.credentials_reset_fail": "Échec de la réinitialisation des identifiants : :error",
+  "manage.org_users.org_disabled_banner": "This organization is currently deactivated. All users are inactive regardless of their individual status. The individual activate/deactivate controls below manage what happens when the organization is re-enabled.",
+  "manage.org_users.activate_tooltip_org_disabled": "Remove individual deactivation. The user will remain inactive until the organization is re-enabled.",
+  "manage.org_users.deactivate_tooltip_org_disabled": "Individually deactivate this user. The user will stay inactive even when the organization is re-enabled.",
+  "manage.org_users.assign_manager": "Assign",
+  "manage.org_users.remove_manager": "Remove"
 }

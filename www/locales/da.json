@@ -191,6 +191,7 @@
   "manage.common.account_id": "Konto-ID",
   "manage.common.roles": "Roller",
   "manage.common.unknown": "Ukendt",
+  "manage.common.org_not_found": "Organization not found.",
   "manage.common.view": "Vis",
   "manage.common.msg.security_validation_failed": "Sikkerhedsvalidering mislykkedes. Opdater venligst siden.",
   "manage.users.page_title": ":org – Systembrugeradministration",
@@ -455,9 +456,11 @@
   "manage.orgs.add.msg.create_fail": "Fejl ved oprettelse af organisationen: :error",
   "manage.org_users.msg.roles_directory_create_fail": "Fejl ved oprettelse af rollemappe: :error",
   "manage.org_users.msg.org_admin_group_create_fail": "Fejl ved oprettelse af organisationens administratorgruppe: :error",
-  "manage.org_users.msg.removed_org_manager": "Bruger blev fjernet fra rollen som org-manager.",
-  "manage.org_users.msg.assigned_org_manager": "Bruger blev tildelt som org-manager.",
+  "manage.org_users.msg.removed_org_manager": "Bruger \":user\" blev fjernet fra rollen som org-manager.",
+  "manage.org_users.msg.assigned_org_manager": "Bruger \":user\" blev tildelt som org-manager.",
   "manage.org_users.msg.update_org_manager_fail": "Fejl ved opdatering af org-manager-rollen: :error",
+  "manage.org_users.msg.cannot_remove_last_manager": "Cannot remove the last Org Manager. At least one manager is required.",
+  "manage.org_users.msg.cannot_delete_org_manager": "This user is an Org Manager and cannot be deleted. Remove the Org Manager role first.",
   "manage.org_users.msg.delete_fail_ldap": "Bruger kunne ikke slettes. LDAP-fejl: :error",
   "manage.org_users.msg.all_fields_required": "Alle felter er påkrævet.",
   "manage.org_users.msg.users_directory_create_fail": "Fejl ved oprettelse af brugermappe: :error",
@@ -467,5 +470,10 @@
   "manage.org_users.msg.add_fail": "Fejl ved tilføjelse af bruger: :error",
   "manage.org_users.msg.delete_fail_exception": "Fejl ved sletning af bruger: :error",
   "manage.org_users.msg.credentials_reset_ok": "Legitimationsoplysninger blev nulstillet.",
-  "manage.org_users.msg.credentials_reset_fail": "Fejl ved nulstilling af legitimationsoplysninger: :error"
+  "manage.org_users.msg.credentials_reset_fail": "Fejl ved nulstilling af legitimationsoplysninger: :error",
+  "manage.org_users.org_disabled_banner": "This organization is currently deactivated. All users are inactive regardless of their individual status. The individual activate/deactivate controls below manage what happens when the organization is re-enabled.",
+  "manage.org_users.activate_tooltip_org_disabled": "Remove individual deactivation. The user will remain inactive until the organization is re-enabled.",
+  "manage.org_users.deactivate_tooltip_org_disabled": "Individually deactivate this user. The user will stay inactive even when the organization is re-enabled.",
+  "manage.org_users.assign_manager": "Assign",
+  "manage.org_users.remove_manager": "Remove"
 }

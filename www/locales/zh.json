@@ -191,6 +191,7 @@
   "manage.common.account_id": "账户 ID",
   "manage.common.roles": "角色",
   "manage.common.unknown": "未知",
+  "manage.common.org_not_found": "Organization not found.",
   "manage.common.view": "查看",
   "manage.common.msg.security_validation_failed": "安全验证失败，请刷新页面。",
   "manage.users.page_title": ":org – 系统用户管理",
@@ -455,9 +456,11 @@
   "manage.orgs.add.msg.create_fail": "创建组织时出错：:error",
   "manage.org_users.msg.roles_directory_create_fail": "无法创建角色目录：:error",
   "manage.org_users.msg.org_admin_group_create_fail": "无法创建组织管理员组：:error",
-  "manage.org_users.msg.removed_org_manager": "用户已从组织经理角色中移除。",
-  "manage.org_users.msg.assigned_org_manager": "用户已被指定为组织经理。",
+  "manage.org_users.msg.removed_org_manager": "用户 \":user\" 已从组织经理角色中移除。",
+  "manage.org_users.msg.assigned_org_manager": "用户 \":user\" 已被指定为组织经理。",
   "manage.org_users.msg.update_org_manager_fail": "更新组织经理角色时出错：:error",
+  "manage.org_users.msg.cannot_remove_last_manager": "Cannot remove the last Org Manager. At least one manager is required.",
+  "manage.org_users.msg.cannot_delete_org_manager": "This user is an Org Manager and cannot be deleted. Remove the Org Manager role first.",
   "manage.org_users.msg.delete_fail_ldap": "无法删除用户。LDAP 错误：:error",
   "manage.org_users.msg.all_fields_required": "所有字段均为必填项。",
   "manage.org_users.msg.users_directory_create_fail": "无法创建用户目录：:error",
@@ -467,5 +470,10 @@
   "manage.org_users.msg.add_fail": "无法添加用户：:error",
   "manage.org_users.msg.delete_fail_exception": "删除用户时出错：:error",
   "manage.org_users.msg.credentials_reset_ok": "凭据已成功重置。",
-  "manage.org_users.msg.credentials_reset_fail": "重置凭据失败：:error"
+  "manage.org_users.msg.credentials_reset_fail": "重置凭据失败：:error",
+  "manage.org_users.org_disabled_banner": "This organization is currently deactivated. All users are inactive regardless of their individual status. The individual activate/deactivate controls below manage what happens when the organization is re-enabled.",
+  "manage.org_users.activate_tooltip_org_disabled": "Remove individual deactivation. The user will remain inactive until the organization is re-enabled.",
+  "manage.org_users.deactivate_tooltip_org_disabled": "Individually deactivate this user. The user will stay inactive even when the organization is re-enabled.",
+  "manage.org_users.assign_manager": "Assign",
+  "manage.org_users.remove_manager": "Remove"
 }

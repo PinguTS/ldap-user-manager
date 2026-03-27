@@ -191,6 +191,7 @@
   "manage.common.account_id": "계정 ID",
   "manage.common.roles": "역할",
   "manage.common.unknown": "알 수 없음",
+  "manage.common.org_not_found": "Organization not found.",
   "manage.common.view": "보기",
   "manage.common.msg.security_validation_failed": "보안 검증에 실패했습니다. 페이지를 새로고침하세요.",
   "manage.users.page_title": ":org – 시스템 사용자 관리",
@@ -455,9 +456,11 @@
   "manage.orgs.add.msg.create_fail": "조직 생성 중 오류 발생: :error",
   "manage.org_users.msg.roles_directory_create_fail": "역할 디렉터리를 생성할 수 없음: :error",
   "manage.org_users.msg.org_admin_group_create_fail": "조직 관리자 그룹을 생성할 수 없음: :error",
-  "manage.org_users.msg.removed_org_manager": "사용자가 조직 관리자 역할에서 제거되었습니다.",
-  "manage.org_users.msg.assigned_org_manager": "사용자가 조직 관리자로 지정되었습니다.",
+  "manage.org_users.msg.removed_org_manager": "사용자 \":user\"가 조직 관리자 역할에서 제거되었습니다.",
+  "manage.org_users.msg.assigned_org_manager": "사용자 \":user\"가 조직 관리자로 지정되었습니다.",
   "manage.org_users.msg.update_org_manager_fail": "조직 관리자 역할 업데이트 중 오류 발생: :error",
+  "manage.org_users.msg.cannot_remove_last_manager": "Cannot remove the last Org Manager. At least one manager is required.",
+  "manage.org_users.msg.cannot_delete_org_manager": "This user is an Org Manager and cannot be deleted. Remove the Org Manager role first.",
   "manage.org_users.msg.delete_fail_ldap": "사용자를 삭제할 수 없습니다. LDAP 오류: :error",
   "manage.org_users.msg.all_fields_required": "모든 필드는 필수 항목입니다.",
   "manage.org_users.msg.users_directory_create_fail": "사용자 디렉터리를 생성할 수 없음: :error",
@@ -467,5 +470,10 @@
   "manage.org_users.msg.add_fail": "사용자를 추가할 수 없음: :error",
   "manage.org_users.msg.delete_fail_exception": "사용자 삭제 중 오류 발생: :error",
   "manage.org_users.msg.credentials_reset_ok": "자격 증명이 성공적으로 재설정되었습니다.",
-  "manage.org_users.msg.credentials_reset_fail": "자격 증명을 재설정할 수 없음: :error"
+  "manage.org_users.msg.credentials_reset_fail": "자격 증명을 재설정할 수 없음: :error",
+  "manage.org_users.org_disabled_banner": "This organization is currently deactivated. All users are inactive regardless of their individual status. The individual activate/deactivate controls below manage what happens when the organization is re-enabled.",
+  "manage.org_users.activate_tooltip_org_disabled": "Remove individual deactivation. The user will remain inactive until the organization is re-enabled.",
+  "manage.org_users.deactivate_tooltip_org_disabled": "Individually deactivate this user. The user will stay inactive even when the organization is re-enabled.",
+  "manage.org_users.assign_manager": "Assign",
+  "manage.org_users.remove_manager": "Remove"
 }

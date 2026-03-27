@@ -70,7 +70,7 @@ if (isset($_GET['uuid']) && !empty($_GET['uuid'])) {
     ldap_close($ldap_connection);
 
     if (!$user_by_uuid) {
-        render_alert_banner(t('manage.users.msg.user_not_found_uuid', ['uuid' => $user_uuid]), "warning");
+        render_alert_banner(t('manage.users.msg.user_not_found'), "warning");
         error_log("show_user.php: UUID lookup failed for UUID: $user_uuid");
         render_footer();
         exit(0);

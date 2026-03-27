@@ -38,10 +38,7 @@ if ($org_uuid) {
     if (!$organization) {
         // Debug: log the UUID and search details
         error_log("add_org_user.php: Failed to find organization with UUID: $org_uuid");
-        render_alert_banner(t(
-            'manage.org_users.add.msg.org_uuid_not_found',
-            ['org_uuid' => htmlspecialchars((string) $org_uuid, ENT_QUOTES, 'UTF-8')]
-        ), "danger");
+        render_alert_banner(t('manage.common.org_not_found'), "danger");
         render_footer();
         exit(0);
     }

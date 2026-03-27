@@ -175,14 +175,16 @@ if (isset($_GET['toggle_manager']) && isset($_GET['uid'])) {
 
         if ($user_by_uuid) {
             $userDn = $user_by_uuid['dn'];
+            $toggleUserDisplay = get_ldap_attribute($user_by_uuid, 'uid') ?: $toggleUserParam;
         } else {
-            $message = t('manage.users.msg.user_not_found_uuid', ['uuid' => $toggleUserParam]);
+            $message = t('manage.users.msg.user_not_found');
             $message_type = 'danger';
             goto after_toggle_manager;
         }
     } else {
         // Legacy uid-based lookup
         $userDn = getUserDn($orgName, $toggleUserParam);
+        $toggleUserDisplay = $toggleUserParam;
     }
 
     $orgManagerDns = getOrgManagerDns($orgName);
@@ -242,12 +244,26 @@ if (isset($_GET['toggle_manager']) && isset($_GET['uid'])) {
     }
     try {
         if (in_array($userDn, $orgManagerDns)) {
-            removeUserFromOrgAdmin($orgName, $userDn);
-            $message = t('manage.org_users.msg.removed_org_manager');
-            $message_type = 'warning';
+            $managerCount = count(array_filter($orgManagerDns, function ($dn) {
+                return stripos($dn, 'cn=placeholder') === false;
+            }));
+            if ($managerCount <= 1) {
+                $message = t('manage.org_users.msg.cannot_remove_last_manager');
+                $message_type = 'danger';
+            } else {
+                $result = removeUserFromOrgAdmin($orgName, $userDn);
+                if (is_array($result) && $result[0] === true) {
+                    $message = t('manage.org_users.msg.removed_org_manager', ['user' => $toggleUserDisplay]);
+                    $message_type = 'warning';
+                } else {
+                    $err = is_array($result) ? ($result[1] ?? '') : '';
+                    $message = t('manage.org_users.msg.update_org_manager_fail', ['error' => $err]);
+                    $message_type = 'danger';
+                }
+            }
         } else {
             addUserToOrgAdmin($orgName, $userDn);
-            $message = t('manage.org_users.msg.assigned_org_manager');
+            $message = t('manage.org_users.msg.assigned_org_manager', ['user' => $toggleUserDisplay]);
             $message_type = 'success';
         }
     } catch (Exception $e) {
@@ -274,8 +290,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($user_by_uuid) {
                 $user_dn = $user_by_uuid['dn'];
+                $user_display = get_ldap_attribute($user_by_uuid, 'uid') ?: $user_identifier;
             } else {
-                $message = t('manage.users.msg.user_not_found_uuid', ['uuid' => $user_identifier]);
+                $message = t('manage.users.msg.user_not_found');
                 $message_type = 'danger';
                 ldap_close($ldap_connection);
                 goto after_disable_user;
@@ -283,15 +300,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             // Legacy uid-based lookup
             $user_dn = getUserDn($orgName, $user_identifier);
+            $user_display = $user_identifier;
             $ldap_connection = open_ldap_connection();
         }
 
         if (ldap_disable_user_account($ldap_connection, $user_dn)) {
-            $message = t('manage.users.msg.deactivate_ok', ['user' => $user_identifier]);
+            $message = t('manage.users.msg.deactivate_ok', ['user' => $user_display]);
             $message_type = 'success';
         } else {
             $ldap_error = ldap_error($ldap_connection);
-            $message = t('manage.users.msg.deactivate_fail', ['user' => $user_identifier, 'error' => $ldap_error]);
+            $message = t('manage.users.msg.deactivate_fail', ['user' => $user_display, 'error' => $ldap_error]);
             $message_type = 'danger';
         }
         ldap_close($ldap_connection);
@@ -311,8 +329,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($user_by_uuid) {
                 $user_dn = $user_by_uuid['dn'];
+                $user_display = get_ldap_attribute($user_by_uuid, 'uid') ?: $user_identifier;
             } else {
-                $message = t('manage.users.msg.user_not_found_uuid', ['uuid' => $user_identifier]);
+                $message = t('manage.users.msg.user_not_found');
                 $message_type = 'danger';
                 ldap_close($ldap_connection);
                 goto after_enable_user;
@@ -320,15 +339,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             // Legacy uid-based lookup
             $user_dn = getUserDn($orgName, $user_identifier);
+            $user_display = $user_identifier;
             $ldap_connection = open_ldap_connection();
         }
 
         if (ldap_enable_user_account($ldap_connection, $user_dn)) {
-            $message = t('manage.users.msg.activate_ok', ['user' => $user_identifier]);
+            $message = t('manage.users.msg.activate_ok', ['user' => $user_display]);
             $message_type = 'success';
         } else {
             $ldap_error = ldap_error($ldap_connection);
-            $message = t('manage.users.msg.activate_fail', ['user' => $user_identifier, 'error' => $ldap_error]);
+            $message = t('manage.users.msg.activate_fail', ['user' => $user_display, 'error' => $ldap_error]);
             $message_type = 'danger';
         }
         ldap_close($ldap_connection);
@@ -348,8 +368,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($user_by_uuid) {
                 $user_dn = $user_by_uuid['dn'];
+                $user_display = get_ldap_attribute($user_by_uuid, 'uid') ?: $user_identifier;
             } else {
-                $message = t('manage.users.msg.user_not_found_uuid', ['uuid' => $user_identifier]);
+                $message = t('manage.users.msg.user_not_found');
                 $message_type = 'danger';
                 ldap_close($ldap_connection);
                 goto after_delete_user;
@@ -357,11 +378,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             // Legacy uid-based lookup
             $user_dn = getUserDn($orgName, $user_identifier);
+            $user_display = $user_identifier;
             $ldap_connection = open_ldap_connection();
         }
 
         if (ldap_delete($ldap_connection, $user_dn)) {
-            $message = t('manage.users.msg.delete_ok', ['user' => $user_identifier]);
+            $message = t('manage.users.msg.delete_ok', ['user' => $user_display]);
             $message_type = 'success';
         } else {
             $ldap_error = ldap_error($ldap_connection);
@@ -524,8 +546,9 @@ if (isset($_GET['delete_user'])) {
 
         if ($user_by_uuid) {
             $userDn = $user_by_uuid['dn'];
+            $deleteUserDisplay = get_ldap_attribute($user_by_uuid, 'uid') ?: $deleteUserParam;
         } else {
-            $message = t('manage.users.msg.user_not_found_uuid', ['uuid' => $deleteUserParam]);
+            $message = t('manage.users.msg.user_not_found');
             $message_type = 'danger';
             goto after_delete_user;
         }
@@ -534,6 +557,7 @@ if (isset($_GET['delete_user'])) {
         $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
         $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
         $userDn = "uid=" . ldap_escape($deleteUserParam, '', LDAP_ESCAPE_DN) . ",$usersDn";
+        $deleteUserDisplay = $deleteUserParam;
     }
 
     $ldap = open_ldap_connection();
@@ -542,12 +566,11 @@ if (isset($_GET['delete_user'])) {
     $group_cleanup_success = ldap_remove_user_from_all_groups($ldap, $userDn);
     if (!$group_cleanup_success) {
         error_log("Warning: Failed to remove user from some groups before deletion");
-        // Continue with deletion even if group cleanup failed
     }
 
     try {
         ldap_delete($ldap, $userDn);
-        $message = t('manage.users.msg.delete_ok', ['user' => $deleteUserParam]);
+        $message = t('manage.users.msg.delete_ok', ['user' => $deleteUserDisplay]);
         $message_type = 'warning';
     } catch (Exception $e) {
         $message = t('manage.org_users.msg.delete_fail_exception', ['error' => $e->getMessage()]);
@@ -617,7 +640,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
         if ($user_by_uuid) {
             $userDn = $user_by_uuid['dn'];
         } else {
-            $message = t('manage.users.msg.user_not_found_uuid', ['uuid' => $uid]);
+            $message = t('manage.users.msg.user_not_found');
             $message_type = 'danger';
             goto after_edit_user;
         }
@@ -679,7 +702,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
         if ($user_by_uuid) {
             $userDn = $user_by_uuid['dn'];
         } else {
-            $message = t('manage.users.msg.user_not_found_uuid', ['uuid' => $resetUserParam]);
+            $message = t('manage.users.msg.user_not_found');
             $message_type = 'danger';
             goto after_reset_user;
         }
@@ -792,6 +815,12 @@ render_submenu();
     <?php if ($message) : ?>
         <div class="alert alert-<?= $message_type ?>" id="msgbox"> <?= $message ?> </div>
     <?php endif; ?>
+    <?php $is_disabled_org = ldap_organization_is_disabled($ldap_connection, $orgName); ?>
+    <?php if ($is_disabled_org) : ?>
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i><?php echo htmlspecialchars(t('manage.org_users.org_disabled_banner'), ENT_QUOTES, 'UTF-8'); ?>
+        </div>
+    <?php endif; ?>
     <input class="form-control mb-2" id="user_search_input" type="text" placeholder="<?php echo htmlspecialchars(t('manage.common.placeholder_search_users'), ENT_QUOTES, 'UTF-8'); ?>">
     <table class="table table-bordered" id="user_table">
         <thead>
@@ -805,9 +834,14 @@ render_submenu();
             </tr>
         </thead>
         <tbody>
-            <?php $is_disabled_org = ldap_organization_is_disabled($ldap_connection, $orgName); ?>
+            <?php
+            $orgManagerCount = count(array_filter($orgManagerDns, function ($dn) {
+                return stripos($dn, 'cn=placeholder') === false;
+            }));
+            ?>
             <?php foreach ($users as $user) :
                 $isManager = in_array(getUserDn($orgName, get_ldap_attribute($user, 'uid')), $orgManagerDns);
+                $isLastManager = $isManager && $orgManagerCount <= 1;
                 // Use robust UUID extraction for user actions
                 $user_uuid = get_user_uuid($user);
                 $user_identifier = $user_uuid ?: get_ldap_attribute($user, 'uid');
@@ -837,12 +871,20 @@ render_submenu();
                         }
                         ?>
                     </td>
-                    <td>
+                    <td class="text-center">
                         <form method="get" style="display:inline">
                             <input type="hidden" name="<?= $org_uuid ? 'uuid' : 'org' ?>" value="<?= htmlspecialchars($org_uuid ?: $orgName) ?>">
                             <input type="hidden" name="uid" value="<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>">
                             <input type="hidden" name="toggle_manager" value="1">
-                            <input type="checkbox" onchange="this.form.submit()" <?= $isManager ? 'checked' : '' ?> title="<?php echo htmlspecialchars(t('manage.common.toggle_manager_title'), ENT_QUOTES, 'UTF-8'); ?>">
+                            <?php if ($isManager) : ?>
+                                <?php if ($isLastManager) : ?>
+                                    <button type="button" class="btn btn-outline-danger btn-sm" disabled title="<?php echo htmlspecialchars(t('manage.org_users.msg.cannot_remove_last_manager'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.org_users.remove_manager'), ENT_QUOTES, 'UTF-8'); ?></button>
+                                <?php else : ?>
+                                    <button type="submit" class="btn btn-outline-danger btn-sm" title="<?php echo htmlspecialchars(t('manage.common.toggle_manager_title'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.org_users.remove_manager'), ENT_QUOTES, 'UTF-8'); ?></button>
+                                <?php endif; ?>
+                            <?php else : ?>
+                                <button type="submit" class="btn btn-outline-success btn-sm" title="<?php echo htmlspecialchars(t('manage.common.toggle_manager_title'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.org_users.assign_manager'), ENT_QUOTES, 'UTF-8'); ?></button>
+                            <?php endif; ?>
                         </form>
                     </td>
                     <td>
@@ -850,16 +892,24 @@ render_submenu();
                             <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.common.user_actions_aria'), ENT_QUOTES, 'UTF-8'); ?>">
                                 <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&edit_user=<?= urlencode($user_identifier) ?>" class="btn btn-secondary btn-sm"><?php echo htmlspecialchars(t('manage.common.edit'), ENT_QUOTES, 'UTF-8'); ?></a>
                             <?php if (currentUserCanDisableUser($user_identifier)) : ?>
-                                <?php if (ldap_user_is_disabled($ldap_connection, $user['dn'])) : ?>
-                                    <button type="button" class="btn btn-success btn-sm" onclick="confirmEnableUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')"><?php echo htmlspecialchars(t('manage.common.activate'), ENT_QUOTES, 'UTF-8'); ?></button>
+                                <?php
+                                $activate_title_attr = $is_disabled_org ? ' title="' . htmlspecialchars(t('manage.org_users.activate_tooltip_org_disabled'), ENT_QUOTES, 'UTF-8') . '"' : '';
+                                $deactivate_title_attr = $is_disabled_org ? ' title="' . htmlspecialchars(t('manage.org_users.deactivate_tooltip_org_disabled'), ENT_QUOTES, 'UTF-8') . '"' : '';
+                                ?>
+                                <?php if ($is_individually_disabled) : ?>
+                                    <button type="button" class="btn btn-success btn-sm"<?= $activate_title_attr ?> onclick="confirmEnableUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')"><?php echo htmlspecialchars(t('manage.common.activate'), ENT_QUOTES, 'UTF-8'); ?></button>
                                 <?php else : ?>
-                                    <button type="button" class="btn btn-warning btn-sm" onclick="confirmDisableUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')"><?php echo htmlspecialchars(t('manage.common.deactivate'), ENT_QUOTES, 'UTF-8'); ?></button>
+                                    <button type="button" class="btn btn-warning btn-sm"<?= $deactivate_title_attr ?> onclick="confirmDisableUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')"><?php echo htmlspecialchars(t('manage.common.deactivate'), ENT_QUOTES, 'UTF-8'); ?></button>
                                 <?php endif; ?>
                             <?php endif; ?>
                                 <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>&reset_user=<?= urlencode($user_identifier) ?>" class="btn btn-primary btn-sm"><?php echo htmlspecialchars(t('manage.common.new_password'), ENT_QUOTES, 'UTF-8'); ?></a>
                             </div>
                             <div class="ms-2 ps-2 border-start">
-                                <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
+                                <?php if ($isManager) : ?>
+                                    <button type="button" class="btn btn-danger btn-sm" disabled title="<?php echo htmlspecialchars(t('manage.org_users.msg.cannot_delete_org_manager'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
+                                <?php else : ?>
+                                    <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteUser('<?= htmlspecialchars($user_identifier) ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?>')"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </td>

@@ -192,6 +192,7 @@
   "manage.common.account_id": "Account ID",
   "manage.common.roles": "Roles",
   "manage.common.unknown": "Unknown",
+  "manage.common.org_not_found": "Organization not found.",
   "manage.common.view": "View",
   "manage.common.msg.security_validation_failed": "Security validation failed. Please refresh the page and try again.",
   "manage.users.page_title": ":org - System User Management",
@@ -462,9 +463,11 @@
   "manage.orgs.add.msg.create_fail": "Error creating organization: :error",
   "manage.org_users.msg.roles_directory_create_fail": "Failed to create roles directory: :error",
   "manage.org_users.msg.org_admin_group_create_fail": "Failed to create organization administrators group: :error",
-  "manage.org_users.msg.removed_org_manager": "User removed from Org Manager role.",
-  "manage.org_users.msg.assigned_org_manager": "User assigned as Org Manager.",
+  "manage.org_users.msg.removed_org_manager": "User \":user\" removed from Org Manager role.",
+  "manage.org_users.msg.assigned_org_manager": "User \":user\" assigned as Org Manager.",
   "manage.org_users.msg.update_org_manager_fail": "Error updating Org Manager role: :error",
+  "manage.org_users.msg.cannot_remove_last_manager": "Cannot remove the last Org Manager. At least one manager is required.",
+  "manage.org_users.msg.cannot_delete_org_manager": "This user is an Org Manager and cannot be deleted. Remove the Org Manager role first.",
   "manage.org_users.msg.delete_fail_ldap": "Failed to delete user. LDAP Error: :error",
   "manage.org_users.msg.all_fields_required": "All fields are required.",
   "manage.org_users.msg.users_directory_create_fail": "Failed to create users directory: :error",
@@ -478,5 +481,10 @@
   "manage.org_users.deactivate_reason.individual": "Account individually deactivated",
   "manage.org_users.deactivate_reason.org": "Deactivated by organization",
   "manage.org_users.deactivate_reason.both": "Account individually deactivated + Organization deactivated",
-  "manage.orgs.show.msg.activate_summary": ":activated user(s) activated, :still_inactive still individually deactivated."
+  "manage.orgs.show.msg.activate_summary": ":activated user(s) activated, :still_inactive still individually deactivated.",
+  "manage.org_users.org_disabled_banner": "This organization is currently deactivated. All users are inactive regardless of their individual status. The individual activate/deactivate controls below manage what happens when the organization is re-enabled.",
+  "manage.org_users.activate_tooltip_org_disabled": "Remove individual deactivation. The user will remain inactive until the organization is re-enabled.",
+  "manage.org_users.deactivate_tooltip_org_disabled": "Individually deactivate this user. The user will stay inactive even when the organization is re-enabled.",
+  "manage.org_users.assign_manager": "Assign",
+  "manage.org_users.remove_manager": "Remove"
 }

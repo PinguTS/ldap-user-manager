@@ -191,6 +191,7 @@
   "manage.common.account_id": "Konto-ID",
   "manage.common.roles": "Roller",
   "manage.common.unknown": "Ukjent",
+  "manage.common.org_not_found": "Organization not found.",
   "manage.common.view": "Vis",
   "manage.common.msg.security_validation_failed": "Sikkerhetsvalidering mislyktes. Vennligst last inn siden på nytt.",
   "manage.users.page_title": ":org – Systeembrukeradministrasjon",
@@ -455,9 +456,11 @@
   "manage.orgs.add.msg.create_fail": "Feil ved opprettelse av organisasjon: :error",
   "manage.org_users.msg.roles_directory_create_fail": "Kunne ikke opprette rollekatalog: :error",
   "manage.org_users.msg.org_admin_group_create_fail": "Kunne ikke opprette organisasjonsadministratorgruppe: :error",
-  "manage.org_users.msg.removed_org_manager": "Bruker fjernet fra rollen som organisasjonsleder.",
-  "manage.org_users.msg.assigned_org_manager": "Bruker tildelt som organisasjonsleder.",
+  "manage.org_users.msg.removed_org_manager": "Bruker \":user\" fjernet fra rollen som organisasjonsleder.",
+  "manage.org_users.msg.assigned_org_manager": "Bruker \":user\" tildelt som organisasjonsleder.",
   "manage.org_users.msg.update_org_manager_fail": "Feil ved oppdatering av rollen som organisasjonsleder: :error",
+  "manage.org_users.msg.cannot_remove_last_manager": "Cannot remove the last Org Manager. At least one manager is required.",
+  "manage.org_users.msg.cannot_delete_org_manager": "This user is an Org Manager and cannot be deleted. Remove the Org Manager role first.",
   "manage.org_users.msg.delete_fail_ldap": "Kunne ikke slette brukeren. LDAP-feil: :error",
   "manage.org_users.msg.all_fields_required": "Alle felt er obligatoriske.",
   "manage.org_users.msg.users_directory_create_fail": "Kunne ikke opprette brukerkatalog: :error",
@@ -467,5 +470,10 @@
   "manage.org_users.msg.add_fail": "Kunne ikke legge til bruker: :error",
   "manage.org_users.msg.delete_fail_exception": "Feil ved sletting av bruker: :error",
   "manage.org_users.msg.credentials_reset_ok": "Legitimasjon ble tilbakestilt.",
-  "manage.org_users.msg.credentials_reset_fail": "Tilbakestilling av legitimasjon mislyktes: :error"
+  "manage.org_users.msg.credentials_reset_fail": "Tilbakestilling av legitimasjon mislyktes: :error",
+  "manage.org_users.org_disabled_banner": "This organization is currently deactivated. All users are inactive regardless of their individual status. The individual activate/deactivate controls below manage what happens when the organization is re-enabled.",
+  "manage.org_users.activate_tooltip_org_disabled": "Remove individual deactivation. The user will remain inactive until the organization is re-enabled.",
+  "manage.org_users.deactivate_tooltip_org_disabled": "Individually deactivate this user. The user will stay inactive even when the organization is re-enabled.",
+  "manage.org_users.assign_manager": "Assign",
+  "manage.org_users.remove_manager": "Remove"
 }

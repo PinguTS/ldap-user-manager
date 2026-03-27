@@ -2721,3 +2721,72 @@ function ldap_get_organization_disable_status($ldap_connection, $org_name)
 }
 
 ##################################
+
+/**
+ * Delete an organization and all its contents (users, roles, status group memberships).
+ *
+ * @param resource|\LDAP\Connection $ldap_connection LDAP connection resource
+ * @param string                    $org_name        Organization name
+ * @param string                    $org_uuid        Organization UUID (for audit logging)
+ * @return bool True if the organization was deleted successfully
+ */
+function ldap_delete_organization($ldap_connection, $org_name, $org_uuid = '')
+{
+    global $log_prefix, $LDAP, $LDAP_DEBUG;
+
+    if (!$org_name) {
+        error_log("$log_prefix Cannot delete organization: No name provided");
+        return false;
+    }
+
+    $org_dn = "o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
+    $base_dn = $LDAP['base_dn'] ?? '';
+
+    $disabled_group_cn = getenv('LDAP_GROUP_DISABLED_ORGS') ?: 'disabledOrganizations';
+    $member_group_cn = getenv('LDAP_GROUP_MEMBER_ORGS') ?: 'memberOrganizations';
+
+    if ($base_dn !== '' && function_exists('removeFromStatusGroup')) {
+        @removeFromStatusGroup($ldap_connection, $org_dn, $disabled_group_cn, $base_dn);
+        @removeFromStatusGroup($ldap_connection, $org_dn, $member_group_cn, $base_dn);
+    }
+
+    if (!ldap_delete_subtree($ldap_connection, $org_dn)) {
+        error_log("$log_prefix Failed to delete organization subtree: $org_dn");
+        return false;
+    }
+
+    if ($LDAP_DEBUG) {
+        error_log("$log_prefix Deleted organization $org_name (UUID: $org_uuid)");
+    }
+
+    return true;
+}
+
+/**
+ * Recursively delete an LDAP subtree (all children first, then the entry itself).
+ *
+ * @param resource|\LDAP\Connection $ldap_connection LDAP connection resource
+ * @param string                    $dn              DN of the entry to delete
+ * @return bool True if all entries were deleted successfully
+ */
+function ldap_delete_subtree($ldap_connection, string $dn): bool
+{
+    $search = @ldap_list($ldap_connection, $dn, '(objectClass=*)', ['dn']);
+    if ($search) {
+        $entries = ldap_get_entries($ldap_connection, $search);
+        for ($i = 0; $i < $entries['count']; $i++) {
+            if (!ldap_delete_subtree($ldap_connection, $entries[$i]['dn'])) {
+                return false;
+            }
+        }
+    }
+
+    $result = @ldap_delete($ldap_connection, $dn);
+    if (!$result) {
+        $err = ldap_error($ldap_connection);
+        error_log("ldap_delete_subtree: Failed to delete $dn: $err");
+        return false;
+    }
+
+    return true;
+}

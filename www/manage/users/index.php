@@ -85,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     // Convert UUID to account identifier for delete operation
                     $user_entry = ldap_get_entry_by_uuid($ldap_connection, $this_user, $LDAP['people_dn']);
                     if (!$user_entry || !isset($user_entry['uid'][0])) {
-                        render_alert_banner(t('manage.users.msg.user_not_found_uuid', ['uuid' => $this_user]), "danger");
+                        render_alert_banner(t('manage.users.msg.user_not_found'), "danger");
                         return;
                     }
                     $this_user = $user_entry['uid'][0];
@@ -248,11 +248,23 @@ if ($ldap_connection === false) {
                         print "   <td>" . htmlspecialchars(implode(", ", $role_membership)) . "</td>\n";
                         print "   <td>";
 
-                        // Display disabled status
                         $user_dn_for_status = get_user_dn_from_identifier($ldap_connection, $account_identifier);
                         if ($user_dn_for_status) {
-                            if (ldap_user_is_disabled($ldap_connection, $user_dn_for_status)) {
-                                print '<span class="badge bg-danger">' . htmlspecialchars(t('manage.common.inactive'), ENT_QUOTES, 'UTF-8') . '</span>';
+                            $is_disabled = ldap_user_is_disabled($ldap_connection, $user_dn_for_status);
+                            $is_individually_disabled = ldap_user_is_individually_disabled($ldap_connection, $user_dn_for_status);
+                            $user_org_name = get_organization_from_user_dn($user_dn_for_status);
+                            $is_user_org_disabled = ($user_org_name !== false && $user_org_name !== '' && ldap_organization_is_disabled($ldap_connection, $user_org_name));
+                            if ($is_disabled) {
+                                if ($is_individually_disabled && $is_user_org_disabled) {
+                                    $badge_title = t('manage.org_users.deactivate_reason.both');
+                                } elseif ($is_individually_disabled) {
+                                    $badge_title = t('manage.org_users.deactivate_reason.individual');
+                                } elseif ($is_user_org_disabled) {
+                                    $badge_title = t('manage.org_users.deactivate_reason.org');
+                                } else {
+                                    $badge_title = t('manage.common.inactive');
+                                }
+                                print '<span class="badge bg-danger" title="' . htmlspecialchars($badge_title, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars(t('manage.common.inactive'), ENT_QUOTES, 'UTF-8') . '</span>';
                             } else {
                                 print '<span class="badge bg-success">' . htmlspecialchars(t('manage.common.active'), ENT_QUOTES, 'UTF-8') . '</span>';
                             }
@@ -298,14 +310,14 @@ if ($ldap_connection === false) {
                             }
                         }
 
-                        // Add disable/enable functionality
                         if (currentUserCanDisableUser($account_identifier)) {
-                            $user_dn_for_status = get_user_dn_from_identifier($ldap_connection, $account_identifier);
                             if ($user_dn_for_status) {
-                                if (ldap_user_is_disabled($ldap_connection, $user_dn_for_status)) {
-                                    print "         <button type='button' class='btn btn-sm btn-success' onclick='confirmEnableUser(\"" . htmlspecialchars($account_identifier) . "\")'>" . htmlspecialchars(t('manage.common.activate'), ENT_QUOTES, 'UTF-8') . "</button>";
+                                $activate_tooltip = $is_user_org_disabled ? ' title=\'' . htmlspecialchars(t('manage.org_users.activate_tooltip_org_disabled'), ENT_QUOTES, 'UTF-8') . '\'' : '';
+                                $deactivate_tooltip = $is_user_org_disabled ? ' title=\'' . htmlspecialchars(t('manage.org_users.deactivate_tooltip_org_disabled'), ENT_QUOTES, 'UTF-8') . '\'' : '';
+                                if ($is_individually_disabled) {
+                                    print "         <button type='button' class='btn btn-sm btn-success'" . $activate_tooltip . " onclick='confirmEnableUser(\"" . htmlspecialchars($account_identifier) . "\")'>" . htmlspecialchars(t('manage.common.activate'), ENT_QUOTES, 'UTF-8') . "</button>";
                                 } else {
-                                    print "         <button type='button' class='btn btn-sm btn-warning' onclick='confirmDisableUser(\"" . htmlspecialchars($account_identifier) . "\")'>" . htmlspecialchars(t('manage.common.deactivate'), ENT_QUOTES, 'UTF-8') . "</button>";
+                                    print "         <button type='button' class='btn btn-sm btn-warning'" . $deactivate_tooltip . " onclick='confirmDisableUser(\"" . htmlspecialchars($account_identifier) . "\")'>" . htmlspecialchars(t('manage.common.deactivate'), ENT_QUOTES, 'UTF-8') . "</button>";
                                 }
                             }
                         }

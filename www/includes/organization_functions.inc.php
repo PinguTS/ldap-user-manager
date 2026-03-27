@@ -214,7 +214,7 @@ function resolve_organization_from_request(): array
                 'org_name' => null,
                 'org_uuid' => null,
                 'organization' => null,
-                'error' => 'Invalid organization UUID provided.',
+                'error' => t('manage.common.org_not_found'),
             ];
         }
         $ldap = open_ldap_connection();
@@ -225,7 +225,7 @@ function resolve_organization_from_request(): array
                 'org_name' => null,
                 'org_uuid' => $org_uuid,
                 'organization' => null,
-                'error' => "Organization with UUID '" . htmlspecialchars($org_uuid) . "' not found.",
+                'error' => t('manage.common.org_not_found'),
             ];
         }
         $org_name = $organization['o'][0] ?? null;
