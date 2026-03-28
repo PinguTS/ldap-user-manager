@@ -10,10 +10,10 @@ include_once "module_functions.inc.php";
 include_once "organization_functions.inc.php";
 include_once __DIR__ . '/bootstrap_setup.inc.php';
 
-validate_setup_cookie();
-set_page_access("setup");
+validateSetupCookie();
+setPageAccess("setup");
 
-render_header("$ORGANISATION_NAME account manager setup");
+renderHeader("$ORGANISATION_NAME account manager setup");
 
 $ldap_connection = open_ldap_connection();
 
@@ -445,5 +445,5 @@ if ($no_errors == true) {
     <?php
 }
 
-render_footer();
+renderFooter();
 ?>

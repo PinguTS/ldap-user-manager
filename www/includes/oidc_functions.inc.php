@@ -9,7 +9,7 @@
 
 declare(strict_types=1);
 
-// OIDC configuration (use GLOBALS so it is available when this file is included from inside a function, e.g. bootstrap_manage)
+// OIDC configuration (use GLOBALS so it is available when this file is included from inside a function, e.g. bootstrapManage)
 $GLOBALS['OIDC_CONFIG'] = [
     'enabled' => getenv('OIDC_ENABLED') === 'true',
     'issuer' => getenv('OIDC_ISSUER') ?: 'https://id.example.org',
@@ -314,7 +314,7 @@ function handle_oidc_callback()
     $is_admin = check_oidc_user_admin_status($user_dn, $ldap_user['groups']);
     $is_maintainer = check_oidc_user_maintainer_status($user_dn, $ldap_user['groups']);
 
-    set_passkey_cookie($user_id, $is_admin, $is_maintainer);
+    setPasskeyCookie($user_id, $is_admin, $is_maintainer);
 
     // Clean up OIDC session data
     unset($_SESSION['oidc_state']);

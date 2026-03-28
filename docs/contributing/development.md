@@ -15,7 +15,7 @@ This guide covers:
 
 - **CSS framework**: Bootstrap 5.3 (served from `www/assets/bootstrap/`).
 - **Icons**: Bootstrap Icons (loaded from CDN).
-- **Global asset loading**: Pages should use `render_header()` in `www/includes/web_functions.inc.php` so CSS/JS is loaded consistently.
+- **Global asset loading**: Pages should use `renderHeader()` in `www/includes/web_functions.inc.php` so CSS/JS is loaded consistently.
 - **jQuery**: Still included and used by project scripts (e.g. `www/assets/js/zxcvbn-bootstrap-strength-meter.js` and some small UI helpers). Do not remove unless those usages are replaced.
 - **Markup**: Use Bootstrap 5 patterns (`data-bs-*`, `card` instead of `panel`, `offset-*-*` instead of `col-*-offset-*`).
 - **i18n**: JSON locales under `www/locales/`, `Accept-Language` resolution, and `t()` — see [Internationalization (i18n)](i18n.md).

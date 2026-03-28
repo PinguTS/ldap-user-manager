@@ -263,13 +263,13 @@ quality: ## Run all quality checks (single Docker run when using Docker to avoid
 	fi; \
 	if [ "$(USE_DOCKER)" = "1" ]; then \
 		echo "Running all quality checks (Docker)..."; \
-		$(DOCKER_PHP) sh -c './vendor/bin/phpcs --standard=.phpcs.xml < /dev/null && ./vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=$(PHPSTAN_MEMORY_LIMIT)'; \
+		$(DOCKER_PHP) sh -c './vendor/bin/phpcs --standard=.phpcs.xml < /dev/null && ./vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=$(PHPSTAN_MEMORY_LIMIT) && php tools/check_naming.php'; \
 	elif [ "$(USE_LOCAL)" = "1" ] || command -v php >/dev/null 2>&1; then \
 		echo "Running all quality checks..."; \
-		vendor/bin/phpcs --standard=.phpcs.xml < /dev/null && vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=$(PHPSTAN_MEMORY_LIMIT); \
+		vendor/bin/phpcs --standard=.phpcs.xml < /dev/null && vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=$(PHPSTAN_MEMORY_LIMIT) && php tools/check_naming.php; \
 	else \
 		echo "Running all quality checks (Docker)..."; \
-		$(DOCKER_PHP) sh -c './vendor/bin/phpcs --standard=.phpcs.xml < /dev/null && ./vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=$(PHPSTAN_MEMORY_LIMIT)'; \
+		$(DOCKER_PHP) sh -c './vendor/bin/phpcs --standard=.phpcs.xml < /dev/null && ./vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=$(PHPSTAN_MEMORY_LIMIT) && php tools/check_naming.php'; \
 	fi
 
 fix-all: ## Fix all code style issues

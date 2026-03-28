@@ -12,16 +12,16 @@ if (!defined('LDAP_ESCAPE_DN')) {
 
 set_include_path(".:" . __DIR__ . "/../../includes/");
 require_once "bootstrap_manage.inc.php";
-bootstrap_manage(['ldap', 'user', 'password_reset']);
+bootstrapManage(['ldap', 'user', 'password_reset']);
 require_once "organization_functions.inc.php";
 
 // Ensure CSRF token is generated early
-get_csrf_token();
+getCsrfToken();
 
-set_page_access(["admin", "user"]); // Allow both admin and user roles
+setPageAccess(["admin", "user"]); // Allow both admin and user roles
 
 $orgName = (string) ($ORGANISATION_NAME ?? 'System');
-render_header(t('manage.users.profile.page_title', ['org' => $orgName]));
+renderHeader(t('manage.users.profile.page_title', ['org' => $orgName]));
 render_submenu();
 
 $invalid_password = false;
@@ -59,8 +59,8 @@ if (isset($_GET['uuid']) && !empty($_GET['uuid'])) {
     // UUID-based lookup
     $user_uuid = $_GET['uuid'];
     if (!is_valid_uuid($user_uuid)) {
-        render_alert_banner(t('manage.users.msg.invalid_uuid'), "warning");
-        render_footer();
+        renderAlertBanner(t('manage.users.msg.invalid_uuid'), "warning");
+        renderFooter();
         exit(0);
     }
 
@@ -70,9 +70,9 @@ if (isset($_GET['uuid']) && !empty($_GET['uuid'])) {
     ldap_close($ldap_connection);
 
     if (!$user_by_uuid) {
-        render_alert_banner(t('manage.users.msg.user_not_found'), "warning");
+        renderAlertBanner(t('manage.users.msg.user_not_found'), "warning");
         error_log("show_user.php: UUID lookup failed for UUID: $user_uuid");
-        render_footer();
+        renderFooter();
         exit(0);
     }
 
@@ -83,13 +83,13 @@ if (isset($_GET['uuid']) && !empty($_GET['uuid'])) {
     $account_identifier = (isset($_POST['account_identifier']) ? $_POST['account_identifier'] : $_GET['account_identifier']);
     $account_identifier = urldecode($account_identifier);
 } else {
-    render_alert_banner(t('manage.users.msg.identifier_required'), "warning");
-    render_footer();
+    renderAlertBanner(t('manage.users.msg.identifier_required'), "warning");
+    renderFooter();
     exit(0);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    validate_csrf_token();
+    validateCsrfToken();
 }
 
 $ldap_connection = open_ldap_connection();
@@ -131,12 +131,18 @@ if ($user_uuid) {
 }
 
 if (!$user || $user['count'] == 0) {
-    render_alert_banner(t('manage.users.msg.user_not_found'), "warning");
-    render_footer();
+    renderAlertBanner(t('manage.users.msg.user_not_found'), "warning");
+    renderFooter();
     exit(0);
 }
 
-$user_data = $user[0];
+$userRow = $user[0];
+if (!is_array($userRow)) {
+    renderAlertBanner(t('manage.users.msg.user_not_found'), 'warning');
+    renderFooter();
+    exit(0);
+}
+$user_data = $userRow;
 
 // Check if current user can edit this profile
 $can_edit = false;
@@ -193,20 +199,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile']) && 
     if (empty($errors)) {
         $result = updateUser($user_data['dn'], $update_data);
         if ($result) {
-            render_alert_banner(t('manage.users.msg.profile_update_ok'), 'success', 10000);
+            renderAlertBanner(t('manage.users.msg.profile_update_ok'), 'success', 10000);
             // Refresh user data
             $ldap_search = ldap_read($ldap_connection, $user_data['dn'], '(objectClass=*)');
             if ($ldap_search) {
                 $updated_user = ldap_get_entries($ldap_connection, $ldap_search);
                 if ($updated_user['count'] > 0) {
-                    $user_data = $updated_user[0];
+                    $updatedRow = $updated_user[0];
+                    if (is_array($updatedRow)) {
+                        $user_data = $updatedRow;
+                    }
                 }
             }
         } else {
-            render_alert_banner(t('manage.users.msg.profile_update_fail'), 'danger', 10000);
+            renderAlertBanner(t('manage.users.msg.profile_update_fail'), 'danger', 10000);
         }
     } else {
-        render_alert_banner(
+        renderAlertBanner(
             t('manage.users.msg.profile_validation_failed', ['errors' => implode(', ', $errors)]),
             'danger',
             10000
@@ -238,7 +247,7 @@ ldap_close($ldap_connection);
                 </div>
                 <div class="card-body">
                     <form method="post" action="" enctype="multipart/form-data">
-                        <?php echo csrf_token_field(); ?>
+                        <?php echo csrfTokenField(); ?>
                         
                         <!-- Account Information -->
                         <h4><?php echo htmlspecialchars(t('manage.users.section.account_information'), ENT_QUOTES, 'UTF-8'); ?></h4>
@@ -354,7 +363,7 @@ ldap_close($ldap_connection);
                         
                         <div class="form-group">
                             <button type="submit" name="update_profile" class="btn btn-success"><?php echo htmlspecialchars(t('manage.users.update_profile'), ENT_QUOTES, 'UTF-8'); ?></button>
-                            <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary"><?php echo htmlspecialchars(t('manage.users.back_to_users'), ENT_QUOTES, 'UTF-8'); ?></a>
+                            <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary"><?php echo htmlspecialchars(t('manage.users.back_to_users'), ENT_QUOTES, 'UTF-8'); ?></a>
                         </div>
                     </form>
                 </div>
@@ -366,7 +375,7 @@ ldap_close($ldap_connection);
                 </div>
                 <div class="card-body">
                     <p class="text-muted"><?php echo htmlspecialchars(t('manage.users.read_only_body'), ENT_QUOTES, 'UTF-8'); ?></p>
-                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary"><?php echo htmlspecialchars(t('manage.users.back_to_users'), ENT_QUOTES, 'UTF-8'); ?></a>
+                    <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary"><?php echo htmlspecialchars(t('manage.users.back_to_users'), ENT_QUOTES, 'UTF-8'); ?></a>
                 </div>
             </div>
             <?php endif; ?>
@@ -428,8 +437,8 @@ ldap_close($ldap_connection);
     </div>
 </div>
 
-<script src="<?php print get_asset_base(); ?>js/password_utils.js"></script>
-<script src="<?php print get_asset_base(); ?>js/form-sync.js"></script>
+<script src="<?php print getAssetBase(); ?>js/password_utils.js"></script>
+<script src="<?php print getAssetBase(); ?>js/form-sync.js"></script>
 <script type="text/javascript">
 document.addEventListener('DOMContentLoaded', function(){
     // Form sync: display name from givenName+sn (editable; stops overwriting once user edits cn)
@@ -441,7 +450,7 @@ document.addEventListener('DOMContentLoaded', function(){
         });
     }
 
-    const passwordConfig = <?php echo get_password_strength_config_js(); ?>;
+    const passwordConfig = <?php echo getPasswordStrengthConfigJs(); ?>;
     initializePasswordStrength({
         passwordFieldId: 'new_password',
         confirmFieldId: 'confirm_new_password',
@@ -454,5 +463,5 @@ document.addEventListener('DOMContentLoaded', function(){
 // Close LDAP connection
 ldap_close($ldap_connection);
 
-render_footer();
+renderFooter();
 ?>

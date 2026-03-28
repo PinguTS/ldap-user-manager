@@ -4,26 +4,26 @@ declare(strict_types=1);
 
 set_include_path(".:" . __DIR__ . "/../../includes/");
 require_once "bootstrap_manage.inc.php";
-bootstrap_manage(['ldap', 'user']);
+bootstrapManage(['ldap', 'user']);
 
 // Ensure CSRF token is generated early
-get_csrf_token();
+getCsrfToken();
 
-set_page_access("admin");
+setPageAccess("admin");
 
 $orgName = (string) ($ORGANISATION_NAME ?? 'System');
-render_header(t('manage.roles.page_title', ['org' => $orgName]));
+renderHeader(t('manage.roles.page_title', ['org' => $orgName]));
 render_submenu();
 
 $ldap_connection = open_ldap_connection();
 if ($ldap_connection === false) {
-    render_alert_banner(t('manage.users.msg.ldap_unavailable'), 'danger');
+    renderAlertBanner(t('manage.users.msg.ldap_unavailable'), 'danger');
     $users = [];
     $all_roles = [];
 } else {
     if (isset($_POST['add_user_to_role'])) {
-        if (!validate_csrf_token()) {
-            render_alert_banner(t('manage.common.msg.security_validation_failed'), "danger");
+        if (!validateCsrfToken()) {
+            renderAlertBanner(t('manage.common.msg.security_validation_failed'), "danger");
         } else {
             $user_identifier = $_POST['username'];
             $role_name = $_POST['role_name'];
@@ -32,16 +32,16 @@ if ($ldap_connection === false) {
             $username = get_username_from_identifier($ldap_connection, $user_identifier);
 
             if (ldap_add_member_to_group($ldap_connection, $role_name, $username)) {
-                render_alert_banner(t('manage.roles.msg.add_ok', ['user' => $username, 'role' => $role_name]));
+                renderAlertBanner(t('manage.roles.msg.add_ok', ['user' => $username, 'role' => $role_name]));
             } else {
-                render_alert_banner(t('manage.roles.msg.add_fail', ['user' => $username, 'role' => $role_name]), "danger", 15000);
+                renderAlertBanner(t('manage.roles.msg.add_fail', ['user' => $username, 'role' => $role_name]), "danger", 15000);
             }
         }
     }
 
     if (isset($_POST['remove_user_from_role'])) {
-        if (!validate_csrf_token()) {
-            render_alert_banner(t('manage.common.msg.security_validation_failed'), "danger");
+        if (!validateCsrfToken()) {
+            renderAlertBanner(t('manage.common.msg.security_validation_failed'), "danger");
         } else {
             $user_identifier = $_POST['username'];
             $role_name = $_POST['role_name'];
@@ -52,12 +52,12 @@ if ($ldap_connection === false) {
             // Prevent user from removing themselves from administrators role
             $current_user = $_SESSION['username'] ?? '';
             if ($username === $current_user && $role_name === $LDAP['admin_role']) {
-                render_alert_banner(t('manage.roles.msg.cannot_remove_self_admin'), "danger", 15000);
+                renderAlertBanner(t('manage.roles.msg.cannot_remove_self_admin'), "danger", 15000);
             } else {
                 if (ldap_delete_member_from_group($ldap_connection, $role_name, $username)) {
-                    render_alert_banner(t('manage.roles.msg.remove_ok', ['user' => $username, 'role' => $role_name]));
+                    renderAlertBanner(t('manage.roles.msg.remove_ok', ['user' => $username, 'role' => $role_name]));
                 } else {
-                    render_alert_banner(t('manage.roles.msg.remove_fail', ['user' => $username, 'role' => $role_name]), "danger", 15000);
+                    renderAlertBanner(t('manage.roles.msg.remove_fail', ['user' => $username, 'role' => $role_name]), "danger", 15000);
                 }
             }
         }
@@ -150,7 +150,7 @@ if ($ldap_connection === false) {
   <div class="alert alert-warning">
     <strong><?php echo htmlspecialchars(t('manage.roles.org_roles_title'), ENT_QUOTES, 'UTF-8'); ?></strong>
     <?php echo htmlspecialchars(t('manage.roles.org_roles_body_prefix'), ENT_QUOTES, 'UTF-8'); ?>
-    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.submenu.organizations'), ENT_QUOTES, 'UTF-8'); ?></a>
+    <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.submenu.organizations'), ENT_QUOTES, 'UTF-8'); ?></a>
     <?php echo htmlspecialchars(t('manage.roles.org_roles_body_suffix'), ENT_QUOTES, 'UTF-8'); ?>
   </div>
   
@@ -158,7 +158,7 @@ if ($ldap_connection === false) {
     <div class="col-md-6">
       <h3><?php echo htmlspecialchars(t('manage.roles.add.heading'), ENT_QUOTES, 'UTF-8'); ?></h3>
       <form method="post" class="form">
-        <?= csrf_token_field() ?>
+        <?= csrfTokenField() ?>
         <div class="form-group">
           <label for="username"><?php echo htmlspecialchars(t('manage.roles.system_user_label'), ENT_QUOTES, 'UTF-8'); ?></label>
           <select name="username" id="username" class="form-control" required>
@@ -207,7 +207,7 @@ if ($ldap_connection === false) {
     <div class="col-md-6">
       <h3><?php echo htmlspecialchars(t('manage.roles.remove.heading'), ENT_QUOTES, 'UTF-8'); ?></h3>
       <form method="post" class="form">
-        <?= csrf_token_field() ?>
+        <?= csrfTokenField() ?>
         <div class="form-group">
           <label for="remove_username"><?php echo htmlspecialchars(t('manage.roles.system_user_label'), ENT_QUOTES, 'UTF-8'); ?></label>
           <select name="username" id="remove_username" class="form-control" required>
@@ -356,5 +356,5 @@ document.addEventListener('DOMContentLoaded', function() {
 <?php
 
 ldap_close($ldap_connection);
-render_footer();
+renderFooter();
 ?> 

@@ -20,15 +20,15 @@ if (isset($_POST["admin_password"])) {
     ldap_close($ldap_connection);
 
     if ($user_auth != false) {
-        set_setup_cookie($user_auth);
-        header("Location: " . get_base_url() . "setup/check/");
+        setSetupCookie($user_auth);
+        header("Location: " . getBaseUrl() . "setup/check/");
         exit;
     } else {
-        header("Location: " . get_base_url() . "setup/index.php?invalid");
+        header("Location: " . getBaseUrl() . "setup/index.php?invalid");
         exit;
     }
 } else {
-    render_header(t('setup.index.page_title', ['org' => $ORGANISATION_NAME]));
+    renderHeader(t('setup.index.page_title', ['org' => $ORGANISATION_NAME]));
 
     if (isset($_GET["invalid"])) {
         ?>
@@ -55,5 +55,5 @@ if (isset($_POST["admin_password"])) {
     </div>
     <?php
 }
-render_footer();
+renderFooter();
 ?>

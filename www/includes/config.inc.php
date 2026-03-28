@@ -104,12 +104,12 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
  $LDAP['default_attribute_map'] = array(
     "givenname" => array(
         "label" => "First name",
-        "onkeyup" => "update_username(); update_email(); update_cn(); update_homedir(); check_email_validity(document.getElementById('mail').value);",
+        "onkeyup" => "updateUsername(); updateEmail(); updateCn(); updateHomedir(); check_email_validity(document.getElementById('mail').value);",
         "required" => true,
     ),
     "sn" => array(
         "label" => "Last name",
-        "onkeyup" => "update_username(); update_email(); update_cn(); update_homedir(); check_email_validity(document.getElementById('mail').value);",
+        "onkeyup" => "updateUsername(); updateEmail(); updateCn(); updateHomedir(); check_email_validity(document.getElementById('mail').value);",
         "required" => true,
     ),
     "mail" => array(
@@ -431,9 +431,9 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
  }
 
  if ($errors != "") {
-     render_header("Fatal errors", false);
+     renderHeader("Fatal errors", false);
      print $errors;
-     render_footer();
+     renderFooter();
      exit(1);
  }
 

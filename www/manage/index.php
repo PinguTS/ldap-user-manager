@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 set_include_path(".:" . __DIR__ . "/../includes/");
 require_once "bootstrap_manage.inc.php";
-bootstrap_manage([]);
+bootstrapManage([]);
 
 // Use the enhanced access control function
-set_page_access(["admin", "maintainer", "org_admin"]);
+setPageAccess(["admin", "maintainer", "org_admin"]);
 
-render_header(t('manage.dashboard.page_title', ['org' => $ORGANISATION_NAME]));
+renderHeader(t('manage.dashboard.page_title', ['org' => $ORGANISATION_NAME]));
 render_submenu();
 
 ?>
@@ -31,7 +31,7 @@ render_submenu();
                 </div>
                 <div class="card-body">
                     <p><?php echo htmlspecialchars(t('manage.dashboard.user_mgmt_desc'), ENT_QUOTES, 'UTF-8'); ?></p>
-                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary"><?php echo htmlspecialchars(t('manage.dashboard.manage_users'), ENT_QUOTES, 'UTF-8'); ?></a>
+                    <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary"><?php echo htmlspecialchars(t('manage.dashboard.manage_users'), ENT_QUOTES, 'UTF-8'); ?></a>
                 </div>
             </div>
         </div>
@@ -43,7 +43,7 @@ render_submenu();
                 </div>
                 <div class="card-body">
                     <p><?php echo htmlspecialchars(t('manage.dashboard.role_mgmt_desc'), ENT_QUOTES, 'UTF-8'); ?></p>
-                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/roles/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-success"><?php echo htmlspecialchars(t('manage.dashboard.manage_roles'), ENT_QUOTES, 'UTF-8'); ?></a>
+                    <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/roles/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-success"><?php echo htmlspecialchars(t('manage.dashboard.manage_roles'), ENT_QUOTES, 'UTF-8'); ?></a>
                 </div>
             </div>
         </div>
@@ -56,7 +56,7 @@ render_submenu();
                 </div>
                 <div class="card-body">
                     <p><?php echo htmlspecialchars(t('manage.dashboard.org_mgmt_desc'), ENT_QUOTES, 'UTF-8'); ?></p>
-                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info"><?php echo htmlspecialchars(t('manage.dashboard.manage_orgs'), ENT_QUOTES, 'UTF-8'); ?></a>
+                    <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info"><?php echo htmlspecialchars(t('manage.dashboard.manage_orgs'), ENT_QUOTES, 'UTF-8'); ?></a>
                 </div>
             </div>
         </div>
@@ -76,7 +76,7 @@ render_submenu();
                     $org_uuid = currentUserGetOrgUuid();
 
                     if ($org_uuid) {
-                        echo '<a href="' . htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/', ENT_QUOTES, 'UTF-8') . '" class="btn btn-warning">' . htmlspecialchars(t('manage.dashboard.view_my_org'), ENT_QUOTES, 'UTF-8') . '</a>';
+                        echo '<a href="' . htmlspecialchars(getBaseUrl() . 'manage/organizations/' . urlencode($org_uuid) . '/', ENT_QUOTES, 'UTF-8') . '" class="btn btn-warning">' . htmlspecialchars(t('manage.dashboard.view_my_org'), ENT_QUOTES, 'UTF-8') . '</a>';
                     } elseif ($org_name) {
                         // Canonical routing is UUID-only; if UUID is missing, do not link by name.
                     }
@@ -89,5 +89,5 @@ render_submenu();
 </div>
 
 <?php
-render_footer();
+renderFooter();
 ?>

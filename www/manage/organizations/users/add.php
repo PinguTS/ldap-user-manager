@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 set_include_path(".:" . __DIR__ . "/../../../includes/");
 require_once "bootstrap_manage.inc.php";
-bootstrap_manage(['ldap', 'organization', 'user', 'mail', 'password_reset']);
+bootstrapManage(['ldap', 'organization', 'user', 'mail', 'password_reset']);
 
 // Ensure CSRF token is generated early
-get_csrf_token();
+getCsrfToken();
 
 // Check if organization parameter is provided (support both uuid and org)
 $org_uuid = $_GET['uuid'] ?? null;
 $org_name = $_GET['org'] ?? null;
 
 if (!$org_uuid && !$org_name) {
-    render_alert_banner(t('manage.org_users.add.msg.org_identifier_required'), "warning");
-    render_footer();
+    renderAlertBanner(t('manage.org_users.add.msg.org_identifier_required'), "warning");
+    renderFooter();
     exit(0);
 }
 
@@ -23,8 +23,8 @@ if (!$org_uuid && !$org_name) {
 if ($org_uuid) {
     $ldap = open_ldap_connection();
     if (!$ldap) {
-        render_alert_banner(t('manage.orgs.ldap_conn_failed'), "danger");
-        render_footer();
+        renderAlertBanner(t('manage.orgs.ldap_conn_failed'), "danger");
+        renderFooter();
         exit(0);
     }
 
@@ -38,8 +38,8 @@ if ($org_uuid) {
     if (!$organization) {
         // Debug: log the UUID and search details
         error_log("add_org_user.php: Failed to find organization with UUID: $org_uuid");
-        render_alert_banner(t('manage.common.org_not_found'), "danger");
-        render_footer();
+        renderAlertBanner(t('manage.common.org_not_found'), "danger");
+        renderFooter();
         exit(0);
     }
 
@@ -59,8 +59,8 @@ if ($org_uuid) {
     if (!$org_name) {
         // Debug: log the organization structure to help troubleshoot
         error_log("add_org_user.php: Organization data structure: " . print_r($organization, true));
-        render_alert_banner(t('manage.org_users.add.msg.cannot_determine_org_name'), "danger");
-        render_footer();
+        renderAlertBanner(t('manage.org_users.add.msg.cannot_determine_org_name'), "danger");
+        renderFooter();
         exit(0);
     }
 
@@ -68,7 +68,7 @@ if ($org_uuid) {
 }
 
 // Check if user has appropriate permissions for this organization
-set_page_access(["admin", "maintainer", "org_admin"]);
+setPageAccess(["admin", "maintainer", "org_admin"]);
 
 // Verify the organization exists (if not already verified by UUID)
 if (!$organization) {
@@ -81,11 +81,11 @@ if (!$organization) {
     }
 
     if (!$organization) {
-        render_alert_banner(t(
+        renderAlertBanner(t(
             'manage.org_users.add.msg.org_not_found',
             ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]
         ), "danger");
-        render_footer();
+        renderFooter();
         exit(0);
     }
 }
@@ -138,8 +138,8 @@ $account_attribute = $LDAP['account_attribute'];
 
 // Handle form submission
 if (isset($_POST['create_org_user'])) {
-    if (!validate_csrf_token()) {
-        render_alert_banner(t('manage.common.msg.security_validation_failed'), "danger");
+    if (!validateCsrfToken()) {
+        renderAlertBanner(t('manage.common.msg.security_validation_failed'), "danger");
     } else {
         // Process form data
         foreach ($attribute_map as $attribute => $attr_r) {
@@ -156,7 +156,7 @@ if (isset($_POST['create_org_user'])) {
                 finfo_close($finfo);
 
                 if ($file_error !== UPLOAD_ERR_OK) {
-                    render_alert_banner(
+                    renderAlertBanner(
                         t('manage.org_users.add.msg.file_upload_error', ['attribute' => htmlspecialchars((string) $attribute, ENT_QUOTES, 'UTF-8')]),
                         'danger',
                         10000
@@ -164,7 +164,7 @@ if (isset($_POST['create_org_user'])) {
                     continue;
                 }
                 if ($file_size > $max_file_size) {
-                    render_alert_banner(
+                    renderAlertBanner(
                         t('manage.org_users.add.msg.file_too_large', ['attribute' => htmlspecialchars((string) $attribute, ENT_QUOTES, 'UTF-8'), 'max' => '2MB']),
                         'danger',
                         10000
@@ -172,7 +172,7 @@ if (isset($_POST['create_org_user'])) {
                     continue;
                 }
                 if (!in_array($mime_type, $allowed_mime_types)) {
-                    render_alert_banner(
+                    renderAlertBanner(
                         t('manage.org_users.add.msg.file_invalid_type', ['attribute' => htmlspecialchars((string) $attribute, ENT_QUOTES, 'UTF-8')]),
                         'danger',
                         10000
@@ -226,7 +226,7 @@ if (isset($_POST['create_org_user'])) {
         $send_password_set_link = isset($_POST['send_password_set_link']) && $_POST['send_password_set_link'] === 'on';
         if ($send_password_set_link && !is_password_reset_link_enabled()) {
             $send_password_set_link = false;
-            render_alert_banner(t('manage.users.new.error.password_set_link_disabled_secret_missing'), 'warning', 10000);
+            renderAlertBanner(t('manage.users.new.error.password_set_link_disabled_secret_missing'), 'warning', 10000);
         }
 
         // Validation
@@ -260,7 +260,7 @@ if (isset($_POST['create_org_user'])) {
         if (empty($this_mail)) {
             $invalid_email = true;
         }
-        if (!empty($this_mail) && !is_valid_email($this_mail)) {
+        if (!empty($this_mail) && !isValidEmail($this_mail)) {
             $invalid_email = true;
         }
 
@@ -334,7 +334,7 @@ if (isset($_POST['create_org_user'])) {
                     }
                 }
 
-                render_alert_banner($creation_message, "success");
+                renderAlertBanner($creation_message, "success");
 
                 // Redirect back to organization users page
                 // Redirect back to organization users page, preserving UUID if available
@@ -345,7 +345,7 @@ if (isset($_POST['create_org_user'])) {
                 }
                 exit(0);
             } else {
-                render_alert_banner(t('manage.org_users.add.msg.create_failed'), "danger");
+                renderAlertBanner(t('manage.org_users.add.msg.create_failed'), "danger");
             }
 
             ldap_close($ldap_connection);
@@ -353,7 +353,7 @@ if (isset($_POST['create_org_user'])) {
     }
 }
 
-render_header(t('manage.org_users.add.page_title', ['org' => $org_name]));
+renderHeader(t('manage.org_users.add.page_title', ['org' => $org_name]));
 render_submenu();
 
 // Display any validation errors
@@ -390,11 +390,11 @@ if ($errors != "") { ?>
 <div class="container">
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.common.dashboard'), ENT_QUOTES, 'UTF-8'); ?></a></li>
-            <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.common.organizations'), ENT_QUOTES, 'UTF-8'); ?></a></li>
+            <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.common.dashboard'), ENT_QUOTES, 'UTF-8'); ?></a></li>
+            <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.common.organizations'), ENT_QUOTES, 'UTF-8'); ?></a></li>
             <?php if ($org_uuid) : ?>
-                <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode((string) $org_uuid) . '/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($org_name); ?></a></li>
-                <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode((string) $org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.common.users'), ENT_QUOTES, 'UTF-8'); ?></a></li>
+                <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/organizations/' . urlencode((string) $org_uuid) . '/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($org_name); ?></a></li>
+                <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/organizations/' . urlencode((string) $org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.common.users'), ENT_QUOTES, 'UTF-8'); ?></a></li>
             <?php endif; ?>
             <li class="breadcrumb-item active" aria-current="page"><?php echo htmlspecialchars(t('manage.common.add_user'), ENT_QUOTES, 'UTF-8'); ?></li>
         </ol>
@@ -411,7 +411,7 @@ if ($errors != "") { ?>
                     </div>
                     
                     <form class="form-horizontal" action="" enctype="multipart/form-data" method="post">
-                        <?= csrf_token_field() ?>
+                        <?= csrfTokenField() ?>
                         <input type="hidden" name="create_org_user" value="1">
                         
                         <!-- Organization (pre-selected and locked) -->
@@ -544,7 +544,7 @@ if ($errors != "") { ?>
                             <div class="col-sm-6 offset-sm-3">
                                 <button type="submit" name="create_org_user" value="1" class="btn btn-success"><?php echo htmlspecialchars(t('manage.org_users.add.create_user_submit'), ENT_QUOTES, 'UTF-8'); ?></button>
                                 <?php if ($org_uuid) : ?>
-                                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode((string) $org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary"><?php echo htmlspecialchars(t('modal.cancel'), ENT_QUOTES, 'UTF-8'); ?></a>
+                                    <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/organizations/' . urlencode((string) $org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary"><?php echo htmlspecialchars(t('modal.cancel'), ENT_QUOTES, 'UTF-8'); ?></a>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -555,11 +555,11 @@ if ($errors != "") { ?>
     </div>
 </div>
 
-<script src="<?php print get_asset_base(); ?>js/password_utils.js"></script>
-<script src="<?php print get_asset_base(); ?>js/form-sync.js"></script>
+<script src="<?php print getAssetBase(); ?>js/password_utils.js"></script>
+<script src="<?php print getAssetBase(); ?>js/form-sync.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        var passwordConfig = <?php echo get_password_strength_config_js(); ?>;
+        var passwordConfig = <?php echo getPasswordStrengthConfigJs(); ?>;
         if (typeof initializePasswordStrength === 'function') {
             initializePasswordStrength({
                 passwordFieldId: 'password',
@@ -606,4 +606,4 @@ if ($errors != "") { ?>
     });
 </script>
 
-<?php render_footer(); ?>
+<?php renderFooter(); ?>

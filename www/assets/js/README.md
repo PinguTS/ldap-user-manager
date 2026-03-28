@@ -6,6 +6,7 @@ This directory contains JavaScript files for the LDAP User Manager web applicati
 
 ### Original Source Files (Development)
 - `user_management.js` - Consolidated user management utilities
+- `table-search.js` - Shared client-side filter for user tables (`initializeTableSearch`)
 - `generate_passphrase.js` - Password generation using word lists
 - `zxcvbn-bootstrap-strength-meter.js` - Password strength meter plugin
 - `wordlist.js` - Dictionary of words for password generation

@@ -53,11 +53,11 @@ parameters:
         - '~Cannot access offset int\|string on array~'
         - '~Parameter #1 \$input of function array_rand expects array, array<int, string>\|false given\.~'
         # setup cookie / trailing whitespace
-        - '~Function set_setup_cookie invoked with 1 parameter, 0 required\.~'
+        - '~Function setSetupCookie invoked with 1 parameter, 0 required\.~'
         - '~File ends with a trailing whitespace\.~'
         # string|false from file_get_contents / json_decode
         - '~Parameter #1 \$json of function json_decode expects string, string\|false given\.~'
-        - '~Function get_password_strength_config_js\(\) should return string but returns string\|false\.~'
+        - '~Function getPasswordStrengthConfigJs\(\) should return string but returns string\|false\.~'
         # finfo can be false
         - '~Parameter #1 \$finfo of function finfo_.+ expects finfo, finfo\|false given\.~'
         # Variable always exists / offset always exists (type narrowing)
@@ -81,7 +81,7 @@ parameters:
         - '~Parameter #1 \$string of function strlen expects string, string\|false given\.~'
         - '~Parameter #1 \$haystack of function strpos expects string, string\|null given\.~'
         - '~Parameter #2 \$subject of function preg_match expects string, string\|null given\.~'
-        - '~Function validate_redirect_url\(\) should return string\|false but returns string\|null\.~'
+        - '~Function validateRedirectUrl\(\) should return string\|false but returns string\|null\.~'
         # Offset in empty() - already have similar; ensure match
         - '~Offset .+ in empty\(\) always exists and is not falsy\.~'
         # open_ldap_connection PHPDoc says resource, PHP 8.1+ returns LDAP\Connection

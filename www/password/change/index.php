@@ -7,7 +7,7 @@ set_include_path(".:" . __DIR__ . "/../../includes/");
 include_once "web_functions.inc.php";
 include_once "ldap_functions.inc.php";
 
-set_page_access("user");
+setPageAccess("user");
 
 if (isset($_POST['change_password'])) {
  // Debug: Log what's being submitted
@@ -31,7 +31,7 @@ if (isset($_POST['change_password'])) {
         $ldap_connection = open_ldap_connection();
         ldap_change_password($ldap_connection, $USER_ID, $_POST['password']) or die("change_ldap_password() failed.");
 
-        render_header(t('password.change.success_title', ['org' => $ORGANISATION_NAME]));
+        renderHeader(t('password.change.success_title', ['org' => $ORGANISATION_NAME]));
         ?>
   <div class="container">
     <div class="col-sm-6 offset-sm-3">
@@ -44,12 +44,12 @@ if (isset($_POST['change_password'])) {
     </div>
   </div>
         <?php
-        render_footer();
+        renderFooter();
         exit(0);
     }
 }
 
-render_header(t('password.change.page_title', ['org' => $ORGANISATION_NAME]));
+renderHeader(t('password.change.page_title', ['org' => $ORGANISATION_NAME]));
 
 if (isset($not_strong_enough)) {  ?>
 <div class="alert alert-warning">
@@ -76,11 +76,11 @@ if (isset($mismatched)) {  ?>
 
 ?>
 
-<script src="<?php print get_asset_base(); ?>js/password_utils.js"></script>
+<script src="<?php print getAssetBase(); ?>js/password_utils.js"></script>
 <script type="text/javascript">
 document.addEventListener('DOMContentLoaded', function(){
     // Get password strength configuration from server
-    const passwordConfig = <?php echo get_password_strength_config_js(); ?>;
+    const passwordConfig = <?php echo getPasswordStrengthConfigJs(); ?>;
     
     // Initialize unified password strength checking with dynamic config
     initializePasswordStrength({
@@ -179,5 +179,5 @@ document.addEventListener('DOMContentLoaded', function(){
 </div>
 <?php
 
-render_footer();
+renderFooter();
 

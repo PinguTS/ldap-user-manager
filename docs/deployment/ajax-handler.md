@@ -165,7 +165,7 @@ if ($is_uuid) {
 ```php
 } else {
     // Legacy uid-based lookup
-    $existingUsers = getUsersInOrg($orgName);
+    $existingUsers = getOrganizationUsers($orgName);
     if (is_array($existingUsers)) {
         foreach ($existingUsers as $user) {
             if (strtolower(get_ldap_attribute($user, 'uid')) === strtolower($fetchUserParam)) {

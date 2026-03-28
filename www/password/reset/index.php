@@ -9,7 +9,7 @@ include_once 'ldap_functions.inc.php';
 include_once 'mail_functions.inc.php';
 include_once 'password_reset_functions.inc.php';
 
-set_page_access('hidden_on_login');
+setPageAccess('hidden_on_login');
 
 $submitted = ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_reset']));
 $message = null;
@@ -22,7 +22,7 @@ if ($submitted) {
     $message = t('password.reset.message');
     $messageType = 'info';
 
-    if ($email !== '' && is_valid_email($email)) {
+    if ($email !== '' && isValidEmail($email)) {
         global $EMAIL_SENDING_ENABLED, $reset_password_mail_subject, $reset_password_mail_body;
 
         if ($EMAIL_SENDING_ENABLED === true && is_password_reset_link_enabled()) {
@@ -57,7 +57,7 @@ if ($submitted) {
     }
 }
 
-render_header('Request password reset');
+renderHeader('Request password reset');
 ?>
 
 <div class="container">
@@ -83,7 +83,7 @@ render_header('Request password reset');
                     </div>
                     <div class="form-group mt-2">
                         <button type="submit" class="btn btn-primary"><?php echo htmlspecialchars(t('password.reset.submit'), ENT_QUOTES, 'UTF-8'); ?></button>
-                        <a class="btn btn-secondary" href="<?php echo htmlspecialchars(get_base_url() . 'login/'); ?>"><?php echo htmlspecialchars(t('password.reset.back_login'), ENT_QUOTES, 'UTF-8'); ?></a>
+                        <a class="btn btn-secondary" href="<?php echo htmlspecialchars(getBaseUrl() . 'login/'); ?>"><?php echo htmlspecialchars(t('password.reset.back_login'), ENT_QUOTES, 'UTF-8'); ?></a>
                     </div>
                 </form>
             </div>
@@ -92,5 +92,5 @@ render_header('Request password reset');
 </div>
 
 <?php
-render_footer();
+renderFooter();
 

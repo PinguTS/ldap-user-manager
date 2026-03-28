@@ -727,27 +727,107 @@ function renameOrganization(string $orgIdentifier, string $newOrgName): bool
     return true;
 }
 
+/**
+ * Member DNs from an ldap_get_entries() row for groupOfNames (handles single vs multi-valued member).
+ *
+ * @param array<string, mixed> $entry
+ * @return list<string>
+ */
+function org_admin_group_member_dns_from_entry(array $entry): array
+{
+    if (!isset($entry['member'])) {
+        return [];
+    }
+    $m = $entry['member'];
+    $out = [];
+    if (isset($m['count'])) {
+        $n = (int) $m['count'];
+        for ($i = 0; $i < $n; $i++) {
+            if (isset($m[$i]) && is_string($m[$i]) && $m[$i] !== '') {
+                $out[] = $m[$i];
+            }
+        }
+    } elseif (isset($m[0]) && is_string($m[0]) && $m[0] !== '') {
+        $out[] = $m[0];
+    }
+
+    return $out;
+}
+
+/**
+ * Remove a user from the organization's org_admin groupOfNames.
+ * If they are the last member, delete the entire group entry (schema requires ≥1 member);
+ * addUserToOrgAdmin() recreates the group when the first manager is assigned again.
+ *
+ * @return array{0: bool, 1: string}
+ */
 function removeUserFromOrgAdmin($orgName, $userDn)
 {
     global $LDAP;
     $ldap = open_ldap_connection();
+    if ($ldap === false) {
+        return [false, 'LDAP connection failed'];
+    }
 
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
     $groupDN = "cn={$LDAP['org_admin_role']},ou=roles,o={$orgRDN}," . $LDAP['org_dn'];
 
-    $modifications = ['member' => $userDn];
-    $result = ldap_mod_del($ldap, $groupDN, $modifications);
-
-    if ($result) {
+    $read = @ldap_read($ldap, $groupDN, '(objectClass=groupOfNames)', ['member']);
+    if (!$read || ldap_count_entries($ldap, $read) === 0) {
         ldap_close($ldap);
-        return [true, "User removed from organization admin group"];
-    } else {
-        // Get error message before closing the connection
+
+        return [true, 'Organization admin group does not exist'];
+    }
+
+    $entries = ldap_get_entries($ldap, $read);
+    if (!is_array($entries) || ($entries['count'] ?? 0) < 1) {
+        ldap_close($ldap);
+
+        return [false, 'Failed to read organization admin group'];
+    }
+
+    $groupEntry = $entries[0];
+    if (!is_array($groupEntry)) {
+        ldap_close($ldap);
+
+        return [false, 'Failed to read organization admin group'];
+    }
+
+    $members = org_admin_group_member_dns_from_entry($groupEntry);
+    $userIsMember = false;
+    foreach ($members as $mDn) {
+        if (strcasecmp($mDn, $userDn) === 0) {
+            $userIsMember = true;
+            break;
+        }
+    }
+    if (!$userIsMember) {
+        ldap_close($ldap);
+
+        return [true, 'User not in organization admin group'];
+    }
+
+    if (count($members) === 1) {
+        $ok = @ldap_delete($ldap, $groupDN);
         $err = ldap_error($ldap);
         ldap_close($ldap);
-        error_log("removeUserFromOrgAdmin: Failed to remove user from group: $err");
-        return [false, "Failed to remove user from organization admin group: $err"];
+        if ($ok) {
+            return [true, 'Last organization admin removed; group entry deleted'];
+        }
+        error_log("removeUserFromOrgAdmin: Failed to delete empty org admin group: $err");
+
+        return [false, "Failed to remove last organization admin (group delete): $err"];
     }
+
+    $ok = @ldap_mod_del($ldap, $groupDN, ['member' => $userDn]);
+    $err = ldap_error($ldap);
+    ldap_close($ldap);
+    if ($ok) {
+        return [true, 'User removed from organization admin group'];
+    }
+    error_log("removeUserFromOrgAdmin: Failed to remove user from group: $err");
+
+    return [false, "Failed to remove user from organization admin group: $err"];
 }
 
 function getOrganizationUsers($orgName)

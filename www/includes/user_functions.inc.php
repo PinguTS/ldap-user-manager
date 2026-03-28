@@ -13,12 +13,17 @@
 
 /**
  * Get LDAP attribute value regardless of case and type
- * @param array $user_data User data array from LDAP
+ *
+ * @param array<string, mixed>|null $user_data User data array from LDAP
  * @param string $attribute_name Attribute name to retrieve
  * @return string Attribute value or empty string if not found
  */
 function get_ldap_attribute($user_data, $attribute_name)
 {
+    if ($user_data === null || !is_array($user_data)) {
+        return '';
+    }
+
     // Try exact match first
     if (isset($user_data[$attribute_name])) {
         if (is_array($user_data[$attribute_name])) {

@@ -14,7 +14,7 @@ if (function_exists('checkRuntimeRoleConflicts') && checkRuntimeRoleConflicts())
 
 // Use the enhanced access control function
 // The main index should be accessible to all authenticated users
-set_page_access("user");
+setPageAccess("user");
 
 // After access control, check if user should be redirected to their default view
 // This ensures users don't stay on the empty main index page
@@ -66,7 +66,7 @@ if (isset($VALIDATED) && $VALIDATED) {
     // Regular users can stay on the main index
 }
 
-render_header();
+renderHeader();
 
 if (isset($_GET['logged_in'])) {
     ?>
@@ -76,5 +76,5 @@ if (isset($_GET['logged_in'])) {
     <?php
 }
 
-render_footer();
+renderFooter();
 ?>

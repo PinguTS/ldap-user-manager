@@ -9,10 +9,10 @@ include_once "ldap_functions.inc.php";
 include_once "module_functions.inc.php";
 include_once __DIR__ . '/bootstrap_setup.inc.php';
 
-validate_setup_cookie();
-set_page_access("setup");
+validateSetupCookie();
+setPageAccess("setup");
 
-render_header("$ORGANISATION_NAME account manager setup");
+renderHeader("$ORGANISATION_NAME account manager setup");
 
 $show_finish_button = true;
 
@@ -286,5 +286,5 @@ if ($show_finish_button == true) {
   </div>
 <?php
 
-render_footer();
+renderFooter();
 ?>

@@ -4,21 +4,21 @@ declare(strict_types=1);
 
 set_include_path(".:" . __DIR__ . "/../../includes/");
 require_once "bootstrap_manage.inc.php";
-bootstrap_manage(['ldap', 'organization', 'mail', 'password_reset']);
+bootstrapManage(['ldap', 'organization', 'mail', 'password_reset']);
 
 // Ensure CSRF token is generated early
-get_csrf_token();
+getCsrfToken();
 
 
 
-set_page_access(["admin", "maintainer"]);
+setPageAccess(["admin", "maintainer"]);
 
 $completed_action = "{$SERVER_PATH}manage/users/";
 $page_title = t('manage.users.new.page_title');
 $admin_setup = false;
 
 $orgName = (string) ($ORGANISATION_NAME ?? 'System');
-render_header(t('manage.users.new.header', ['org' => $orgName]));
+renderHeader(t('manage.users.new.header', ['org' => $orgName]));
 render_submenu();
 
 $invalid_password = false;
@@ -78,7 +78,7 @@ if (isset($_POST['telephoneNumber']) && !empty(trim($_POST['telephoneNumber'])))
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
-    validate_csrf_token();
+    validateCsrfToken();
 
   // Validate required fields
     $errors = [];
@@ -156,7 +156,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
 
         $result = createUserAccount($new_account_r);
         if ($result[0]) {
-            render_alert_banner(t('manage.users.new.msg.created_ok'), 'success', 10000);
+            renderAlertBanner(t('manage.users.new.msg.created_ok'), 'success', 10000);
 
             if ($send_password_set_link) {
                 global $new_account_mail_subject, $new_account_mail_body, $EMAIL_SENDING_ENABLED;
@@ -187,10 +187,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
           // Clear form data
             $new_account_r = array();
         } else {
-            render_alert_banner(t('manage.users.new.msg.created_fail', ['error' => $result[1]]), 'danger', 10000);
+            renderAlertBanner(t('manage.users.new.msg.created_fail', ['error' => $result[1]]), 'danger', 10000);
         }
     } else {
-        render_alert_banner(t('manage.users.new.msg.validation_failed', ['errors' => implode(', ', $errors)]), 'danger', 10000);
+        renderAlertBanner(t('manage.users.new.msg.validation_failed', ['errors' => implode(', ', $errors)]), 'danger', 10000);
     }
 }
 
@@ -211,7 +211,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
                 </div>
                 <div class="card-body">
                     <form method="post" action="" enctype="multipart/form-data" id="newUserForm">
-                        <?php echo csrf_token_field(); ?>
+                        <?php echo csrfTokenField(); ?>
                         
                         <!-- Account Information -->
                         <h4><?php echo htmlspecialchars(t('manage.users.section.account_information'), ENT_QUOTES, 'UTF-8'); ?></h4>
@@ -360,7 +360,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
                         
                         <div class="form-group">
                             <button type="submit" name="create_account" class="btn btn-success"><?php echo htmlspecialchars(t('manage.users.new.create_account_submit'), ENT_QUOTES, 'UTF-8'); ?></button>
-                            <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary"><?php echo htmlspecialchars(t('manage.common.cancel'), ENT_QUOTES, 'UTF-8'); ?></a>
+                            <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary"><?php echo htmlspecialchars(t('manage.common.cancel'), ENT_QUOTES, 'UTF-8'); ?></a>
                         </div>
                     </form>
                 </div>
@@ -369,12 +369,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
     </div>
 </div>
 
-<script src="<?php print get_asset_base(); ?>js/password_utils.js"></script>
-<script src="<?php print get_asset_base(); ?>js/form-sync.js"></script>
+<script src="<?php print getAssetBase(); ?>js/password_utils.js"></script>
+<script src="<?php print getAssetBase(); ?>js/form-sync.js"></script>
 <script type="text/javascript">
 document.addEventListener('DOMContentLoaded', function(){
     // Get password strength configuration from server
-    const passwordConfig = <?php echo get_password_strength_config_js(); ?>;
+    const passwordConfig = <?php echo getPasswordStrengthConfigJs(); ?>;
     
     // Initialize unified password strength checking with dynamic config
     initializePasswordStrength({
@@ -421,5 +421,5 @@ document.addEventListener('DOMContentLoaded', function(){
 </script>
 
 <?php
-render_footer();
+renderFooter();
 ?>

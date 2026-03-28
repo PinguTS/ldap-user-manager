@@ -83,10 +83,10 @@ $records = [];
 for ($i = 0; $i < (int) $entries['count']; $i++) {
     $org = $entries[$i];
     $orgDnEntry = $org['dn'];
-    if (!isInStatusGroup($ldap, $orgDnEntry, $memberGroupCn, $baseDn)) {
+    if (!is_in_status_group($ldap, $orgDnEntry, $memberGroupCn, $baseDn)) {
         continue;
     }
-    if (isInStatusGroup($ldap, $orgDnEntry, $disabledGroupCn, $baseDn)) {
+    if (is_in_status_group($ldap, $orgDnEntry, $disabledGroupCn, $baseDn)) {
         continue;
     }
     $postalAddress = $org['postaladdress'][0] ?? '';

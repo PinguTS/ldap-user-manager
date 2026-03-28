@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 set_include_path(".:" . __DIR__ . "/../../includes/");
 require_once "bootstrap_manage.inc.php";
-bootstrap_manage(['ldap', 'organization']);
+bootstrapManage(['ldap', 'organization']);
 
 // Use the enhanced access control function
-set_page_access(["admin", "maintainer"]);
+setPageAccess(["admin", "maintainer"]);
 
 // Ensure CSRF token is generated early
-get_csrf_token();
+getCsrfToken();
 
 $message = '';
 $message_type = '';
@@ -76,7 +76,7 @@ if (isset($_POST['action']) && $_POST['action'] == 'create_organization') {
     }
 }
 
-render_header((string) $ORGANISATION_NAME . ' - ' . t('manage.orgs.add_new'));
+renderHeader((string) $ORGANISATION_NAME . ' - ' . t('manage.orgs.add_new'));
 render_submenu();
 
 ?>
@@ -99,7 +99,7 @@ render_submenu();
                 </div>
                 <div class="card-body">
                     <form method="post" action="" id="createOrgForm">
-                        <?php echo csrf_token_field(); ?>
+                        <?php echo csrfTokenField(); ?>
                         <input type="hidden" name="action" value="create_organization">
                         
                         <?php
@@ -194,7 +194,7 @@ render_submenu();
                         
                         <div class="form-group">
                             <button type="submit" class="btn btn-success"><?php echo htmlspecialchars(t('manage.orgs.add.create_submit'), ENT_QUOTES, 'UTF-8'); ?></button>
-                            <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary"><?php echo htmlspecialchars(t('manage.common.cancel'), ENT_QUOTES, 'UTF-8'); ?></a>
+                            <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary"><?php echo htmlspecialchars(t('manage.common.cancel'), ENT_QUOTES, 'UTF-8'); ?></a>
                         </div>
                     </form>
                 </div>
@@ -204,5 +204,5 @@ render_submenu();
 </div>
 
 <?php
-render_footer();
+renderFooter();
 ?>

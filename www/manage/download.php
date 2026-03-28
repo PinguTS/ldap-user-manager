@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 set_include_path(".:" . __DIR__ . "/../includes/");
 require_once "bootstrap_manage.inc.php";
-bootstrap_manage(['ldap']);
+bootstrapManage(['ldap']);
 
 // Require admin access for downloads
-set_page_access("admin");
+setPageAccess("admin");
 
 if (!isset($_GET['resource_identifier']) or !isset($_GET['attribute'])) {
     http_response_code(400);

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 set_include_path(".:" . __DIR__ . "/../../../includes/");
 require_once "bootstrap_manage.inc.php";
-bootstrap_manage(['ldap', 'organization']);
+bootstrapManage(['ldap', 'organization']);
 
 // Ensure session is started and CSRF token is available
 if (session_status() === PHP_SESSION_NONE) {
@@ -16,12 +16,12 @@ $_SESSION['last_activity'] = time();
 
 
 
-get_csrf_token();
+getCsrfToken();
 
 $res = resolve_organization_from_request();
 if ($res['error'] !== null) {
-    render_alert_banner($res['error'], "warning");
-    render_footer();
+    renderAlertBanner($res['error'], "warning");
+    renderFooter();
     exit(0);
 }
 $org_name = $res['org_name'] ?? '';
@@ -29,128 +29,24 @@ $org_uuid = $res['org_uuid'] ?? '';
 $organization_by_uuid = $res['organization'];
 
 // Use the enhanced access control function
-set_page_access(["admin", "maintainer", "org_admin"]);
+setPageAccess(["admin", "maintainer", "org_admin"]);
 
 // Check if user can modify this organization
 $can_modify_org = currentUserCanModifyOrganization($org_name);
 
-function getShowPageUserDnByIdentifier(string $orgName, string $userIdentifier): ?string
-{
-    global $LDAP;
-
-    $isUuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $userIdentifier) === 1;
-    if ($isUuid) {
-        $ldapConnection = open_ldap_connection();
-        if ($ldapConnection === false) {
-            return null;
-        }
-        $orgRdn = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
-        $usersDn = "ou=people,o={$orgRdn}," . $LDAP['org_dn'];
-        $userByUuid = ldap_get_entry_by_uuid($ldapConnection, $userIdentifier, $usersDn);
-        ldap_close($ldapConnection);
-        if (!$userByUuid || !isset($userByUuid['dn'])) {
-            return null;
-        }
-
-        return (string) $userByUuid['dn'];
-    }
-
-    $orgRdn = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
-    $usersDn = "ou=people,o={$orgRdn}," . $LDAP['org_dn'];
-    return "uid=" . ldap_escape($userIdentifier, '', LDAP_ESCAPE_DN) . ",{$usersDn}";
-}
-
-function getShowPageUserDisplayByDn(string $userDn, string $fallback): string
-{
-    $ldapConnection = open_ldap_connection();
-    if ($ldapConnection === false) {
-        return $fallback;
-    }
-
-    $read = @ldap_read($ldapConnection, $userDn, '(objectClass=*)', ['uid']);
-    if (!$read) {
-        ldap_close($ldapConnection);
-        return $fallback;
-    }
-
-    $entries = ldap_get_entries($ldapConnection, $read);
-    ldap_close($ldapConnection);
-
-    if (is_array($entries) && ($entries['count'] ?? 0) > 0 && isset($entries[0]['uid'][0])) {
-        return (string) $entries[0]['uid'][0];
-    }
-
-    return $fallback;
-}
-
-function getShowPageOrgManagerDns(string $orgName): array
-{
-    global $LDAP;
-
-    $ldapConnection = open_ldap_connection();
-    if ($ldapConnection === false) {
-        return [];
-    }
-    $orgRdn = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
-    $groupDn = "cn={$LDAP['org_admin_role']},ou=roles,o={$orgRdn}," . $LDAP['org_dn'];
-    $result = @ldap_read($ldapConnection, $groupDn, '(objectClass=groupOfNames)', ['member']);
-    if (!$result) {
-        ldap_close($ldapConnection);
-        return [];
-    }
-
-    $entries = ldap_get_entries($ldapConnection, $result);
-    ldap_close($ldapConnection);
-    $dns = [];
-    if ($entries['count'] > 0 && isset($entries[0]['member'])) {
-        for ($i = 0; $i < $entries[0]['member']['count']; $i++) {
-            $dns[] = $entries[0]['member'][$i];
-        }
-    }
-
-    return $dns;
-}
-
-function showPageDnInList(string $dn, array $dns): bool
-{
-    foreach ($dns as $entryDn) {
-        if (is_string($entryDn) && strcasecmp($dn, $entryDn) === 0) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-function getShowPageOrgScopedManagerCount(string $orgName, array $orgManagerDns): int
-{
-    global $LDAP;
-
-    $orgRdn = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
-    $orgUsersBaseDn = 'ou=people,o=' . $orgRdn . ',' . $LDAP['org_dn'];
-
-    return count(array_filter($orgManagerDns, function ($dn) use ($orgUsersBaseDn) {
-        if (!is_string($dn) || stripos($dn, 'cn=placeholder') !== false) {
-            return false;
-        }
-
-        return str_ends_with(strtolower($dn), strtolower($orgUsersBaseDn));
-    }));
-}
-
-render_header((string) $ORGANISATION_NAME . ' ' . t('manage.orgs.show.account_manager'));
+renderHeader((string) $ORGANISATION_NAME . ' ' . t('manage.orgs.show.account_manager'));
 render_submenu();
 
 // Handle org deletion action
 if (isset($_POST['action']) && $_POST['action'] === 'delete_organization') {
     if (session_status() !== PHP_SESSION_ACTIVE) {
-        render_alert_banner(t('manage.orgs.show.msg.session_expired'), "danger");
-    } elseif (!validate_csrf_token()) {
-        render_alert_banner(t('manage.common.msg.security_validation_failed'), "danger");
+        renderAlertBanner(t('manage.orgs.show.msg.session_expired'), "danger");
+    } elseif (!validateCsrfToken()) {
+        renderAlertBanner(t('manage.common.msg.security_validation_failed'), "danger");
     } else {
         $ldap_connection_action = open_ldap_connection();
         if ($ldap_connection_action === false) {
-            render_alert_banner(t('manage.orgs.msg.ldap_fail'), "danger");
+            renderAlertBanner(t('manage.orgs.msg.ldap_fail'), "danger");
         } else {
             if (currentUserCanDeleteOrganization($org_name)) {
                 $posted_uuid = isset($_POST['org_uuid']) ? trim((string) $_POST['org_uuid']) : '';
@@ -159,13 +55,13 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete_organization') {
                     header('Location: /manage/organizations/');
                     exit;
                 }
-                render_alert_banner(
+                renderAlertBanner(
                     t('manage.orgs.show.msg.delete_fail', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
                     "danger",
                     15000
                 );
             } else {
-                render_alert_banner(t('manage.orgs.show.msg.permission_delete_org'), "danger");
+                renderAlertBanner(t('manage.orgs.show.msg.permission_delete_org'), "danger");
             }
             ldap_close($ldap_connection_action);
         }
@@ -175,22 +71,22 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete_organization') {
 // Handle org disable/enable actions
 if (isset($_POST['action']) && ($_POST['action'] === 'disable_organization' || $_POST['action'] === 'enable_organization')) {
     if (session_status() !== PHP_SESSION_ACTIVE) {
-        render_alert_banner(t('manage.orgs.show.msg.session_expired'), "danger");
-    } elseif (!validate_csrf_token()) {
-        render_alert_banner(t('manage.common.msg.security_validation_failed'), "danger");
+        renderAlertBanner(t('manage.orgs.show.msg.session_expired'), "danger");
+    } elseif (!validateCsrfToken()) {
+        renderAlertBanner(t('manage.common.msg.security_validation_failed'), "danger");
     } else {
         $ldap_connection_action = open_ldap_connection();
         if ($ldap_connection_action === false) {
-            render_alert_banner(t('manage.orgs.msg.ldap_fail'), "danger");
+            renderAlertBanner(t('manage.orgs.msg.ldap_fail'), "danger");
         } else {
             if ($_POST['action'] === 'disable_organization') {
                 if (currentUserCanDisableOrganization($org_name) && ldap_disable_organization($ldap_connection_action, $org_name)) {
-                    render_alert_banner(
+                    renderAlertBanner(
                         t('manage.orgs.show.msg.deactivate_ok', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
                         "success"
                     );
                 } else {
-                    render_alert_banner(
+                    renderAlertBanner(
                         t('manage.orgs.show.msg.deactivate_fail', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
                         "danger",
                         15000
@@ -198,7 +94,7 @@ if (isset($_POST['action']) && ($_POST['action'] === 'disable_organization' || $
                 }
             } elseif ($_POST['action'] === 'enable_organization') {
                 if (!currentUserCanEnableOrganization($org_name)) {
-                    render_alert_banner(
+                    renderAlertBanner(
                         t('manage.orgs.show.msg.activate_fail', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
                         "danger",
                         15000
@@ -214,9 +110,9 @@ if (isset($_POST['action']) && ($_POST['action'] === 'disable_organization' || $
                                 'still_inactive' => $enable_result['still_disabled'],
                             ]);
                         }
-                        render_alert_banner($msg, "success");
+                        renderAlertBanner($msg, "success");
                     } else {
-                        render_alert_banner(
+                        renderAlertBanner(
                             t('manage.orgs.show.msg.activate_fail', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
                             "danger",
                             15000
@@ -232,35 +128,29 @@ if (isset($_POST['action']) && ($_POST['action'] === 'disable_organization' || $
 // Handle recent users org-manager toggle
 if (isset($_POST['action']) && $_POST['action'] === 'toggle_recent_user_manager') {
     if (session_status() !== PHP_SESSION_ACTIVE) {
-        render_alert_banner(t('manage.orgs.show.msg.session_expired'), "danger");
-    } elseif (!validate_csrf_token()) {
-        render_alert_banner(t('manage.common.msg.security_validation_failed'), "danger");
+        renderAlertBanner(t('manage.orgs.show.msg.session_expired'), "danger");
+    } elseif (!validateCsrfToken()) {
+        renderAlertBanner(t('manage.common.msg.security_validation_failed'), "danger");
     } elseif (!$can_modify_org) {
-        render_alert_banner(t('manage.orgs.show.msg.permission_modify_org'), "danger");
+        renderAlertBanner(t('manage.orgs.show.msg.permission_modify_org'), "danger");
     } else {
         $userIdentifier = trim((string) ($_POST['user_identifier'] ?? ''));
-        $userDn = $userIdentifier !== '' ? getShowPageUserDnByIdentifier($org_name, $userIdentifier) : null;
+        $userDn = $userIdentifier !== '' ? org_resolve_user_dn($org_name, $userIdentifier) : null;
         if ($userDn === null || $userDn === '') {
-            render_alert_banner(t('manage.users.msg.user_not_found'), "danger");
+            renderAlertBanner(t('manage.users.msg.user_not_found'), "danger");
         } else {
-            $userDisplay = getShowPageUserDisplayByDn($userDn, $userIdentifier);
-            $orgManagerDns = getShowPageOrgManagerDns($org_name);
-            if (showPageDnInList($userDn, $orgManagerDns)) {
-                $managerCount = getShowPageOrgScopedManagerCount($org_name, $orgManagerDns);
-                if ($managerCount <= 1) {
-                    render_alert_banner(t('manage.org_users.msg.cannot_remove_last_manager'), "danger");
+            $userDisplay = org_get_user_display($userDn, $userIdentifier);
+            $orgManagerDns = org_get_manager_dns($org_name);
+            if (org_dn_in_list($userDn, $orgManagerDns)) {
+                $result = removeUserFromOrgAdmin($org_name, $userDn);
+                if ($result[0]) {
+                    renderAlertBanner(t('manage.org_users.msg.removed_org_manager', ['user' => $userDisplay]), "warning");
                 } else {
-                    $result = removeUserFromOrgAdmin($org_name, $userDn);
-                    if (is_array($result) && ($result[0] ?? false) === true) {
-                        render_alert_banner(t('manage.org_users.msg.removed_org_manager', ['user' => $userDisplay]), "warning");
-                    } else {
-                        $error = is_array($result) ? ($result[1] ?? '') : '';
-                        render_alert_banner(t('manage.org_users.msg.update_org_manager_fail', ['error' => $error]), "danger");
-                    }
+                    renderAlertBanner(t('manage.org_users.msg.update_org_manager_fail', ['error' => $result[1]]), "danger");
                 }
             } else {
                 addUserToOrgAdmin($org_name, $userDn);
-                render_alert_banner(t('manage.org_users.msg.assigned_org_manager', ['user' => $userDisplay]), "success");
+                renderAlertBanner(t('manage.org_users.msg.assigned_org_manager', ['user' => $userDisplay]), "success");
             }
         }
     }
@@ -269,38 +159,38 @@ if (isset($_POST['action']) && $_POST['action'] === 'toggle_recent_user_manager'
 // Handle recent users active status toggle
 if (isset($_POST['action']) && $_POST['action'] === 'toggle_recent_user_active') {
     if (session_status() !== PHP_SESSION_ACTIVE) {
-        render_alert_banner(t('manage.orgs.show.msg.session_expired'), "danger");
-    } elseif (!validate_csrf_token()) {
-        render_alert_banner(t('manage.common.msg.security_validation_failed'), "danger");
+        renderAlertBanner(t('manage.orgs.show.msg.session_expired'), "danger");
+    } elseif (!validateCsrfToken()) {
+        renderAlertBanner(t('manage.common.msg.security_validation_failed'), "danger");
     } else {
         $userIdentifier = trim((string) ($_POST['user_identifier'] ?? ''));
         $targetState = trim((string) ($_POST['target_state'] ?? ''));
         $canToggle = $targetState === 'enable' ? currentUserCanEnableUser($userIdentifier) : currentUserCanDisableUser($userIdentifier);
         if (!$canToggle) {
-            render_alert_banner(t('manage.users.msg.permission_denied_invalid_user'), "danger");
+            renderAlertBanner(t('manage.users.msg.permission_denied_invalid_user'), "danger");
         } else {
-            $userDn = $userIdentifier !== '' ? getShowPageUserDnByIdentifier($org_name, $userIdentifier) : null;
+            $userDn = $userIdentifier !== '' ? org_resolve_user_dn($org_name, $userIdentifier) : null;
             if ($userDn === null || $userDn === '') {
-                render_alert_banner(t('manage.users.msg.user_not_found'), "danger");
+                renderAlertBanner(t('manage.users.msg.user_not_found'), "danger");
             } else {
-                $userDisplay = getShowPageUserDisplayByDn($userDn, $userIdentifier);
+                $userDisplay = org_get_user_display($userDn, $userIdentifier);
                 $ldapConnection = open_ldap_connection();
                 if ($ldapConnection === false) {
-                    render_alert_banner(t('manage.orgs.msg.ldap_fail'), "danger");
+                    renderAlertBanner(t('manage.orgs.msg.ldap_fail'), "danger");
                 } else {
                     if ($targetState === 'enable') {
                         if (ldap_enable_user_account($ldapConnection, $userDn)) {
-                            render_alert_banner(t('manage.users.msg.activate_ok', ['user' => $userDisplay]), "success");
+                            renderAlertBanner(t('manage.users.msg.activate_ok', ['user' => $userDisplay]), "success");
                         } else {
                             $error = ldap_error($ldapConnection);
-                            render_alert_banner(t('manage.users.msg.activate_fail', ['user' => $userDisplay, 'error' => $error]), "danger");
+                            renderAlertBanner(t('manage.users.msg.activate_fail', ['user' => $userDisplay, 'error' => $error]), "danger");
                         }
                     } elseif ($targetState === 'disable') {
                         if (ldap_disable_user_account($ldapConnection, $userDn)) {
-                            render_alert_banner(t('manage.users.msg.deactivate_ok', ['user' => $userDisplay]), "success");
+                            renderAlertBanner(t('manage.users.msg.deactivate_ok', ['user' => $userDisplay]), "success");
                         } else {
                             $error = ldap_error($ldapConnection);
-                            render_alert_banner(t('manage.users.msg.deactivate_fail', ['user' => $userDisplay, 'error' => $error]), "danger");
+                            renderAlertBanner(t('manage.users.msg.deactivate_fail', ['user' => $userDisplay, 'error' => $error]), "danger");
                         }
                     }
                     ldap_close($ldapConnection);
@@ -313,44 +203,44 @@ if (isset($_POST['action']) && $_POST['action'] === 'toggle_recent_user_active')
 // Handle org membership actions (member/unmember org)
 if (isset($_POST['action']) && ($_POST['action'] === 'member_organization' || $_POST['action'] === 'unmember_organization')) {
     if (session_status() !== PHP_SESSION_ACTIVE) {
-        render_alert_banner(t('manage.orgs.show.msg.session_expired'), "danger");
-    } elseif (!validate_csrf_token()) {
-        render_alert_banner(t('manage.common.msg.security_validation_failed'), "danger");
+        renderAlertBanner(t('manage.orgs.show.msg.session_expired'), "danger");
+    } elseif (!validateCsrfToken()) {
+        renderAlertBanner(t('manage.common.msg.security_validation_failed'), "danger");
     } elseif (!(currentUserIsGlobalAdmin() || currentUserIsMaintainer())) {
-        render_alert_banner(t('manage.orgs.show.msg.permission_modify_membership'), "danger");
+        renderAlertBanner(t('manage.orgs.show.msg.permission_modify_membership'), "danger");
     } else {
         $ldap_connection_action = open_ldap_connection();
         if ($ldap_connection_action === false) {
-            render_alert_banner(t('manage.orgs.msg.ldap_fail'), "danger");
+            renderAlertBanner(t('manage.orgs.msg.ldap_fail'), "danger");
         } else {
             $base_dn = $LDAP['base_dn'] ?? '';
             $member_group_cn_post = getenv('LDAP_GROUP_MEMBER_ORGS') ?: 'memberOrganizations';
             $org_dn_action = "o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
 
-            if ($base_dn === '' || !function_exists('addToStatusGroup') || !function_exists('removeFromStatusGroup')) {
-                render_alert_banner(t('manage.orgs.show.msg.membership_status_config_missing'), "danger", 15000);
+            if ($base_dn === '' || !function_exists('add_to_status_group') || !function_exists('remove_from_status_group')) {
+                renderAlertBanner(t('manage.orgs.show.msg.membership_status_config_missing'), "danger", 15000);
             } else {
                 if ($_POST['action'] === 'member_organization') {
-                    if (addToStatusGroup($ldap_connection_action, $org_dn_action, $member_group_cn_post, $base_dn)) {
-                        render_alert_banner(
+                    if (add_to_status_group($ldap_connection_action, $org_dn_action, $member_group_cn_post, $base_dn)) {
+                        renderAlertBanner(
                             t('manage.orgs.show.msg.member_ok', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
                             "success"
                         );
                     } else {
-                        render_alert_banner(
+                        renderAlertBanner(
                             t('manage.orgs.show.msg.member_fail', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
                             "danger",
                             15000
                         );
                     }
                 } else {
-                    if (removeFromStatusGroup($ldap_connection_action, $org_dn_action, $member_group_cn_post, $base_dn)) {
-                        render_alert_banner(
+                    if (remove_from_status_group($ldap_connection_action, $org_dn_action, $member_group_cn_post, $base_dn)) {
+                        renderAlertBanner(
                             t('manage.orgs.show.msg.unmember_ok', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
                             "success"
                         );
                     } else {
-                        render_alert_banner(
+                        renderAlertBanner(
                             t('manage.orgs.show.msg.unmember_fail', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
                             "danger",
                             15000
@@ -367,11 +257,11 @@ if (isset($_POST['action']) && ($_POST['action'] === 'member_organization' || $_
 if (isset($_POST['update_organization'])) {
     // Check if session is still valid
     if (session_status() !== PHP_SESSION_ACTIVE) {
-        render_alert_banner(t('manage.orgs.show.msg.session_expired'), "danger");
-    } elseif (!validate_csrf_token()) {
-        render_alert_banner(t('manage.common.msg.security_validation_failed'), "danger");
+        renderAlertBanner(t('manage.orgs.show.msg.session_expired'), "danger");
+    } elseif (!validateCsrfToken()) {
+        renderAlertBanner(t('manage.common.msg.security_validation_failed'), "danger");
     } elseif (!$can_modify_org) {
-        render_alert_banner(t('manage.orgs.show.msg.permission_modify_org'), "danger");
+        renderAlertBanner(t('manage.orgs.show.msg.permission_modify_org'), "danger");
     } else {
         $base_dn = $LDAP['base_dn'] ?? '';
         $can_edit_membership_meta = currentUserIsGlobalAdmin() || currentUserIsMaintainer();
@@ -445,11 +335,11 @@ if (isset($_POST['update_organization'])) {
 
         if (!$can_rename_org) {
             if ($posted_org_name !== '' && $posted_org_name !== (string) $org_name) {
-                render_alert_banner(t('manage.orgs.show.msg.org_rename_denied'), "danger");
+                renderAlertBanner(t('manage.orgs.show.msg.org_rename_denied'), "danger");
                 $skip_org_save = true;
             }
         } elseif ($posted_org_name === '') {
-            render_alert_banner(t('manage.orgs.show.msg.org_name_required'), "danger");
+            renderAlertBanner(t('manage.orgs.show.msg.org_name_required'), "danger");
             $skip_org_save = true;
         }
 
@@ -464,13 +354,13 @@ if (isset($_POST['update_organization'])) {
                     if (ctype_digit($raw_limit)) {
                         $limit_val = (int) $raw_limit;
                     } else {
-                        render_alert_banner(t('manage.orgs.show.msg.user_limit_invalid'), "warning", 15000);
+                        renderAlertBanner(t('manage.orgs.show.msg.user_limit_invalid'), "warning", 15000);
                     }
                 }
                 $limit_ldap = open_ldap_connection();
                 if ($limit_ldap !== false) {
                     if (!function_exists('ldap_org_set_user_limit') || !ldap_org_set_user_limit($limit_ldap, $org_name, $limit_val)) {
-                        render_alert_banner(t('manage.orgs.show.msg.user_limit_update_fail'), "danger", 15000);
+                        renderAlertBanner(t('manage.orgs.show.msg.user_limit_update_fail'), "danger", 15000);
                     }
                     ldap_close($limit_ldap);
                 }
@@ -499,17 +389,17 @@ if (isset($_POST['update_organization'])) {
                         exit;
                     }
                 } else {
-                    render_alert_banner(t('manage.orgs.show.msg.org_rename_fail'), "danger", 15000);
+                    renderAlertBanner(t('manage.orgs.show.msg.org_rename_fail'), "danger", 15000);
                 }
             }
 
             if ($result && $rename_ok) {
-                render_alert_banner(
+                renderAlertBanner(
                     t('manage.orgs.show.msg.org_update_ok', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
                     "success"
                 );
             } elseif (!$result) {
-                render_alert_banner(t('manage.orgs.show.msg.org_update_fail'), "danger");
+                renderAlertBanner(t('manage.orgs.show.msg.org_update_fail'), "danger");
             }
         }
     }
@@ -607,11 +497,11 @@ if ($org_uuid) {
     }
 
     if (!$organization) {
-        render_alert_banner(
+        renderAlertBanner(
             t('manage.orgs.show.msg.org_not_found', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
             "danger"
         );
-        render_footer();
+        renderFooter();
         exit(0);
     }
 }
@@ -640,8 +530,8 @@ $org_dn = "o=" . ldap_escape($org_name, "", LDAP_ESCAPE_DN) . "," . $LDAP['org_d
 $base_dn = $LDAP['base_dn'] ?? '';
 $member_group_cn = getenv('LDAP_GROUP_MEMBER_ORGS') ?: 'memberOrganizations';
 $disabled_group_cn = getenv('LDAP_GROUP_DISABLED_ORGS') ?: 'disabledOrganizations';
-$is_member_org = ($ldap_connection !== false && $base_dn !== '' && function_exists('isInStatusGroup') && isInStatusGroup($ldap_connection, $org_dn, $member_group_cn, $base_dn));
-$is_disabled_org = ($ldap_connection !== false && $base_dn !== '' && function_exists('isInStatusGroup') && isInStatusGroup($ldap_connection, $org_dn, $disabled_group_cn, $base_dn));
+$is_member_org = ($ldap_connection !== false && $base_dn !== '' && function_exists('is_in_status_group') && is_in_status_group($ldap_connection, $org_dn, $member_group_cn, $base_dn));
+$is_disabled_org = ($ldap_connection !== false && $base_dn !== '' && function_exists('is_in_status_group') && is_in_status_group($ldap_connection, $org_dn, $disabled_group_cn, $base_dn));
 $org_disabled = ($ldap_connection !== false && ldap_organization_is_disabled($ldap_connection, $org_name));
 $org_user_limit = ($ldap_connection !== false && function_exists('ldap_org_get_user_limit')) ? ldap_org_get_user_limit($ldap_connection, $org_name) : null;
 
@@ -685,8 +575,8 @@ if ($orgExists) {
 
   <nav aria-label="breadcrumb">
    <ol class="breadcrumb">
-    <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.dashboard.breadcrumb_dashboard'), ENT_QUOTES, 'UTF-8'); ?></a></li>
-    <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.common.organizations'), ENT_QUOTES, 'UTF-8'); ?></a></li>
+    <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.dashboard.breadcrumb_dashboard'), ENT_QUOTES, 'UTF-8'); ?></a></li>
+    <li class="breadcrumb-item"><a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.common.organizations'), ENT_QUOTES, 'UTF-8'); ?></a></li>
     <li class="breadcrumb-item active" aria-current="page"><?php print htmlspecialchars($org_name); ?></li>
    </ol>
   </nav>
@@ -862,7 +752,7 @@ if ($orgExists) {
        </tr>
       </table>
       
-      <h4><?php echo htmlspecialchars(t('manage.orgs.show.actions_heading'), ENT_QUOTES, 'UTF-8'); ?></h4>
+      <h4><?php echo htmlspecialchars(t('manage.common.actions'), ENT_QUOTES, 'UTF-8'); ?></h4>
         <?php
         $can_membership = currentUserIsGlobalAdmin() || currentUserIsMaintainer();
         $can_disable = currentUserCanDisableOrganization($org_name) || currentUserCanEnableOrganization($org_name);
@@ -871,8 +761,8 @@ if ($orgExists) {
         <div class="d-flex align-items-center justify-content-start flex-wrap gap-2">
             <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.common.user_actions_aria'), ENT_QUOTES, 'UTF-8'); ?>">
                 <?php if ($org_uuid !== '') : ?>
-                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info"><?php echo htmlspecialchars(t('manage.orgs.show.view_users'), ENT_QUOTES, 'UTF-8'); ?></a>
-                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/users/new/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-success"><?php echo htmlspecialchars(t('manage.orgs.show.add_user'), ENT_QUOTES, 'UTF-8'); ?></a>
+                    <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/organizations/' . urlencode($org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info"><?php echo htmlspecialchars(t('manage.orgs.show.view_users'), ENT_QUOTES, 'UTF-8'); ?></a>
+                    <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/organizations/' . urlencode($org_uuid) . '/users/new/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-success"><?php echo htmlspecialchars(t('manage.orgs.show.add_user'), ENT_QUOTES, 'UTF-8'); ?></a>
                 <?php endif; ?>
             </div>
 
@@ -928,77 +818,40 @@ if ($orgExists) {
                      <table class="table table-striped table-hover">
                       <thead>
                        <tr>
-                        <th><?php echo htmlspecialchars(t('manage.orgs.show.recent_name_header'), ENT_QUOTES, 'UTF-8'); ?></th>
+                        <th><?php echo htmlspecialchars(t('manage.common.name'), ENT_QUOTES, 'UTF-8'); ?></th>
                         <th><?php echo htmlspecialchars(t('manage.common.email'), ENT_QUOTES, 'UTF-8'); ?></th>
-                        <th><?php echo htmlspecialchars(t('manage.orgs.show.recent_manager_header'), ENT_QUOTES, 'UTF-8'); ?></th>
                         <th><?php echo htmlspecialchars(t('manage.common.status'), ENT_QUOTES, 'UTF-8'); ?></th>
+                        <th><?php echo htmlspecialchars(t('manage.common.manager'), ENT_QUOTES, 'UTF-8'); ?></th>
                         <th><?php echo htmlspecialchars(t('manage.common.actions'), ENT_QUOTES, 'UTF-8'); ?></th>
                        </tr>
                       </thead>
                       <tbody>
                        <?php
                         $recent_users = array_slice($org_users, 0, 5); // Show only first 5 users
-                        $orgManagerDns = getShowPageOrgManagerDns($org_name);
-                        $orgManagerCount = getShowPageOrgScopedManagerCount($org_name, $orgManagerDns);
+                        $orgManagerDns = org_get_manager_dns($org_name);
+                        $orgManagerCount = org_get_scoped_manager_count($org_name, $orgManagerDns);
                         foreach ($recent_users as $user) :
                             $userIdentifier = (string) ($user['entryUUID'] ?? $user['uid'] ?? '');
-                            $isManager = isset($user['dn']) && showPageDnInList((string) $user['dn'], $orgManagerDns);
+                            $isManager = isset($user['dn']) && org_dn_in_list((string) $user['dn'], $orgManagerDns);
                             $isLastManager = $isManager && $orgManagerCount <= 1;
-                            $userIsDisabled = ($ldap_connection !== false && isset($user['dn'])) ? ldap_user_is_disabled($ldap_connection, (string) $user['dn']) : false;
                             ?>
                         <tr>
-                         <td><?php print safe_display_name($user, 'cn', 'givenName', 'sn'); ?></td>
-                         <td><?php print htmlspecialchars($user['mail']); ?></td>
+                         <td><?php print safeDisplayName($user, 'cn', 'givenName', 'sn'); ?></td>
+                         <td><?php print htmlspecialchars((string) ($user['mail'] ?? '')); ?></td>
                          <td class="text-center">
-                            <form method="post" class="d-inline-flex align-items-center justify-content-center">
-                                <?= csrf_token_field() ?>
-                                <input type="hidden" name="action" value="toggle_recent_user_manager">
-                                <input type="hidden" name="user_identifier" value="<?php echo htmlspecialchars($userIdentifier, ENT_QUOTES, 'UTF-8'); ?>">
-                                <div class="form-check form-switch m-0">
-                                    <input class="form-check-input" type="checkbox" role="switch"
-                                           <?= $isManager ? 'checked' : '' ?>
-                                           <?= $isLastManager ? 'disabled' : '' ?>
-                                           onchange="this.form.submit()"
-                                           title="<?php echo htmlspecialchars($isLastManager ? t('manage.org_users.msg.cannot_remove_last_manager') : t('manage.common.toggle_manager_title'), ENT_QUOTES, 'UTF-8'); ?>"
-                                           aria-label="<?php echo htmlspecialchars(t('manage.common.org_manager'), ENT_QUOTES, 'UTF-8'); ?>">
-                                </div>
-                            </form>
+                            <?php
+                            if ($ldap_connection !== false && isset($user['dn'])) {
+                                renderOrgShowRecentStatusCell($ldap_connection, (string) $user['dn'], $userIdentifier, $org_disabled);
+                            } elseif ($org_disabled) {
+                                echo '<span class="badge bg-danger">' . htmlspecialchars(t('manage.common.inactive'), ENT_QUOTES, 'UTF-8') . '</span>';
+                            }
+                            ?>
                          </td>
                          <td class="text-center">
-                            <?php if ($org_disabled) : ?>
-                                <span class="badge bg-danger"><?php echo htmlspecialchars(t('manage.common.inactive'), ENT_QUOTES, 'UTF-8'); ?></span>
-                            <?php else : ?>
-                                <form method="post" class="d-inline-flex align-items-center justify-content-center">
-                                    <?= csrf_token_field() ?>
-                                    <input type="hidden" name="action" value="toggle_recent_user_active">
-                                    <input type="hidden" name="user_identifier" value="<?php echo htmlspecialchars($userIdentifier, ENT_QUOTES, 'UTF-8'); ?>">
-                                    <input type="hidden" name="target_state" value="<?php echo $userIsDisabled ? 'enable' : 'disable'; ?>">
-                                    <div class="form-check form-switch m-0">
-                                        <input class="form-check-input" type="checkbox" role="switch"
-                                               <?= !$userIsDisabled ? 'checked' : '' ?>
-                                               onchange="this.form.submit()"
-                                               title="<?php echo htmlspecialchars($userIsDisabled ? t('manage.common.activate') : t('manage.common.deactivate'), ENT_QUOTES, 'UTF-8'); ?>"
-                                               aria-label="<?php echo htmlspecialchars(t('manage.common.status'), ENT_QUOTES, 'UTF-8'); ?>">
-                                    </div>
-                                </form>
-                            <?php endif; ?>
+                            <?php renderOrgShowRecentManagerToggle($userIdentifier, $isManager, $isLastManager); ?>
                          </td>
                          <td>
-                                <div class="d-inline-flex align-items-center flex-wrap gap-1">
-                                    <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.common.user_actions_aria'), ENT_QUOTES, 'UTF-8'); ?>">
-                                        <?php if ($org_uuid !== '' && isset($user['entryUUID'])) : ?>
-                                            <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/users/?edit_user=' . urlencode((string) $user['entryUUID']), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary btn-sm"><?php echo htmlspecialchars(t('manage.common.edit'), ENT_QUOTES, 'UTF-8'); ?></a>
-                                        <?php endif; ?>
-                                    </div>
-                                    <div class="vr"></div>
-                                    <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?>">
-                                        <?php if ($isManager) : ?>
-                                            <button type="button" class="btn btn-danger btn-sm" disabled title="<?php echo htmlspecialchars(t('manage.org_users.msg.cannot_delete_org_manager'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
-                                        <?php else : ?>
-                                            <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteUser('<?php echo htmlspecialchars($user['entryUUID'] ?? $user['mail'] ?? $user['cn']); ?>')"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
+                            <?php renderOrgShowRecentUserActions($org_uuid, $user, $isManager); ?>
                          </td>
                        </tr>
                         <?php endforeach; ?>
@@ -1007,7 +860,7 @@ if ($orgExists) {
                     </div>
                     <div class="text-center mt-3">
                         <?php if ($org_uuid !== '') : ?>
-                            <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.orgs.show.view_all_users'), ENT_QUOTES, 'UTF-8'); ?></a>
+                            <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/organizations/' . urlencode($org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.orgs.show.view_all_users'), ENT_QUOTES, 'UTF-8'); ?></a>
                         <?php endif; ?>
                     </div>
           <?php if (count($org_users) > 5) { ?>
@@ -1057,7 +910,7 @@ if ($orgExists) {
    <div class="card-header text-center"><?php echo htmlspecialchars(t('manage.orgs.show.edit_organization_form_heading'), ENT_QUOTES, 'UTF-8'); ?></div>
    <div class="card-body text-center">
     <form class="form-horizontal" action="" method="post">
-        <?= csrf_token_field() ?>
+        <?= csrfTokenField() ?>
      <input type="hidden" name="update_organization">
      
         <?php
@@ -1291,7 +1144,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <?php
 // Disable/Enable Confirmation Modals
-render_confirm_modal(
+renderConfirmModal(
     'disableModal',
     t('manage.orgs.show.modal.deactivate_title'),
     t('manage.orgs.show.modal.deactivate_body'),
@@ -1302,7 +1155,7 @@ render_confirm_modal(
     t('manage.orgs.show.modal.deactivate_submit'),
     'btn-warning'
 );
-render_confirm_modal(
+renderConfirmModal(
     'enableModal',
     t('manage.orgs.show.modal.activate_title'),
     t('manage.orgs.show.modal.activate_body'),
@@ -1314,7 +1167,7 @@ render_confirm_modal(
     'btn-success'
 );
 
-render_confirm_modal(
+renderConfirmModal(
     'memberModal',
     t('manage.orgs.show.modal.member_title'),
     t('manage.orgs.show.modal.member_body'),
@@ -1326,7 +1179,7 @@ render_confirm_modal(
     'btn-secondary'
 );
 
-render_confirm_modal(
+renderConfirmModal(
     'unmemberModal',
     t('manage.orgs.show.modal.unmember_title'),
     t('manage.orgs.show.modal.unmember_body'),
@@ -1338,7 +1191,7 @@ render_confirm_modal(
     'btn-secondary'
 );
 
-render_confirm_modal(
+renderConfirmModal(
     'deleteModal',
     t('manage.orgs.show.modal.delete_title'),
     t('manage.orgs.show.modal.delete_body'),
@@ -1352,7 +1205,7 @@ render_confirm_modal(
 );
 ?>
 
-<script src="<?php print get_asset_base(); ?>js/modals.js"></script>
+<script src="<?php print getAssetBase(); ?>js/modals.js"></script>
 <script>
 function confirmDisableOrganization(orgName) {
     confirmAction('disableModal', { disableOrgName: orgName, disableOrgNameInput: orgName });
@@ -1372,6 +1225,6 @@ function confirmDeleteOrganization(orgName, orgUuid) {
 </script>
 
 <?php
-render_footer();
+renderFooter();
 
 ?> 

@@ -5,8 +5,8 @@
  * only a minimal "Setup complete" page and exit. No LDAP connection, no
  * verification details, no links to run_checks/ldap/verify.
  *
- * Must be included after web_functions.inc.php (so render_header, render_footer,
- * get_base_url / $SERVER_PATH are available).
+ * Must be included after web_functions.inc.php (so renderHeader, renderFooter,
+ * getBaseUrl / $SERVER_PATH are available).
  */
 
 declare(strict_types=1);
@@ -17,7 +17,7 @@ if (!is_setup_locked()) {
     return;
 }
 
-render_header('Account manager – Setup');
+renderHeader('Account manager – Setup');
 ?>
 <div class="container">
   <div class="card border-success">
@@ -27,11 +27,11 @@ render_header('Account manager – Setup');
     </div>
   </div>
   <div class="p-3 bg-light rounded">
-    <form action="<?php print get_base_url(); ?>login/">
+    <form action="<?php print getBaseUrl(); ?>login/">
       <input type="submit" class="btn btn-success d-block mx-auto" value="Go to Login">
     </form>
   </div>
 </div>
 <?php
-render_footer();
+renderFooter();
 exit;

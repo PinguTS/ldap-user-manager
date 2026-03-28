@@ -7,12 +7,12 @@ session_start();
 
 include_once "web_functions.inc.php";
 
-render_header((string) $ORGANISATION_NAME . ' - ' . t('nav.request_account'));
+renderHeader((string) $ORGANISATION_NAME . ' - ' . t('nav.request_account'));
 
 if ($ACCOUNT_REQUESTS_ENABLED == false) {
     ?><div class='alert alert-warning'><p class='text-center'><?php echo htmlspecialchars(t('account.request.disabled'), ENT_QUOTES, 'UTF-8'); ?></p></div><?php
 
-render_footer();
+renderFooter();
 exit(0);
 }
 
@@ -109,7 +109,7 @@ if ($_POST) {
        </div>
             <?php
         }
-        render_footer();
+        renderFooter();
         exit(0);
     }
 }
@@ -174,4 +174,4 @@ if ($_POST) {
 </div>
 
 <?php
-render_footer();
+renderFooter();

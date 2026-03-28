@@ -895,7 +895,7 @@ function ldap_ensure_status_group($ldap_connection, string $groupCn, string $bas
  * @param string                    $baseDn           LDAP base DN
  * @return bool
  */
-function isInStatusGroup($ldap_connection, string $entryDn, string $groupCn, string $baseDn): bool
+function is_in_status_group($ldap_connection, string $entryDn, string $groupCn, string $baseDn): bool
 {
     $groupDn = 'cn=' . ldap_escape($groupCn, '', LDAP_ESCAPE_DN)
         . ',ou=roles,' . $baseDn;
@@ -914,7 +914,7 @@ function isInStatusGroup($ldap_connection, string $entryDn, string $groupCn, str
  * @param string                    $baseDn            LDAP base DN
  * @return bool
  */
-function addToStatusGroup($ldap_connection, string $entryDn, string $groupCn, string $baseDn): bool
+function add_to_status_group($ldap_connection, string $entryDn, string $groupCn, string $baseDn): bool
 {
     $groupDn = 'cn=' . ldap_escape($groupCn, '', LDAP_ESCAPE_DN)
         . ',ou=roles,' . $baseDn;
@@ -928,7 +928,7 @@ function addToStatusGroup($ldap_connection, string $entryDn, string $groupCn, st
     }
 
     // Idempotency: if already member, treat as success.
-    if (isInStatusGroup($ldap_connection, $entryDn, $groupCn, $baseDn)) {
+    if (is_in_status_group($ldap_connection, $entryDn, $groupCn, $baseDn)) {
         return true;
     }
 
@@ -940,7 +940,36 @@ function addToStatusGroup($ldap_connection, string $entryDn, string $groupCn, st
 }
 
 /**
+ * Member DNs from an ldap_get_entries() row for groupOfNames (single or multi-valued member).
+ *
+ * @param array<string, mixed> $entry
+ * @return list<string>
+ */
+function status_group_member_dns_from_ldap_entry(array $entry): array
+{
+    if (!isset($entry['member'])) {
+        return [];
+    }
+    $m = $entry['member'];
+    $out = [];
+    if (isset($m['count'])) {
+        $n = (int) $m['count'];
+        for ($i = 0; $i < $n; $i++) {
+            if (isset($m[$i]) && is_string($m[$i]) && $m[$i] !== '') {
+                $out[] = $m[$i];
+            }
+        }
+    } elseif (isset($m[0]) && is_string($m[0]) && $m[0] !== '') {
+        $out[] = $m[0];
+    }
+
+    return $out;
+}
+
+/**
  * Remove an entry from a status group.
+ * groupOfNames requires at least one member: if this is the last member, the whole group entry is deleted.
+ * The group is recreated on next add (see ldap_ensure_status_group / add_to_status_group).
  *
  * @param resource|\LDAP\Connection $ldap_connection Active LDAP connection
  * @param string                    $entryDn          Full DN of the entry to remove
@@ -948,7 +977,7 @@ function addToStatusGroup($ldap_connection, string $entryDn, string $groupCn, st
  * @param string                    $baseDn            LDAP base DN
  * @return bool
  */
-function removeFromStatusGroup($ldap_connection, string $entryDn, string $groupCn, string $baseDn): bool
+function remove_from_status_group($ldap_connection, string $entryDn, string $groupCn, string $baseDn): bool
 {
     $groupDn = 'cn=' . ldap_escape($groupCn, '', LDAP_ESCAPE_DN)
         . ',ou=roles,' . $baseDn;
@@ -957,19 +986,52 @@ function removeFromStatusGroup($ldap_connection, string $entryDn, string $groupC
         return false;
     }
 
-    if (!ldap_ensure_status_group($ldap_connection, $groupCn, $baseDn, 'Status group (auto-created)')) {
+    // Do not call ldap_ensure_status_group here — removing membership must not create an empty group first.
+    if (!is_in_status_group($ldap_connection, $entryDn, $groupCn, $baseDn)) {
+        return true;
+    }
+
+    $read = @ldap_read($ldap_connection, $groupDn, '(objectClass=groupOfNames)', ['member']);
+    if (!$read || ldap_count_entries($ldap_connection, $read) === 0) {
+        return true;
+    }
+
+    $entries = ldap_get_entries($ldap_connection, $read);
+    if (!is_array($entries) || ($entries['count'] ?? 0) < 1) {
         return false;
     }
 
-    // Idempotency: if not member, treat as success.
-    if (!isInStatusGroup($ldap_connection, $entryDn, $groupCn, $baseDn)) {
+    $groupEntry = $entries[0];
+    if (!is_array($groupEntry)) {
+        return false;
+    }
+
+    $members = status_group_member_dns_from_ldap_entry($groupEntry);
+    $userIsMember = false;
+    foreach ($members as $mDn) {
+        if (strcasecmp($mDn, $entryDn) === 0) {
+            $userIsMember = true;
+            break;
+        }
+    }
+    if (!$userIsMember) {
         return true;
+    }
+
+    if (count($members) === 1) {
+        $ok = @ldap_delete($ldap_connection, $groupDn);
+        if (!$ok) {
+            ldap_log_ldap_failure($ldap_connection, "delete last-member status group {$groupDn}");
+        }
+
+        return (bool) $ok;
     }
 
     $ok = @ldap_mod_del($ldap_connection, $groupDn, ['member' => [$entryDn]]);
     if (!$ok) {
         ldap_log_ldap_failure($ldap_connection, "remove member {$entryDn} from {$groupDn}");
     }
+
     return (bool) $ok;
 }
 
@@ -1038,7 +1100,7 @@ function ldap_user_is_individually_disabled($ldap_connection, $user_dn): bool
     }
 
     $disabled_accounts_cn = getenv('LDAP_GROUP_DISABLED_ACCOUNTS') ?: 'disabledAccounts';
-    return isInStatusGroup($ldap_connection, $user_dn, $disabled_accounts_cn, $org_dn);
+    return is_in_status_group($ldap_connection, $user_dn, $disabled_accounts_cn, $org_dn);
 }
 
 ##################################
@@ -2222,7 +2284,7 @@ function ldap_remove_user_from_all_groups($ldap_connection, $user_dn)
  * @param array<string, mixed> $ldapEntry LDAP entry array for the user (with pwdaccountlockedtime)
  * @return bool
  */
-function isUserAccountDisabled(array $ldapEntry): bool
+function is_user_account_disabled(array $ldapEntry): bool
 {
     $lockTime = $ldapEntry['pwdaccountlockedtime'][0] ?? '';
 
@@ -2236,7 +2298,7 @@ function isUserAccountDisabled(array $ldapEntry): bool
  * @param string                    $dn               Full DN of the user entry
  * @return bool
  */
-function disableUserAccount($ldap_connection, string $dn): bool
+function disable_user_account($ldap_connection, string $dn): bool
 {
     $result = @ldap_mod_add($ldap_connection, $dn, ['pwdAccountLockedTime' => ['000001010000Z']]);
     if ($result && function_exists('auditLog')) {
@@ -2253,7 +2315,7 @@ function disableUserAccount($ldap_connection, string $dn): bool
  * @param string                    $dn               Full DN of the user entry
  * @return bool
  */
-function enableUserAccount($ldap_connection, string $dn): bool
+function enable_user_account($ldap_connection, string $dn): bool
 {
     $result = @ldap_mod_del($ldap_connection, $dn, ['pwdAccountLockedTime' => []]);
     if ($result && function_exists('auditLog')) {
@@ -2345,7 +2407,7 @@ function ldap_organization_is_disabled($ldap_connection, $org_name)
     $disabled_group_cn = getenv('LDAP_GROUP_DISABLED_ORGS') ?: 'disabledOrganizations';
 
     // Disabled when the organization DN is a member of the disabledOrganizations status group
-    if ($base_dn !== '' && function_exists('isInStatusGroup') && isInStatusGroup($ldap_connection, $org_dn, $disabled_group_cn, $base_dn)) {
+    if ($base_dn !== '' && function_exists('is_in_status_group') && is_in_status_group($ldap_connection, $org_dn, $disabled_group_cn, $base_dn)) {
         if ($LDAP_DEBUG) {
             error_log("$log_prefix Organization $org_name is disabled via status group: $disabled_group_cn");
         }
@@ -2378,7 +2440,7 @@ function ldap_disable_user_account($ldap_connection, $user_dn)
         $org_dn = ldap_get_org_dn_for_user($user_dn);
         if ($org_dn !== '') {
             $disabled_accounts_cn = getenv('LDAP_GROUP_DISABLED_ACCOUNTS') ?: 'disabledAccounts';
-            addToStatusGroup($ldap_connection, $user_dn, $disabled_accounts_cn, $org_dn);
+            add_to_status_group($ldap_connection, $user_dn, $disabled_accounts_cn, $org_dn);
         }
         return true;
     }
@@ -2400,7 +2462,7 @@ function ldap_disable_user_account($ldap_connection, $user_dn)
     $org_dn = ldap_get_org_dn_for_user($user_dn);
     if ($org_dn !== '') {
         $disabled_accounts_cn = getenv('LDAP_GROUP_DISABLED_ACCOUNTS') ?: 'disabledAccounts';
-        addToStatusGroup($ldap_connection, $user_dn, $disabled_accounts_cn, $org_dn);
+        add_to_status_group($ldap_connection, $user_dn, $disabled_accounts_cn, $org_dn);
     }
 
     return true;
@@ -2428,7 +2490,7 @@ function ldap_enable_user_account($ldap_connection, $user_dn)
     $org_dn = ldap_get_org_dn_for_user($user_dn);
     if ($org_dn !== '') {
         $disabled_accounts_cn = getenv('LDAP_GROUP_DISABLED_ACCOUNTS') ?: 'disabledAccounts';
-        removeFromStatusGroup($ldap_connection, $user_dn, $disabled_accounts_cn, $org_dn);
+        remove_from_status_group($ldap_connection, $user_dn, $disabled_accounts_cn, $org_dn);
     }
 
     // If the organization is still disabled, keep pwdAccountLockedTime set
@@ -2479,12 +2541,12 @@ function ldap_disable_organization($ldap_connection, $org_name)
     $base_dn = $LDAP['base_dn'] ?? '';
     $disabled_group_cn = getenv('LDAP_GROUP_DISABLED_ORGS') ?: 'disabledOrganizations';
 
-    if ($base_dn === '' || !function_exists('addToStatusGroup')) {
-        error_log("$log_prefix Cannot disable organization $org_name: status group helpers not available (base_dn missing or addToStatusGroup unavailable)");
+    if ($base_dn === '' || !function_exists('add_to_status_group')) {
+        error_log("$log_prefix Cannot disable organization $org_name: status group helpers not available (base_dn missing or add_to_status_group unavailable)");
         return false;
     }
 
-    $ok = addToStatusGroup($ldap_connection, $org_dn, $disabled_group_cn, $base_dn);
+    $ok = add_to_status_group($ldap_connection, $org_dn, $disabled_group_cn, $base_dn);
     if (!$ok) {
         return false;
     }
@@ -2545,12 +2607,12 @@ function ldap_enable_organization($ldap_connection, $org_name)
     $base_dn = $LDAP['base_dn'] ?? '';
     $disabled_group_cn = getenv('LDAP_GROUP_DISABLED_ORGS') ?: 'disabledOrganizations';
 
-    if ($base_dn === '' || !function_exists('removeFromStatusGroup')) {
-        error_log("$log_prefix Cannot enable organization $org_name: status group helpers not available (base_dn missing or removeFromStatusGroup unavailable)");
+    if ($base_dn === '' || !function_exists('remove_from_status_group')) {
+        error_log("$log_prefix Cannot enable organization $org_name: status group helpers not available (base_dn missing or remove_from_status_group unavailable)");
         return false;
     }
 
-    $ok = removeFromStatusGroup($ldap_connection, $org_dn, $disabled_group_cn, $base_dn);
+    $ok = remove_from_status_group($ldap_connection, $org_dn, $disabled_group_cn, $base_dn);
     if (!$ok) {
         return false;
     }
@@ -2571,7 +2633,7 @@ function ldap_enable_organization($ldap_connection, $org_name)
         $users = ldap_get_entries($ldap_connection, $user_search);
         for ($i = 0; $i < $users['count']; $i++) {
             $u_dn = $users[$i]['dn'];
-            if (isInStatusGroup($ldap_connection, $u_dn, $disabled_accounts_cn, $org_dn)) {
+            if (is_in_status_group($ldap_connection, $u_dn, $disabled_accounts_cn, $org_dn)) {
                 $still_disabled++;
             } else {
                 @ldap_modify($ldap_connection, $u_dn, ['pwdAccountLockedTime' => []]);
@@ -2747,9 +2809,9 @@ function ldap_delete_organization($ldap_connection, $org_name, $org_uuid = '')
     $disabled_group_cn = getenv('LDAP_GROUP_DISABLED_ORGS') ?: 'disabledOrganizations';
     $member_group_cn = getenv('LDAP_GROUP_MEMBER_ORGS') ?: 'memberOrganizations';
 
-    if ($base_dn !== '' && function_exists('removeFromStatusGroup')) {
-        @removeFromStatusGroup($ldap_connection, $org_dn, $disabled_group_cn, $base_dn);
-        @removeFromStatusGroup($ldap_connection, $org_dn, $member_group_cn, $base_dn);
+    if ($base_dn !== '' && function_exists('remove_from_status_group')) {
+        @remove_from_status_group($ldap_connection, $org_dn, $disabled_group_cn, $base_dn);
+        @remove_from_status_group($ldap_connection, $org_dn, $member_group_cn, $base_dn);
     }
 
     if (!ldap_delete_subtree($ldap_connection, $org_dn)) {

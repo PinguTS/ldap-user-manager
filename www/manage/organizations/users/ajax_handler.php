@@ -32,7 +32,7 @@ if ($ajax_debug) {
 }
 
 require_once "bootstrap_manage.inc.php";
-bootstrap_manage(['ldap', 'organization', 'user']);
+bootstrapManage(['ldap', 'organization', 'user']);
 
 // Security: Only allow AJAX requests
 if (!isset($_SERVER['HTTP_X_REQUESTED_WITH']) || strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) !== 'xmlhttprequest') {
@@ -164,8 +164,7 @@ if ($is_uuid) {
         ];
     }
 } else {
-    // Legacy uid-based lookup
-    $existingUsers = getUsersInOrg($orgName);
+    $existingUsers = getOrganizationUsers($orgName);
     if (is_array($existingUsers)) {
         foreach ($existingUsers as $user) {
             if (strtolower(get_ldap_attribute($user, 'uid')) === strtolower($fetchUserParam)) {

@@ -198,6 +198,10 @@ function confirmDeleteOrganization(orgName, orgUuid = '') {
  * @param {string} tableId - ID of the table to search
  */
 function initializeUserSearch(searchInputId = 'user_search_input', tableId = 'user_table') {
+    if (typeof initializeTableSearch === 'function') {
+        initializeTableSearch(searchInputId, tableId, { event: 'keyup' });
+        return;
+    }
     const searchInput = document.getElementById(searchInputId);
     if (searchInput) {
         searchInput.addEventListener('keyup', function() {

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 set_include_path(".:" . __DIR__ . "/../../includes/");
 require_once "bootstrap_manage.inc.php";
-bootstrap_manage(['ldap', 'organization']);
+bootstrapManage(['ldap', 'organization']);
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $org_dn = "o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
                     $member_group_cn_post = getenv('LDAP_GROUP_MEMBER_ORGS') ?: 'memberOrganizations';
                     $base_dn = $LDAP['base_dn'] ?? '';
-                    if ($base_dn !== '' && function_exists('addToStatusGroup') && addToStatusGroup($ldap_connection, $org_dn, $member_group_cn_post, $base_dn)) {
+                    if ($base_dn !== '' && function_exists('add_to_status_group') && add_to_status_group($ldap_connection, $org_dn, $member_group_cn_post, $base_dn)) {
                         $message = t('manage.orgs.msg.member_ok', ['org' => $org_name]);
                         $message_type = 'success';
                     } else {
@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $org_dn = "o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
                     $member_group_cn_post = getenv('LDAP_GROUP_MEMBER_ORGS') ?: 'memberOrganizations';
                     $base_dn = $LDAP['base_dn'] ?? '';
-                    if ($base_dn !== '' && function_exists('removeFromStatusGroup') && removeFromStatusGroup($ldap_connection, $org_dn, $member_group_cn_post, $base_dn)) {
+                    if ($base_dn !== '' && function_exists('remove_from_status_group') && remove_from_status_group($ldap_connection, $org_dn, $member_group_cn_post, $base_dn)) {
                         $message = t('manage.orgs.msg.unmember_ok', ['org' => $org_name]);
                         $message_type = 'success';
                     } else {
@@ -116,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 }
 
 // Use the enhanced access control function
-set_page_access(["admin", "maintainer", "org_admin"]);
+setPageAccess(["admin", "maintainer", "org_admin"]);
 
 // Get user's access level for UI customization
 $is_global_admin = currentUserIsGlobalAdmin();
@@ -135,7 +135,7 @@ if (!$is_global_admin && !$is_maintainer) {
     }
 }
 
-render_header(t('manage.orgs.page_title', ['org' => $ORGANISATION_NAME ?? 'System']));
+renderHeader(t('manage.orgs.page_title', ['org' => $ORGANISATION_NAME ?? 'System']));
 render_submenu();
 
 // Get all organizations for display
@@ -171,7 +171,7 @@ $base_dn = $LDAP['base_dn'] ?? '';
             <?php if (currentUserCanCreateOrganization()) : ?>
             <div class="row mb-3">
                 <div class="col-md-12">
-                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/new/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-success">
+                    <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/organizations/new/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-success">
                         <i class="bi bi-plus-lg"></i> <?php echo htmlspecialchars(t('manage.orgs.add_new'), ENT_QUOTES, 'UTF-8'); ?>
                     </a>
                 </div>
@@ -231,8 +231,8 @@ $base_dn = $LDAP['base_dn'] ?? '';
                                                     <?php endif; ?>
                                                     <?php
                                                     $org_dn = $org['dn'] ?? '';
-                                                    $is_member = ($ldap_connection && $base_dn !== '' && $org_dn !== '' && function_exists('isInStatusGroup') && isInStatusGroup($ldap_connection, $org_dn, $member_group_cn, $base_dn));
-                                                    $is_disabled = ($ldap_connection && $base_dn !== '' && $org_dn !== '' && function_exists('isInStatusGroup') && isInStatusGroup($ldap_connection, $org_dn, $disabled_group_cn, $base_dn));
+                                                    $is_member = ($ldap_connection && $base_dn !== '' && $org_dn !== '' && function_exists('is_in_status_group') && is_in_status_group($ldap_connection, $org_dn, $member_group_cn, $base_dn));
+                                                    $is_disabled = ($ldap_connection && $base_dn !== '' && $org_dn !== '' && function_exists('is_in_status_group') && is_in_status_group($ldap_connection, $org_dn, $disabled_group_cn, $base_dn));
                                                     $org_disabled = ($ldap_connection && ldap_organization_is_disabled($ldap_connection, $org_name));
                                                     ?>
                                                     <?php if ($is_member) : ?>
@@ -276,7 +276,7 @@ $base_dn = $LDAP['base_dn'] ?? '';
                                             <?php
                                             $use_uuid = ($LDAP['use_uuid_identification'] && isset($org['entryUUID']));
                                             $org_uuid_val = $use_uuid ? (string) $org['entryUUID'] : '';
-                                            $can_membership = (currentUserIsGlobalAdmin() || currentUserIsMaintainer()) && $ldap_connection && $base_dn !== '' && $org_dn !== '' && function_exists('isInStatusGroup');
+                                            $can_membership = (currentUserIsGlobalAdmin() || currentUserIsMaintainer()) && $ldap_connection && $base_dn !== '' && $org_dn !== '' && function_exists('is_in_status_group');
                                             $can_disable = currentUserCanDisableOrganization($org_name);
                                             $can_delete = currentUserCanDeleteOrganization($org_name);
                                             ?>
@@ -284,8 +284,8 @@ $base_dn = $LDAP['base_dn'] ?? '';
                                             <div class="d-flex align-items-center justify-content-end flex-wrap gap-2" style="min-width: 260px;">
                                                 <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.orgs.index.aria.view_users'), ENT_QUOTES, 'UTF-8'); ?>">
                                                     <?php if ($use_uuid) : ?>
-                                                        <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid_val) . '/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info"><?php echo htmlspecialchars(t('manage.common.view'), ENT_QUOTES, 'UTF-8'); ?></a>
-                                                        <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/' . urlencode($org_uuid_val) . '/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary"><?php echo htmlspecialchars(t('manage.common.users'), ENT_QUOTES, 'UTF-8'); ?></a>
+                                                        <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/organizations/' . urlencode($org_uuid_val) . '/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info"><?php echo htmlspecialchars(t('manage.common.view'), ENT_QUOTES, 'UTF-8'); ?></a>
+                                                        <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/organizations/' . urlencode($org_uuid_val) . '/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary"><?php echo htmlspecialchars(t('manage.common.users'), ENT_QUOTES, 'UTF-8'); ?></a>
                                                     <?php else : ?>
                                                         <?php /* UUID-only canonical routing: do not link by name. */ ?>
                                                     <?php endif; ?>
@@ -334,7 +334,7 @@ $base_dn = $LDAP['base_dn'] ?? '';
 
 <!-- Delete Confirmation Modal -->
 <?php
-render_confirm_modal(
+renderConfirmModal(
     'deleteModal',
     t('manage.orgs.show.modal.delete_title'),
     t('manage.orgs.show.modal.delete_body'),
@@ -346,7 +346,7 @@ render_confirm_modal(
     t('manage.orgs.show.modal.delete_submit'),
     'btn-danger'
 );
-render_confirm_modal(
+renderConfirmModal(
     'disableModal',
     t('manage.orgs.show.modal.deactivate_title'),
     t('manage.orgs.show.modal.deactivate_body'),
@@ -358,7 +358,7 @@ render_confirm_modal(
     t('manage.orgs.show.modal.deactivate_submit'),
     'btn-warning'
 );
-render_confirm_modal(
+renderConfirmModal(
     'enableModal',
     t('manage.orgs.show.modal.activate_title'),
     t('manage.orgs.show.modal.activate_body'),
@@ -371,7 +371,7 @@ render_confirm_modal(
     'btn-success'
 );
 
-render_confirm_modal(
+renderConfirmModal(
     'memberModal',
     t('manage.orgs.show.modal.member_title'),
     t('manage.orgs.show.modal.member_body'),
@@ -384,7 +384,7 @@ render_confirm_modal(
     'btn-secondary'
 );
 
-render_confirm_modal(
+renderConfirmModal(
     'unmemberModal',
     t('manage.orgs.show.modal.unmember_title'),
     t('manage.orgs.show.modal.unmember_body'),
@@ -398,7 +398,7 @@ render_confirm_modal(
 );
 ?>
 
-<script src="<?php print get_asset_base(); ?>js/modals.js"></script>
+<script src="<?php print getAssetBase(); ?>js/modals.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const searchInput = document.getElementById('org_search_input');
@@ -444,5 +444,5 @@ if (isset($ldap_connection) && $ldap_connection) {
     ldap_close($ldap_connection);
 }
 
-render_footer();
+renderFooter();
 ?> 

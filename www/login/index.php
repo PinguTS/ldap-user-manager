@@ -17,9 +17,9 @@ if (function_exists('checkRuntimeRoleConflicts') && checkRuntimeRoleConflicts())
 // Handle login POST before any output
 if (isset($_POST["user_id"]) && isset($_POST["password"])) {
   // Check rate limiting before attempting authentication
-    if (is_rate_limited($_POST["user_id"])) {
+    if (isRateLimited($_POST["user_id"])) {
         http_response_code(429); // Too Many Requests
-        header("Location: " . get_base_url() . "login/?rate_limited");
+        header("Location: " . getBaseUrl() . "login/?rate_limited");
         exit;
     }
 
@@ -28,12 +28,12 @@ if (isset($_POST["user_id"]) && isset($_POST["password"])) {
 
     if ($user_dn === false) {
       // Record failed login attempt
-        record_login_attempt($_POST["user_id"], false);
+        recordLoginAttempt($_POST["user_id"], false);
 
         ldap_close($ldap_connection);
 
       // If we get here, the login failed
-        header("Location: " . get_base_url() . "login/?invalid");
+        header("Location: " . getBaseUrl() . "login/?invalid");
         exit;
     }
 
@@ -42,10 +42,10 @@ if (isset($_POST["user_id"]) && isset($_POST["password"])) {
     if ($user_entry_read) {
         $user_entries = ldap_get_entries($ldap_connection, $user_entry_read);
         $first_entry = isset($user_entries[0]) && is_array($user_entries[0]) ? $user_entries[0] : [];
-        if ($user_entries['count'] > 0 && $first_entry !== [] && function_exists('isUserAccountDisabled') && isUserAccountDisabled($first_entry)) {
-            record_login_attempt($_POST["user_id"], false);
+        if ($user_entries['count'] > 0 && $first_entry !== [] && function_exists('is_user_account_disabled') && is_user_account_disabled($first_entry)) {
+            recordLoginAttempt($_POST["user_id"], false);
             ldap_close($ldap_connection);
-            header("Location: " . get_base_url() . "login/?account_disabled");
+            header("Location: " . getBaseUrl() . "login/?account_disabled");
             exit;
         }
     }
@@ -53,12 +53,12 @@ if (isset($_POST["user_id"]) && isset($_POST["password"])) {
   // Check if user account is disabled (org disable or direct disable)
     if (ldap_user_is_disabled($ldap_connection, $user_dn)) {
       // Record failed login attempt for disabled account
-        record_login_attempt($_POST["user_id"], false);
+        recordLoginAttempt($_POST["user_id"], false);
 
         ldap_close($ldap_connection);
 
       // Redirect with disabled account message
-        header("Location: " . get_base_url() . "login/?account_disabled");
+        header("Location: " . getBaseUrl() . "login/?account_disabled");
         exit;
     }
 
@@ -172,17 +172,17 @@ if (isset($_POST["user_id"]) && isset($_POST["password"])) {
     ldap_close($ldap_connection);
 
   // Record successful login attempt
-    record_login_attempt($_POST["user_id"], true);
+    recordLoginAttempt($_POST["user_id"], true);
 
   // Use UUID for cookie data when available, fallback to username
     $cookie_user_id = $user_uuid ?: $_POST["user_id"];
-    set_passkey_cookie($cookie_user_id, $is_admin, $is_maintainer, $is_org_admin, $user_org_name, $org_uuid);
+    setPasskeyCookie($cookie_user_id, $is_admin, $is_maintainer, $is_org_admin, $user_org_name, $org_uuid);
 
     if (isset($_POST["redirect_to"])) {
-        $validated_redirect = validate_redirect_url($_POST['redirect_to']);
+        $validated_redirect = validateRedirectUrl($_POST['redirect_to']);
         if ($validated_redirect !== false) {
-            $redirect_url = get_base_url() . ltrim($validated_redirect, '/');
-            $auth_tok = create_one_time_auth_token($cookie_user_id, $is_admin, $is_maintainer, $is_org_admin, $user_org_name, $org_uuid, $login_display_name);
+            $redirect_url = getBaseUrl() . ltrim($validated_redirect, '/');
+            $auth_tok = createOneTimeAuthToken($cookie_user_id, $is_admin, $is_maintainer, $is_org_admin, $user_org_name, $org_uuid, $login_display_name);
             $redirect_url .= (strpos($redirect_url, '?') !== false ? '&' : '?') . 'auth_tok=' . $auth_tok;
             header("Content-Type: text/html; charset=utf-8");
             header("Cache-Control: no-store, no-cache, must-revalidate");
@@ -216,17 +216,17 @@ if (isset($_POST["user_id"]) && isset($_POST["password"])) {
 
   // Reconstruct URL using base URL (ensures valid redirect with slash between host and path)
     if (strpos($default_module, '?') !== false) {
-        $redirect_url = get_base_url() . $default_module . "&logged_in";
+        $redirect_url = getBaseUrl() . $default_module . "&logged_in";
         if ($LDAP_DEBUG) {
             error_log("Login: Using & separator for logged_in (module has existing query params)");
         }
     } else {
-        $redirect_url = get_base_url() . $default_module . "?logged_in";
+        $redirect_url = getBaseUrl() . $default_module . "?logged_in";
         if ($LDAP_DEBUG) {
             error_log("Login: Using ? separator for logged_in (module has no query params)");
         }
     }
-    $auth_tok = create_one_time_auth_token($cookie_user_id, $is_admin, $is_maintainer, $is_org_admin, $user_org_name, $org_uuid, $login_display_name);
+    $auth_tok = createOneTimeAuthToken($cookie_user_id, $is_admin, $is_maintainer, $is_org_admin, $user_org_name, $org_uuid, $login_display_name);
     $redirect_url .= (strpos($redirect_url, '?') !== false ? '&' : '?') . 'auth_tok=' . $auth_tok;
 
     if ($LDAP_DEBUG) {
@@ -261,7 +261,7 @@ if (isset($_GET["redirect_to"])) {
     $redirect_to = $_GET["redirect_to"];
 }
 
-render_header(t('login.page_title', ['org' => $ORGANISATION_NAME]));
+renderHeader(t('login.page_title', ['org' => $ORGANISATION_NAME]));
 
 ?>
 <div class="container">
@@ -277,7 +277,7 @@ render_header(t('login.page_title', ['org' => $ORGANISATION_NAME]));
    </div>
    <?php } ?>
 
-   <?php render_language_chooser_inline(); ?>
+   <?php renderLanguageChooserInline(); ?>
 
    <?php if (isset($display_unauth)) { ?>
    <div class="alert alert-warning">
@@ -337,5 +337,5 @@ render_header(t('login.page_title', ['org' => $ORGANISATION_NAME]));
  </div>
 </div>
 <?php
-render_footer();
+renderFooter();
 ?>

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 set_include_path(".:" . __DIR__ . "/../../includes/");
 require_once "bootstrap_manage.inc.php";
-bootstrap_manage(['ldap']);
+bootstrapManage(['ldap']);
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
@@ -85,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     // Convert UUID to account identifier for delete operation
                     $user_entry = ldap_get_entry_by_uuid($ldap_connection, $this_user, $LDAP['people_dn']);
                     if (!$user_entry || !isset($user_entry['uid'][0])) {
-                        render_alert_banner(t('manage.users.msg.user_not_found'), "danger");
+                        renderAlertBanner(t('manage.users.msg.user_not_found'), "danger");
                         return;
                     }
                     $this_user = $user_entry['uid'][0];
@@ -97,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
                 // Prevent self-deletion
                 if ($this_user === $USER_ID) {
-                    render_alert_banner(t('manage.users.msg.cannot_delete_self'), "danger");
+                    renderAlertBanner(t('manage.users.msg.cannot_delete_self'), "danger");
                 }
                 // Check role-based permissions
             } elseif (currentUserIsGlobalAdmin()) {
@@ -118,12 +118,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             if ($can_delete) {
                 $del_user = ldap_delete_account($ldap_connection, $this_user);
                 if ($del_user) {
-                    render_alert_banner(t('manage.users.msg.delete_ok', ['user' => $this_user]));
+                    renderAlertBanner(t('manage.users.msg.delete_ok', ['user' => $this_user]));
                 } else {
-                    render_alert_banner(t('manage.users.msg.delete_fail'), "danger", 15000);
+                    renderAlertBanner(t('manage.users.msg.delete_fail'), "danger", 15000);
                 }
             } else {
-                render_alert_banner(t('manage.users.msg.permission_denied_reason', ['reason' => $delete_reason]), "danger");
+                renderAlertBanner(t('manage.users.msg.permission_denied_reason', ['reason' => $delete_reason]), "danger");
             }
             break;
         } // phpcs:ignore Generic.WhiteSpace.ScopeIndent.IncorrectExact,Squiz.WhiteSpace.ScopeClosingBrace.Indent -- switch at 8 spaces
@@ -131,12 +131,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 }
 
 // Ensure CSRF token is generated early
-get_csrf_token();
+getCsrfToken();
 
-set_page_access(["admin", "maintainer"]);
+setPageAccess(["admin", "maintainer"]);
 
 $orgName = (string) ($ORGANISATION_NAME ?? 'System');
-render_header(t('manage.users.page_title', ['org' => $orgName]));
+renderHeader(t('manage.users.page_title', ['org' => $orgName]));
 render_submenu();
 
 $ldap_connection = open_ldap_connection();
@@ -165,7 +165,7 @@ if ($ldap_connection === false) {
             <div class="row mb-3">
                 <div class="col-md-6">
                     <?php if (currentUserIsGlobalAdmin() || currentUserIsMaintainer()) : ?>
-                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/users/new/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-success">
+                    <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/users/new/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-success">
                         <i class="bi bi-plus-lg"></i> <?php echo htmlspecialchars(t('manage.users.new_system_user'), ENT_QUOTES, 'UTF-8'); ?>
                     </a>
                     <?php endif; ?>
@@ -184,12 +184,12 @@ if ($ldap_connection === false) {
                 </div>
                 <div class="col-md-6 text-end">
                     <?php if (currentUserIsGlobalAdmin()) : ?>
-                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info"><?php echo htmlspecialchars(t('manage.dashboard.manage_orgs'), ENT_QUOTES, 'UTF-8'); ?></a>
-                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/roles/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-warning"><?php echo htmlspecialchars(t('manage.submenu.role_management'), ENT_QUOTES, 'UTF-8'); ?></a>
+                    <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info"><?php echo htmlspecialchars(t('manage.dashboard.manage_orgs'), ENT_QUOTES, 'UTF-8'); ?></a>
+                    <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/roles/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-warning"><?php echo htmlspecialchars(t('manage.submenu.role_management'), ENT_QUOTES, 'UTF-8'); ?></a>
                     <?php elseif (currentUserIsMaintainer()) : ?>
-                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info"><?php echo htmlspecialchars(t('manage.dashboard.manage_orgs'), ENT_QUOTES, 'UTF-8'); ?></a>
+                    <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info"><?php echo htmlspecialchars(t('manage.dashboard.manage_orgs'), ENT_QUOTES, 'UTF-8'); ?></a>
                     <?php elseif (currentUserIsOrgAdmin()) : ?>
-                    <a href="<?php echo htmlspecialchars(get_base_url() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info"><?php echo htmlspecialchars(t('manage.dashboard.manage_orgs'), ENT_QUOTES, 'UTF-8'); ?></a>
+                    <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/organizations/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info"><?php echo htmlspecialchars(t('manage.dashboard.manage_orgs'), ENT_QUOTES, 'UTF-8'); ?></a>
                     <?php endif; ?>
                 </div>
             </div>
@@ -218,6 +218,9 @@ if ($ldap_connection === false) {
                 <tbody id="userlist">
                     <?php
                     foreach ($people as $account_identifier => $attribs) {
+                        if ($ldap_connection === false) {
+                            break;
+                        }
                         // Get user DN for role checking - use DN from user data if available
                         $user_dn = isset($attribs['dn']) ? $attribs['dn'] : get_user_dn_from_identifier($ldap_connection, $account_identifier);
 
@@ -242,34 +245,24 @@ if ($ldap_connection === false) {
                         } else {
                             print "   <td>" . htmlspecialchars($account_identifier) . "</td>\n";
                         }
-                        print "   <td>" . safe_user_attribute($people[$account_identifier], 'givenname') . "</td>\n";
-                        print "   <td>" . safe_user_attribute($people[$account_identifier], 'sn') . "</td>\n";
+                        print "   <td>" . safeUserAttribute($people[$account_identifier], 'givenname') . "</td>\n";
+                        print "   <td>" . safeUserAttribute($people[$account_identifier], 'sn') . "</td>\n";
                         print "   <td>" . htmlspecialchars($this_mail) . "</td>\n";
                         print "   <td>" . htmlspecialchars(implode(", ", $role_membership)) . "</td>\n";
                         print "   <td>";
 
                         $user_dn_for_status = get_user_dn_from_identifier($ldap_connection, $account_identifier);
-                        if ($user_dn_for_status) {
-                            $is_disabled = ldap_user_is_disabled($ldap_connection, $user_dn_for_status);
+                        renderSystemUserStatusBadge(
+                            $ldap_connection,
+                            is_string($user_dn_for_status) ? $user_dn_for_status : null
+                        );
+
+                        $is_user_org_disabled = false;
+                        $is_individually_disabled = false;
+                        if (is_string($user_dn_for_status) && $user_dn_for_status !== '') {
                             $is_individually_disabled = ldap_user_is_individually_disabled($ldap_connection, $user_dn_for_status);
-                            $user_org_name = get_organization_from_user_dn($user_dn_for_status);
-                            $is_user_org_disabled = ($user_org_name !== false && $user_org_name !== '' && ldap_organization_is_disabled($ldap_connection, $user_org_name));
-                            if ($is_disabled) {
-                                if ($is_individually_disabled && $is_user_org_disabled) {
-                                    $badge_title = t('manage.org_users.deactivate_reason.both');
-                                } elseif ($is_individually_disabled) {
-                                    $badge_title = t('manage.org_users.deactivate_reason.individual');
-                                } elseif ($is_user_org_disabled) {
-                                    $badge_title = t('manage.org_users.deactivate_reason.org');
-                                } else {
-                                    $badge_title = t('manage.common.inactive');
-                                }
-                                print '<span class="badge bg-danger" title="' . htmlspecialchars($badge_title, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars(t('manage.common.inactive'), ENT_QUOTES, 'UTF-8') . '</span>';
-                            } else {
-                                print '<span class="badge bg-success">' . htmlspecialchars(t('manage.common.active'), ENT_QUOTES, 'UTF-8') . '</span>';
-                            }
-                        } else {
-                            print '<span class="badge bg-secondary">' . htmlspecialchars(t('manage.common.unknown'), ENT_QUOTES, 'UTF-8') . '</span>';
+                            $user_org_for_actions = get_organization_from_user_dn($user_dn_for_status);
+                            $is_user_org_disabled = ($user_org_for_actions !== false && $user_org_for_actions !== '' && ldap_organization_is_disabled($ldap_connection, $user_org_for_actions));
                         }
 
                         print "</td>\n";
@@ -311,7 +304,7 @@ if ($ldap_connection === false) {
                         }
 
                         if (currentUserCanDisableUser($account_identifier)) {
-                            if ($user_dn_for_status) {
+                            if (is_string($user_dn_for_status) && $user_dn_for_status !== '') {
                                 $activate_tooltip = $is_user_org_disabled ? ' title=\'' . htmlspecialchars(t('manage.org_users.activate_tooltip_org_disabled'), ENT_QUOTES, 'UTF-8') . '\'' : '';
                                 $deactivate_tooltip = $is_user_org_disabled ? ' title=\'' . htmlspecialchars(t('manage.org_users.deactivate_tooltip_org_disabled'), ENT_QUOTES, 'UTF-8') . '\'' : '';
                                 if ($is_individually_disabled) {
@@ -345,7 +338,7 @@ if ($ldap_connection === false) {
 
 <!-- Delete User Modal -->
 <?php
-render_confirm_modal(
+renderConfirmModal(
     'deleteModal',
     t('manage.users.index.modal.delete_title'),
     t('manage.users.index.modal.delete_body'),
@@ -356,7 +349,7 @@ render_confirm_modal(
     t('manage.users.index.modal.delete_submit'),
     'btn-danger'
 );
-render_confirm_modal(
+renderConfirmModal(
     'disableUserModal',
     t('manage.users.index.modal.deactivate_title'),
     t('manage.users.index.modal.deactivate_body'),
@@ -367,7 +360,7 @@ render_confirm_modal(
     t('manage.users.index.modal.deactivate_submit'),
     'btn-warning'
 );
-render_confirm_modal(
+renderConfirmModal(
     'enableUserModal',
     t('manage.users.index.modal.activate_title'),
     t('manage.users.index.modal.activate_body'),
@@ -380,28 +373,12 @@ render_confirm_modal(
 );
 ?>
 
-    <script src="<?php print get_asset_base(); ?>js/modals.js"></script>
+    <script src="<?php print getAssetBase(); ?>js/table-search.js"></script>
+    <script src="<?php print getAssetBase(); ?>js/modals.js"></script>
     <script>
-        // Initialize common user management page functionality
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize search functionality
-            const searchInput = document.getElementById('user_search_input');
-            const userTable = document.getElementById('user_table');
-            
-            if (searchInput && userTable) {
-                searchInput.addEventListener('input', function() {
-                    const searchTerm = this.value.toLowerCase();
-                    const rows = userTable.querySelectorAll('tbody tr');
-                    
-                    rows.forEach(function(row) {
-                        const text = row.textContent.toLowerCase();
-                        if (text.includes(searchTerm)) {
-                            row.style.display = '';
-                        } else {
-                            row.style.display = 'none';
-                        }
-                    });
-                });
+            if (typeof initializeTableSearch === 'function') {
+                initializeTableSearch('user_search_input', 'user_table');
             }
         });
 
@@ -417,5 +394,5 @@ render_confirm_modal(
     </script>
 
 <?php
-render_footer();
+renderFooter();
 ?>

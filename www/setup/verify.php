@@ -11,15 +11,15 @@ include_once __DIR__ . '/../includes/email_verify.inc.php';
 include_once __DIR__ . '/../includes/email_status.inc.php';
 include_once __DIR__ . '/bootstrap_setup.inc.php';
 
-validate_setup_cookie();
-set_page_access("setup");
+validateSetupCookie();
+setPageAccess("setup");
 
-render_header("$ORGANISATION_NAME account manager setup verification");
+renderHeader("$ORGANISATION_NAME account manager setup verification");
 
 $ldap_connection = open_ldap_connection();
 if ($ldap_connection === false) {
     print "<div class='alert alert-danger'>✗ Cannot connect to LDAP server</div>";
-    render_footer();
+    renderFooter();
     exit;
 }
 
@@ -214,6 +214,6 @@ if (!empty($missing_components)) {
 
 <?php
 
-render_footer();
+renderFooter();
 
 ?>

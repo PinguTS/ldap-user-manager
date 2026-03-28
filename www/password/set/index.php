@@ -8,15 +8,15 @@ include_once 'web_functions.inc.php';
 include_once 'ldap_functions.inc.php';
 include_once 'password_reset_functions.inc.php';
 
-set_page_access('hidden_on_login');
+setPageAccess('hidden_on_login');
 
 $token = (string) ($_GET['token'] ?? '');
 $payload = ($token !== '') ? verify_password_action_token($token) : null;
 
 if ($payload === null) {
-    render_header(t('password.set.page_title'));
+    renderHeader(t('password.set.page_title'));
     echo "<div class='container'><div class='alert alert-warning'>" . htmlspecialchars(t('password.set.invalid_link'), ENT_QUOTES, 'UTF-8') . "</div></div>";
-    render_footer();
+    renderFooter();
     exit(0);
 }
 
@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['set_password'])) {
     }
 }
 
-render_header(t('password.set.page_title'));
+renderHeader(t('password.set.page_title'));
 ?>
 
 <div class="container">
@@ -61,7 +61,7 @@ render_header(t('password.set.page_title'));
                     <div class="alert alert-success">
                         <?php echo htmlspecialchars(t('password.set.success'), ENT_QUOTES, 'UTF-8'); ?>
                     </div>
-                    <a class="btn btn-primary" href="<?php echo htmlspecialchars(get_base_url() . 'login/'); ?>"><?php echo htmlspecialchars(t('password.set.go_login'), ENT_QUOTES, 'UTF-8'); ?></a>
+                    <a class="btn btn-primary" href="<?php echo htmlspecialchars(getBaseUrl() . 'login/'); ?>"><?php echo htmlspecialchars(t('password.set.go_login'), ENT_QUOTES, 'UTF-8'); ?></a>
                 <?php else : ?>
                     <?php if (!empty($errors)) : ?>
                         <div class="alert alert-warning">
@@ -101,10 +101,10 @@ render_header(t('password.set.page_title'));
     </div>
 </div>
 
-<script src="<?php print get_asset_base(); ?>js/password_utils.js"></script>
+<script src="<?php print getAssetBase(); ?>js/password_utils.js"></script>
 <script type="text/javascript">
 document.addEventListener('DOMContentLoaded', function(){
-    const passwordConfig = <?php echo get_password_strength_config_js(); ?>;
+    const passwordConfig = <?php echo getPasswordStrengthConfigJs(); ?>;
     initializePasswordStrength({
         passwordFieldId: 'password',
         confirmFieldId: 'confirm',
@@ -114,5 +114,5 @@ document.addEventListener('DOMContentLoaded', function(){
 </script>
 
 <?php
-render_footer();
+renderFooter();
 
