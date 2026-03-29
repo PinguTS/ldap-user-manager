@@ -828,16 +828,24 @@ function ldap_log_ldap_failure($ldap_connection, string $context): void
  * Ensure ou=roles and a groupOfNames status group exist under base DN.
  *
  * Status groups are used to store membership flags (e.g. memberOrganizations, disabledOrganizations).
- * groupOfNames entries must have at least one member, so we seed with the admin bind DN.
+ * groupOfNames entries must have at least one member. When $initialMemberDn is non-empty (e.g. from
+ * add_to_status_group), the new group is created with that entry as the sole member. Otherwise the
+ * admin bind DN is used as a fallback for callers that create a group without a known member DN.
  *
- * @param resource|\LDAP\Connection $ldap_connection Active LDAP connection
- * @param string                    $groupCn          CN of the status group
- * @param string                    $baseDn           LDAP base DN
- * @param string                    $description      Optional group description
+ * @param resource|\LDAP\Connection $ldap_connection   Active LDAP connection
+ * @param string                    $groupCn           CN of the status group
+ * @param string                    $baseDn            LDAP base DN
+ * @param string                    $description       Optional group description
+ * @param string                    $initialMemberDn   If set, sole member when creating a new group
  * @return bool True if ready for use
  */
-function ldap_ensure_status_group($ldap_connection, string $groupCn, string $baseDn, string $description = ''): bool
-{
+function ldap_ensure_status_group(
+    $ldap_connection,
+    string $groupCn,
+    string $baseDn,
+    string $description = '',
+    string $initialMemberDn = ''
+): bool {
     global $LDAP;
 
     if ($baseDn === '') {
@@ -864,9 +872,9 @@ function ldap_ensure_status_group($ldap_connection, string $groupCn, string $bas
         return true;
     }
 
-    $seedMember = (string) ($LDAP['admin_bind_dn'] ?? '');
+    $seedMember = $initialMemberDn !== '' ? $initialMemberDn : (string) ($LDAP['admin_bind_dn'] ?? '');
     if ($seedMember === '') {
-        error_log("LDAP operation failed: cannot create status group {$groupDn}; admin_bind_dn not configured");
+        error_log("LDAP operation failed: cannot create status group {$groupDn}; no initial member and admin_bind_dn not configured");
         return false;
     }
 
@@ -923,7 +931,7 @@ function add_to_status_group($ldap_connection, string $entryDn, string $groupCn,
         return false;
     }
 
-    if (!ldap_ensure_status_group($ldap_connection, $groupCn, $baseDn, 'Status group (auto-created)')) {
+    if (!ldap_ensure_status_group($ldap_connection, $groupCn, $baseDn, 'Status group (auto-created)', $entryDn)) {
         return false;
     }
 
