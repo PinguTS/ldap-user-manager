@@ -820,8 +820,8 @@ if ($orgExists) {
                        <tr>
                         <th><?php echo htmlspecialchars(t('manage.common.name'), ENT_QUOTES, 'UTF-8'); ?></th>
                         <th><?php echo htmlspecialchars(t('manage.common.email'), ENT_QUOTES, 'UTF-8'); ?></th>
-                        <th><?php echo htmlspecialchars(t('manage.common.status'), ENT_QUOTES, 'UTF-8'); ?></th>
-                        <th><?php echo htmlspecialchars(t('manage.common.manager'), ENT_QUOTES, 'UTF-8'); ?></th>
+                        <th class="text-center"><?php echo htmlspecialchars(t('manage.common.status'), ENT_QUOTES, 'UTF-8'); ?></th>
+                        <th class="text-center"><?php echo htmlspecialchars(t('manage.common.manager'), ENT_QUOTES, 'UTF-8'); ?></th>
                         <th><?php echo htmlspecialchars(t('manage.common.actions'), ENT_QUOTES, 'UTF-8'); ?></th>
                        </tr>
                       </thead>

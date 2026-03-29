@@ -654,8 +654,8 @@ render_submenu();
                 <th><?php echo htmlspecialchars(t('manage.common.username_email'), ENT_QUOTES, 'UTF-8'); ?></th>
                 <th><?php echo htmlspecialchars(t('manage.common.full_name'), ENT_QUOTES, 'UTF-8'); ?></th>
                 <th><?php echo htmlspecialchars(t('manage.common.email'), ENT_QUOTES, 'UTF-8'); ?></th>
-                <th><?php echo htmlspecialchars(t('manage.common.status'), ENT_QUOTES, 'UTF-8'); ?></th>
-                <th><?php echo htmlspecialchars(t('manage.common.manager'), ENT_QUOTES, 'UTF-8'); ?></th>
+                <th class="text-center"><?php echo htmlspecialchars(t('manage.common.status'), ENT_QUOTES, 'UTF-8'); ?></th>
+                <th class="text-center"><?php echo htmlspecialchars(t('manage.common.manager'), ENT_QUOTES, 'UTF-8'); ?></th>
                 <th><?php echo htmlspecialchars(t('manage.common.actions'), ENT_QUOTES, 'UTF-8'); ?></th>
             </tr>
         </thead>
@@ -675,7 +675,7 @@ render_submenu();
                     <td><?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?></td>
                     <td><?= safeDisplayName($user, 'cn', 'givenName', 'sn') ?></td>
                     <td><?= htmlspecialchars(get_ldap_attribute($user, 'mail')) ?></td>
-                    <td>
+                    <td class="text-center">
                         <?php
                         if ($ldap_connection !== false && isset($user['dn']) && is_string($user['dn'])) {
                             renderOrgUsersTableStatusCell($ldap_connection, $user['dn'], $is_disabled_org, $user_identifier);
