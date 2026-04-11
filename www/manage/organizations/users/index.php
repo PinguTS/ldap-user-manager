@@ -93,6 +93,19 @@ if (!$orgName || !$orgExists) {
     exit;
 }
 
+// One-shot flash after password-reset PRG (GET only so POST handlers keep their messages)
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_SESSION['manage_org_users_reset_flash']) && is_array($_SESSION['manage_org_users_reset_flash'])) {
+    $orgUsersResetFlash = $_SESSION['manage_org_users_reset_flash'];
+    unset($_SESSION['manage_org_users_reset_flash']);
+    $ftype = $orgUsersResetFlash['type'] ?? '';
+    $fmsg = $orgUsersResetFlash['message'] ?? '';
+    $allowedFlashTypes = ['success', 'danger', 'warning', 'info'];
+    if (is_string($ftype) && is_string($fmsg) && in_array($ftype, $allowedFlashTypes, true) && $fmsg !== '') {
+        $message_type = $ftype;
+        $message = $fmsg;
+    }
+}
+
 // Handle org manager role toggle
 if (isset($_GET['toggle_manager']) && isset($_GET['uid'])) {
     $toggleUserParam = $_GET['uid'];
@@ -282,6 +295,19 @@ if (isset($_GET['updated']) && (string) $_GET['updated'] === '1') {
     $message = t('manage.users.msg.profile_update_ok');
     $message_type = 'success';
 }
+if (isset($_GET['credentials_reset']) && (string) $_GET['credentials_reset'] === '1') {
+    $message = t('manage.org_users.msg.credentials_reset_ok');
+    $message_type = 'success';
+}
+if (isset($_GET['reset_link_sent']) && (string) $_GET['reset_link_sent'] === '1') {
+    $emailParam = isset($_GET['email']) ? (string) $_GET['email'] : '';
+    if ($emailParam !== '' && strlen($emailParam) <= 254 && filter_var($emailParam, FILTER_VALIDATE_EMAIL)) {
+        $message = t('manage.org_users.msg.reset_link_sent', ['email' => htmlspecialchars($emailParam, ENT_QUOTES, 'UTF-8')]);
+    } else {
+        $message = t('manage.org_users.msg.reset_link_sent_ok');
+    }
+    $message_type = 'success';
+}
 
 // Handle add user form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
@@ -377,28 +403,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
         $message = t('manage.org_users.msg.added_ok');
         $message_type = 'success';
 
-        if ($sendPasswordSetLink) {
-            global $EMAIL_SENDING_ENABLED, $new_account_mail_subject, $new_account_mail_body;
-            if ($EMAIL_SENDING_ENABLED === true) {
+        global $EMAIL_SENDING_ENABLED;
+        if (($EMAIL_SENDING_ENABLED ?? false) === true && isValidEmail($mail)) {
+            if ($sendPasswordSetLink) {
                 $payload = build_password_action_payload($mail, 'set');
                 $token = create_password_action_token($payload);
                 $setUrl = build_password_action_url($token);
-                $ttlMinutes = (int) ceil(get_password_reset_token_ttl_seconds() / 60);
-                $vars = [
+                $vars = array_merge(lum_password_action_token_expiry_mail_vars(), [
                     'login' => $mail,
                     'first_name' => $givenName,
                     'last_name' => $sn,
                     'password_set_url' => $setUrl,
-                    'token_expires_minutes' => (string) $ttlMinutes,
-                ];
-                $subject = parse_mail_template((string) $new_account_mail_subject, $vars);
-                $body = parse_mail_template((string) $new_account_mail_body, $vars);
+                ]);
+                $parsedAccount = lum_load_parsed_combined_transactional_template('new_account.html');
+                $subject = parse_mail_template((string) $parsedAccount['subject'], $vars);
+                $body = parse_mail_template((string) $parsedAccount['body'], $vars);
                 $sentOk = send_email($mail, trim($givenName . ' ' . $sn), $subject, $body);
-                if ($sentOk) {
-                    $message .= ' ' . t('manage.org_users.add.msg.email_sent_ok', ['email' => $mail]);
-                } else {
-                    $message .= ' ' . t('manage.org_users.add.msg.email_send_failed');
-                }
+            } else {
+                $sentOk = lum_send_account_welcome_email(
+                    $mail,
+                    trim($givenName . ' ' . $sn),
+                    [
+                        'login' => $mail,
+                        'first_name' => $givenName,
+                        'last_name' => $sn,
+                    ]
+                );
+            }
+            if ($sentOk) {
+                $message .= ' ' . t('manage.org_users.add.msg.email_sent_ok', ['email' => $mail]);
+            } else {
+                $message .= ' ' . t('manage.org_users.add.msg.email_send_failed');
             }
         }
     } else {
@@ -514,19 +549,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
 }
 after_edit_user:
 
-// Handle reset password
+// Handle reset password (PRG: always redirect; success via query string, failure/warning via session flash)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        validateCsrfToken();
-    }
-    $resetUserParam = $_POST['reset_uid'];
+    validateCsrfToken();
+    $baseParam = $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName);
+
+    $resetUserParam = $_POST['reset_uid'] ?? '';
     $resetTargetDn = org_resolve_user_dn($orgName, (string) $resetUserParam);
     if ($resetTargetDn === null || $resetTargetDn === '') {
-        $message = t('manage.users.msg.user_not_found');
-        $message_type = 'danger';
-        goto after_reset_user;
+        $_SESSION['manage_org_users_reset_flash'] = [
+            'type' => 'danger',
+            'message' => t('manage.users.msg.user_not_found'),
+        ];
+        header('Location: ?' . $baseParam);
+        exit;
     }
-    // Narrowed for static analysis (goto above prevents PHPStan from refining ?string).
     $resetDn = (string) $resetTargetDn;
 
     $new_password = (string) ($_POST['reset_password'] ?? '');
@@ -539,58 +576,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
 
     $ldap = open_ldap_connection();
     if ($ldap === false) {
-        $message = t('manage.orgs.msg.ldap_fail');
-        $message_type = 'danger';
-        goto after_reset_user;
+        $_SESSION['manage_org_users_reset_flash'] = [
+            'type' => 'danger',
+            'message' => t('manage.orgs.msg.ldap_fail'),
+        ];
+        header('Location: ?' . $baseParam);
+        exit;
     }
-
-    assert($ldap !== false);
 
     if ($send_reset_link) {
         global $EMAIL_SENDING_ENABLED;
         if (($EMAIL_SENDING_ENABLED ?? false) !== true) {
-            $message = t('manage.password_reset_admin.msg.unavailable');
-            $message_type = 'warning';
-        } else {
-            $sendResult = send_password_reset_email_for_user_dn($ldap, $resetDn);
-            if ($sendResult['ok']) {
-                $sentTo = (string) ($sendResult['email'] ?? '');
-                $message = t('manage.org_users.msg.reset_link_sent', ['email' => $sentTo]);
-                $message_type = 'success';
-            } else {
-                $reason = $sendResult['reason'] ?? '';
-                if ($reason === 'no_valid_email') {
-                    $message = t('manage.org_users.msg.reset_link_no_valid_email');
-                } elseif ($reason === 'send_failed') {
-                    $message = t('manage.org_users.msg.reset_link_smtp_failed');
-                } else {
-                    $message = t('manage.password_reset_admin.msg.unavailable');
-                }
-                $message_type = 'danger';
-            }
-        }
-    } else {
-        $validation = validate_password_submission($new_password, $new_password_match, $passScore);
-        if (!$validation['ok']) {
-            $message = implode(' ', $validation['errors']);
-            $message_type = 'danger';
             ldap_close($ldap);
-            goto after_reset_user;
+            $_SESSION['manage_org_users_reset_flash'] = [
+                'type' => 'warning',
+                'message' => t('manage.password_reset_admin.msg.unavailable'),
+            ];
+            header('Location: ?' . $baseParam);
+            exit;
         }
-        $entry = ['userPassword' => ldap_hashed_password($new_password)];
-        try {
-            ldap_modify($ldap, $resetDn, $entry);
-            $message = t('manage.org_users.msg.credentials_reset_ok');
-            $message_type = 'success';
-        } catch (Exception $e) {
-            $message = t('manage.org_users.msg.credentials_reset_fail', ['error' => $e->getMessage()]);
-            $message_type = 'danger';
+        $sendResult = send_password_reset_email_for_user_dn($ldap, $resetDn, 'admin');
+        ldap_close($ldap);
+        if ($sendResult['ok']) {
+            $sentTo = (string) ($sendResult['email'] ?? '');
+            header('Location: ?' . $baseParam . '&reset_link_sent=1&email=' . rawurlencode($sentTo));
+            exit;
         }
+        $reason = $sendResult['reason'] ?? '';
+        if ($reason === 'no_valid_email') {
+            $flashMsg = t('manage.org_users.msg.reset_link_no_valid_email');
+        } elseif ($reason === 'send_failed') {
+            $flashMsg = t('manage.org_users.msg.reset_link_smtp_failed');
+        } else {
+            $flashMsg = t('manage.password_reset_admin.msg.unavailable');
+        }
+        $_SESSION['manage_org_users_reset_flash'] = [
+            'type' => 'danger',
+            'message' => $flashMsg,
+        ];
+        header('Location: ?' . $baseParam);
+        exit;
     }
 
-    ldap_close($ldap);
+    $validation = validate_password_submission($new_password, $new_password_match, $passScore);
+    if (!$validation['ok']) {
+        ldap_close($ldap);
+        $_SESSION['manage_org_users_reset_flash'] = [
+            'type' => 'danger',
+            'message' => implode(' ', $validation['errors']),
+        ];
+        header('Location: ?' . $baseParam);
+        exit;
+    }
+    $entry = ['userPassword' => ldap_hashed_password($new_password)];
+    try {
+        ldap_modify($ldap, $resetDn, $entry);
+        ldap_close($ldap);
+        header('Location: ?' . $baseParam . '&credentials_reset=1');
+        exit;
+    } catch (Exception $e) {
+        ldap_close($ldap);
+        $_SESSION['manage_org_users_reset_flash'] = [
+            'type' => 'danger',
+            'message' => t('manage.org_users.msg.credentials_reset_fail', ['error' => htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8')]),
+        ];
+        header('Location: ?' . $baseParam);
+        exit;
+    }
 }
-after_reset_user:
 
 $users = getOrganizationUsers($orgName);
 if (!is_array($users)) {
@@ -738,13 +791,14 @@ render_submenu();
             <div class="form-check mt-2">
                 <input class="form-check-input" type="checkbox" id="send_password_set_link" name="send_password_set_link" <?php echo !is_password_reset_link_enabled() ? 'disabled' : ''; ?>>
                 <label class="form-check-label" for="send_password_set_link">
-                    <?php echo htmlspecialchars(t('manage.org_users.email_reset_checkbox'), ENT_QUOTES, 'UTF-8'); ?>
+                    <?php echo htmlspecialchars(t('manage.org_users.email_invite_link_checkbox'), ENT_QUOTES, 'UTF-8'); ?>
                 </label>
                 <?php if (!is_password_reset_link_enabled()) : ?>
                     <div class="alert alert-warning mt-2 mb-0 py-2">
                         <?php echo htmlspecialchars(t('manage.users.new.error.password_set_link_disabled_secret_missing'), ENT_QUOTES, 'UTF-8'); ?>
                     </div>
                 <?php endif; ?>
+                <p class="text-muted small mt-2 mb-0"><?php echo htmlspecialchars(t('manage.org_users.email_after_create_note'), ENT_QUOTES, 'UTF-8'); ?></p>
             </div>
         <?php endif; ?>
         <input type="hidden" name="add_user" value="1">

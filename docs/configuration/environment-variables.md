@@ -187,7 +187,8 @@ These settings control how the system sends emails:
 - `EMAIL_FROM_ADDRESS` - From email address
 - `EMAIL_FROM_NAME` - From email name
 - `PHPMailer_PATH` - PHPMailer installation path (default: '/opt/PHPMailer/src')
-- `EMAIL_TEMPLATES_DIR` - Optional. Directory containing email template files; when set, overrides the default `www/templates/emails`. Use an absolute path. Template files: `new_account.html`, `reset_password.html` (each file: first line = subject, blank line, then HTML body).
+- `EMAIL_TEMPLATES_DIR` - Optional. Directory containing email template files; when set, overrides the default `www/templates/emails`. Use an absolute path. Each file: first line = subject, blank line, then HTML body. Basenames include: **`new_account.html`** (invite / set-password link for new users), **`account_welcome.html`** (admin set password; no link), **`reset_password.html`** (self-service forgot-password), **`reset_password_admin.html`** (admin sent reset link). For translations, add `basename.<locale>.html` (e.g. `new_account.de.html`) using the same locale codes as `www/locales`. Missing localized files fall back to the default `*.html` (English).
+- `EMAIL_DEFAULT_LOCALE` - Optional. When set to a valid locale code (e.g. `de`, `fr`), outgoing transactional emails (new account / password reset) use that language for template file resolution and for time-to-live wording. When unset, the current request’s UI locale is used (cookie / `?lang=` / Accept-Language), same as the rest of the site.
 
 ### Account Requests
 These settings control whether users can request new accounts:

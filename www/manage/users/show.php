@@ -184,7 +184,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_password_reset_e
     } elseif (($EMAIL_SENDING_ENABLED ?? false) !== true || !is_password_reset_link_enabled()) {
         renderAlertBanner(t('manage.password_reset_admin.msg.unavailable'), 'warning', 10000);
     } else {
-        $sendResult = send_password_reset_email_for_user_dn($ldap_connection, (string) $user_data['dn']);
+        $sendResult = send_password_reset_email_for_user_dn($ldap_connection, (string) $user_data['dn'], 'admin');
         if ($sendResult['ok']) {
             $sentTo = (string) ($sendResult['email'] ?? '');
             renderAlertBanner(

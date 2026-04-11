@@ -158,32 +158,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
         if ($result[0]) {
             renderAlertBanner(t('manage.users.new.msg.created_ok'), 'success', 10000);
 
-            if ($send_password_set_link) {
-                global $new_account_mail_subject, $new_account_mail_body, $EMAIL_SENDING_ENABLED;
-                if ($EMAIL_SENDING_ENABLED === true) {
-                    $login = (string) ($new_account_r['mail'] ?? '');
-                    $first = (string) ($new_account_r['givenName'] ?? '');
-                    $last = (string) ($new_account_r['sn'] ?? '');
-
+            global $EMAIL_SENDING_ENABLED;
+            $login = (string) ($new_account_r['mail'] ?? '');
+            $first = (string) ($new_account_r['givenName'] ?? '');
+            $last = (string) ($new_account_r['sn'] ?? '');
+            if (($EMAIL_SENDING_ENABLED ?? false) === true && $login !== '' && isValidEmail($login)) {
+                if ($send_password_set_link) {
                     $payload = build_password_action_payload($login, 'set');
                     $token = create_password_action_token($payload);
                     $setUrl = build_password_action_url($token);
-                    $ttlMinutes = (int) ceil(get_password_reset_token_ttl_seconds() / 60);
 
-                    $vars = [
+                    $vars = array_merge(lum_password_action_token_expiry_mail_vars(), [
                         'login' => $login,
                         'first_name' => $first,
                         'last_name' => $last,
                         'password_set_url' => $setUrl,
-                        'token_expires_minutes' => (string) $ttlMinutes,
-                    ];
+                    ]);
 
-                    $subject = parse_mail_template((string) $new_account_mail_subject, $vars);
-                    $body = parse_mail_template((string) $new_account_mail_body, $vars);
+                    $parsedAccount = lum_load_parsed_combined_transactional_template('new_account.html');
+                    $subject = parse_mail_template((string) $parsedAccount['subject'], $vars);
+                    $body = parse_mail_template((string) $parsedAccount['body'], $vars);
                     $sentOk = send_email($login, trim($first . ' ' . $last), $subject, $body);
-                    if (!$sentOk) {
-                        renderAlertBanner(t('manage.users.new.msg.email_send_failed'), 'warning', 10000);
-                    }
+                } else {
+                    $sentOk = lum_send_account_welcome_email(
+                        $login,
+                        trim($first . ' ' . $last),
+                        [
+                            'login' => $login,
+                            'first_name' => $first,
+                            'last_name' => $last,
+                        ]
+                    );
+                }
+                if (!$sentOk) {
+                    renderAlertBanner(t('manage.users.new.msg.email_send_failed'), 'warning', 10000);
                 }
             }
 
@@ -331,7 +339,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
                             <div class="form-check mt-2">
                                 <input class="form-check-input" type="checkbox" id="send_password_set_link" name="send_password_set_link">
                                 <label class="form-check-label" for="send_password_set_link">
-                                    Email password setup link (user sets their own password)
+                                    <?php echo htmlspecialchars(t('manage.org_users.email_invite_link_checkbox'), ENT_QUOTES, 'UTF-8'); ?>
                                 </label>
                             </div>
                             <?php if (!is_password_reset_link_enabled()) : ?>
@@ -339,6 +347,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
                                     <?php echo htmlspecialchars(t('manage.users.new.password_set_link_disabled_help'), ENT_QUOTES, 'UTF-8'); ?>
                                 </div>
                             <?php endif; ?>
+                            <p class="text-muted small mt-2 mb-0"><?php echo htmlspecialchars(t('manage.org_users.email_after_create_note'), ENT_QUOTES, 'UTF-8'); ?></p>
                         <?php endif; ?>
                         
                         <!-- Additional Attributes -->
