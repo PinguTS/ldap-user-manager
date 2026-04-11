@@ -137,6 +137,26 @@ if (substr($SERVER_PATH, -1) !== '/') {
 $COOKIE_PATH = (rtrim($SERVER_PATH, '/') === '') ? '/' : rtrim($SERVER_PATH, '/');
 $THIS_MODULE_PATH = "{$SERVER_PATH}{$THIS_MODULE}";
 
+/**
+ * Public base URL for links in emails and other out-of-band contexts (trailing slash).
+ * When SITE_PUBLIC_URL is set (e.g. http://lum.example.org:8080/), it is normalized to a trailing slash
+ * so links match the hostname users open in the browser, independent of in-container Host headers.
+ * Otherwise falls back to SITE_PROTOCOL + SERVER_HOSTNAME + SERVER_PATH from config.
+ */
+function lumPublicSiteBaseUrl(): string
+{
+    global $SITE_PROTOCOL, $SERVER_HOSTNAME, $SERVER_PATH;
+
+    $fromEnv = trim((string) (getenv('SITE_PUBLIC_URL') ?: ''));
+    if ($fromEnv !== '') {
+        $base = rtrim($fromEnv, '/');
+
+        return ($base === '') ? '/' : ($base . '/');
+    }
+
+    return (string) $SITE_PROTOCOL . (string) $SERVER_HOSTNAME . (string) $SERVER_PATH;
+}
+
 $DEFAULT_COOKIE_OPTIONS = [
     'expires' => time() + (60 * $SESSION_TIMEOUT),
     'path' => $COOKIE_PATH,
@@ -1032,6 +1052,8 @@ function setPageAccess($allowed_levels)
  #   - 'maintainer': Maintainer (restricted access with specific exclusions)
  #   - 'org_admin': Organization administrator (very restricted access)
  #   - 'user': Any authenticated user
+ #   - 'hidden_on_login': Guest-only pages (e.g. password reset/set); unauthenticated users are allowed,
+ #     authenticated users are redirected to their default destination (same idea as /login).
  #
  # Special paths:
  # - /password/change and below: Available to any authenticated user
@@ -1107,6 +1129,16 @@ function setPageAccess($allowed_levels)
                     $user_level = 'setup';
                     break;
                 }
+                break;
+
+            case 'hidden_on_login':
+                if ($VALIDATED == true) {
+                    $redirect_url = getDefaultRedirectForUser();
+                    header('Location: ' . $redirect_url);
+                    exit(0);
+                }
+                $has_access = true;
+                $user_level = 'hidden_on_login';
                 break;
 
             case 'admin':

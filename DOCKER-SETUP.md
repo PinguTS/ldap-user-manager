@@ -191,6 +191,10 @@ services:
       SMTP_USERNAME: "noreply@example.com"
       SMTP_PASSWORD: "your-smtp-password"
       SMTP_USE_TLS: "TRUE"
+
+      # Optional: password set/reset links in email (requires SMTP). Signing secret required; link lifetime optional.
+      # PASSWORD_RESET_TOKEN_SECRET: "<output of: openssl rand -hex 32>"
+      # PASSWORD_RESET_TOKEN_TTL_SECONDS: "3600"   # seconds; default 3600 (60 minutes) if unset
       
       # Optional: Security Settings
       LDAP_REQUIRE_STARTTLS: "FALSE"

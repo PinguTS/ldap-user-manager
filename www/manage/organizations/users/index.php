@@ -38,7 +38,7 @@ foreach ($orgs as $org) {
     if (isset($org['o']) && !empty($org['o'])) {
         // If 'o' is a DN, extract just the organization name
         if (strpos($org['o'], ',') !== false) {
-            // Extract the organization name from DN like "o=OrgName,ou=organizations,dc=pingu,dc=info"
+            // Extract the organization name from DN like "o=OrgName,ou=organizations,dc=example,dc=com"
             $current_org_name = preg_replace('/^o=([^,]+).*$/', '$1', $org['o']);
         } else {
             $current_org_name = $org['o'];
@@ -66,7 +66,7 @@ if (!$orgName || !$orgExists) {
         if (isset($org['o']) && !empty($org['o'])) {
             // If 'o' is a DN, extract just the organization name
             if (strpos($org['o'], ',') !== false) {
-                // Extract the organization name from DN like "o=OrgName,ou=organizations,dc=pingu,dc=info"
+                // Extract the organization name from DN like "o=OrgName,ou=organizations,dc=example,dc=com"
                 $orgNameVal = preg_replace('/^o=([^,]+).*$/', '$1', $org['o']);
             } else {
                 $orgNameVal = $org['o'];
@@ -393,8 +393,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
                 ];
                 $subject = parse_mail_template((string) $new_account_mail_subject, $vars);
                 $body = parse_mail_template((string) $new_account_mail_body, $vars);
-                send_email($mail, trim($givenName . ' ' . $sn), $subject, $body);
-                $message .= ' ' . t('manage.org_users.msg.password_set_link_sent');
+                $sentOk = send_email($mail, trim($givenName . ' ' . $sn), $subject, $body);
+                if ($sentOk) {
+                    $message .= ' ' . t('manage.org_users.add.msg.email_sent_ok', ['email' => $mail]);
+                } else {
+                    $message .= ' ' . t('manage.org_users.add.msg.email_send_failed');
+                }
             }
         }
     } else {
@@ -540,40 +544,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
         goto after_reset_user;
     }
 
+    assert($ldap !== false);
+
     if ($send_reset_link) {
-        global $EMAIL_SENDING_ENABLED, $reset_password_mail_subject, $reset_password_mail_body;
-        if ($EMAIL_SENDING_ENABLED === true) {
-            $read = @ldap_read($ldap, $resetDn, '(objectClass=*)', ['mail', 'givenName', 'sn', $LDAP['account_attribute']]);
-            $entries = $read ? ldap_get_entries($ldap, $read) : null;
-            $userMail = '';
-            $first = '';
-            $last = '';
-            $login = '';
-            if (is_array($entries) && ($entries['count'] ?? 0) > 0) {
-                $userMail = (string) ($entries[0]['mail'][0] ?? '');
-                $first = (string) ($entries[0]['givenname'][0] ?? $entries[0]['givenName'][0] ?? '');
-                $last = (string) ($entries[0]['sn'][0] ?? '');
-                $login = (string) ($entries[0][strtolower($LDAP['account_attribute'])][0] ?? $userMail);
-            }
-            if ($userMail !== '' && isValidEmail($userMail)) {
-                $payload = build_password_action_payload($login !== '' ? $login : $userMail, 'reset');
-                $token = create_password_action_token($payload);
-                $resetUrl = build_password_action_url($token);
-                $ttlMinutes = (int) ceil(get_password_reset_token_ttl_seconds() / 60);
-                $vars = [
-                    'login' => ($login !== '' ? $login : $userMail),
-                    'first_name' => $first,
-                    'last_name' => $last,
-                    'password_reset_url' => $resetUrl,
-                    'token_expires_minutes' => (string) $ttlMinutes,
-                ];
-                $subject = parse_mail_template((string) $reset_password_mail_subject, $vars);
-                $body = parse_mail_template((string) $reset_password_mail_body, $vars);
-                send_email($userMail, trim($first . ' ' . $last), $subject, $body);
+        global $EMAIL_SENDING_ENABLED;
+        if (($EMAIL_SENDING_ENABLED ?? false) !== true) {
+            $message = t('manage.password_reset_admin.msg.unavailable');
+            $message_type = 'warning';
+        } else {
+            $sendResult = send_password_reset_email_for_user_dn($ldap, $resetDn);
+            if ($sendResult['ok']) {
+                $sentTo = (string) ($sendResult['email'] ?? '');
+                $message = t('manage.org_users.msg.reset_link_sent', ['email' => $sentTo]);
+                $message_type = 'success';
+            } else {
+                $reason = $sendResult['reason'] ?? '';
+                if ($reason === 'no_valid_email') {
+                    $message = t('manage.org_users.msg.reset_link_no_valid_email');
+                } elseif ($reason === 'send_failed') {
+                    $message = t('manage.org_users.msg.reset_link_smtp_failed');
+                } else {
+                    $message = t('manage.password_reset_admin.msg.unavailable');
+                }
+                $message_type = 'danger';
             }
         }
-        $message = t('password.reset.message');
-        $message_type = 'success';
     } else {
         $validation = validate_password_submission($new_password, $new_password_match, $passScore);
         if (!$validation['ok']) {

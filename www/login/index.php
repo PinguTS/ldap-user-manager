@@ -332,6 +332,12 @@ renderHeader(t('login.page_title', ['org' => $ORGANISATION_NAME]));
      <button type="submit" class="btn btn-secondary"><?php echo htmlspecialchars(t('login.submit'), ENT_QUOTES, 'UTF-8'); ?></button>
     </div>
 
+    <div class="form-group">
+     <div class="col-sm-6 offset-sm-4">
+      <a href="<?php echo htmlspecialchars(getBaseUrl() . 'password/reset/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('login.forgot_password_link'), ENT_QUOTES, 'UTF-8'); ?></a>
+     </div>
+    </div>
+
    </form>
   </div>
  </div>

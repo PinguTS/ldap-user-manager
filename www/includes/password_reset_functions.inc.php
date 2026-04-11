@@ -154,8 +154,13 @@ function build_password_action_payload(string $accountIdentifier, string $purpos
 function build_password_action_url(string $token): string
 {
     global $SITE_PROTOCOL, $SERVER_HOSTNAME, $SERVER_PATH;
-    $path = rtrim((string) $SERVER_PATH, '/') . '/';
-    return (string) $SITE_PROTOCOL . (string) $SERVER_HOSTNAME . $path . 'password/set/?token=' . urlencode($token);
+    if (function_exists('lumPublicSiteBaseUrl')) {
+        $base = lumPublicSiteBaseUrl();
+    } else {
+        $path = rtrim((string) $SERVER_PATH, '/') . '/';
+        $base = (string) $SITE_PROTOCOL . (string) $SERVER_HOSTNAME . $path;
+    }
+    return rtrim($base, '/') . '/password/set/?token=' . urlencode($token);
 }
 
 /**

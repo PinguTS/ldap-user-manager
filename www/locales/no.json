@@ -373,7 +373,7 @@
   "manage.org_users.add.msg.created_ok": "Brukerkonto ':account' ble opprettet i organisasjonen ':org'.",
   "manage.org_users.add.msg.warn_org_admin_failed": "Advarsel: Kunne ikke legge til brukeren i organisasjonsadministratorrollen.",
   "manage.org_users.add.msg.email_sent_ok": "E-post ble sendt til :email.",
-  "manage.org_users.add.msg.email_send_failed": "Sending av e-post mislyktes. Sjekk loggene.",
+  "manage.org_users.add.msg.email_send_failed": "Email sending failed. Check the PHP or web server error log, or Docker container logs, and search for \"SMTP: Unable to send email\".",
   "manage.org_users.add.error.first_name_required": "Fornavn (givenName) er obligatorisk.",
   "manage.org_users.add.error.last_name_required": "Etternavn (sn) er obligatorisk.",
   "manage.org_users.add.error.email_invalid_or_exists": "E-postadresse (konto-ID) er ugyldig eller eksisterer allerede.",
@@ -475,5 +475,18 @@
   "manage.org_users.activate_tooltip_org_disabled": "Remove individual deactivation. The user will remain inactive until the organization is re-enabled.",
   "manage.org_users.deactivate_tooltip_org_disabled": "Individually deactivate this user. The user will stay inactive even when the organization is re-enabled.",
   "manage.org_users.assign_manager": "Assign",
-  "manage.org_users.remove_manager": "Remove"
+  "manage.org_users.remove_manager": "Remove",
+  "manage.users.new.msg.email_send_failed": "The password setup email could not be sent. Check the PHP or web server error log, or Docker container logs, and search for \"SMTP: Unable to send email\".",
+  "manage.org_users.msg.reset_link_sent": "Password reset link emailed to :email.",
+  "manage.org_users.msg.reset_link_smtp_failed": "The password reset email could not be sent. Check the PHP or web server error log, or Docker container logs, and search for \"SMTP: Unable to send email\".",
+  "manage.org_users.msg.reset_link_no_valid_email": "This user has no valid email address on file.",
+  "manage.password_reset_admin.section_title": "Password reset by email",
+  "manage.password_reset_admin.help": "Send the user an email with a link to set a new password.",
+  "manage.password_reset_admin.submit": "Send password reset link",
+  "manage.password_reset_admin.msg.sent": "Password reset link sent to :email.",
+  "manage.password_reset_admin.msg.smtp_failed": "The password reset email could not be sent. Check the PHP or web server error log, or Docker container logs, and search for \"SMTP: Unable to send email\".",
+  "manage.password_reset_admin.msg.no_valid_email": "This user has no valid email address on file.",
+  "manage.password_reset_admin.msg.unavailable": "Password reset email cannot be sent (email sending or token secret is not configured).",
+  "login.forgot_password_link": "Forgot your password?",
+  "api.password_reset.rate_limited": "Too many requests. Please try again later."
 }

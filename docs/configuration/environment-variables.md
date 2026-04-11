@@ -168,7 +168,8 @@ These settings control the appearance and behavior of your website:
 - `SITE_NAME` - Site name (default: '{ORGANISATION_NAME} user manager')
 - `SITE_LOGIN_LDAP_ATTRIBUTE` - LDAP attribute for login (default: 'mail')
 - `SITE_LOGIN_FIELD_LABEL` - Login field label (default: 'Email')
-- `SERVER_HOSTNAME` - Server hostname (default: 'ldapusermanager.org')
+- `SERVER_HOSTNAME` - Server hostname used in generated links when `SITE_PUBLIC_URL` is not set (default: 'ldapusermanager.org'). Include a non-default port here if needed (e.g. `idm.example.org:8443`).
+- `SITE_PUBLIC_URL` - Optional full public site base for **email links** and similar (scheme + host + optional port + optional path), e.g. `http://idm.example.org:8443` or `https://idm.example.com/lum/`. When unset, links use `SITE_PROTOCOL` + `SERVER_HOSTNAME` + `SERVER_PATH` (which may resolve to `localhost` inside Docker if `SERVER_HOSTNAME` is wrong).
 - `SERVER_PATH` - Server path (default: '/')
 - `SESSION_TIMEOUT` - Session timeout in minutes (default: 60)
 - `NO_HTTPS` - Whether HTTPS is disabled (default: FALSE)

@@ -90,6 +90,9 @@ services:
       LDAP_REQUIRE_STARTTLS: "false"
       LDAP_IGNORE_CERT_ERRORS: "true"
       NO_HTTPS: "true"
+      # Password set/reset links (email): set PASSWORD_RESET_TOKEN_SECRET to enable; optional TTL in seconds (default 3600 = 1 hour)
+      # PASSWORD_RESET_TOKEN_SECRET: "replace-with-openssl-rand-hex-32"
+      # PASSWORD_RESET_TOKEN_TTL_SECONDS: "3600"
       
       # User Management Settings
       DEFAULT_USER_GROUP: "everybody"

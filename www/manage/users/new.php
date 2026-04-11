@@ -180,7 +180,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
 
                     $subject = parse_mail_template((string) $new_account_mail_subject, $vars);
                     $body = parse_mail_template((string) $new_account_mail_body, $vars);
-                    send_email($login, trim($first . ' ' . $last), $subject, $body);
+                    $sentOk = send_email($login, trim($first . ' ' . $last), $subject, $body);
+                    if (!$sentOk) {
+                        renderAlertBanner(t('manage.users.new.msg.email_send_failed'), 'warning', 10000);
+                    }
                 }
             }
 

@@ -12,7 +12,7 @@ if (!defined('LDAP_ESCAPE_DN')) {
 
 set_include_path(".:" . __DIR__ . "/../../includes/");
 require_once "bootstrap_manage.inc.php";
-bootstrapManage(['ldap', 'user', 'password_reset']);
+bootstrapManage(['ldap', 'user', 'password_reset', 'mail']);
 require_once "organization_functions.inc.php";
 
 // Ensure CSRF token is generated early
@@ -55,9 +55,14 @@ if (!array_key_exists('telephonenumber', $attribute_map)) {
 $account_identifier = null;
 $user_uuid = null;
 
-if (isset($_GET['uuid']) && !empty($_GET['uuid'])) {
+if (isset($_GET['uuid']) && $_GET['uuid'] !== '') {
+    $user_uuid = trim((string) $_GET['uuid']);
+} elseif (isset($_POST['uuid']) && $_POST['uuid'] !== '') {
+    $user_uuid = trim((string) $_POST['uuid']);
+}
+
+if ($user_uuid !== null && $user_uuid !== '') {
     // UUID-based lookup
-    $user_uuid = $_GET['uuid'];
     if (!is_valid_uuid($user_uuid)) {
         renderAlertBanner(t('manage.users.msg.invalid_uuid'), "warning");
         renderFooter();
@@ -79,6 +84,7 @@ if (isset($_GET['uuid']) && !empty($_GET['uuid'])) {
     // Use the primary identifier from the user entry
     $account_identifier = $user_by_uuid[$LDAP['account_attribute']][0] ?? $user_by_uuid['mail'][0] ?? $user_by_uuid['uid'][0];
 } elseif (isset($_POST['account_identifier']) || isset($_GET['account_identifier'])) {
+    $user_uuid = null;
     // Legacy account_identifier lookup
     $account_identifier = (isset($_POST['account_identifier']) ? $_POST['account_identifier'] : $_GET['account_identifier']);
     $account_identifier = urldecode($account_identifier);
@@ -93,9 +99,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $ldap_connection = open_ldap_connection();
+if ($ldap_connection === false) {
+    renderAlertBanner(t('manage.orgs.msg.ldap_fail'), 'danger');
+    renderFooter();
+    exit(0);
+}
 
 // Search for user across both organizations and system users
-if ($user_uuid) {
+if ($user_uuid !== null && $user_uuid !== '') {
     // UUID-based lookup - we already have the user data
     // Convert single user entry to expected format
     $user = [];
@@ -157,6 +168,41 @@ if (currentUserIsGlobalAdmin() || currentUserIsMaintainer()) {
 } elseif ($VALIDATED && $USER_ID === $account_identifier) {
     // User can edit their own profile
     $can_edit = true;
+}
+
+global $EMAIL_SENDING_ENABLED;
+$privileged_password_reset_editor = currentUserIsGlobalAdmin() || currentUserIsMaintainer() || currentUserIsOrgAdmin();
+$can_offer_password_reset_email = $can_edit
+    && $privileged_password_reset_editor
+    && (($EMAIL_SENDING_ENABLED ?? false) === true)
+    && is_password_reset_link_enabled();
+
+// Admin / maintainer / org manager: email password reset link (separate from profile save)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_password_reset_email'])) {
+    if (!$can_edit || !$privileged_password_reset_editor) {
+        renderAlertBanner(t('manage.users.msg.permission_denied_invalid_user'), 'danger', 10000);
+    } elseif (($EMAIL_SENDING_ENABLED ?? false) !== true || !is_password_reset_link_enabled()) {
+        renderAlertBanner(t('manage.password_reset_admin.msg.unavailable'), 'warning', 10000);
+    } else {
+        $sendResult = send_password_reset_email_for_user_dn($ldap_connection, (string) $user_data['dn']);
+        if ($sendResult['ok']) {
+            $sentTo = (string) ($sendResult['email'] ?? '');
+            renderAlertBanner(
+                t('manage.password_reset_admin.msg.sent', ['email' => $sentTo]),
+                'success',
+                10000
+            );
+        } else {
+            $reason = $sendResult['reason'] ?? '';
+            if ($reason === 'no_valid_email') {
+                renderAlertBanner(t('manage.password_reset_admin.msg.no_valid_email'), 'danger', 10000);
+            } elseif ($reason === 'send_failed') {
+                renderAlertBanner(t('manage.password_reset_admin.msg.smtp_failed'), 'danger', 10000);
+            } else {
+                renderAlertBanner(t('manage.password_reset_admin.msg.unavailable'), 'warning', 10000);
+            }
+        }
+    }
 }
 
 // Handle form submission for profile updates
@@ -248,7 +294,12 @@ ldap_close($ldap_connection);
                 <div class="card-body">
                     <form method="post" action="" enctype="multipart/form-data">
                         <?php echo csrfTokenField(); ?>
-                        
+                        <?php if ($user_uuid !== null && $user_uuid !== '') : ?>
+                            <input type="hidden" name="uuid" value="<?php echo htmlspecialchars($user_uuid, ENT_QUOTES, 'UTF-8'); ?>">
+                        <?php else : ?>
+                            <input type="hidden" name="account_identifier" value="<?php echo htmlspecialchars((string) $account_identifier, ENT_QUOTES, 'UTF-8'); ?>">
+                        <?php endif; ?>
+
                         <!-- Account Information -->
                         <h4><?php echo htmlspecialchars(t('manage.users.section.account_information'), ENT_QUOTES, 'UTF-8'); ?></h4>
                         <div class="row">
@@ -340,7 +391,19 @@ ldap_close($ldap_connection);
                             </div>
                         </div>
                         <input type="hidden" id="pass_score" value="0" name="pass_score">
-                        
+
+                        <?php if ($privileged_password_reset_editor) : ?>
+                            <h4><?php echo htmlspecialchars(t('manage.password_reset_admin.section_title'), ENT_QUOTES, 'UTF-8'); ?></h4>
+                            <?php if ($can_offer_password_reset_email) : ?>
+                                <p class="text-muted small"><?php echo htmlspecialchars(t('manage.password_reset_admin.help'), ENT_QUOTES, 'UTF-8'); ?></p>
+                                <button type="submit" name="send_password_reset_email" value="1" class="btn btn-outline-warning mb-3"><?php echo htmlspecialchars(t('manage.password_reset_admin.submit'), ENT_QUOTES, 'UTF-8'); ?></button>
+                            <?php elseif (($EMAIL_SENDING_ENABLED ?? false) !== true) : ?>
+                                <p class="text-muted small"><?php echo htmlspecialchars(t('manage.users.new.error.email_sending_not_configured'), ENT_QUOTES, 'UTF-8'); ?></p>
+                            <?php else : ?>
+                                <p class="text-muted small"><?php echo htmlspecialchars(t('manage.users.new.password_set_link_disabled_help'), ENT_QUOTES, 'UTF-8'); ?></p>
+                            <?php endif; ?>
+                        <?php endif; ?>
+
                         <!-- Additional Attributes -->
                         <?php if (isset($LDAP['account_additional_attributes'])) : ?>
                         <h4><?php echo htmlspecialchars(t('manage.users.section.additional_information'), ENT_QUOTES, 'UTF-8'); ?></h4>
