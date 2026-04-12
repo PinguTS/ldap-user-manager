@@ -426,7 +426,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
                     $subject = parse_mail_template((string) $parsedAccount['subject'], $vars);
                     $body = parse_mail_template((string) $parsedAccount['body'], $vars);
 
-                    return send_email($mail, trim($givenName . ' ' . $sn), $subject, $body);
+                    $preheader = lum_email_preheader('email.preheader.new_account', 'Set your password to activate your account.');
+
+                    return send_email($mail, trim($givenName . ' ' . $sn), $subject, $body, $preheader);
                 }
 
                 return lum_send_account_welcome_email(

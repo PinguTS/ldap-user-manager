@@ -331,7 +331,9 @@ if (isset($_POST['create_org_user'])) {
                             $mail_body = parse_mail_template((string) $parsedAccount['body'], $vars);
                             $mail_subject = parse_mail_template((string) $parsedAccount['subject'], $vars);
 
-                            return send_email($this_mail, "$this_givenName $this_sn", $mail_subject, $mail_body);
+                            $preheader = lum_email_preheader('email.preheader.new_account', 'Set your password to activate your account.');
+
+                            return send_email($this_mail, "$this_givenName $this_sn", $mail_subject, $mail_body, $preheader);
                         }
 
                         $welcomeVars = [
