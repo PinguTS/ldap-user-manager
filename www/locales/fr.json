@@ -499,7 +499,7 @@
   "manage.org_users.table.col_name": "Nom",
   "manage.org_users.table.col_status": "Statut",
   "manage.org_users.table.col_username": "Nom d'utilisateur",
-  "manage.users.profile.heading": "Profil utilisateur : :user",
+  "manage.users.profile.heading": "Profil utilisateur : :name",
   "manage.users.profile.details": "Détails du profil",
   "manage.users.edit.page_title": ":org – Modifier l'utilisateur",
   "manage.users.edit.heading": "Modifier l'utilisateur : :user",

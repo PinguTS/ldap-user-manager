@@ -501,7 +501,7 @@
   "manage.org_users.table.col_name": "Name",
   "manage.org_users.table.col_status": "Status",
   "manage.org_users.table.col_username": "Benutzername",
-  "manage.users.profile.heading": "Benutzerprofil: :user",
+  "manage.users.profile.heading": "Benutzerprofil: :name",
   "manage.users.profile.details": "Profil-Details",
   "manage.users.edit.page_title": ":org – Benutzer bearbeiten",
   "manage.users.edit.heading": "Benutzer bearbeiten: :user",

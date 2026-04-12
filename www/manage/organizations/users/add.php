@@ -438,16 +438,14 @@ if ($errors != "") { ?>
                         
                         <!-- Organization (pre-selected and locked) -->
                         <div class="form-group">
-                            <label class="col-sm-3 form-label"><?php echo htmlspecialchars(t('manage.org_users.add.organization_label'), ENT_QUOTES, 'UTF-8'); ?></label>
-                            <div class="col-sm-6">
-                                <input type="text" class="form-control" value="<?php echo htmlspecialchars($org_name); ?>" readonly>
-                                <small class="text-muted"><?php echo htmlspecialchars(t('manage.org_users.add.organization_preselected_hint'), ENT_QUOTES, 'UTF-8'); ?></small>
-                            </div>
+                            <label class="form-label"><?php echo htmlspecialchars(t('manage.org_users.add.organization_label'), ENT_QUOTES, 'UTF-8'); ?></label>
+                            <input type="text" class="form-control" value="<?php echo htmlspecialchars($org_name); ?>" readonly>
+                            <small class="text-muted"><?php echo htmlspecialchars(t('manage.org_users.add.organization_preselected_hint'), ENT_QUOTES, 'UTF-8'); ?></small>
                         </div>
 
                         <!-- User Role -->
                         <div class="form-group">
-                            <label for="user_role" class="col-sm-3 form-label"><?php echo htmlspecialchars(t('manage.users.new.user_role_label'), ENT_QUOTES, 'UTF-8'); ?></label>
+                            <label for="user_role" class="col-sm-6 form-label"><?php echo htmlspecialchars(t('manage.users.new.user_role_label'), ENT_QUOTES, 'UTF-8'); ?></label>
                             <div class="col-sm-6">
                                 <select class="form-control" name="user_role" id="user_role" required>
                                     <option value=""><?php echo htmlspecialchars(t('manage.roles.select_role'), ENT_QUOTES, 'UTF-8'); ?></option>
@@ -459,7 +457,7 @@ if ($errors != "") { ?>
 
                         <!-- Account Identifier (Auto-generated from Email) -->
                         <div class="form-group" style="display: none;">
-                            <label for="<?php echo $account_attribute; ?>" class="col-sm-3 form-label">
+                            <label for="<?php echo $account_attribute; ?>" class="col-sm-6 form-label">
                                 <strong><?php echo htmlspecialchars($attribute_map[$account_attribute]['label']); ?></strong>
                             </label>
                             <div class="col-sm-6">
@@ -470,45 +468,44 @@ if ($errors != "") { ?>
                             </div>
                         </div>
 
+                        <div class="row">
+                            <div class="col-md-6">
+                                <!-- First Name -->
+                                <div class="form-group">
+                                    <label for="givenName" class="form-label">
+                                        <strong><?php echo htmlspecialchars(t('manage.common.first_name'), ENT_QUOTES, 'UTF-8'); ?></strong><sup>*</sup>
+                                    </label>
+                                    <input type="text" class="form-control" name="givenName" id="givenName" 
+                                        value="<?php echo htmlspecialchars($_POST['givenName'] ?? ''); ?>" 
+                                        required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <!-- Last Name -->
+                                <div class="form-group">
+                                    <label for="sn" class="form-label">
+                                        <strong><?php echo htmlspecialchars(t('manage.common.last_name'), ENT_QUOTES, 'UTF-8'); ?></strong><sup>*</sup>
+                                    </label>
+                                    <input type="text" class="form-control" name="sn" id="sn" 
+                                        value="<?php echo htmlspecialchars($_POST['sn'] ?? ''); ?>" 
+                                        required>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Display Name (cn) -->
                         <div class="form-group">
-                            <label for="cn" class="col-sm-3 form-label">
+                            <label for="cn" class="form-label">
                                 <strong><?php echo htmlspecialchars(t('manage.common.display_name'), ENT_QUOTES, 'UTF-8'); ?></strong><sup>*</sup>
                             </label>
-                            <div class="col-sm-6">
-                                <input type="text" class="form-control" name="cn" id="cn"
-                                       value="<?php echo htmlspecialchars($_POST['cn'] ?? ''); ?>" required>
-                                <small class="text-muted"><?php echo htmlspecialchars(t('manage.common.display_name_hint'), ENT_QUOTES, 'UTF-8'); ?></small>
-                            </div>
-                        </div>
-
-                        <!-- First Name -->
-                        <div class="form-group">
-                            <label for="givenName" class="col-sm-3 form-label">
-                                <strong><?php echo htmlspecialchars(t('manage.common.first_name'), ENT_QUOTES, 'UTF-8'); ?></strong><sup>*</sup>
-                            </label>
-                            <div class="col-sm-6">
-                                <input type="text" class="form-control" name="givenName" id="givenName" 
-                                       value="<?php echo htmlspecialchars($_POST['givenName'] ?? ''); ?>" 
-                                       required>
-                            </div>
-                        </div>
-
-                        <!-- Last Name -->
-                        <div class="form-group">
-                            <label for="sn" class="col-sm-3 form-label">
-                                <strong><?php echo htmlspecialchars(t('manage.common.last_name'), ENT_QUOTES, 'UTF-8'); ?></strong><sup>*</sup>
-                            </label>
-                            <div class="col-sm-6">
-                                <input type="text" class="form-control" name="sn" id="sn" 
-                                       value="<?php echo htmlspecialchars($_POST['sn'] ?? ''); ?>" 
-                                       required>
-                            </div>
+                            <input type="text" class="form-control" name="cn" id="cn"
+                                    value="<?php echo htmlspecialchars($_POST['cn'] ?? ''); ?>" required>
+                            <small class="text-muted"><?php echo htmlspecialchars(t('manage.common.display_name_hint'), ENT_QUOTES, 'UTF-8'); ?></small>
                         </div>
 
                         <!-- Email (Account UID) -->
                         <div class="form-group">
-                            <label for="mail" class="col-sm-3 form-label">
+                            <label for="mail" class="col-sm-6 form-label">
                                 <strong><?php echo htmlspecialchars(t('manage.common.email_username'), ENT_QUOTES, 'UTF-8'); ?></strong><sup>*</sup>
                             </label>
                             <div class="col-sm-6">
@@ -519,52 +516,49 @@ if ($errors != "") { ?>
                             </div>
                         </div>
 
-                        <div id="password_fields">
-                            <!-- Password -->
-                            <div class="form-group">
-                                <label for="password" class="col-sm-3 form-label">
-                                    <strong><?php echo htmlspecialchars(t('login.password_label'), ENT_QUOTES, 'UTF-8'); ?></strong><sup>*</sup>
+                        <!-- Send password set link option -->
+                        <?php if ($EMAIL_SENDING_ENABLED === true) : ?>
+                        <div class="form-group">
+                            <label class="form-label"></label>
+                            <div class="checkbox">
+                                <label>
+                                    <input type="checkbox" id="send_password_set_link" name="send_password_set_link" <?php echo (isset($_POST['send_password_set_link']) && $_POST['send_password_set_link'] === 'on') ? 'checked' : ''; ?> <?php echo !is_password_reset_link_enabled() ? 'disabled' : ''; ?>>
+                                    <?php echo htmlspecialchars(t('manage.org_users.email_invite_link_checkbox'), ENT_QUOTES, 'UTF-8'); ?>
                                 </label>
-                                <div class="col-sm-6">
+                                <?php if (!is_password_reset_link_enabled()) : ?>
+                                    <div class="alert alert-warning mt-2 mb-0 py-2">
+                                        <?php echo htmlspecialchars(t('manage.users.new.error.password_set_link_disabled_secret_missing'), ENT_QUOTES, 'UTF-8'); ?>
+                                    </div>
+                                <?php endif; ?>
+                                <p class="text-muted small mt-2 mb-0"><?php echo htmlspecialchars(t('manage.org_users.email_after_create_note'), ENT_QUOTES, 'UTF-8'); ?></p>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+
+                        <div class="row" id="password_fields">
+                            <div class="col-md-6">
+                                <!-- Password -->
+                                <div class="form-group">
+                                    <label for="password" class="form-label">
+                                        <strong><?php echo htmlspecialchars(t('login.password_label'), ENT_QUOTES, 'UTF-8'); ?></strong><sup>*</sup>
+                                    </label>
                                     <input type="password" class="form-control" name="password" id="password" required>
                                 </div>
                             </div>
-
-                            <!-- Confirm Password -->
-                            <div class="form-group">
-                                <label for="password_match" class="col-sm-3 form-label">
-                                    <strong><?php echo htmlspecialchars(t('manage.users.new.confirm_password_label'), ENT_QUOTES, 'UTF-8'); ?></strong><sup>*</sup>
-                                </label>
-                                <div class="col-sm-6">
+                            <div class="col-md-6">
+                                <!-- Confirm Password -->
+                                <div class="form-group">
+                                    <label for="password_match" class="form-label">
+                                        <strong><?php echo htmlspecialchars(t('manage.users.new.confirm_password_label'), ENT_QUOTES, 'UTF-8'); ?></strong><sup>*</sup>
+                                    </label>
                                     <input type="password" class="form-control" name="password_match" id="password_match" required>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Send password set link option -->
-                        <?php if ($EMAIL_SENDING_ENABLED === true) : ?>
-                        <div class="form-group">
-                            <label class="col-sm-3 form-label"></label>
-                            <div class="col-sm-6">
-                                <div class="checkbox">
-                                    <label>
-                                        <input type="checkbox" id="send_password_set_link" name="send_password_set_link" <?php echo (isset($_POST['send_password_set_link']) && $_POST['send_password_set_link'] === 'on') ? 'checked' : ''; ?> <?php echo !is_password_reset_link_enabled() ? 'disabled' : ''; ?>>
-                                        <?php echo htmlspecialchars(t('manage.org_users.email_invite_link_checkbox'), ENT_QUOTES, 'UTF-8'); ?>
-                                    </label>
-                                    <?php if (!is_password_reset_link_enabled()) : ?>
-                                        <div class="alert alert-warning mt-2 mb-0 py-2">
-                                            <?php echo htmlspecialchars(t('manage.users.new.error.password_set_link_disabled_secret_missing'), ENT_QUOTES, 'UTF-8'); ?>
-                                        </div>
-                                    <?php endif; ?>
-                                    <p class="text-muted small mt-2 mb-0"><?php echo htmlspecialchars(t('manage.org_users.email_after_create_note'), ENT_QUOTES, 'UTF-8'); ?></p>
-                                </div>
-                            </div>
-                        </div>
-                        <?php endif; ?>
-
                         <!-- Submit Buttons -->
-                        <div class="form-group">
-                            <div class="col-sm-6 offset-sm-3">
+                        <div class="form-group row justify-content-center">
+                            <div class="col-sm-6 text-center">
                                 <button type="submit" name="create_org_user" value="1" class="btn btn-success"><?php echo htmlspecialchars(t('manage.org_users.add.create_user_submit'), ENT_QUOTES, 'UTF-8'); ?></button>
                                 <?php if ($org_uuid) : ?>
                                     <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/organizations/' . urlencode((string) $org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary"><?php echo htmlspecialchars(t('modal.cancel'), ENT_QUOTES, 'UTF-8'); ?></a>

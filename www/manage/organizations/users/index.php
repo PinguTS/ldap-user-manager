@@ -763,13 +763,19 @@ render_submenu();
     <p class="text-muted"><?php echo htmlspecialchars(t('manage.common.quick_add_lead'), ENT_QUOTES, 'UTF-8'); ?></p>
     <form method="post" class="mb-4" id="add_user_form" onsubmit="return validateAddUserForm();">
         <?= csrfTokenField() ?>
-        <div class="form-group">
-            <label for="givenName"><?php echo htmlspecialchars(t('manage.common.first_name'), ENT_QUOTES, 'UTF-8'); ?></label>
-            <input type="text" class="form-control" name="givenName" id="givenName" required>
-        </div>
-        <div class="form-group">
-            <label for="sn"><?php echo htmlspecialchars(t('manage.common.last_name'), ENT_QUOTES, 'UTF-8'); ?></label>
-            <input type="text" class="form-control" name="sn" id="sn" required>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="givenName"><?php echo htmlspecialchars(t('manage.common.first_name'), ENT_QUOTES, 'UTF-8'); ?></label>
+                    <input type="text" class="form-control" name="givenName" id="givenName" required>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="sn"><?php echo htmlspecialchars(t('manage.common.last_name'), ENT_QUOTES, 'UTF-8'); ?></label>
+                    <input type="text" class="form-control" name="sn" id="sn" required>
+                </div>
+            </div>
         </div>
         <div class="form-group">
             <label for="cn"><?php echo htmlspecialchars(t('manage.common.display_name'), ENT_QUOTES, 'UTF-8'); ?></label>
@@ -784,16 +790,6 @@ render_submenu();
         
         <!-- Hidden fields for auto-generated values -->
         <input type="hidden" name="<?php echo $LDAP['account_attribute']; ?>" id="<?php echo $LDAP['account_attribute']; ?>" value="">
-        
-        <div class="form-group">
-            <label for="password"><?php echo htmlspecialchars(t('manage.common.new_password_label'), ENT_QUOTES, 'UTF-8'); ?></label>
-            <input type="password" class="form-control" name="password" id="password" required>
-        </div>
-        <div class="form-group">
-            <label for="password_match"><?php echo htmlspecialchars(t('manage.common.confirm_new_password'), ENT_QUOTES, 'UTF-8'); ?></label>
-            <input type="password" class="form-control" name="password_match" id="password_match" required>
-        </div>
-        <input type="hidden" id="pass_score" value="0" name="pass_score">
 
         <?php global $EMAIL_SENDING_ENABLED; ?>
         <?php if ($EMAIL_SENDING_ENABLED === true) : ?>
@@ -810,6 +806,24 @@ render_submenu();
                 <p class="text-muted small mt-2 mb-0"><?php echo htmlspecialchars(t('manage.org_users.email_after_create_note'), ENT_QUOTES, 'UTF-8'); ?></p>
             </div>
         <?php endif; ?>
+        
+        <div class="row">
+            <div class="col-md-6">        
+                <div class="form-group">
+                    <label for="password"><?php echo htmlspecialchars(t('manage.common.new_password_label'), ENT_QUOTES, 'UTF-8'); ?></label>
+                    <input type="password" class="form-control" name="password" id="password" required>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="form-group">
+                    <label for="password_match"><?php echo htmlspecialchars(t('manage.common.confirm_new_password'), ENT_QUOTES, 'UTF-8'); ?></label>
+                    <input type="password" class="form-control" name="password_match" id="password_match" required>
+                </div>
+            </div>
+        </div>
+
+        <input type="hidden" id="pass_score" value="0" name="pass_score">
+
         <input type="hidden" name="add_user" value="1">
         <button type="submit" name="add_user" class="btn btn-primary" id="add_user_btn"><?php echo htmlspecialchars(t('manage.common.add_user'), ENT_QUOTES, 'UTF-8'); ?></button>
         <span id="add_user_spinner" style="display:none;"><span class="spinner-border spinner-border-sm"></span> <?php echo htmlspecialchars(t('manage.common.adding'), ENT_QUOTES, 'UTF-8'); ?></span>

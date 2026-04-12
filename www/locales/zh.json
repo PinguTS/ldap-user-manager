@@ -499,7 +499,7 @@
   "manage.org_users.table.col_name": "姓名",
   "manage.org_users.table.col_status": "状态",
   "manage.org_users.table.col_username": "用户名",
-  "manage.users.profile.heading": "用户个人资料：:user",
+  "manage.users.profile.heading": "用户个人资料：:name",
   "manage.users.profile.details": "资料详情",
   "manage.users.edit.page_title": ":org – 编辑用户",
   "manage.users.edit.heading": "编辑用户：:user",

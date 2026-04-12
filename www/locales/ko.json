@@ -499,7 +499,7 @@
   "manage.org_users.table.col_name": "이름",
   "manage.org_users.table.col_status": "상태",
   "manage.org_users.table.col_username": "사용자 이름",
-  "manage.users.profile.heading": "사용자 프로필: :user",
+  "manage.users.profile.heading": "사용자 프로필: :name",
   "manage.users.profile.details": "프로필 상세 정보",
   "manage.users.edit.page_title": ":org – 사용자 편집",
   "manage.users.edit.heading": "사용자 편집: :user",

@@ -322,6 +322,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
                         
                         <!-- Security -->
                         <h4><?php echo htmlspecialchars(t('manage.users.new.section.security'), ENT_QUOTES, 'UTF-8'); ?></h4>
+                        <?php global $EMAIL_SENDING_ENABLED; ?>
+                        <?php if ($EMAIL_SENDING_ENABLED === true) : ?>
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" id="send_password_set_link" name="send_password_set_link">
+                                <label class="form-check-label" for="send_password_set_link">
+                                    <?php echo htmlspecialchars(t('manage.org_users.email_invite_link_checkbox'), ENT_QUOTES, 'UTF-8'); ?>
+                                </label>
+                            </div>
+                            <?php if (!is_password_reset_link_enabled()) : ?>
+                                <div class="alert alert-warning mt-2 mb-0">
+                                    <?php echo htmlspecialchars(t('manage.users.new.password_set_link_disabled_help'), ENT_QUOTES, 'UTF-8'); ?>
+                                </div>
+                            <?php endif; ?>
+                            <p class="text-muted small mt-2 mb-0"><?php echo htmlspecialchars(t('manage.org_users.email_after_create_note'), ENT_QUOTES, 'UTF-8'); ?></p>
+                        <?php endif; ?>
+                        
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group <?php echo $invalid_password ? 'is-invalid' : ''; ?>">
@@ -343,22 +359,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
                             </div>
                         </div>
 
-                        <?php global $EMAIL_SENDING_ENABLED; ?>
-                        <?php if ($EMAIL_SENDING_ENABLED === true) : ?>
-                            <div class="form-check mt-2">
-                                <input class="form-check-input" type="checkbox" id="send_password_set_link" name="send_password_set_link">
-                                <label class="form-check-label" for="send_password_set_link">
-                                    <?php echo htmlspecialchars(t('manage.org_users.email_invite_link_checkbox'), ENT_QUOTES, 'UTF-8'); ?>
-                                </label>
-                            </div>
-                            <?php if (!is_password_reset_link_enabled()) : ?>
-                                <div class="alert alert-warning mt-2 mb-0">
-                                    <?php echo htmlspecialchars(t('manage.users.new.password_set_link_disabled_help'), ENT_QUOTES, 'UTF-8'); ?>
-                                </div>
-                            <?php endif; ?>
-                            <p class="text-muted small mt-2 mb-0"><?php echo htmlspecialchars(t('manage.org_users.email_after_create_note'), ENT_QUOTES, 'UTF-8'); ?></p>
-                        <?php endif; ?>
-                        
                         <!-- Additional Attributes -->
                         <?php if (isset($LDAP['account_additional_attributes'])) : ?>
                         <h4><?php echo htmlspecialchars(t('manage.users.section.additional_information'), ENT_QUOTES, 'UTF-8'); ?></h4>

@@ -499,7 +499,7 @@
   "manage.org_users.table.col_name": "氏名",
   "manage.org_users.table.col_status": "ステータス",
   "manage.org_users.table.col_username": "ユーザー名",
-  "manage.users.profile.heading": "ユーザープロファイル： :user",
+  "manage.users.profile.heading": "ユーザープロファイル： :name",
   "manage.users.profile.details": "プロファイル詳細",
   "manage.users.edit.page_title": ":org – ユーザー編集",
   "manage.users.edit.heading": "ユーザーの編集： :user",

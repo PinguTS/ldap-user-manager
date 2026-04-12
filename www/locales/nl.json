@@ -499,7 +499,7 @@
   "manage.org_users.table.col_name": "Naam",
   "manage.org_users.table.col_status": "Status",
   "manage.org_users.table.col_username": "Gebruikersnaam",
-  "manage.users.profile.heading": "Gebruikersprofiel: :user",
+  "manage.users.profile.heading": "Gebruikersprofiel: :name",
   "manage.users.profile.details": "Profielgegevens",
   "manage.users.edit.page_title": ":org – Gebruiker bewerken",
   "manage.users.edit.heading": "Gebruiker bewerken: :user",

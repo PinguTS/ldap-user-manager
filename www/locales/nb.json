@@ -499,7 +499,7 @@
   "manage.org_users.table.col_name": "Navn",
   "manage.org_users.table.col_status": "Status",
   "manage.org_users.table.col_username": "Brukernavn",
-  "manage.users.profile.heading": "Brukerprofil: :user",
+  "manage.users.profile.heading": "Brukerprofil: :name",
   "manage.users.profile.details": "Profildetaljer",
   "manage.users.edit.page_title": ":org – Rediger bruker",
   "manage.users.edit.heading": "Rediger bruker: :user",

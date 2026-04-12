@@ -499,7 +499,7 @@
   "manage.org_users.table.col_name": "Namn",
   "manage.org_users.table.col_status": "Status",
   "manage.org_users.table.col_username": "Användarnamn",
-  "manage.users.profile.heading": "Användarprofil: :user",
+  "manage.users.profile.heading": "Användarprofil: :name",
   "manage.users.profile.details": "Profiluppgifter",
   "manage.users.edit.page_title": ":org – Redigera användare",
   "manage.users.edit.heading": "Redigera användare: :user",

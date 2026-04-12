@@ -499,7 +499,7 @@
   "manage.org_users.table.col_name": "नाम",
   "manage.org_users.table.col_status": "स्थिति",
   "manage.org_users.table.col_username": "उपयोगकर्ता नाम",
-  "manage.users.profile.heading": "उपयोगकर्ता प्रोफ़ाइल: :user",
+  "manage.users.profile.heading": "उपयोगकर्ता प्रोफ़ाइल: :name",
   "manage.users.profile.details": "प्रोफ़ाइल विवरण",
   "manage.users.edit.page_title": ":org – उपयोगकर्ता संपादित करें",
   "manage.users.edit.heading": "उपयोगकर्ता संपादित करें: :user",

@@ -265,7 +265,7 @@ renderHeader(t('login.page_title', ['org' => $ORGANISATION_NAME]));
 
 ?>
 <div class="container">
- <div class="col-sm-8 offset-sm-2">
+ <div class="col-sm-4 offset-sm-4">
 
   <div class="card">
    <div class="card-header text-center"><?php echo htmlspecialchars(t('login.card_title'), ENT_QUOTES, 'UTF-8'); ?></div>
@@ -315,17 +315,13 @@ renderHeader(t('login.page_title', ['org' => $ORGANISATION_NAME]));
     } ?>
 
     <div class="form-group">
-     <label for="username" class="col-sm-4 form-label"><?php print $SITE_LOGIN_FIELD_LABEL; ?></label>
-     <div class="col-sm-6">
-      <input type="text" class="form-control" id="user_id" name="user_id">
-     </div>
+     <label for="username" class="form-label"><?php print $SITE_LOGIN_FIELD_LABEL; ?></label>
+    <input type="text" class="form-control" id="user_id" name="user_id">
     </div>
 
     <div class="form-group">
-     <label for="password" class="col-sm-4 form-label"><?php echo htmlspecialchars(t('login.password_label'), ENT_QUOTES, 'UTF-8'); ?></label>
-     <div class="col-sm-6">
+     <label for="password" class="form-label"><?php echo htmlspecialchars(t('login.password_label'), ENT_QUOTES, 'UTF-8'); ?></label>
       <input type="password" class="form-control" id="confirm" name="password">
-     </div>
     </div>
 
     <div class="form-group">
@@ -333,7 +329,7 @@ renderHeader(t('login.page_title', ['org' => $ORGANISATION_NAME]));
     </div>
 
     <div class="form-group">
-     <div class="col-sm-6 offset-sm-4">
+     <div class="col-sm-8 offset-sm-2">
       <a href="<?php echo htmlspecialchars(getBaseUrl() . 'password/reset/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('login.forgot_password_link'), ENT_QUOTES, 'UTF-8'); ?></a>
      </div>
     </div>

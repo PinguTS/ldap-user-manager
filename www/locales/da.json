@@ -479,7 +479,7 @@
   "manage.org_users.msg.credentials_reset_ok": "Legitimationsoplysninger blev nulstillet.",
   "manage.org_users.msg.credentials_reset_fail": "Fejl ved nulstilling af legitimationsoplysninger: :error",
   "manage.users.new.msg.email_send_failed": "The password setup email could not be sent. Check the PHP or web server error log, or Docker container logs, and search for \"SMTP: Unable to send email\".",
-  "manage.users.profile.heading": "Brugerprofil: :user",
+  "manage.users.profile.heading": "Brugerprofil: :name",
   "manage.users.profile.details": "Profiloplysninger",
   "manage.users.edit.page_title": ":org – Rediger bruger",
   "manage.users.edit.heading": "Rediger bruger: :user",
