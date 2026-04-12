@@ -279,3 +279,61 @@ function t(string $key, array $replacements = []): string
 
     return $msg;
 }
+
+/**
+ * Load merged en + locale messages for transactional email (does not change global UI locale).
+ *
+ * @return array<string, string>
+ */
+function lum_i18n_messages_for_locale(string $locale): array
+{
+    $dir = __DIR__ . '/../locales';
+    $available = lum_i18n_discover_locales($dir);
+    $code = lum_i18n_normalize_locale($locale);
+    if ($code === '' || !lum_i18n_is_available_locale($code, $available)) {
+        $code = 'en';
+    }
+
+    $messages = lum_i18n_load_json_file($dir . '/en.json');
+    if ($code !== 'en') {
+        foreach (lum_i18n_load_json_file($dir . '/' . $code . '.json') as $k => $v) {
+            $messages[$k] = $v;
+        }
+    }
+
+    return $messages;
+}
+
+/**
+ * @param array<string, string> $messages
+ */
+function lum_i18n_translate_from_messages(array $messages, string $key, array $replacements = []): string
+{
+    $msg = $messages[$key] ?? $key;
+    if ($replacements === []) {
+        return $msg;
+    }
+    foreach ($replacements as $name => $value) {
+        $msg = str_replace(':' . (string) $name, (string) $value, $msg);
+    }
+
+    return $msg;
+}
+
+/**
+ * Translate a key using a specific locale without mutating global i18n state.
+ */
+function lum_i18n_t_for_locale(string $locale, string $key, array $replacements = []): string
+{
+    static $cache = [];
+
+    $code = lum_i18n_normalize_locale($locale);
+    if ($code === '') {
+        $code = 'en';
+    }
+    if (!isset($cache[$code])) {
+        $cache[$code] = lum_i18n_messages_for_locale($code);
+    }
+
+    return lum_i18n_translate_from_messages($cache[$code], $key, $replacements);
+}

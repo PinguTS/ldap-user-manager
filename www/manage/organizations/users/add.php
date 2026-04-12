@@ -307,35 +307,45 @@ if (isset($_POST['create_org_user'])) {
 
                 // Notify user by email when SMTP is enabled (invite link or welcome)
                 if ($EMAIL_SENDING_ENABLED === true && isset($this_mail) && isValidEmail((string) $this_mail)) {
-                    if ($send_password_set_link) {
-                        $payload = build_password_action_payload((string) $account_identifier, 'set');
-                        $token = create_password_action_token($payload);
-                        $setUrl = build_password_action_url($token);
+                    $emailLocale = lum_resolve_transactional_email_locale_for_new_org_user((string) $org_name, (string) $user_role);
+                    $sent_email = lum_with_transactional_email_locale($emailLocale, function () use (
+                        $send_password_set_link,
+                        $account_identifier,
+                        $this_givenName,
+                        $this_sn,
+                        $this_mail
+                    ): bool {
+                        if ($send_password_set_link) {
+                            $payload = build_password_action_payload((string) $account_identifier, 'set');
+                            $token = create_password_action_token($payload);
+                            $setUrl = build_password_action_url($token);
 
-                        $vars = array_merge(lum_password_action_token_expiry_mail_vars(), [
-                            'login' => (string) $account_identifier,
-                            'first_name' => (string) $this_givenName,
-                            'last_name' => (string) $this_sn,
-                            'password_set_url' => $setUrl,
-                        ]);
+                            $vars = array_merge(lum_password_action_token_expiry_mail_vars(), [
+                                'login' => (string) $account_identifier,
+                                'first_name' => (string) $this_givenName,
+                                'last_name' => (string) $this_sn,
+                                'password_set_url' => $setUrl,
+                            ]);
 
-                        $parsedAccount = lum_load_parsed_combined_transactional_template('new_account.html');
-                        $mail_body = parse_mail_template((string) $parsedAccount['body'], $vars);
-                        $mail_subject = parse_mail_template((string) $parsedAccount['subject'], $vars);
+                            $parsedAccount = lum_load_parsed_combined_transactional_template('new_account.html');
+                            $mail_body = parse_mail_template((string) $parsedAccount['body'], $vars);
+                            $mail_subject = parse_mail_template((string) $parsedAccount['subject'], $vars);
 
-                        $sent_email = send_email($this_mail, "$this_givenName $this_sn", $mail_subject, $mail_body);
-                    } else {
+                            return send_email($this_mail, "$this_givenName $this_sn", $mail_subject, $mail_body);
+                        }
+
                         $welcomeVars = [
                             'login' => (string) $account_identifier,
                             'first_name' => (string) $this_givenName,
                             'last_name' => (string) $this_sn,
                         ];
-                        $sent_email = lum_send_account_welcome_email(
+
+                        return lum_send_account_welcome_email(
                             (string) $this_mail,
                             trim((string) $this_givenName . ' ' . (string) $this_sn),
                             $welcomeVars
                         );
-                    }
+                    });
                     if ($sent_email) {
                         $creation_message .= ' ' . t(
                             'manage.org_users.add.msg.email_sent_ok',

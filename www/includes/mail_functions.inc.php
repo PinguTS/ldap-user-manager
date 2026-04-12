@@ -9,7 +9,10 @@ declare(strict_types=1);
 // reset_password.html (self-service reset), reset_password_admin.html (admin-sent reset link).
 // Localized: basename.<locale>.html (e.g. new_account.de.html); falls back to basename.html.
 // Override directory via EMAIL_TEMPLATES_DIR (absolute path); else default: www/templates/emails.
-// Outgoing locale: EMAIL_DEFAULT_LOCALE (if set and valid), else lum_current_locale(), else en.
+// Outgoing locale: see email_locale.inc.php; call sites use lum_with_transactional_email_locale().
+// When no locale is pushed, lum_outgoing_email_locale() falls back to installation default only (EMAIL_DEFAULT_LOCALE or en).
+
+include_once __DIR__ . '/email_locale.inc.php';
 
 /**
  * Directory containing transactional *.html templates (new_account, account_welcome, reset_password, etc.).
@@ -24,38 +27,17 @@ function mail_templates_directory(): string
 }
 
 /**
- * Locale code used when resolving localized template filenames (not necessarily equal to UI locale if EMAIL_DEFAULT_LOCALE is set).
+ * Locale code used when resolving localized template filenames and email.ttl strings.
+ * Uses the innermost lum_with_transactional_email_locale() scope when set; otherwise installation default only.
  */
 function lum_outgoing_email_locale(): string
 {
-    global $log_prefix;
-    $prefix = is_string($log_prefix ?? null) ? $log_prefix : '';
-
-    $dir = __DIR__ . '/../locales';
-    $available = function_exists('lum_i18n_discover_locales')
-        ? lum_i18n_discover_locales($dir)
-        : ['en'];
-
-    $envRaw = getenv('EMAIL_DEFAULT_LOCALE');
-    if ($envRaw !== false && $envRaw !== '') {
-        $cand = function_exists('lum_i18n_normalize_locale')
-            ? lum_i18n_normalize_locale(trim($envRaw))
-            : strtolower(trim($envRaw));
-        if ($cand !== '' && function_exists('lum_i18n_is_available_locale')
-            && lum_i18n_is_available_locale($cand, $available)) {
-            return $cand;
-        }
-        error_log("{$prefix}EMAIL_DEFAULT_LOCALE ignored (unknown or invalid): " . trim($envRaw), 0);
+    $stack = $GLOBALS['lum_transactional_email_locale_stack'] ?? null;
+    if (is_array($stack) && count($stack) > 0) {
+        return (string) $stack[array_key_last($stack)];
     }
 
-    if (function_exists('lum_current_locale')) {
-        $cur = lum_current_locale();
-        if (function_exists('lum_i18n_is_available_locale') && lum_i18n_is_available_locale($cur, $available)) {
-            return $cur;
-        }
-    }
-
-    return 'en';
+    return lum_installation_email_locale();
 }
 
 /**
@@ -157,18 +139,25 @@ function lum_password_action_token_expiry_mail_vars(): array
 function lum_format_password_action_token_ttl_human(int $seconds): string
 {
     $seconds = max(1, $seconds);
-
-    if (!function_exists('t')) {
+    $loc = lum_outgoing_email_locale();
+    $tr = static function (string $key, array $replacements = []) use ($loc): string {
+        if (function_exists('lum_i18n_t_for_locale')) {
+            return lum_i18n_t_for_locale($loc, $key, $replacements);
+        }
+        if (function_exists('t')) {
+            return t($key, $replacements);
+        }
         $m = max(1, (int) ceil($seconds / 60));
+
         return $m === 1 ? '1 minute' : "{$m} minutes";
-    }
+    };
 
     // Up to and including 60 minutes
     if ($seconds <= 3600) {
         $n = max(1, (int) ceil($seconds / 60));
         return $n === 1
-            ? t('email.ttl.one_minute')
-            : t('email.ttl.n_minutes', ['n' => (string) $n]);
+            ? $tr('email.ttl.one_minute')
+            : $tr('email.ttl.n_minutes', ['n' => (string) $n]);
     }
 
     // Greater than 60 minutes, up to and including 24 hours
@@ -178,19 +167,19 @@ function lum_format_password_action_token_ttl_human(int $seconds): string
         $m = $totalMin % 60;
         if ($m === 0) {
             return $h === 1
-                ? t('email.ttl.one_hour')
-                : t('email.ttl.n_hours', ['n' => (string) $h]);
+                ? $tr('email.ttl.one_hour')
+                : $tr('email.ttl.n_hours', ['n' => (string) $h]);
         }
         if ($h === 1) {
             return $m === 1
-                ? t('email.ttl.one_hour_one_minute')
-                : t('email.ttl.one_hour_n_minutes', ['m' => (string) $m]);
+                ? $tr('email.ttl.one_hour_one_minute')
+                : $tr('email.ttl.one_hour_n_minutes', ['m' => (string) $m]);
         }
         if ($m === 1) {
-            return t('email.ttl.n_hours_one_minute', ['n' => (string) $h]);
+            return $tr('email.ttl.n_hours_one_minute', ['n' => (string) $h]);
         }
 
-        return t('email.ttl.n_hours_n_minutes', ['n' => (string) $h, 'm' => (string) $m]);
+        return $tr('email.ttl.n_hours_n_minutes', ['n' => (string) $h, 'm' => (string) $m]);
     }
 
     // Greater than 24 hours
@@ -200,19 +189,19 @@ function lum_format_password_action_token_ttl_human(int $seconds): string
 
     if ($h === 0) {
         return $d === 1
-            ? t('email.ttl.one_day')
-            : t('email.ttl.n_days', ['n' => (string) $d]);
+            ? $tr('email.ttl.one_day')
+            : $tr('email.ttl.n_days', ['n' => (string) $d]);
     }
     if ($d === 1) {
         return $h === 1
-            ? t('email.ttl.one_day_one_hour')
-            : t('email.ttl.one_day_n_hours', ['h' => (string) $h]);
+            ? $tr('email.ttl.one_day_one_hour')
+            : $tr('email.ttl.one_day_n_hours', ['h' => (string) $h]);
     }
     if ($h === 1) {
-        return t('email.ttl.n_days_one_hour', ['n' => (string) $d]);
+        return $tr('email.ttl.n_days_one_hour', ['n' => (string) $d]);
     }
 
-    return t('email.ttl.n_days_n_hours', ['n' => (string) $d, 'h' => (string) $h]);
+    return $tr('email.ttl.n_days_n_hours', ['n' => (string) $d, 'h' => (string) $h]);
 }
 
 /**
@@ -407,29 +396,46 @@ function send_password_reset_email_for_ldap_user_row(array $userRow, string $tri
         return ['ok' => false, 'reason' => 'no_valid_email'];
     }
 
-    $payload = build_password_action_payload($login !== '' ? $login : $userMail, 'reset');
-    $token = create_password_action_token($payload);
-    $resetUrl = build_password_action_url($token);
-    $vars = array_merge(lum_password_action_token_expiry_mail_vars(), [
-        'login' => ($login !== '' ? $login : $userMail),
-        'first_name' => $first,
-        'last_name' => $last,
-        'password_reset_url' => $resetUrl,
-    ]);
-    $parsed = lum_load_parsed_combined_transactional_template($templateBase);
-    $subject = parse_mail_template((string) $parsed['subject'], $vars);
-    $body = parse_mail_template((string) $parsed['body'], $vars);
-    if (trim($body) === '') {
-        error_log(
-            "{$log_prefix}SMTP: reset email body is empty after template merge; check "
-            . mail_templates_directory() . '/' . basename($templateBase, '.html') . '*.html (first line = subject, following lines = body).',
-            0
-        );
-        return ['ok' => false, 'reason' => 'send_failed'];
-    }
-    $sent = send_email($userMail, trim($first . ' ' . $last), $subject, $body);
+    $visitorIsRecipient = ($trigger === 'self');
+    $locale = lum_resolve_transactional_email_locale_from_ldap_user_row($userRow, $visitorIsRecipient);
 
-    return $sent ? ['ok' => true, 'email' => $userMail] : ['ok' => false, 'reason' => 'send_failed'];
+    $stem = basename($templateBase, '.html');
+    $templateHint = $stem . '.html';
+
+    return lum_with_transactional_email_locale($locale, function () use (
+        $userMail,
+        $login,
+        $first,
+        $last,
+        $templateBase,
+        $log_prefix,
+        $templateHint
+    ): array {
+        $payload = build_password_action_payload($login !== '' ? $login : $userMail, 'reset');
+        $token = create_password_action_token($payload);
+        $resetUrl = build_password_action_url($token);
+        $vars = array_merge(lum_password_action_token_expiry_mail_vars(), [
+            'login' => ($login !== '' ? $login : $userMail),
+            'first_name' => $first,
+            'last_name' => $last,
+            'password_reset_url' => $resetUrl,
+        ]);
+        $parsed = lum_load_parsed_combined_transactional_template($templateBase);
+        $subject = parse_mail_template((string) $parsed['subject'], $vars);
+        $body = parse_mail_template((string) $parsed['body'], $vars);
+        if (trim($body) === '') {
+            error_log(
+                "{$log_prefix}SMTP: reset email body is empty after template merge; check "
+                . mail_templates_directory() . '/' . $templateHint . ' (localized variants).',
+                0
+            );
+
+            return ['ok' => false, 'reason' => 'send_failed'];
+        }
+        $sent = send_email($userMail, trim($first . ' ' . $last), $subject, $body);
+
+        return $sent ? ['ok' => true, 'email' => $userMail] : ['ok' => false, 'reason' => 'send_failed'];
+    });
 }
 
 /**
@@ -440,8 +446,13 @@ function send_password_reset_email_for_ldap_user_row(array $userRow, string $tri
 function send_password_reset_email_for_user_dn($ldap, string $dn, string $trigger = 'self'): array
 {
     global $LDAP;
-    $attrs = ['mail', 'givenName', 'sn', $LDAP['account_attribute']];
-    $read = @ldap_read($ldap, $dn, '(objectClass=*)', $attrs);
+    $attrs = [
+        'mail', 'givenName', 'sn',
+        $LDAP['account_attribute'],
+        'description', 'organization', 'o', 'preferredLanguage',
+    ];
+    $attrs = array_values(array_unique($attrs));
+    $read = @ldap_read($ldap, $dn, '(objectClass=' . '*' . ')', $attrs);
     $entries = $read ? ldap_get_entries($ldap, $read) : null;
     if (!is_array($entries) || ($entries['count'] ?? 0) < 1 || !is_array($entries[0] ?? null)) {
         return ['ok' => false, 'reason' => 'no_valid_email'];

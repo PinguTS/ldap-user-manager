@@ -163,24 +163,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
             $first = (string) ($new_account_r['givenName'] ?? '');
             $last = (string) ($new_account_r['sn'] ?? '');
             if (($EMAIL_SENDING_ENABLED ?? false) === true && $login !== '' && isValidEmail($login)) {
-                if ($send_password_set_link) {
-                    $payload = build_password_action_payload($login, 'set');
-                    $token = create_password_action_token($payload);
-                    $setUrl = build_password_action_url($token);
+                $emailLocale = lum_resolve_transactional_email_locale_for_system_user_invite((string) ($new_account_r['userRole'] ?? ''));
+                $sentOk = lum_with_transactional_email_locale($emailLocale, function () use (
+                    $send_password_set_link,
+                    $login,
+                    $first,
+                    $last
+                ): bool {
+                    if ($send_password_set_link) {
+                        $payload = build_password_action_payload($login, 'set');
+                        $token = create_password_action_token($payload);
+                        $setUrl = build_password_action_url($token);
 
-                    $vars = array_merge(lum_password_action_token_expiry_mail_vars(), [
-                        'login' => $login,
-                        'first_name' => $first,
-                        'last_name' => $last,
-                        'password_set_url' => $setUrl,
-                    ]);
+                        $vars = array_merge(lum_password_action_token_expiry_mail_vars(), [
+                            'login' => $login,
+                            'first_name' => $first,
+                            'last_name' => $last,
+                            'password_set_url' => $setUrl,
+                        ]);
 
-                    $parsedAccount = lum_load_parsed_combined_transactional_template('new_account.html');
-                    $subject = parse_mail_template((string) $parsedAccount['subject'], $vars);
-                    $body = parse_mail_template((string) $parsedAccount['body'], $vars);
-                    $sentOk = send_email($login, trim($first . ' ' . $last), $subject, $body);
-                } else {
-                    $sentOk = lum_send_account_welcome_email(
+                        $parsedAccount = lum_load_parsed_combined_transactional_template('new_account.html');
+                        $subject = parse_mail_template((string) $parsedAccount['subject'], $vars);
+                        $body = parse_mail_template((string) $parsedAccount['body'], $vars);
+
+                        return send_email($login, trim($first . ' ' . $last), $subject, $body);
+                    }
+
+                    return lum_send_account_welcome_email(
                         $login,
                         trim($first . ' ' . $last),
                         [
@@ -189,7 +198,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
                             'last_name' => $last,
                         ]
                     );
-                }
+                });
                 if (!$sentOk) {
                     renderAlertBanner(t('manage.users.new.msg.email_send_failed'), 'warning', 10000);
                 }

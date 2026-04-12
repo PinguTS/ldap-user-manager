@@ -405,22 +405,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
 
         global $EMAIL_SENDING_ENABLED;
         if (($EMAIL_SENDING_ENABLED ?? false) === true && isValidEmail($mail)) {
-            if ($sendPasswordSetLink) {
-                $payload = build_password_action_payload($mail, 'set');
-                $token = create_password_action_token($payload);
-                $setUrl = build_password_action_url($token);
-                $vars = array_merge(lum_password_action_token_expiry_mail_vars(), [
-                    'login' => $mail,
-                    'first_name' => $givenName,
-                    'last_name' => $sn,
-                    'password_set_url' => $setUrl,
-                ]);
-                $parsedAccount = lum_load_parsed_combined_transactional_template('new_account.html');
-                $subject = parse_mail_template((string) $parsedAccount['subject'], $vars);
-                $body = parse_mail_template((string) $parsedAccount['body'], $vars);
-                $sentOk = send_email($mail, trim($givenName . ' ' . $sn), $subject, $body);
-            } else {
-                $sentOk = lum_send_account_welcome_email(
+            $emailLocale = lum_resolve_transactional_email_locale_for_new_org_user((string) $orgName, (string) ($LDAP['user_role'] ?? 'user'));
+            $sentOk = lum_with_transactional_email_locale($emailLocale, function () use (
+                $sendPasswordSetLink,
+                $mail,
+                $givenName,
+                $sn
+            ): bool {
+                if ($sendPasswordSetLink) {
+                    $payload = build_password_action_payload($mail, 'set');
+                    $token = create_password_action_token($payload);
+                    $setUrl = build_password_action_url($token);
+                    $vars = array_merge(lum_password_action_token_expiry_mail_vars(), [
+                        'login' => $mail,
+                        'first_name' => $givenName,
+                        'last_name' => $sn,
+                        'password_set_url' => $setUrl,
+                    ]);
+                    $parsedAccount = lum_load_parsed_combined_transactional_template('new_account.html');
+                    $subject = parse_mail_template((string) $parsedAccount['subject'], $vars);
+                    $body = parse_mail_template((string) $parsedAccount['body'], $vars);
+
+                    return send_email($mail, trim($givenName . ' ' . $sn), $subject, $body);
+                }
+
+                return lum_send_account_welcome_email(
                     $mail,
                     trim($givenName . ' ' . $sn),
                     [
@@ -429,7 +438,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
                         'last_name' => $sn,
                     ]
                 );
-            }
+            });
             if ($sentOk) {
                 $message .= ' ' . t('manage.org_users.add.msg.email_sent_ok', ['email' => $mail]);
             } else {
