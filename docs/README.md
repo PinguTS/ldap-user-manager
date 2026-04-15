@@ -104,7 +104,17 @@ Connecting external services via OIDC or the export API.
 | [Joomla](integrations/joomla.md) | Joomla OIDC integration |
 | [Custom Applications](integrations/custom-applications.md) | Integrating your own application |
 | [TYPO3 Legacy (SSO)](integrations/typo3-legacy.md) | Legacy TYPO3 ig_ldap_sso_auth integration |
-| [Export Endpoint](deployment/export-endpoint.md) | Machine-readable organization export (Bearer auth) |
+
+---
+
+## API Reference
+
+Machine-readable endpoints for server-to-server integration.
+
+| Document | Description |
+|---|---|
+| [Organizations Export](api/organizations.md) | GET member organizations as JSON or CSV (Bearer auth) |
+| [Password Reset Request](api/password-reset-request.md) | Trigger a password reset email from an external system |
 
 ---
 

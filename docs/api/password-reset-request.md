@@ -1,4 +1,4 @@
-# Password reset request API
+# Password Reset Request API
 
 Use this endpoint when integrating **forgot password** from an external system (for example TYPO3). Behavior matches the browser form at `password/reset/`: the same LDAP lookup runs for organization users and system users, and responses do not reveal whether an account exists.
 
@@ -8,6 +8,12 @@ Use this endpoint when integrating **forgot password** from an external system (
   Replace `{SITE_BASE}` with your deployment base URL (including any path prefix, e.g. `https://example.org/ldap-manager/`).
 - **Method:** `POST`
 - **Content-Type:** `application/json`
+
+## Authentication
+
+**No API token is required.** This endpoint is intentionally public, equivalent to the browser-based forgot-password form. Any caller can submit an email address. The application will only send a reset email if the address matches an account in the LDAP directory; no information about whether an account exists is revealed in the response.
+
+The only access controls are rate limits (see below).
 
 ## Request body
 
@@ -47,9 +53,14 @@ If the account exists and outbound mail is configured, the user receives an emai
 
 ## Prerequisites
 
-- `PASSWORD_RESET_TOKEN_SECRET` set (token signing).
-- Optional: `PASSWORD_RESET_TOKEN_TTL_SECONDS` — link lifetime in seconds (default **3600**, i.e. 60 minutes). Same value is used for the expiry text in the email.
-- Email sending verified / enabled as for the rest of the app (`EMAIL_SENDING_ENABLED`).
+The following environment variables must be configured on the server for the endpoint to work. They are not sent by the API caller.
+
+- **`PASSWORD_RESET_TOKEN_SECRET`** — Used to sign the time-limited reset link embedded in the password reset email. This is not an API access token and does not need to be sent by the caller. Generate with:
+  ```bash
+  openssl rand -hex 32
+  ```
+- **`PASSWORD_RESET_TOKEN_TTL_SECONDS`** — Optional. Lifetime of the reset link in seconds (default: **3600**, i.e. 60 minutes). The same value is used in the expiry text in the email.
+- **`EMAIL_SENDING_ENABLED`** and related mail settings — Required for the reset email to be delivered.
 
 ## Example (curl)
 
