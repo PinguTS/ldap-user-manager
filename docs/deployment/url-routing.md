@@ -2,11 +2,11 @@
 
 This document explains the URL routing system for LDAP User Manager and how it provides clean, user-friendly URLs.
 
-## 🎯 **Overview**
+## Overview
 
 The system provides clean URLs by removing `.php` extensions and handling URL rewriting. This makes URLs more professional and easier to remember.
 
-## 🔗 **Supported Clean URLs**
+## Supported Clean URLs
 
 ### **Main Application**
 - `/` → Main application entry point
@@ -40,7 +40,7 @@ The system provides clean URLs by removing `.php` extensions and handling URL re
 - `/manage/roles/` → Role management
 - `/manage/download.php?...` → Download functionality
 
-## 🔧 **How It Works**
+## How It Works
 
 The URL routing system uses **Apache configuration** to provide clean URLs and proper routing for the web application.
 
@@ -49,7 +49,7 @@ The URL routing system uses **Apache configuration** to provide clean URLs and p
 - **Integration**: Automatically included in Apache VirtualHost configuration
 - **Benefits**: Better performance, security, and Docker best practices
 
-## 📋 **URL Examples**
+## URL Examples
 
 ### **Before (with .php extensions)**
 ```
@@ -63,7 +63,7 @@ The URL routing system uses **Apache configuration** to provide clean URLs and p
 /manage/organizations/550e8400-e29b-41d4-a716-446655440000
 ```
 
-## 🛡️ **Security Features**
+## Security Features
 
 ### **File Access Protection**
 - Prevents access to `.htaccess`, `.htpasswd`, `.ini`, `.log`, `.sh`, `.sql`, `.conf` files
@@ -76,7 +76,7 @@ The URL routing system uses **Apache configuration** to provide clean URLs and p
 - X-XSS-Protection: Enables XSS protection
 - Referrer-Policy: Controls referrer information
 
-## ⚡ **Performance Features**
+## Performance Features
 
 ### **Caching**
 - CSS and JavaScript files cached for 1 month
@@ -88,7 +88,7 @@ The URL routing system uses **Apache configuration** to provide clean URLs and p
 - Reduces bandwidth usage
 - Improves page load times
 
-## 🔍 **Testing the URLs**
+## Testing the URLs
 
 ### **Valid URLs (should work)**
 ```
@@ -104,7 +104,7 @@ The URL routing system uses **Apache configuration** to provide clean URLs and p
 /old/legacy/url
 ```
 
-## 📝 **Implementation Notes**
+## Implementation Notes
 
 ### **Apache Configuration**
 - **File**: `apache/ldap-user-manager.conf`
@@ -125,7 +125,7 @@ The code provides `www/oidc/callback.php`. If you want a clean URL like `/oidc/c
 - **Docker Best Practice**: Configuration is part of container
 - **Consistency**: All instances use identical configuration
 
-## 🚨 **Troubleshooting**
+## Troubleshooting
 
 ### **Common Issues**
 
@@ -150,9 +150,9 @@ RewriteLog "/var/log/apache2/rewrite.log"
 RewriteLogLevel 3
 ```
 
-## 📚 **Related Documentation**
+## Related Documentation
 
-- [LDAP Configuration](LDAP-CONFIGURATION.md) - LDAP setup and configuration
-- [Docker Setup](DOCKER-SETUP.md) - Docker deployment instructions
+- [LDAP Configuration](../ldap/setup.md) - LDAP setup and configuration
+- [Docker Setup](../../DOCKER-SETUP.md) - Docker deployment instructions
 - [Environment Variables](../configuration/environment-variables.md) - Environment variables
-- [Role Configuration](ROLE_CONFIGURATION.md) - Access control configuration
+- [Role Configuration](../configuration/roles.md) - Access control configuration

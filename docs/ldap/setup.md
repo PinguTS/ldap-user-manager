@@ -285,11 +285,11 @@ ldap_enable_organization($ldap_connection, $org_name)
 5. Failed login attempts are logged for security
 
 **Benefits:**
-- ✅ **Standard practice on OpenLDAP**: Uses ppolicy’s `pwdAccountLockedTime` when the server provides it
-- ✅ **Security enhancement**: Immediate access control without deletion
-- ✅ **Audit Trail**: Complete logging of all disable/enable operations
-- ✅ **Permission-Based**: Granular access control for disable operations
-- ✅ **Reversible**: Easy to enable accounts when needed
+- **Standard practice on OpenLDAP**: Uses ppolicy’s `pwdAccountLockedTime` when the server provides it
+- **Security enhancement**: Immediate access control without deletion
+- **Audit Trail**: Complete logging of all disable/enable operations
+- **Permission-Based**: Granular access control for disable operations
+- **Reversible**: Easy to enable accounts when needed
 
 ---
 
@@ -537,9 +537,9 @@ ldapsearch -x -b ou=people,dc=example,dc=com -D cn=admin,dc=example,dc=com -w yo
 
 ## 12. See Also
 
-- [ldif/README.md](ldif/README.md) - Detailed LDIF loading instructions
-- Main [README.md](README.md) for general setup and environment variables
-- [docs/ldap-structure.md](docs/ldap-structure.md) for detailed LDAP structure examples 
+- [LDAP Examples](examples.md) - Sample LDIF files and loading instructions
+- [Documentation Hub](../README.md) for general setup and environment variables
+- [LDAP Structure](../ldap-structure.md) for detailed LDAP structure examples
 
 The system supports configurable organization fields through environment variables. You can customize which LDAP attributes are treated as required or optional when creating/editing organizations.
 

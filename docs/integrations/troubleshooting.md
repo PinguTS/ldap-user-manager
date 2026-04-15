@@ -775,10 +775,3 @@ docker-compose up -d
 
 ### Community Support
 - [GitHub Issues](https://github.com/pinguts/ldap-user-manager/issues)
-- [Stack Overflow](https://stackoverflow.com/)
-- [Discord Community](https://discord.gg/ldap-user-manager)
-
-### Professional Support
-- [Email Support](mailto:support@yourcompany.com)
-- [Phone Support](tel:+1-555-0123)
-- [Emergency Support](mailto:emergency@yourcompany.com)

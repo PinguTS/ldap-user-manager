@@ -96,7 +96,7 @@ docker-compose logs dex
 
 ## Support Resources
 
-- **Main Documentation**: [docs/identity.md](./identity.md)
-- **External Services**: [services/](./services/)
+- **Main Documentation**: [docs/identity.md](../identity.md)
+- **Example Config Files**: [services/](../../services/)
 - **Dex Documentation**: https://dexidp.io/docs/
 - **OIDC Specification**: https://openid.net/connect/

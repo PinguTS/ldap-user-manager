@@ -528,7 +528,7 @@ curl -k https://id.example.org/.well-known/openid_configuration
 
 The following services run on external servers and must be configured to authenticate against your local Dex OIDC provider.
 
-**📖 For detailed configuration instructions, see the [Services Directory](../services/)**
+For detailed configuration instructions, see the [Integration Guides](integrations/).
 
 ### Quick Configuration Summary
 

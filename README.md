@@ -80,9 +80,9 @@ See [env.example](env.example) for all available settings and [Environment Varia
 | Document | Description |
 |---|---|
 | [OIDC Integration](docs/identity.md) | Dex OIDC setup and architecture |
-| [TYPO3](services/typo3/README.md) | TYPO3 LDAP/OIDC integration |
-| [GitLab](services/gitlab/README.md) | GitLab OIDC integration |
-| [Nextcloud](services/nextcloud/README.md) | Nextcloud OIDC integration |
+| [TYPO3](docs/integrations/typo3.md) | TYPO3 OIDC integration |
+| [GitLab](docs/integrations/gitlab.md) | GitLab OIDC integration |
+| [Nextcloud](docs/integrations/nextcloud.md) | Nextcloud OIDC integration |
 | [Export Endpoint](docs/deployment/export-endpoint.md) | Member organization export API |
 
 ### For Contributors

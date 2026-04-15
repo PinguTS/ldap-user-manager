@@ -86,7 +86,7 @@ This guide provides step-by-step instructions for setting up LDAP User Manager w
 
 ### External Services Integration
 
-For detailed configuration of external services (TYPO3, GitLab, Nextcloud), see the [Services Directory](../services/).
+For detailed configuration of external services (TYPO3, GitLab, Nextcloud), see the [Integration Guides](docs/integrations/).
 
 ---
 

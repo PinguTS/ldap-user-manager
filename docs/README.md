@@ -97,12 +97,12 @@ Connecting external services via OIDC or the export API.
 
 | Document | Description |
 |---|---|
-| [TYPO3](../services/typo3/README.md) | TYPO3 LDAP and OIDC integration |
-| [GitLab](../services/gitlab/README.md) | GitLab OIDC integration |
-| [Nextcloud](../services/nextcloud/README.md) | Nextcloud OIDC integration |
-| [WordPress](../services/wordpress/README.md) | WordPress LDAP integration |
-| [Joomla](../services/joomla/README.md) | Joomla LDAP integration |
-| [Custom Applications](../services/custom-applications/README.md) | Integrating your own application |
+| [TYPO3](integrations/typo3.md) | TYPO3 OIDC integration |
+| [GitLab](integrations/gitlab.md) | GitLab OIDC integration |
+| [Nextcloud](integrations/nextcloud.md) | Nextcloud OIDC integration |
+| [WordPress](integrations/wordpress.md) | WordPress OIDC integration |
+| [Joomla](integrations/joomla.md) | Joomla OIDC integration |
+| [Custom Applications](integrations/custom-applications.md) | Integrating your own application |
 | [TYPO3 Legacy (SSO)](integrations/typo3-legacy.md) | Legacy TYPO3 ig_ldap_sso_auth integration |
 | [Export Endpoint](deployment/export-endpoint.md) | Machine-readable organization export (Bearer auth) |
 

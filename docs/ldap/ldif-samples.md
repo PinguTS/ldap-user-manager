@@ -4,19 +4,17 @@ This directory contains LDIF files for setting up the LDAP directory structure.
 
 ## Files
 
-- `base.ldif` - Base directory structure and organizational units
-- `system_users.ldif` - System users (administrators, maintainers)
-- `example-org.ldif` - Example organization with users
+- `base.ldif` — Base directory structure and organizational units
+- `system_users.ldif` — System users (administrators, maintainers)
+- `example-org.ldif` — Example organization with users
 
-## 🎯 Solution: Use Web-Based Setup
+## Recommended: Use Web-Based Setup
 
 The LDAP User Manager includes a comprehensive web-based setup wizard that automatically creates all necessary LDAP structure. No manual LDIF loading is required.
 
-## 🚀 Setup Process
+## Setup Process
 
 ### Web-Based Setup (Recommended)
-
-The LDAP User Manager includes a comprehensive web-based setup wizard that automatically creates all necessary LDAP structure:
 
 1. **Access the setup wizard** at `/setup/` in your web browser
 2. **The wizard will check** your LDAP directory and identify what needs to be created
@@ -35,13 +33,11 @@ The LDAP User Manager includes a comprehensive web-based setup wizard that autom
 These LDIF files are provided for reference and advanced users who want to understand the LDAP structure. They are **not required** for normal operation since the web-based setup wizard handles everything automatically.
 
 **Available files:**
-- `base.ldif` - Base directory structure (organizations, system_users, roles OUs)
-- `system_users.ldif` - System user definitions (admin, maintainer)
-- `example-org.ldif` - Example organization structure
+- `base.ldif` — Base directory structure (organizations, system_users, roles OUs)
+- `system_users.ldif` — System user definitions (admin, maintainer)
+- `example-org.ldif` — Example organization structure
 
-**Note**: LDIF files are provided for reference and manual setup. The web-based setup wizard handles everything automatically.
-
-## 🔍 Verification
+## Verification
 
 After using the web-based setup wizard, verify the structure exists:
 
@@ -53,13 +49,12 @@ ldapsearch -x -b dc=example,dc=com -D cn=admin,dc=example,dc=com -w your_admin_p
 ldapsearch -x -b ou=people,dc=example,dc=com -D cn=admin,dc=example,dc=com -w your_admin_password
 ```
 
-## 📚 Next Steps
+## Next Steps
 
-1. **Use the web-based setup wizard** at `/setup/` in your web browser
-2. **The wizard will automatically** create all necessary LDAP structure
-3. **Test the system** to ensure everything works
-4. **No manual LDIF loading** or external scripts required
+1. Use the web-based setup wizard at `/setup/`
+2. The wizard will automatically create all necessary LDAP structure
+3. Test the system to ensure everything works
 
-## 🆘 Need Help?
+## Need Help?
 
-See [TROUBLESHOOTING.md](../TROUBLESHOOTING.md) for detailed troubleshooting information.
+See [Troubleshooting](../deployment/troubleshooting.md) for detailed troubleshooting information.

@@ -160,13 +160,13 @@ Once LDAP setup verification succeeds, the `/setup/` area is locked: visitors se
 
 ## **Common Mistakes**
 
-❌ **Don't do this:**
+**Don't do this:**
 ```bash
 export PASSWORD_STRENGTH_MIN_SCORE=0
 export ACCEPT_WEAK_PASSWORDS=FALSE  # This will cause conflicts!
 ```
 
-✅ **Do this instead:**
+**Do this instead:**
 ```bash
 export PASSWORD_STRENGTH_MIN_SCORE=0
 export ACCEPT_WEAK_PASSWORDS=TRUE   # Allow weak passwords for testing
@@ -179,4 +179,4 @@ export ACCEPT_WEAK_PASSWORDS=TRUE   # Allow weak passwords for testing
 3. **Document Changes**: Keep track of your configuration choices
 4. **Security vs Usability**: Find the right balance for your users
 
-This quick reference should get you up and running quickly! 🎉
+This quick reference should get you up and running quickly.

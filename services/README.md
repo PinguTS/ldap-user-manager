@@ -1,62 +1,16 @@
-# External Services Configuration
+# Example Configuration Files
 
-This directory contains configuration examples and setup guides for external services that authenticate against the local Dex OIDC provider.
+This directory contains example configuration snippets for external services that integrate with LDAP User Manager via OIDC.
 
-## Directory Structure
+Each file contains only the OIDC-relevant configuration. Copy the relevant snippet into your existing application configuration.
 
-```
-services/
-├── README.md                    # This file
-├── typo3/                      # TYPO3 CMS configuration
-│   ├── README.md              # TYPO3 setup guide
-│   ├── composer.json          # Required extensions
-│   ├── oidc-config.yaml      # OIDC configuration example
-│   ├── install.sh             # Automated installation script
-│   ├── testing.md             # Testing procedures
-│   └── troubleshooting.md     # Troubleshooting guide
-├── gitlab/                     # GitLab configuration
-│   ├── README.md              # GitLab setup guide
-│   ├── gitlab.rb              # OmniAuth OIDC configuration
-│   └── Gemfile                # Required gems
-├── nextcloud/                  # Nextcloud configuration
-│   ├── README.md              # Nextcloud setup guide
-│   ├── config.php             # OIDC configuration example
-│   ├── occ-commands.md        # OCC command examples
-│   ├── install.sh             # Automated installation script
-│   ├── testing.md             # Testing procedures
-│   └── troubleshooting.md     # Troubleshooting guide
-├── wordpress/                  # WordPress configuration
-│   ├── README.md              # WordPress setup guide
-│   └── wp-config.php          # WordPress configuration with OIDC
-├── joomla/                     # Joomla configuration
-│   ├── README.md              # Joomla setup guide
-│   └── configuration.php      # Joomla configuration with OIDC
-└── custom-applications/        # Custom applications configuration
-    └── README.md              # Custom application setup guide
-```
+| Service | File | Guide |
+|---------|------|-------|
+| GitLab | `gitlab/gitlab.rb` | [docs/integrations/gitlab.md](../docs/integrations/gitlab.md) |
+| Nextcloud | `nextcloud/config.php` | [docs/integrations/nextcloud.md](../docs/integrations/nextcloud.md) |
+| Nextcloud OCC | `nextcloud/occ-commands.md` | [docs/integrations/nextcloud.md](../docs/integrations/nextcloud.md) |
+| WordPress | `wordpress/wp-config.php` | [docs/integrations/wordpress.md](../docs/integrations/wordpress.md) |
+| Joomla | `joomla/configuration.php` | [docs/integrations/joomla.md](../docs/integrations/joomla.md) |
+| TYPO3 | `typo3/composer.json` | [docs/integrations/typo3.md](../docs/integrations/typo3.md) |
 
-## Overview
-
-These services run on **external servers** (not in the same Docker environment) and authenticate users via the local Dex OIDC provider running at `https://id.example.org`.
-
-## Quick Start
-
-1. **Choose your service** from the subdirectories above
-2. **Follow the README** in each service directory
-3. **Configure OIDC** using the provided examples
-4. **Test authentication** against your local Dex provider
-
-## Common Configuration
-
-All external services require:
-- **OIDC Issuer**: `https://id.example.org`
-- **Client ID**: As configured in Dex (`typo3`, `gitlab`, `nextcloud`)
-- **Client Secret**: Generated and stored securely
-- **Redirect URI**: Service-specific callback URL
-- **Scopes**: `openid profile email groups`
-
-## Support
-
-- **Main Documentation**: [../docs/identity.md](../docs/identity.md)
-- **OIDC Quick Reference**: [../docs/integrations/oidc-quick-reference.md](../docs/integrations/oidc-quick-reference.md)
-- **Dex Documentation**: https://dexidp.io/docs/
+See [docs/integrations/](../docs/integrations/) for the full configuration guides.
