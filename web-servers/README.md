@@ -2,7 +2,7 @@
 
 This directory contains ready-to-use web server configurations for deploying the LDAP User Manager without Docker.
 
-## 📁 **Available Configurations**
+## **Available Configurations**
 
 ### **Apache (.htaccess)**
 - **File**: `.htaccess`
@@ -16,7 +16,7 @@ This directory contains ready-to-use web server configurations for deploying the
 - **Features**: Efficient routing, PHP-FPM integration, Gzip compression
 - **Setup**: Use the provided configuration in your Nginx sites-available
 
-## 🚀 **Quick Setup**
+## **Quick Setup**
 
 ### **Automatic Setup (Recommended)**
 ```bash
@@ -37,7 +37,7 @@ The script automatically:
 3. **Configure paths** and domain names
 4. **Enable the site** and reload your web server
 
-## ✨ **Features**
+## **Features**
 
 - **Clean URLs**: `/manage/users/show` instead of `/manage/users/show.php`
 - **Sub-path support**: Deploy in any subdirectory
@@ -46,7 +46,7 @@ The script automatically:
 - **Performance**: Compression and caching for optimal speed
 - **Proper static file handling**: Static files served directly without PHP processing
 
-## 🔧 **Configuration Features**
+## **Configuration Features**
 
 ### **URL Rewriting**
 - Clean URLs (e.g., `/manage/users/show` instead of `/manage/users/show.php`)
@@ -63,13 +63,13 @@ The script automatically:
 - Gzip compression for text content
 - Optimized file serving
 
-## 📚 **Documentation**
+## **Documentation**
 
 - **[DEPLOYMENT.md](DEPLOYMENT.md)** - Complete deployment guide
 - **[DOCKER-SETUP.md](../DOCKER-SETUP.md)** - Docker deployment (recommended)
-- **[CONFIGURATION_VARIABLES.md](../CONFIGURATION_VARIABLES.md)** - Environment variables
+- **[Environment Variables](../docs/configuration/environment-variables.md)** - Environment variables reference
 
-## 🎯 **When to Use Each Option**
+## **When to Use Each Option**
 
 ### **Use Docker (Recommended)**
 - ✅ Production environments
@@ -83,16 +83,16 @@ The script automatically:
 - ✅ Custom server configurations
 - ✅ Both root and sub-path deployment
 
-## 🔍 **Prerequisites**
+## **Prerequisites**
 
 ### **Apache Requirements**
 - Apache 2.4+ with mod_rewrite, mod_headers, mod_expires, mod_deflate
-- PHP 8.0+ with LDAP extension
+- PHP 8.2+ with LDAP extension
 - AllowOverride All in Apache configuration
 
 ### **Nginx Requirements**
 - Nginx 1.18+ with try_files support
-- PHP-FPM 8.0+ with LDAP extension
+- PHP-FPM 8.2+ with LDAP extension
 - Proper PHP-FPM socket configuration
 
 ### **General Requirements**
@@ -100,7 +100,7 @@ The script automatically:
 - PHP LDAP extension
 - Proper file permissions
 
-## 🚨 **Troubleshooting**
+## **Troubleshooting**
 
 ### **Common Issues**
 1. **URL rewriting not working** - Check module enablement
@@ -123,7 +123,7 @@ php -m | grep ldap
 systemctl status php*-fpm
 ```
 
-## 📖 **Next Steps**
+## **Next Steps**
 
 1. **Choose your deployment method** (Docker or Direct deployment)
 2. **Run the setup script** or follow manual instructions

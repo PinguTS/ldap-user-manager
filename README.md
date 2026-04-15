@@ -1,94 +1,106 @@
 # LDAP User Manager
 
-A PHP-based web interface for managing LDAP user accounts, organizations, and role-based access control. Perfect for small to medium organizations that need centralized user management with Docker deployment.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Docker](https://img.shields.io/badge/Docker-ready-blue.svg)](DOCKER-SETUP.md)
+[![PHP](https://img.shields.io/badge/PHP-8.2%2B-purple.svg)](https://www.php.net/)
+
+A PHP web interface for managing LDAP users, organizations, and role-based access control. Built for small to medium organizations that need centralized user management, with Docker as the primary deployment method.
 
 ## What It Does
 
-- **User Management**: Create, edit, and delete user accounts
-- **Organization Management**: Manage multiple organizations with separate user pools
-- **Role-based Access**: Assign users to roles with different permission levels
-- **Self-service**: Users can change their own passwords
-- **OIDC Integration**: Works with external services like TYPO3, GitLab, and Nextcloud
+- **User Management** — Create, edit, disable, and delete user accounts across organizations
+- **Organization Management** — Manage multiple organizations with separate user pools and membership status
+- **Role-based Access Control** — Four role levels: System Administrator, Maintainer, Organization Administrator, and User
+- **Self-service** — Users can change their own passwords; optional account request workflow
+- **OIDC Integration** — Acts as a user source for Dex, enabling SSO for external services (TYPO3, GitLab, Nextcloud)
+- **Email** — Transactional email for account invitations and password reset links via SMTP
 
 ## Quick Start
 
-### Option 1: Docker (Recommended)
+**Requires**: Docker and Docker Compose.
+
 ```bash
 git clone https://github.com/pinguts/ldap-user-manager.git
 cd ldap-user-manager
+cp env.example .env          # edit .env with your LDAP settings
 docker-compose up -d
 ```
-Visit `http://localhost:8080/setup/` to complete configuration.
 
-### Option 2: Web Server Deployment
+Open `http://localhost:8080/setup/` to complete the initial configuration via the web wizard.
+
+For production (with TLS and OIDC):
+
 ```bash
-git clone https://github.com/pinguts/ldap-user-manager.git
-cd ldap-user-manager
-./web-servers/setup.sh
+./setup-oidc.sh              # generates TLS certificates and OIDC client secrets
+docker-compose up -d
 ```
+
+See [Quick Start Guide](docs/getting-started/quick-start.md) for a step-by-step walkthrough.
 
 ## Configuration
 
-Key environment variables (see [env.example](env.example) and [Environment Variables](docs/configuration/environment-variables.md)):
+The application is configured entirely through environment variables. Copy `env.example` to `.env` and set at minimum:
 
-- **LDAP**: `LDAP_URI`, `LDAP_BASE_DN`, `LDAP_ADMIN_BIND_DN`, `LDAP_ADMIN_BIND_PWD`; optional `LDAP_USER_OU`, `LDAP_ORG_OU`, `LDAP_GROUP_OU`, `LDAP_ACCOUNT_ATTRIBUTE`, `LDAP_USE_UUID_IDENTIFICATION`.
-- **Roles**: `LDAP_ADMIN_ROLE`, `LDAP_MAINTAINER_ROLE`, `LDAP_ORG_ADMIN_ROLE`, `LDAP_USER_ROLE` (must be unique).
-- **Status groups** (membership/disabled flags): `LDAP_GROUP_MEMBER_ORGS`, `LDAP_GROUP_DISABLED_ORGS`, `LDAP_GROUP_DISABLED_ACCOUNTS`.
-- **Session**: `SESSION_TIMEOUT`, `SESSION_SAVE_PATH`.
-- **Password policy**: `PASSWORD_STRENGTH_MIN_SCORE`, `PASSWORD_STRENGTH_MIN_LENGTH`, `PASSWORD_STRENGTH_REQUIRE_*`, `ACCEPT_WEAK_PASSWORDS`.
-- **Password set/reset links**: `PASSWORD_RESET_TOKEN_SECRET` (signing secret; generate with `openssl rand -hex 32`), `PASSWORD_RESET_TOKEN_TTL_SECONDS`.
-- **Audit**: `AUDIT_LOG_ENABLED`, `AUDIT_LOG_FILE`.
-- **Export** (member organizations): `EXPORT_SHARED_SECRET` (required for `/export/organizations.php`; generate with `openssl rand -hex 32`; empty disables endpoint), `TYPO3_EXPORT_PID`.
+| Variable | Description | Example |
+|---|---|---|
+| `LDAP_URI` | LDAP server address | `ldaps://ldap-server:636` |
+| `LDAP_BASE_DN` | Base DN of your directory | `dc=example,dc=com` |
+| `LDAP_ADMIN_BIND_DN` | Admin bind DN | `cn=admin,dc=example,dc=com` |
+| `LDAP_ADMIN_BIND_PWD` | Admin bind password | — |
+| `SERVER_HOSTNAME` | Public hostname of this app | `app.example.org` |
+| `ORGANISATION_NAME` | Your organization name | `Acme Corp` |
 
-## Success Checklist
-
-After setup, verify these items:
-- [ ] Web interface accessible at `http://localhost:8080`
-- [ ] Setup wizard completes without errors
-- [ ] Can create and manage users
-- [ ] Can create and manage organizations
-- [ ] Role-based access control works
-
-## Screenshots
-
-UI screenshots and placeholders are documented in [docs/images/ui-screenshots/README.md](docs/images/ui-screenshots/README.md).
+See [env.example](env.example) for all available settings and [Environment Variables](docs/configuration/environment-variables.md) for the full reference.
 
 ## Documentation
 
-### Getting Started
-- [Quick Start](docs/getting-started/quick-start.md) - Get up and running in under 10 minutes
-- [Prerequisites](docs/getting-started/prerequisites.md) - What you need before starting
-- [Verification](docs/getting-started/verification.md) - How to verify your installation
+### For Administrators
 
-### Configuration
-- [Quick Reference](docs/configuration/quick-reference.md) - Essential configuration settings
-- [Environment Variables](docs/configuration/environment-variables.md) - Complete configuration reference
-- [Password Policy](docs/configuration/password-policy.md) - Password security settings
-- [Role Configuration](docs/configuration/roles.md) - Role-based access control setup
+| Document | Description |
+|---|---|
+| [Quick Start](docs/getting-started/quick-start.md) | Get running in under 10 minutes |
+| [Prerequisites](docs/getting-started/prerequisites.md) | System requirements |
+| [Docker Deployment](DOCKER-SETUP.md) | Full Docker / Portainer setup with OIDC |
+| [Web Server Deployment](web-servers/README.md) | Apache and Nginx setup without Docker |
+| [Environment Variables](docs/configuration/environment-variables.md) | Complete configuration reference |
+| [Password Policy](docs/configuration/password-policy.md) | Password strength settings |
+| [Role Configuration](docs/configuration/roles.md) | Role-based access control setup |
+| [Troubleshooting](docs/deployment/troubleshooting.md) | Common issues and solutions |
+| [Security Best Practices](docs/security/best-practices.md) | Hardening recommendations |
+| [Monitoring](docs/deployment/monitoring.md) | Health checks and log monitoring |
 
-### Deployment
-- [Docker Setup](DOCKER-SETUP.md) - Container deployment guide
-- [Web Server Deployment](web-servers/README.md) - Apache and Nginx setup
-- [Troubleshooting](docs/deployment/troubleshooting.md) - Common issues and solutions
-- [Monitoring](docs/deployment/monitoring.md) - System monitoring and alerting
+### For End Users
 
-### Advanced Topics
-- [OIDC Integration](docs/identity.md) - OpenID Connect setup with Dex
-- [Service Integrations](services/) - TYPO3, GitLab, Nextcloud setup
-- [LDAP Structure](docs/ldap-structure.md) - Directory structure and examples
-- [Security Best Practices](docs/security/best-practices.md) - Security recommendations
+| Document | Description |
+|---|---|
+| [User Guide](docs/user-guide/getting-started.md) | Logging in, changing your password, self-service |
 
-### User Guides
-- [User Management](docs/user-guide/user-management.md) - How to manage users
-- [Organization Management](docs/user-guide/organization-management.md) - How to manage organizations
-- [Role Management](docs/user-guide/role-management.md) - How to manage roles and permissions
+### For Integrators
 
-### Development
-- [Development Setup](docs/contributing/development.md) - Local development environment
-- [Code Quality](docs/contributing/code-quality.md) - Coding standards and practices
+| Document | Description |
+|---|---|
+| [OIDC Integration](docs/identity.md) | Dex OIDC setup and architecture |
+| [TYPO3](services/typo3/README.md) | TYPO3 LDAP/OIDC integration |
+| [GitLab](services/gitlab/README.md) | GitLab OIDC integration |
+| [Nextcloud](services/nextcloud/README.md) | Nextcloud OIDC integration |
+| [Export Endpoint](docs/deployment/export-endpoint.md) | Member organization export API |
+
+### For Contributors
+
+| Document | Description |
+|---|---|
+| [Development Setup](docs/contributing/development.md) | Local development environment |
+| [Code Quality](docs/contributing/code-quality.md) | Coding standards and tooling |
+| [Internationalization](docs/contributing/i18n.md) | Adding or updating translations |
+
+Full documentation index: [docs/README.md](docs/README.md)
 
 ## Support
 
-- **Documentation**: See the documentation files above
-- **Issues**: Report problems in the [GitHub issue tracker](https://github.com/pinguts/ldap-user-manager/issues)
-- **Setup Help**: Start with [Docker Setup](DOCKER-SETUP.md) for Docker deployments
+- **Issues**: [GitHub issue tracker](https://github.com/pinguts/ldap-user-manager/issues)
+- **Troubleshooting**: [Troubleshooting guide](docs/deployment/troubleshooting.md)
+
+## License
+
+MIT License — see [LICENSE](LICENSE) for details.
+This project is a fork of [wheelybird/ldap-user-manager](https://github.com/wheelybird/ldap-user-manager).

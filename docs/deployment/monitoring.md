@@ -230,61 +230,6 @@ crontab -e
 */10 * * * * /path/to/alert-check.sh
 ```
 
-## Monitoring Tools
-
-### Prometheus Integration
-```yaml
-# docker-compose.monitoring.yml
-version: '3.8'
-services:
-  prometheus:
-    image: prom/prometheus:latest
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--storage.tsdb.retention.time=200h'
-      - '--web.enable-lifecycle'
-
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "3000:3000"
-    volumes:
-      - grafana_data:/var/lib/grafana
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-
-volumes:
-  prometheus_data:
-  grafana_data:
-```
-
-### Prometheus Configuration
-```yaml
-# prometheus.yml
-global:
-  scrape_interval: 15s
-
-scrape_configs:
-  - job_name: 'ldap-user-manager'
-    static_configs:
-      - targets: ['localhost:8080']
-    metrics_path: '/metrics'
-    scrape_interval: 30s
-
-  - job_name: 'ldap-server'
-    static_configs:
-      - targets: ['localhost:389']
-    scrape_interval: 30s
-```
-
 ## Security Monitoring
 
 ### Failed Login Monitoring
@@ -326,46 +271,6 @@ NIGHT_ACCESS=$(docker-compose logs ldap-user-manager | grep "$(date +%Y-%m-%d)" 
 if [ $NIGHT_ACCESS -gt 5 ]; then
     echo "$(date): Unusual night-time access detected: $NIGHT_ACCESS attempts" >> /var/log/ldap-user-manager/security.log
 fi
-```
-
-## Dashboard Setup
-
-### Grafana Dashboard
-```json
-{
-  "dashboard": {
-    "title": "LDAP User Manager Monitoring",
-    "panels": [
-      {
-        "title": "Service Status",
-        "type": "stat",
-        "targets": [
-          {
-            "expr": "up{job=\"ldap-user-manager\"}"
-          }
-        ]
-      },
-      {
-        "title": "Response Time",
-        "type": "graph",
-        "targets": [
-          {
-            "expr": "http_request_duration_seconds{job=\"ldap-user-manager\"}"
-          }
-        ]
-      },
-      {
-        "title": "Failed Logins",
-        "type": "graph",
-        "targets": [
-          {
-            "expr": "rate(login_failures_total[5m])"
-          }
-        ]
-      }
-    ]
-  }
-}
 ```
 
 ## Monitoring Best Practices

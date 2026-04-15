@@ -20,15 +20,9 @@ Security is critical for any user management system. This guide covers:
 - **Multi-factor authentication**: Consider OIDC integration
 
 ### Rate Limiting Configuration
-The system includes built-in rate limiting to prevent brute force attacks. In the current release this is **not configurable via environment variables** and is fixed to **5 attempts per 5 minutes**.
+The application includes built-in login rate limiting to prevent brute force attacks. In the current release this is **not configurable via environment variables** and is fixed at **5 failed attempts per 5 minutes**, with a 15-minute lockout.
 
-```bash
-# Rate limiting settings (configured in Caddy)
-Rate limit: 100 requests per minute
-Burst: 200 requests
-Lockout: 5 failed attempts in 5 minutes
-Lockout duration: 15 minutes
-```
+If you use Caddy as a reverse proxy, you can additionally configure global request rate limiting in the `Caddyfile`. Note that Caddy rate limiting operates at the HTTP request level (all requests), whereas the application's rate limiting targets failed login attempts specifically. Configure them independently based on your needs.
 
 ### Session Security
 ```bash

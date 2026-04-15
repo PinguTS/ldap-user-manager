@@ -472,7 +472,7 @@ docker-compose ps
 curl -k https://id.example.org/.well-known/openid_configuration
 
 # Test LDAP connection
-docker-compose exec ldap-user-manager ldapsearch -x -H ldaps://ldaps://ldap-server:636 -b dc=example,dc=com -D cn=admin,dc=example,dc=com -w admin123
+docker-compose exec ldap-user-manager ldapsearch -x -H ldaps://ldap-server:636 -b dc=example,dc=com -D cn=admin,dc=example,dc=com -w admin123
 
 # Test external service connections (these run on separate servers)
 curl -k https://typo3.example.org/
@@ -614,7 +614,7 @@ Run the setup script to generate a new secret:
 ### Pre-Deployment Checklist
 - [ ] **DNS Configuration**: All domains point to correct server IPs
 - [ ] **SSL Certificates**: Valid certificates for all domains
-- [ **Firewall Rules**: Ports 80, 443, 22 open, others restricted
+- [ ] **Firewall Rules**: Ports 80, 443, 22 open, others restricted
 - [ ] **Network Security**: LDAP network isolated, no internet access
 - [ ] **Client Secrets**: All OIDC client secrets generated and secure
 - [ ] **Monitoring**: Log aggregation and alerting configured

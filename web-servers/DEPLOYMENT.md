@@ -2,7 +2,7 @@
 
 This guide covers all deployment methods for the LDAP User Manager, from Docker containers to direct web server deployment.
 
-## 🚀 **Deployment Options**
+## **Deployment Options**
 
 ### **1. Docker with OIDC (Recommended)**
 - **Best for**: Production, development, consistent environments
@@ -15,7 +15,7 @@ This guide covers all deployment methods for the LDAP User Manager, from Docker 
 - **Files**: `web-servers/.htaccess` (Apache) or `web-servers/nginx.conf` (Nginx)
 - **Setup**: `web-servers/setup.sh` (automatically detects web server and deployment type)
 
-## 🐳 **Option 1: Docker Deployment**
+## **Option 1: Docker Deployment**
 
 ### **Quick Start**
 ```bash
@@ -50,7 +50,7 @@ docker run -d \
 - ✅ **SSL/TLS support** with auto-generated certificates
 - ✅ **Environment variable configuration**
 
-## 🌐 **Option 2: Direct Web Server Deployment**
+## **Option 2: Direct Web Server Deployment**
 
 ### **What is Direct Deployment?**
 Direct deployment allows you to install the LDAP User Manager directly on your Apache or Nginx web server, either at the root level or in a subdirectory. The setup script automatically detects your web server and configures everything appropriately.
@@ -63,7 +63,7 @@ Direct deployment allows you to install the LDAP User Manager directly on your A
 ### **Prerequisites**
 - Apache 2.4+ with `mod_rewrite`, `mod_headers`, `mod_expires`, `mod_deflate` OR
 - Nginx 1.18+ with `try_files` support
-- PHP 8.0+ with LDAP extension (PHP-FPM for Nginx)
+- PHP 8.2+ with LDAP extension (PHP-FPM for Nginx)
 - LDAP server access
 
 ### **Quick Start**
@@ -112,7 +112,7 @@ RewriteBase /ldap-manager/  # Example for sub-path
 set $base_path "/ldap-manager";  # Example for sub-path
 ```
 
-## 🔧 **Troubleshooting**
+## **Troubleshooting**
 
 ### **Common Issues**
 
@@ -143,13 +143,13 @@ set $base_path "/ldap-manager";  # Example for sub-path
 4. **Check file permissions** and ownership
 5. **Verify configuration syntax** before reloading
 
-## 📚 **Additional Resources**
+## **Additional Resources**
 
 - [Apache Documentation](https://httpd.apache.org/docs/)
 - [Nginx Documentation](https://nginx.org/en/docs/)
 - [PHP-FPM Configuration](https://www.php.net/manual/en/install.fpm.php)
 
-## 🎯 **Next Steps**
+## **Next Steps**
 
 1. **Choose your deployment method** (Docker recommended for production)
 2. **Follow the setup instructions** for your chosen method

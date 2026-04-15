@@ -1,188 +1,65 @@
 # Features and Capabilities
 
-This document provides an overview of the key features and capabilities of LDAP User Manager.
+## User and Organization Management
 
----
+- **User accounts** — Create, edit, disable, and delete user accounts. Two types: system-level users (administrators and maintainers) and organization users (regular members).
+- **Organizations** — Group users into organizations with their own user pools. Each organization can have a name, address, and membership status.
+- **Organization membership** — Grant or revoke an organization's active membership status. Disabled organizations and their users are excluded from exports and OIDC group claims.
+- **Account disabling** — Individually disable user accounts without deleting them. Requires OpenLDAP with the `ppolicy` overlay enabled.
+- **Account requests** — Optional workflow allowing visitors to request a new account (enabled via `ACCOUNT_REQUESTS_ENABLED`).
 
-## 🚀 **Core Features**
+## Role-Based Access Control
 
-### 1. UUID-Based Identification System
-**Status**: ✅ **Available**
+Four role levels with configurable names:
 
-**What It Provides:**
-- Support for OpenLDAP's `entryUUID` operational attribute
-- Secure, immutable identification for all LDAP entries
-- Fallback support for legacy name-based lookups
+| Role | Default CN | What they can do |
+|---|---|---|
+| System Administrator | `administrators` | Full access to everything |
+| System Maintainer | `maintainers` | Manage organizations and their users |
+| Organization Administrator | `org_admin` | Manage their own organization only |
+| User | `user` | Change own password, view own profile |
 
-**Key Functions:**
-- `ldap_get_organization_by_uuid()`
-- `ldap_get_user_by_uuid()`
+Role names are stored as LDAP group CNs under `ou=roles` and are configurable via environment variables (`LDAP_ADMIN_ROLE`, `LDAP_MAINTAINER_ROLE`, `LDAP_ORG_ADMIN_ROLE`, `LDAP_USER_ROLE`). All four must be unique.
 
-**Usage:**
-- URL parameters support `uuid=` (preferred) and legacy `org=`/`account_identifier=`
-- All organization and user links use UUIDs when available
+The system automatically detects and prevents role configuration conflicts that would break access control.
 
----
+## Self-Service
 
-### 2. System User Management
-**Status**: ✅ **Available**
+- Users can change their own password at any time.
+- If email is configured, administrators can send password set/reset links to users (no password is sent in plain text — only a signed, time-limited link).
+- Users can reset their own forgotten password via the "Forgot password" flow (requires SMTP and `PASSWORD_RESET_TOKEN_SECRET`).
 
-**What It Provides:**
-- Streamlined system user creation with essential fields only
-- Auto-generation of `cn` from `givenname` + `sn`
-- Auto-generation of `uid` from email address
+## OIDC Integration
 
-**Configuration:**
-```php
-// Essential fields only for system users
-$LDAP['user_optional_fields'] = [
-    'cn', 'organization', 'description', 'telephoneNumber', 'labeledURI'
-];
-```
+When OIDC is enabled, the application authenticates users via Dex (an OIDC provider) instead of a local login form. Dex queries the LDAP directory for user credentials and group membership. External services (TYPO3, GitLab, Nextcloud) can use Dex as their SSO provider, making the LDAP directory the single source of truth for user identities.
 
-**Features:**
-- Auto-generated Common Name and UID
-- Simplified workflow for administrators
-- Essential fields only for system users
+See [OIDC Integration](identity.md) for setup details.
 
----
+## Export API
 
-### 3. Organization Address Handling
-**Status**: ✅ **Available**
+An authenticated HTTP endpoint (`/export/organizations.php`) provides a machine-readable list of member organizations and their users, intended for integration with external systems such as TYPO3 (`tt_address`). Secured with a shared Bearer token (`EXPORT_SHARED_SECRET`).
 
-**What It Provides:**
-- Single `postalAddress` attribute for complete address information
-- Dynamic form generation based on configuration
-- Respects required/optional field settings from configuration
+See [Export Endpoint](deployment/export-endpoint.md) for details.
 
-**Address Format:**
-```ldif
-# Single composite attribute (standard schema)
-postalAddress: 123 Main St$10001$New York$NY$USA
-```
+## Email
 
-**Configuration:**
-- Address fields generated from configuration
-- Required/optional status controlled by configuration
-- Uses standard LDAP attributes only
+When SMTP is configured, the system can send:
 
----
+- Account invitation emails with a password-set link (new users)
+- Password reset emails (self-service)
+- Admin-triggered password reset emails
+- Welcome emails (when admin sets a password directly)
 
-### 4. Role Management
-**Status**: ✅ **Available**
+Email templates support multiple locales. See [Environment Variables](configuration/environment-variables.md) for locale resolution configuration.
 
-**What It Provides:**
-- Organization admin role placement under `ou=roles`
-- Role hierarchy enforcement
-- Automatic conflict detection and prevention
+## Audit Logging
 
-**Role Hierarchy:**
-- `global_admin` = 100 (highest - can do everything)
-- `maintainer` = 80 (high - can manage users and orgs)
-- `org_admin` = 60 (medium - can manage their org)
-- `user` = 10 (lowest - basic user)
+All administrative actions (user creation, modification, deletion, login events) are written to an audit log file when `AUDIT_LOG_ENABLED=TRUE`.
 
-**Conflict Prevention:**
-- Automatic detection of conflicting role configurations
-- Setup blocked if critical conflicts detected
-- Runtime maintenance mode for configuration errors
+## Setup Wizard
 
----
+A web-based setup wizard at `/setup/` guides initial configuration: it verifies the LDAP connection, creates the required organizational unit structure, and sets up system users and role groups. Once setup is confirmed, the wizard is locked to prevent unintended re-runs.
 
-### 5. Role Configuration
-**Status**: ✅ **Available**
+## Internationalization
 
-**What It Provides:**
-- Four role levels with configurable group CNs via environment variables
-- Role hierarchy enforcement and conflict detection
-
-**Configuration:** Role names (and thus LDAP group CNs under `ou=roles`) are set via:
-- `LDAP_ADMIN_ROLE`, `LDAP_MAINTAINER_ROLE`, `LDAP_ORG_ADMIN_ROLE`, `LDAP_USER_ROLE` (all must be unique)
-
----
-
-### 6. Account and Organization Status
-**Status**: ✅ **Available**
-
-**What It Provides:**
-- **Disable / re-enable user accounts** (via `pwdAccountLockedTime` with OpenLDAP **ppolicy** — osixia `LDAP_BACKEND_OVERLAY_PPOLICY`, LDIF fallback in `docker/openldap/`, or Bitnami `LDAP_CONFIGURE_PPOLICY=yes`; admins and maintainers only)
-- **Disable / re-enable organizations** (via status group `LDAP_GROUP_DISABLED_ORGS`)
-- **Grant / revoke organization membership** (via status group `LDAP_GROUP_MEMBER_ORGS`); optional metadata (e.g. memberNumber, memberSince) on organization entries
-- **Export member organizations** for TYPO3 (e.g. `tt_address`): `GET /export/organizations.php` with Bearer token; see [Export endpoint](deployment/export-endpoint.md) and status groups in [LDAP Structure](ldap-structure.md)
-
----
-
-### 7. Error Handling
-**Status**: ✅ **Available**
-
-**What It Provides:**
-- Professional maintenance mode for configuration errors
-- Clear error messages with step-by-step solutions
-- Automatic conflict detection and prevention
-
-**Error Handling:**
-- Setup process validation
-- Runtime conflict detection
-- Professional maintenance pages
-- Clear configuration instructions
-
----
-
-## 🔧 **Configuration Examples**
-
-### Role Configuration
-```bash
-# Defaults (group CNs under ou=roles)
-LDAP_ADMIN_ROLE=administrators
-LDAP_MAINTAINER_ROLE=maintainers
-LDAP_ORG_ADMIN_ROLE=org_admin
-LDAP_USER_ROLE=user
-
-# Custom configuration (all four must be unique)
-LDAP_ADMIN_ROLE=superuser
-LDAP_MAINTAINER_ROLE=tech_support
-LDAP_ORG_ADMIN_ROLE=org_manager
-LDAP_USER_ROLE=member
-```
-
-### Address Configuration
-```php
-// Make address fields required
-$LDAP['org_address_fields'] = [
-    'org_address' => ['label' => 'Street Address', 'type' => 'text', 'required' => true],
-    'org_zip' => ['label' => 'Postal Code', 'type' => 'text', 'required' => true],
-    'org_city' => ['label' => 'City', 'type' => 'text', 'required' => true],
-    'org_state' => ['label' => 'State/Province', 'type' => 'text', 'required' => true],
-    'org_country' => ['label' => 'Country', 'type' => 'text', 'required' => true]
-];
-```
-
----
-
-## 📋 **System Architecture**
-
-### Core Configuration
-- `www/includes/config.inc.php` - Role synchronization, conflict detection
-- `www/includes/access_functions.inc.php` - Enhanced role checking
-- `www/includes/ldap_functions.inc.php` - UUID support, improved searches
-
-### User Management
-- `www/manage/users/new.php` - Simplified system user creation
-- `www/manage/users/index.php` - Enhanced access control
-- `www/manage/organizations/users/add.php` - Improved organization user management
-
-### Setup and Validation
-- `www/setup/ldap.php` - Role group creation
-- `www/setup/verify.php` - Enhanced validation
-- `www/setup/run_checks.php` - Improved runtime checks
-
----
-
-## 🎯 **Benefits**
-
-- **Enhanced Security**: Role conflict prevention and enhanced access control
-- **Better User Experience**: Simplified forms and professional error handling
-- **Improved Reliability**: UUID-based identification and conflict detection
-- **Configuration Flexibility**: Role synchronization with custom override options
-- **Professional Error Handling**: Clear messages and maintenance mode
-
+The UI is available in multiple languages. Email templates also support per-user and per-organization locale selection. See [Internationalization](contributing/i18n.md) for adding translations.

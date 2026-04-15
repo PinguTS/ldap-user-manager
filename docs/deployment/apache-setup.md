@@ -1,60 +1,68 @@
-# Apache Configuration for LDAP User Manager
+# Apache Configuration in Docker
 
-This directory contains Apache configuration files that provide clean URLs, security, and performance optimizations for the LDAP User Manager Docker container.
+The LDAP User Manager Docker image uses an Apache vhost configuration file (`apache/ldap-user-manager.conf`) instead of `.htaccess` for performance, security, and Docker best practices. This document explains what that configuration does and how to verify it is working.
 
-## Files
+## Why Not .htaccess?
 
-- **`ldap-user-manager.conf`** - Main configuration with URL rewriting, security, and performance settings
+Loading configuration from a vhost file is faster (evaluated once at startup) and more secure (users inside the container cannot modify rewrite rules or security settings). It also follows Docker conventions: configuration is immutable and baked into the image.
 
-## Why Apache Configuration?
+## What the Configuration Provides
 
-### ✅ Benefits
+### Clean URLs
 
-1. **Performance**: Configuration loaded once at startup vs. reading .htaccess on every request
-2. **Security**: Users cannot modify URL rewriting rules or security settings
-3. **Docker Best Practice**: Configuration is part of the container, not mounted files
-4. **Consistency**: All container instances use identical configuration
-5. **Maintainability**: Centralized configuration management
+PHP file extensions are hidden from URLs:
 
-### 🔧 Features
+| Browser URL | Actual file |
+|---|---|
+| `/manage/users/` | `/manage/users/index.php` |
+| `/manage/users/show` | `/manage/users/show.php` |
+| `/setup/` | `/setup/index.php` |
 
-#### **URL Rewriting**
-- Clean URLs (e.g., `/manage/users/show` instead of `/manage/users/show.php`)
-- Parameter handling (e.g., `/manage/users/show/username`)
-- Fallback handling for non-existing URLs (redirects to index.php)
+URL parameters (e.g. `?uuid=...`) pass through unchanged.
 
-#### **Security**
-- Prevents access to sensitive files (.htaccess, .ini, .log, etc.)
-- Blocks access to includes directory
-- Security headers (X-Frame-Options, X-Content-Type-Options, XSS protection)
-- Referrer policy
+### Static File Serving
 
-#### **Performance**
-- Browser caching for static assets (CSS, JS, images, fonts)
-- Gzip compression for text-based content
-- Optimized file serving
+CSS, JS, images, and fonts are served directly by Apache without going through PHP. They receive browser caching headers and Gzip compression.
 
-## Important Configuration Notes
+Static file extensions excluded from PHP processing: `css`, `js`, `png`, `jpg`, `jpeg`, `gif`, `ico`, `svg`, `woff`, `woff2`, `ttf`, `eot`, `pdf`, `zip`, `txt`, `xml`, `json`.
 
-### **Directory-Based Configuration**
-- **URL rewriting**: All rewrite rules are contained within `<Directory "/opt/ldap_user_manager">` block
-- **Scope limitation**: Rewrite rules only apply to the web application directory, not globally
-- **Static file protection**: Static files (CSS, JS, images) are served directly by Apache without PHP processing
+### Security
 
-### **Static File Handling**
-- **Direct serving**: Static files bypass PHP entirely and are served directly by Apache
-- **Performance**: No unnecessary PHP processing for static assets
-- **Caching**: Static files get proper caching headers and compression
+- Access to sensitive file types (`.htaccess`, `.ini`, `.log`, `.env`, etc.) is denied.
+- The `includes/` directory is blocked from direct browser access.
+- Security headers are set: `X-Frame-Options`, `X-Content-Type-Options`, `X-XSS-Protection`, `Referrer-Policy`.
 
-### **Fallback Rule**
-- **Selective rewriting**: Only non-static file URLs are rewritten to `/index.php`
-- **Pattern matching**: Uses `RewriteCond %{REQUEST_URI} !\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|pdf|zip|txt|xml|json)$` to exclude static files
-- **Clean URLs**: Users see the original URL in their browser
+## Verifying the Configuration
 
-## Integration
+Check that Apache loaded the configuration correctly:
 
-The configuration is automatically included in the Docker container through the entrypoint script, which generates the Apache VirtualHost configuration.
+```bash
+# Inside the container
+docker exec -it ldap-user-manager apache2ctl -S
+docker exec -it ldap-user-manager apache2ctl -t
+```
 
-## Configuration Details
+Check that required modules are loaded:
 
-This Apache configuration provides all the functionality needed for the LDAP User Manager web application, including clean URLs, security protection, and performance optimization.
+```bash
+docker exec -it ldap-user-manager apache2ctl -M | grep -E "rewrite|ssl|headers|expires|deflate"
+```
+
+## Troubleshooting
+
+**Clean URLs return 404**
+- Confirm `mod_rewrite` is listed in `apache2ctl -M` output.
+- Check the container logs: `docker logs ldap-user-manager`.
+
+**Static files redirect to login page**
+- The rewrite rule may be catching static extensions. Check `apache/ldap-user-manager.conf` for the exclusion pattern.
+
+**Security headers missing**
+- Confirm `mod_headers` is enabled.
+- When running behind a reverse proxy (Caddy, Nginx), avoid setting the same header in both the proxy and Apache — this produces duplicate header values. Set each header in only one place.
+
+## Configuration File Location
+
+The Apache configuration is at `apache/ldap-user-manager.conf` in the repository root. It is copied into the Docker image at build time and included by the `entrypoint` script when it generates the Apache VirtualHost.
+
+For bare-metal Apache or Nginx deployment (without Docker), see [Web Server Deployment](../../web-servers/README.md).

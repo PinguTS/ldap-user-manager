@@ -4,7 +4,7 @@ This guide provides step-by-step instructions for setting up LDAP User Manager w
 
 ---
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
 ```
 ┌───────────────────────────────────────────────────────────┐
@@ -40,7 +40,7 @@ This guide provides step-by-step instructions for setting up LDAP User Manager w
 
 ---
 
-## 📋 Prerequisites
+## Prerequisites
 
 - Docker and Docker Compose installed
 - Access to the Docker host
@@ -50,7 +50,7 @@ This guide provides step-by-step instructions for setting up LDAP User Manager w
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Automated Setup (Recommended)
 
@@ -90,7 +90,7 @@ For detailed configuration of external services (TYPO3, GitLab, Nextcloud), see 
 
 ---
 
-## 🔧 Detailed Setup Instructions
+## Detailed Setup Instructions
 
 ### Step 1: Create LDAP Server Stack
 
@@ -228,7 +228,7 @@ networks:
 
 ---
 
-## 🔄 Alternative: Automated Schema Loading
+## Alternative: Automated Schema Loading
 
 ### Option 1: Custom LDAP Image
 
@@ -304,7 +304,7 @@ volumes:
 
 ---
 
-## 🔍 Verification and Testing
+## Verification and Testing
 
 ### Test LDAP Connection
 
@@ -338,7 +338,7 @@ docker exec -it ldap-server ldapsearch -x -b ou=roles,dc=example,dc=com -D cn=ad
 
 ---
 
-## 🚨 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -389,6 +389,8 @@ Debug logs are written to the container's error log, which you can view with:
 docker logs ldap-user-manager
 ```
 
+Additional debug commands:
+```bash
 # Check container logs
 docker logs ldap-server
 docker logs ldap-user-manager
@@ -415,16 +417,16 @@ docker exec -it ldap-server systemctl restart slapd
 
 ---
 
-## 📚 Additional Resources
+## Additional Resources
 
-- [LDAP Configuration Guide](LDAP-CONFIGURATION.md) - Detailed LDAP setup and diagnostics
+- [LDAP Setup Guide](docs/ldap/setup.md) - Detailed LDAP server configuration
 - [Main README](README.md) - General project information
-- [LDIF Files](ldif/README.md) - LDIF file documentation
+- [LDAP Examples](docs/ldap/examples.md) - LDIF file examples and samples
 - [Portainer Documentation](https://docs.portainer.io/) - Portainer usage guide
 
 ---
 
-## 🔐 Security Considerations
+## Security Considerations
 
 - **Change default passwords** after initial setup
 - **Use TLS/SSL** in production environments

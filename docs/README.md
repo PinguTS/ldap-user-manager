@@ -1,156 +1,119 @@
-# LDAP User Manager Documentation
+# LDAP User Manager — Documentation
 
-Welcome to the LDAP User Manager documentation. This directory contains comprehensive guides for installing, configuring, and using the system.
+This directory contains the full documentation for LDAP User Manager. For a project overview, see the [repository README](../README.md).
 
-## 📚 Documentation Structure
+---
 
-### Getting Started
-- **[Quick Start](getting-started/quick-start.md)** - Get up and running in under 10 minutes
-- **[Prerequisites](getting-started/prerequisites.md)** - What you need before starting
-- **[Verification](getting-started/verification.md)** - How to verify your installation
+## End Users
 
-### User Guides
-- **[User Management](user-guide/user-management.md)** - How to manage users
-- **[Organization Management](user-guide/organization-management.md)** - How to manage organizations
-- **[Role Management](user-guide/role-management.md)** - How to manage roles and permissions
+People who log into the system to manage their own account.
 
-### Configuration
-- **[Quick Reference](configuration/quick-reference.md)** - Essential configuration settings
-- **[Environment Variables](configuration/environment-variables.md)** - Complete configuration reference
-- **[Password Policy](configuration/password-policy.md)** - Password security settings
-- **[Role Configuration](configuration/roles.md)** - Role-based access control setup
+| Document | Description |
+|---|---|
+| [Getting Started](user-guide/getting-started.md) | Logging in, changing your password, self-service |
 
-### Deployment
-- **[Docker Setup](../DOCKER-SETUP.md)** - Container deployment guide
-- **[Web Server Deployment](../web-servers/README.md)** - Apache and Nginx setup
-- **[Apache Configuration](deployment/apache-configuration.md)** - Apache configuration details
-- **[Apache Setup](deployment/apache-setup.md)** - Apache server setup guide
-- **[URL Routing](deployment/url-routing.md)** - Clean URLs and routing system
-- **[AJAX Handler](deployment/ajax-handler.md)** - Dynamic user data fetching
-- **[Export Endpoint](deployment/export-endpoint.md)** - Member organizations export (TYPO3, Bearer auth)
-- **[Troubleshooting](deployment/troubleshooting.md)** - Common issues and solutions
-- **[Monitoring](deployment/monitoring.md)** - System monitoring and alerting
+---
 
-### Advanced Topics
-- **[OIDC Integration](identity.md)** - OpenID Connect setup with Dex
-- **[OIDC Quick Reference](integrations/oidc-quick-reference.md)** - OIDC configuration reference
-- **[Service Integrations](../services/)** - TYPO3, GitLab, Nextcloud setup
-- **[TYPO3 Legacy Integration](integrations/typo3-legacy.md)** - Legacy TYPO3 SSO setup
-- **[LDAP Structure](ldap-structure.md)** - Directory structure and examples
-- **[LDAP Setup](ldap/setup.md)** - LDAP server configuration
-- **[LDAP Examples](ldap/examples.md)** - Sample LDIF files and configurations
-- **[LDAP Backup](ldap/backup.md)** - Backup and restore procedures
-- **[LDIF Samples](ldap/ldif-samples.md)** - LDIF file examples and templates
-- **[Features](features.md)** - System features and capabilities
+## Administrators — Quick Deploy
 
-### Development & Contributing
-- **[Development Setup](contributing/development.md)** - Local development environment
-- **[Code Quality](contributing/code-quality.md)** - Coding standards and practices
-- **[Implementation Plan](development/implementation-plan.md)** - Development roadmap
+Get the system running as fast as possible.
 
-### Security
-- **[Security Best Practices](security/best-practices.md)** - Security recommendations
+| Document | Description |
+|---|---|
+| [Prerequisites](getting-started/prerequisites.md) | System requirements before you start |
+| [Quick Start](getting-started/quick-start.md) | Running in under 10 minutes with Docker |
+| [Verification](getting-started/verification.md) | Confirming the installation is working |
 
-## 🚀 Quick Navigation
+---
 
-### For New Users
-1. **Start here**: [Quick Start](getting-started/quick-start.md)
-2. **Check requirements**: [Prerequisites](getting-started/prerequisites.md)
-3. **Verify installation**: [Verification](getting-started/verification.md)
+## Administrators — Detailed Deployment
 
-### For Administrators
-1. **User management**: [User Management](user-guide/user-management.md)
-2. **Organization setup**: [Organization Management](user-guide/organization-management.md)
-3. **Role configuration**: [Role Management](user-guide/role-management.md)
-4. **System monitoring**: [Monitoring](deployment/monitoring.md)
+All deployment options, full configuration reference, and operations.
 
-### For Integrations
-1. **OIDC setup**: [OIDC Integration](identity.md)
-2. **Quick reference**: [OIDC Quick Reference](integrations/oidc-quick-reference.md)
-3. **External services**: [Service Integrations](../services/)
-4. **LDAP structure**: [LDAP Structure](ldap-structure.md)
+### Deployment Options
 
-### For Operations
-1. **Troubleshooting**: [Troubleshooting](deployment/troubleshooting.md)
-2. **Backup procedures**: [LDAP Backup](ldap/backup.md)
-3. **Monitoring setup**: [Monitoring](deployment/monitoring.md)
-4. **Apache configuration**: [Apache Configuration](deployment/apache-configuration.md)
+| Document | Description |
+|---|---|
+| [Docker / Portainer](../DOCKER-SETUP.md) | Full Docker Compose setup with OIDC and Caddy |
+| [Web Server (Apache / Nginx)](../web-servers/README.md) | Bare-metal deployment without Docker |
+| [Apache Configuration in Docker](deployment/apache-setup.md) | How the Docker image's Apache config works |
+| [URL Routing](deployment/url-routing.md) | Clean URL system and routing details |
+| [AJAX Handler](deployment/ajax-handler.md) | Dynamic user data fetching endpoint |
+| [Export Endpoint](deployment/export-endpoint.md) | Member organizations export API (Bearer auth) |
 
-### For Developers
-1. **Development setup**: [Development Setup](contributing/development.md)
-2. **Code quality**: [Code Quality](contributing/code-quality.md)
-3. **Implementation plan**: [Implementation Plan](development/implementation-plan.md)
+### Configuration Reference
 
-### For Security
-1. **Security practices**: [Security Best Practices](security/best-practices.md)
-2. **Password policy**: [Password Policy](configuration/password-policy.md)
-3. **Role configuration**: [Role Configuration](configuration/roles.md)
+| Document | Description |
+|---|---|
+| [Environment Variables](configuration/environment-variables.md) | Complete reference for all environment variables |
+| [Quick Reference](configuration/quick-reference.md) | Essential settings cheat sheet |
+| [Password Policy](configuration/password-policy.md) | Password strength and hashing configuration |
+| [Role Configuration](configuration/roles.md) | Role-based access control setup |
 
-## 📋 Documentation Status
+### OIDC Integration
 
-### ✅ Complete
-- Quick start guides
-- User management guides
-- Configuration references
-- Troubleshooting guide
-- OIDC integration guide
-- LDAP structure documentation (including status groups: member/disabled orgs and users)
-- Backup and monitoring guides
-- Apache configuration details
-- URL routing documentation
-- AJAX handler documentation
-- Export endpoint (member organizations, Bearer auth, TYPO3 formats)
-- Feature overview
-- Security best practices
-- Development setup guide
-- Code quality standards
+| Document | Description |
+|---|---|
+| [OIDC / Dex Setup](../docs/identity.md) | Full guide: architecture, configuration, external services |
+| [OIDC Quick Reference](integrations/oidc-quick-reference.md) | Key OIDC variables and endpoints at a glance |
 
-### 🔄 In Progress
-- Screenshot updates
-- Architecture diagrams
+### LDAP Server
 
-### 📝 Planned
-- Performance tuning guide
-- Advanced troubleshooting
-- Community contribution guidelines
+| Document | Description |
+|---|---|
+| [LDAP Structure](ldap-structure.md) | Directory layout, OUs, roles, and status groups |
+| [LDAP Setup](ldap/setup.md) | Configuring the OpenLDAP server |
+| [LDAP Examples](ldap/examples.md) | Sample LDIF files |
+| [LDAP Backup](ldap/backup.md) | Backup and restore procedures |
 
-## 🎯 Target Audience
+### Operations
 
-This documentation is designed for:
-- **Simple sysadmins** who need to deploy and manage the system
-- **Technical end users** who want to understand if this tool fits their needs
-- **System administrators** who need detailed configuration options
-- **Developers** who want to integrate with the system
-- **Operations teams** who need monitoring and backup procedures
-- **Security teams** who need security best practices
+| Document | Description |
+|---|---|
+| [Troubleshooting](deployment/troubleshooting.md) | Common issues and step-by-step solutions |
+| [Monitoring](deployment/monitoring.md) | Health checks, alerting, and log monitoring |
+| [Disaster Recovery](deployment/disaster-recovery.md) | Recovery procedures |
+| [Security Best Practices](security/best-practices.md) | Hardening recommendations |
+| [Production Security Checklist](security/checklist.md) | Pre-deployment security checklist |
+| [Compliance Considerations](security/compliance.md) | GDPR and data protection guidance |
 
-## 📖 Documentation Style
+---
 
-- **Clear and concise** language
-- **Step-by-step** instructions
-- **Practical examples** with real data
-- **Troubleshooting** sections for common issues
-- **Progressive disclosure** from simple to advanced topics
-- **Copy-paste** commands for quick setup
+## Administrators — Managing Users and Organizations
 
-## 🔗 Related Resources
+Day-to-day administration through the web interface.
 
-- **[Main README](../README.md)** - Project overview and quick start
-- **[Configuration Quick Reference](configuration/quick-reference.md)** - Essential settings
-- **[GitHub Repository](https://github.com/pinguts/ldap-user-manager)** - Source code and issues
-- **[Docker Hub](https://hub.docker.com/)** - Container images
+| Document | Description |
+|---|---|
+| [User Management](user-guide/user-management.md) | Creating, editing, and deleting user accounts |
+| [Organization Management](user-guide/organization-management.md) | Managing organizations and membership |
+| [Role Management](user-guide/role-management.md) | Assigning and managing roles |
 
-## 🤝 Contributing
+---
 
-To improve this documentation:
-1. **Report issues** in the GitHub issue tracker
-2. **Suggest improvements** via pull requests
-3. **Update screenshots** when the UI changes
-4. **Add missing sections** for common use cases
+## Integrators
 
-## 📞 Support
+Connecting external services via OIDC or the export API.
 
-- **Documentation issues**: Create an issue in the GitHub repository
-- **Setup problems**: Check the [Troubleshooting](deployment/troubleshooting.md) guide
-- **Feature requests**: Use the GitHub issue tracker
-- **Community help**: Check existing issues and discussions
+| Document | Description |
+|---|---|
+| [TYPO3](../services/typo3/README.md) | TYPO3 LDAP and OIDC integration |
+| [GitLab](../services/gitlab/README.md) | GitLab OIDC integration |
+| [Nextcloud](../services/nextcloud/README.md) | Nextcloud OIDC integration |
+| [WordPress](../services/wordpress/README.md) | WordPress LDAP integration |
+| [Joomla](../services/joomla/README.md) | Joomla LDAP integration |
+| [Custom Applications](../services/custom-applications/README.md) | Integrating your own application |
+| [TYPO3 Legacy (SSO)](integrations/typo3-legacy.md) | Legacy TYPO3 ig_ldap_sso_auth integration |
+| [Export Endpoint](deployment/export-endpoint.md) | Machine-readable organization export (Bearer auth) |
+
+---
+
+## Contributors and Developers
+
+| Document | Description |
+|---|---|
+| [Architecture Overview](contributing/architecture.md) | Codebase structure, key files, LDAP layout |
+| [Development Setup](contributing/development.md) | Local development environment |
+| [Code Quality](contributing/code-quality.md) | Coding standards, PHP CS Fixer, PHPStan |
+| [Internationalization](contributing/i18n.md) | Adding or updating translations |
+| [Features Overview](features.md) | Full feature list from a user perspective |

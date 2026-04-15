@@ -1,10 +1,10 @@
 # Configuration Quick Reference
 
-## 🚀 **Quick Start Configuration**
+## **Quick Start Configuration**
 
 This guide shows you the most common configuration settings to get your LDAP User Manager running quickly.
 
-## 🔐 **Essential LDAP Settings**
+## **Essential LDAP Settings**
 
 ```bash
 # Required - Your LDAP server details
@@ -15,7 +15,7 @@ export LDAP_ADMIN_BIND_PWD=your_admin_password
 export LDAP_IGNORE_CERT_ERRORS=true              # For development
 ```
 
-## 🔒 **Password Security (Choose One)**
+## **Password Security (Choose One)**
 
 ### **Option 1: Development/Testing (Easy)**
 ```bash
@@ -45,7 +45,7 @@ export PASSWORD_STRENGTH_REQUIRE_SYMBOLS=TRUE
 export ACCEPT_WEAK_PASSWORDS=FALSE
 ```
 
-## 🏢 **Organization Settings**
+## **Organization Settings**
 
 ```bash
 # Your organization name
@@ -56,7 +56,7 @@ export SITE_NAME="Your Company User Manager"
 export SESSION_TIMEOUT=120
 ```
 
-## 🐳 **Docker Quick Start**
+## **Docker Quick Start**
 
 Create a `docker-compose.yml` file:
 
@@ -86,7 +86,7 @@ services:
       - "8080:80"
 ```
 
-## 📋 **Common Configuration Patterns**
+## **Common Configuration Patterns**
 
 ### **Small Organization**
 ```bash
@@ -118,7 +118,7 @@ export PASSWORD_STRENGTH_REQUIRE_NUMBERS=TRUE
 export PASSWORD_STRENGTH_REQUIRE_SYMBOLS=TRUE
 ```
 
-## ⚡ **Quick Testing Setup**
+## **Quick Testing Setup**
 
 For testing and development:
 
@@ -135,7 +135,7 @@ export PASSWORD_STRENGTH_REQUIRE_NUMBERS=FALSE
 export PASSWORD_STRENGTH_REQUIRE_SYMBOLS=FALSE
 ```
 
-## 🔍 **Testing Your Configuration**
+## **Testing Your Configuration**
 
 1. **Set your environment variables**
 2. **Start the system**
@@ -143,7 +143,7 @@ export PASSWORD_STRENGTH_REQUIRE_SYMBOLS=FALSE
 4. **Check if it's accepted or rejected**
 5. **Adjust settings as needed**
 
-## 🔐 **Setup lock (after setup is complete)**
+## **Setup lock (after setup is complete)**
 
 Once LDAP setup verification succeeds, the `/setup/` area is locked: visitors see only a short "Setup complete" message and a link to the application login. No detailed LDAP information is shown.
 
@@ -152,13 +152,13 @@ Once LDAP setup verification succeeds, the `/setup/` area is locked: visitors se
 - **Re-enable setup**: Remove the lock file, or set `LDAP_SETUP_LOCKED=false`. There is no in-app unlock; this is intentional for security.
 - **Docker**: The container entrypoint runs a verification check on startup; if LDAP is reachable and passes the same checks as the web wizard, the setup lock file is created automatically (so you may see the setup area already locked after first start). This check is skipped when `ENVIRONMENT=development` so the setup wizard stays available.
 
-## 📚 **Need More Details?**
+## **Need More Details?**
 
 - **Full Configuration Guide**: [Environment Variables](environment-variables.md)
 - **Password Security Details**: [Password Policy](password-policy.md)
 - **Docker Setup**: [Docker Setup](../../DOCKER-SETUP.md)
 
-## 🚨 **Common Mistakes**
+## **Common Mistakes**
 
 ❌ **Don't do this:**
 ```bash
@@ -172,7 +172,7 @@ export PASSWORD_STRENGTH_MIN_SCORE=0
 export ACCEPT_WEAK_PASSWORDS=TRUE   # Allow weak passwords for testing
 ```
 
-## 💡 **Pro Tips**
+## **Pro Tips**
 
 1. **Start Simple**: Begin with relaxed requirements and increase security gradually
 2. **Test First**: Always test in development before production
