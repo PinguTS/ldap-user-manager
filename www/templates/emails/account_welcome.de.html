@@ -1,15 +1,13 @@
-Subject: Ihr {organisation}-Konto ist eingerichtet
+Subject: Willkommen bei {organisation}: Ihr neues Konto ist bereit
 
 <p>Guten Tag,</p>
-
-<p>ein Administrator hat für Sie ein Konto in <strong>{organisation}</strong> angelegt.</p>
-
-<p><strong>Anmeldename bzw. Kennung:</strong> {login}</p>
-
-<p>Ihr erstes Passwort wurde von Ihrem Administrator festgelegt. Bitte verwenden Sie das Passwort, das Ihnen mitgeteilt wurde (z. B. persönlich oder über die üblichen Kanäle Ihrer Organisation). Aus Sicherheitsgründen ist es in dieser E-Mail nicht enthalten.</p>
-
-<p>Sie können sich unter <a href="{site_url}">{site_url}</a> anmelden. Nach der Anmeldung können Sie Ihr Passwort auf der Seite <a href="{change_password_url}">Passwort ändern</a> ändern, sofern Ihre Organisation dies zulässt.</p>
-
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr><td style="background-color:#0d6efd;border-radius:6px;"><a href="{site_url}login/" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-weight:600;font-family:system-ui,-apple-system,sans-serif;font-size:15px;">Anmelden</a></td></tr></table>
-
-<p>Wenn Sie dieses Konto nicht erwartet haben, wenden Sie sich bitte an Ihren Organisationsadministrator.</p>
+<p>ein autorisierter Administrator hat für Sie ein Konto im Verwaltungssystem von <strong>{organisation}</strong> angelegt.</p>
+<div style="background:#f8f9fa; border:1px solid #dee2e6; border-radius:4px; padding:15px; margin:20px 0;">
+    <p style="margin-top:0;"><strong>Benutzername / Login:</strong> {login}</p>
+    <p style="font-size:14px; color:#495057;">Ihr Initial-Passwort wurde von Ihrem Administrator festgelegt. Bitte verwenden Sie das Passwort, das Ihnen (z. B. persönlich oder über den üblichen Weg Ihrer Organisation) mitgeteilt wurde. Aus Sicherheitsgründen ist es nicht in dieser E-Mail enthalten.</p>
+    <table role="presentation" cellpadding="0" cellspacing="0">
+        <tr><td style="background-color:#0d6efd; border-radius:6px;"><a href="{site_url}login/" style="display:inline-block; padding:12px 28px; color:#ffffff; text-decoration:none; font-weight:600; font-family:sans-serif; font-size:15px;">Jetzt anmelden</a></td></tr>
+    </table>
+</div>
+<p>Nach der Anmeldung können Sie Ihr Passwort auf der Seite <a href="{change_password_url}" style="color:#0d6efd;">Passwort ändern</a> anpassen, sofern dies in Ihrer Organisation zulässig ist.</p>
+<p>Wenn Sie dieses Konto nicht erwartet haben, wenden Sie sich bitte an Ihre lokale Geschäftsstelle oder Ihren zuständigen Administrator.</p>

@@ -1,15 +1,13 @@
-Subject: {organisation} 계정 — 비밀번호 설정
+Subject: {organisation}에 오신 것을 환영합니다: 새 계정이 준비되었습니다
 
 <p>안녕하세요,</p>
-
-<p>관리자가 <strong>{organisation}</strong>에서 귀하를 위한 계정을 생성했습니다.</p>
-
-<p><strong>로그인 아이디:</strong> {login}</p>
-
-<p style="background:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:8px 12px;font-size:13px;color:#664d03;">비밀번호를 설정하려면 아래 링크를 클릭하십시오. 이 링크는 <strong>{token_expires_human}</strong> 동안 유효합니다</p>
-
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr><td style="background-color:#0d6efd;border-radius:6px;"><a href="{password_set_url}" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-weight:600;font-family:system-ui,-apple-system,sans-serif;font-size:15px;">비밀번호 설정</a></td></tr></table>
-
-<p style="font-size:12px;color:#888;word-break:break-all;">{password_set_url}</p>
-
-<p>이 메시지를 요청하지 않으셨다면, 조직 관리자에게 문의해 주시기 바랍니다.</p>
+<p>권한 있는 관리자가 <strong>{organisation}</strong> 관리 시스템에 귀하의 새 계정을 생성했습니다.</p>
+<p><strong>사용자 이름 / 로그인 ID:</strong> {login}</p>
+<div style="background:#f8f9fa; border:1px solid #dee2e6; border-radius:4px; padding:15px; margin:20px 0;">
+    <p style="margin-top:0; font-size:14px; color:#495057;">시작하려면 아래 버튼을 사용하여 개인 비밀번호를 설정하십시오. 이 링크는 <strong>{token_expires_human}</strong> 동안 유효합니다.</p>
+    <table role="presentation" cellpadding="0" cellspacing="0">
+        <tr><td style="background-color:#0d6efd; border-radius:6px;"><a href="{password_set_url}" style="display:inline-block; padding:12px 28px; color:#ffffff; text-decoration:none; font-weight:600; font-family:sans-serif; font-size:15px;">비밀번호 설정</a></td></tr>
+    </table>
+</div>
+<p style="font-size:12px; color:#888; word-break:break-all;">버튼이 작동하지 않는 경우, 이 링크를 복사하여 브라우저에 붙여넣으십시오:<br>{password_set_url}</p>
+<p>본 메시지를 기다리지 않으셨다면, 소속 조직의 사무실로 연락해 주시기 바랍니다.</p>

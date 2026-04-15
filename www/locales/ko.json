@@ -419,7 +419,7 @@
   "email.ttl.one_hour_n_minutes": "1시간 :m분",
   "email.ttl.one_hour_one_minute": "1시간 1분",
   "email.ttl.one_minute": "1분",
-  "email.footer.auto_message": "본 메일은 시스템에 의해 자동으로 생성된 발신 전용 메일입니다. 이 메일에 회신하지 마십시오.",
+  "email.footer.auto_message": "본 메일은 {organisation} 관리 시스템에서 자동으로 생성된 발신 전용 메일입니다. 이 메일에 회신하지 마십시오.",
   "email.footer.help_link": "도움이 필요하시면 :url을 방문해 주십시오.",
   "email.preheader.new_account": ":org 계정을 활성화하려면 비밀번호를 설정하세요.",
   "email.preheader.account_welcome": ":org 계정이 사용 준비되었습니다.",

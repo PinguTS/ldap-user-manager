@@ -330,8 +330,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
     }
     $passScore = isset($_POST['pass_score']) && is_numeric($_POST['pass_score']) ? (int) $_POST['pass_score'] : null;
 
-    // Use email as username since that's how the system is configured
-    $uid = $mail;
+    $accountAttribute = (string) $LDAP['account_attribute'];
+    $accountIdentifier = trim((string) ($_POST[$accountAttribute] ?? $mail));
+    if ($accountIdentifier === '') {
+        $accountIdentifier = $mail;
+    }
 
     if ($givenName === '' || $sn === '' || $cn === '' || $mail === '' || (!$sendPasswordSetLink && $password === '')) {
         $message = t('manage.org_users.msg.all_fields_required');
@@ -341,8 +344,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
     // Duplicate user check
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
     $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
-    $userDn = "uid=" . ldap_escape($uid, '', LDAP_ESCAPE_DN) . "," . $usersDn;
     $ldap = open_ldap_connection();
+    if ($ldap === false) {
+        $message = t('manage.orgs.msg.ldap_fail');
+        $message_type = 'danger';
+        goto after_add_user;
+    }
 
     // Ensure the users directory exists before trying to add a user
     $usersDirExists = @ldap_read($ldap, $usersDn, '(objectClass=*)', ['dn']);
@@ -365,7 +372,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
         }
     }
 
-    $search = @ldap_search($ldap, $usersDn, "(uid=" . ldap_escape($uid, '', LDAP_ESCAPE_FILTER) . ")");
+    $search = @ldap_search(
+        $ldap,
+        $usersDn,
+        "(" . $accountAttribute . "=" . ldap_escape($accountIdentifier, '', LDAP_ESCAPE_FILTER) . ")"
+    );
     $entries = $search ? ldap_get_entries($ldap, $search) : false;
     if ($entries && $entries['count'] > 0) {
         $message = t('manage.org_users.msg.email_exists_in_org');
@@ -388,19 +399,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
         }
     }
 
-    $entry = array(
-        'objectClass' => array('top', 'inetOrgPerson', 'organizationalPerson', 'person'),
-        'uid' => $uid,
-        'cn' => $cn,
-        'sn' => $sn,
-        'givenName' => $givenName,
-        'mail' => $mail,
-        'userPassword' => ldap_hashed_password($password), // Use consistent LDAP hashing
-        'account_attribute' => $LDAP['account_attribute']
-    );
-    $add_result = @ldap_add($ldap, $userDn, $entry);
-    if ($add_result) {
-        $message = t('manage.org_users.msg.added_ok');
+    $newAccount = [
+        'givenname' => [$givenName],
+        'sn' => [$sn],
+        'cn' => [$cn],
+        'mail' => [$mail],
+        $accountAttribute => [$accountIdentifier],
+        'password' => [$password],
+        'organization' => [$orgName],
+        'description' => [(string) ($LDAP['user_role'] ?? 'user')],
+    ];
+
+    if (ldap_new_account($ldap, $newAccount)) {
+        $message = t('manage.org_users.msg.added_ok', ['user' => $accountIdentifier]);
         $message_type = 'success';
 
         global $EMAIL_SENDING_ENABLED;
@@ -408,16 +419,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
             $emailLocale = lum_resolve_transactional_email_locale_for_new_org_user((string) $orgName, (string) ($LDAP['user_role'] ?? 'user'));
             $sentOk = lum_with_transactional_email_locale($emailLocale, function () use (
                 $sendPasswordSetLink,
+                $accountIdentifier,
                 $mail,
                 $givenName,
                 $sn
             ): bool {
                 if ($sendPasswordSetLink) {
-                    $payload = build_password_action_payload($mail, 'set');
+                    $payload = build_password_action_payload($accountIdentifier, 'set');
                     $token = create_password_action_token($payload);
                     $setUrl = build_password_action_url($token);
                     $vars = array_merge(lum_password_action_token_expiry_mail_vars(), [
-                        'login' => $mail,
+                        'login' => $accountIdentifier,
                         'first_name' => $givenName,
                         'last_name' => $sn,
                         'password_set_url' => $setUrl,
@@ -435,7 +447,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
                     $mail,
                     trim($givenName . ' ' . $sn),
                     [
-                        'login' => $mail,
+                        'login' => $accountIdentifier,
                         'first_name' => $givenName,
                         'last_name' => $sn,
                     ]

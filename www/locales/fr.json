@@ -420,7 +420,7 @@
   "email.ttl.one_hour_n_minutes": "1 heure :m minutes",
   "email.ttl.one_hour_one_minute": "1 heure 1 minute",
   "email.ttl.one_minute": "1 minute",
-  "email.footer.auto_message": "Ceci est un message généré automatiquement. Veuillez ne pas répondre à cet e-mail.",
+  "email.footer.auto_message": "Ceci est une notification générée automatiquement par le système de gestion :org. Veuillez ne pas répondre à cet e-mail.",
   "email.footer.help_link": "Pour obtenir de l'aide, visitez :url.",
   "email.preheader.new_account": "Définissez votre mot de passe pour activer votre compte :org.",
   "email.preheader.account_welcome": "Votre compte :org est prêt à être utilisé.",

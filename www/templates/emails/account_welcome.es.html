@@ -1,15 +1,12 @@
-Subject: Su cuenta de {organisation} está lista
+Subject: Bienvenido a {organisation}: Su nueva cuenta está lista
 
 <p>Hola:</p>
-
-<p>Un administrador ha creado una cuenta para usted en <strong>{organisation}</strong>.</p>
-
-<p><strong>Identificador de inicio de sesión:</strong> {login}</p>
-
-<p>Su contraseña inicial ha sido establecida por su administrador. Por favor, utilice la contraseña que se le haya proporcionado (por ejemplo, en persona o a través de los canales habituales de su organización). Por motivos de seguridad, no se incluye en este correo electrónico.</p>
-
-<p>Puede iniciar sesión en <a href="{site_url}">{site_url}</a>. Una vez que haya iniciado sesión, puede cambiar su contraseña en la página de <a href="{change_password_url}">cambiar contraseña</a>, si su organización lo permite.</p>
-
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr><td style="background-color:#0d6efd;border-radius:6px;"><a href="{site_url}login/" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-weight:600;font-family:system-ui,-apple-system,sans-serif;font-size:15px;">Iniciar sesión</a></td></tr></table>
-
-<p>Si no esperaba recibir esta cuenta, por favor póngase en contacto con el administrador de su organización.</p>
+<p>Un administrador autorizado ha creado una cuenta para usted en el sistema de gestión de <strong>{organisation}</strong>.</p>
+<div style="background:#f8f9fa; border:1px solid #dee2e6; border-radius:4px; padding:15px; margin:20px 0;">
+    <p style="margin-top:0;"><strong>Nombre de usuario / Login:</strong> {login}</p>
+    <p style="font-size:14px; color:#495057;">Su contraseña inicial ha sido establecida por su administrador. Utilice la contraseña que se le ha proporcionado (por ejemplo, en persona o a través de los canales habituales de su organización). Por razones de seguridad, no se incluye en este correo electrónico.</p>
+    <table role="presentation" cellpadding="0" cellspacing="0">
+        <tr><td style="background-color:#0d6efd; border-radius:6px;"><a href="{site_url}login/" style="display:inline-block; padding:12px 28px; color:#ffffff; text-decoration:none; font-weight:600; font-family:sans-serif; font-size:15px;">Iniciar sesión ahora</a></td></tr>
+    </table>
+</div>
+<p>Después de iniciar sesión, puede cambiar su contraseña en la página de <a href="{change_password_url}" style="color:#0d6efd;">cambio de contraseña</a>, si su organización lo permite.</p>

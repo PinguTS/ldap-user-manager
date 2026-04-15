@@ -24,7 +24,7 @@ function render_submenu()
         <?php
     }
     ?>
-     <nav class="navbar navbar-expand-lg navbar-light bg-light">
+     <nav class="navbar navbar-expand-lg navbar-light bg-light mb-4">
       <div class="container-fluid">
        <ul class="navbar-nav">
         <?php

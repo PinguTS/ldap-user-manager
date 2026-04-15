@@ -1,15 +1,13 @@
-Subject: 您的 {organisation} 账户 — 设置您的密码
+Subject: 欢迎加入 {organisation}：您的新账户已准备就绪
 
 <p>您好：</p>
-
-<p>管理员已在 <strong>{organisation}</strong> 中为您创建了账户。</p>
-
-<p><strong>登录标识符：</strong> {login}</p>
-
-<p style="background:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:8px 12px;font-size:13px;color:#664d03;">要选择您的密码，请打开下面的链接。该链接的有效期为 <strong>{token_expires_human}</strong></p>
-
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr><td style="background-color:#0d6efd;border-radius:6px;"><a href="{password_set_url}" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-weight:600;font-family:system-ui,-apple-system,sans-serif;font-size:15px;">设置您的密码</a></td></tr></table>
-
-<p style="font-size:12px;color:#888;word-break:break-all;">{password_set_url}</p>
-
-<p>如果您并未要求此账户，请联系您的组织管理员。</p>
+<p>授权管理员已在 <strong>{organisation}</strong> 管理系统中为您创建了一个新账户。</p>
+<p><strong>用户名 / 登录标识：</strong> {login}</p>
+<div style="background:#f8f9fa; border:1px solid #dee2e6; border-radius:4px; padding:15px; margin:20px 0;">
+    <p style="margin-top:0; font-size:14px; color:#495057;">要开始使用并设置您的个人密码，请点击下方按钮。此链接的有效期为 <strong>{token_expires_human}</strong>。</p>
+    <table role="presentation" cellpadding="0" cellspacing="0">
+        <tr><td style="background-color:#0d6efd; border-radius:6px;"><a href="{password_set_url}" style="display:inline-block; padding:12px 28px; color:#ffffff; text-decoration:none; font-weight:600; font-family:sans-serif; font-size:15px;">设置密码</a></td></tr>
+    </table>
+</div>
+<p style="font-size:12px; color:#888; word-break:break-all;">如果按钮无法点击，请将以下链接复制并粘贴到浏览器中：<br>{password_set_url}</p>
+<p>如果您并未期待此邮件，请联系您所在机构的本地办公室或指定的管理员。</p>

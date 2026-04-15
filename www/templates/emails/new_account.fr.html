@@ -1,15 +1,13 @@
-Subject: Votre compte {organisation} — définissez votre mot de passe
+Subject: Bienvenue chez {organisation} : Votre nouveau compte est prêt
 
 <p>Bonjour,</p>
-
-<p>Un administrateur a créé un compte pour vous dans <strong>{organisation}</strong>.</p>
-
-<p><strong>Identifiant de connexion :</strong> {login}</p>
-
-<p style="background:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:8px 12px;font-size:13px;color:#664d03;">Pour choisir votre mot de passe, ouvrez le lien ci-dessous. Il est valide pendant <strong>{token_expires_human}</strong></p>
-
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr><td style="background-color:#0d6efd;border-radius:6px;"><a href="{password_set_url}" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-weight:600;font-family:system-ui,-apple-system,sans-serif;font-size:15px;">Définir votre mot de passe</a></td></tr></table>
-
-<p style="font-size:12px;color:#888;word-break:break-all;">{password_set_url}</p>
-
-<p>Si vous n'attendiez pas ce message, veuillez contacter l'administrateur de votre organisation.</p>
+<p>Un administrateur autorisé a créé un nouveau compte pour vous dans le système de gestion de <strong>{organisation}</strong>.</p>
+<p><strong>Nom d'utilisateur / Identifiant :</strong> {login}</p>
+<div style="background:#f8f9fa; border:1px solid #dee2e6; border-radius:4px; padding:15px; margin:20px 0;">
+    <p style="margin-top:0; font-size:14px; color:#495057;">Pour commencer et définir votre mot de passe personnel, veuillez utiliser le bouton ci-dessous. Ce lien est valide pendant <strong>{token_expires_human}</strong>.</p>
+    <table role="presentation" cellpadding="0" cellspacing="0">
+        <tr><td style="background-color:#0d6efd; border-radius:6px;"><a href="{password_set_url}" style="display:inline-block; padding:12px 28px; color:#ffffff; text-decoration:none; font-weight:600; font-family:sans-serif; font-size:15px;">Définir le mot de passe</a></td></tr>
+    </table>
+</div>
+<p style="font-size:12px; color:#888; word-break:break-all;">Si le bouton ne fonctionne pas, copiez et collez ce lien dans votre navigateur :<br>{password_set_url}</p>
+<p>Si vous n'attendiez pas ce message, veuillez contacter le bureau local de votre organisation.</p>

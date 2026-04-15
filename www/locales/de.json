@@ -421,7 +421,7 @@
   "email.ttl.one_hour_n_minutes": "1 Stunde :m Minuten",
   "email.ttl.one_hour_one_minute": "1 Stunde 1 Minute",
   "email.ttl.one_minute": "1 Minute",
-  "email.footer.auto_message": "Dies ist eine automatisch erstellte Nachricht. Bitte antworten Sie nicht auf diese E-Mail.",
+  "email.footer.auto_message": "Dies ist eine automatisch erstellte Benachrichtigung aus dem Verwaltungssystem von :org. Bitte antworten Sie nicht auf diese E-Mail.",
   "email.footer.help_link": "Hilfe finden Sie unter :url.",
   "email.preheader.new_account": "Legen Sie Ihr Passwort fest, um Ihr :org-Konto zu aktivieren.",
   "email.preheader.account_welcome": "Ihr :org-Konto ist einsatzbereit.",

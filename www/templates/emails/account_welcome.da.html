@@ -1,15 +1,12 @@
-Subject: Din {organisation}-konto er klar
+Subject: Velkommen til {organisation}: Din nye konto er klar
 
 <p>Hej,</p>
-
-<p>En administrator har oprettet en konto til dig i <strong>{organisation}</strong>.</p>
-
-<p><strong>Logind-identifikation:</strong> {login}</p>
-
-<p>Din midlertidige adgangskode er blevet angivet af din administrator. Brug venligst den adgangskode, du har fået udleveret (for eksempel personligt eller via din organisations sædvanlige kanaler). Af sikkerhedsmæssige årsager er den ikke inkluderet i denne e-mail.</p>
-
-<p>Du kan logge ind på <a href="{site_url}">{site_url}</a>. Når du er logget ind, kan du ændre din adgangskode på siden <a href="{change_password_url}">skift adgangskode</a>, hvis din organisation tillader det.</p>
-
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr><td style="background-color:#0d6efd;border-radius:6px;"><a href="{site_url}login/" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-weight:600;font-family:system-ui,-apple-system,sans-serif;font-size:15px;">Log ind</a></td></tr></table>
-
-<p>Hvis du ikke forventede at få denne konto, bedes du kontakte din organisationsadministrator.</p>
+<p>En autoriseret administrator har oprettet en konto til dig i <strong>{organisation}</strong>s administrationssystem.</p>
+<div style="background:#f8f9fa; border:1px solid #dee2e6; border-radius:4px; padding:15px; margin:20px 0;">
+    <p style="margin-top:0;"><strong>Brugernavn / Login:</strong> {login}</p>
+    <p style="font-size:14px; color:#495057;">Din midlertidige adgangskode er blevet valgt af din administrator. Brug venligst den adgangskode, du har fået udleveret (f.eks. personligt eller via din organisations sædvanlige kanaler). Af sikkerhedsmæssige årsager er den ikke inkluderet i denne e-mail.</p>
+    <table role="presentation" cellpadding="0" cellspacing="0">
+        <tr><td style="background-color:#0d6efd; border-radius:6px;"><a href="{site_url}login/" style="display:inline-block; padding:12px 28px; color:#ffffff; text-decoration:none; font-weight:600; font-family:sans-serif; font-size:15px;">Log ind nu</a></td></tr>
+    </table>
+</div>
+<p>Efter login kan du ændre din adgangskode på siden <a href="{change_password_url}" style="color:#0d6efd;">Skift adgangskode</a>, hvis din organisation tillader det.</p>

@@ -32,7 +32,7 @@
   "email.ttl.one_hour_n_minutes": "1 hour :m minutter",
   "email.ttl.one_hour_one_minute": "1 time 1 minut",
   "email.ttl.one_minute": "1 minut",
-  "email.footer.auto_message": "Dette er en automatisk genereret besked. Du bedes ikke besvare denne e-mail.",
+  "email.footer.auto_message": "Dette er en automatisk genereret meddelelse fra :orgs administrationssystem. Du bedes ikke besvare denne e-mail.",
   "email.footer.help_link": "For hjælp, besøg :url.",
   "email.preheader.new_account": "Angiv din adgangskode for at aktivere din :org-konto.",
   "email.preheader.account_welcome": "Din :org-konto er klar til brug.",

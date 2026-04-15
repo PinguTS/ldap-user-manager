@@ -1,15 +1,13 @@
-Subject: Your {organisation} account — set your password
+Subject: Welcome to {organisation}: Your new account is ready
 
 <p>Hello,</p>
-
-<p>An administrator has created an account for you in <strong>{organisation}</strong>.</p>
-
-<p><strong>Sign-in identifier:</strong> {login}</p>
-
-<p style="background:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:8px 12px;font-size:13px;color:#664d03;">To choose your password, open the link below. It is valid for <strong>{token_expires_human}</strong></p>
-
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr><td style="background-color:#0d6efd;border-radius:6px;"><a href="{password_set_url}" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-weight:600;font-family:system-ui,-apple-system,sans-serif;font-size:15px;">Set your password</a></td></tr></table>
-
-<p style="font-size:12px;color:#888;word-break:break-all;">{password_set_url}</p>
-
-<p>If you were not expecting this message, please contact your organization administrator.</p>
+<p>An authorized administrator has created a new account for you within the <strong>{organisation}</strong> management system.</p>
+<p><strong>Username / Login ID:</strong> {login}</p>
+<div style="background:#f8f9fa; border:1px solid #dee2e6; border-radius:4px; padding:15px; margin:20px 0;">
+    <p style="margin-top:0; font-size:14px; color:#495057;">To get started and set your personal password, please use the button below. This link is valid for <strong>{token_expires_human}</strong>.</p>
+    <table role="presentation" cellpadding="0" cellspacing="0">
+        <tr><td style="background-color:#0d6efd; border-radius:6px;"><a href="{password_set_url}" style="display:inline-block; padding:12px 28px; color:#ffffff; text-decoration:none; font-weight:600; font-family:sans-serif; font-size:15px;">Set Your Password</a></td></tr>
+    </table>
+</div>
+<p style="font-size:12px; color:#888; word-break:break-all;">If the button does not work, copy and paste this link into your browser:<br>{password_set_url}</p>
+<p>If you were not expecting this message, please contact your organization's local office or your designated administrator.</p>

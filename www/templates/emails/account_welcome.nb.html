@@ -1,15 +1,12 @@
-Subject: Din {organisation}-konto er klar
+Subject: Velkommen til {organisation}: Din nye konto er klar
 
 <p>Hei,</p>
-
-<p>En administrator har opprettet en konto for deg i <strong>{organisation}</strong>.</p>
-
-<p><strong>Logg-inn-identifikator:</strong> {login}</p>
-
-<p>Ditt første passord ble angitt av administratoren din. Bruk passordet du har fått tildelt (for eksempel personlig eller gjennom organisasjonens vanlige kanaler). Av sikkerhetshensyn er det ikke inkludert i denne e-posten.</p>
-
-<p>Du kan logge inn på <a href="{site_url}">{site_url}</a>. Etter at du har logget inn, kan du endre passordet ditt på siden <a href="{change_password_url}">endre passord</a>, dersom organisasjonen din tillater det.</p>
-
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr><td style="background-color:#0d6efd;border-radius:6px;"><a href="{site_url}login/" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-weight:600;font-family:system-ui,-apple-system,sans-serif;font-size:15px;">Logg inn</a></td></tr></table>
-
-<p>Hvis du ikke forventet å få denne kontoen, vennligst kontakt din organisasjonsadministrator.</p>
+<p>En autorisert administrator har opprettet en konto for deg i <strong>{organisation}</strong> sitt administrasjonssystem.</p>
+<div style="background:#f8f9fa; border:1px solid #dee2e6; border-radius:4px; padding:15px; margin:20px 0;">
+    <p style="margin-top:0;"><strong>Brukernavn / Logg inn:</strong> {login}</p>
+    <p style="font-size:14px; color:#495057;">Ditt første passord ble satt av din administrator. Vennligst bruk passordet du har fått tildelt (f.eks. personlig eller via organisasjonens vanlige kanaler). Av sikkerhetshensyn er det ikke inkludert i denne e-posten.</p>
+    <table role="presentation" cellpadding="0" cellspacing="0">
+        <tr><td style="background-color:#0d6efd; border-radius:6px;"><a href="{site_url}login/" style="display:inline-block; padding:12px 28px; color:#ffffff; text-decoration:none; font-weight:600; font-family:sans-serif; font-size:15px;">Logg inn nå</a></td></tr>
+    </table>
+</div>
+<p>Etter innlogging kan du endre passordet ditt på siden for <a href="{change_password_url}" style="color:#0d6efd;">endre passord</a>, dersom din organisasjon tillater det.</p>

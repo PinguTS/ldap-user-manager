@@ -1,15 +1,12 @@
-Subject: {organisation} のアカウントが作成されました
+Subject: {organisation} へようこそ：新しいアカウントの準備ができました
 
 <p>お世話になっております。</p>
-
-<p>管理者によって、<strong>{organisation}</strong> のアカウントが作成されました。</p>
-
-<p><strong>ログインID:</strong> {login}</p>
-
-<p>初期パスワードは管理者によって設定されています。管理者から提供されたパスワード（対面、または組織の通常の連絡手段で共有されたもの）を使用してください。セキュリティ上の理由により、このメールにパスワードは記載されていません。</p>
-
-<p><a href="{site_url}">{site_url}</a> からログインできます。ログイン後、組織の設定で許可されている場合は、<a href="{change_password_url}">パスワード変更</a> ページでパスワードを変更することができます。</p>
-
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr><td style="background-color:#0d6efd;border-radius:6px;"><a href="{site_url}login/" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-weight:600;font-family:system-ui,-apple-system,sans-serif;font-size:15px;">サインイン</a></td></tr></table>
-
-<p>もしこのアカウントに心当たりがない場合は、組織の管理者にお問い合わせください。</p>
+<p><strong>{organisation}</strong> 管理システムの権限を持つ管理者が、お客様のアカウントを作成しました。</p>
+<div style="background:#f8f9fa; border:1px solid #dee2e6; border-radius:4px; padding:15px; margin:20px 0;">
+    <p style="margin-top:0;"><strong>ユーザー名 / ログインID：</strong> {login}</p>
+    <p style="font-size:14px; color:#495057;">初期パスワードは管理者によって設定されています。別途共有されたパスワード（対面または組織の通常の連絡手段など）を使用してください。セキュリティ上の理由から、このメールにパスワードは記載されていません。</p>
+    <table role="presentation" cellpadding="0" cellspacing="0">
+        <tr><td style="background-color:#0d6efd; border-radius:6px;"><a href="{site_url}login/" style="display:inline-block; padding:12px 28px; color:#ffffff; text-decoration:none; font-weight:600; font-family:sans-serif; font-size:15px;">今すぐログインする</a></td></tr>
+    </table>
+</div>
+<p>ログイン後、組織で許可されている場合は <a href="{change_password_url}" style="color:#0d6efd;">パスワード変更</a> ページでパスワードを更新できます。</p>

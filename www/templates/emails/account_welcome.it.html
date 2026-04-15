@@ -1,15 +1,12 @@
-Subject: Il tuo account {organisation} è pronto
+Subject: Benvenuto in {organisation}: Il tuo nuovo account è pronto
 
 <p>Buongiorno,</p>
-
-<p>Un amministratore ha creato per te un account in <strong>{organisation}</strong>.</p>
-
-<p><strong>Identificativo di accesso:</strong> {login}</p>
-
-<p>La tua password iniziale è stata impostata dal tuo amministratore. Ti preghiamo di utilizzare la password che ti è stata comunicata (ad esempio di persona o tramite i soliti canali della tua organizzazione). Per motivi di sicurezza, la password non è inclusa in questa e-mail.</p>
-
-<p>Puoi accedere all'indirizzo <a href="{site_url}">{site_url}</a>. Dopo aver effettuato l'accesso, potrai modificare la tua password nella pagina <a href="{change_password_url}">cambia password</a>, se la tua organizzazione lo consente.</p>
-
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr><td style="background-color:#0d6efd;border-radius:6px;"><a href="{site_url}login/" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-weight:600;font-family:system-ui,-apple-system,sans-serif;font-size:15px;">Accedi</a></td></tr></table>
-
-<p>Se non ti aspettavi la creazione di questo account, contatta l'amministratore della tua organizzazione.</p>
+<p>Un amministratore autorizzato ha creato un account per te nel sistema di gestione di <strong>{organisation}</strong>.</p>
+<div style="background:#f8f9fa; border:1px solid #dee2e6; border-radius:4px; padding:15px; margin:20px 0;">
+    <p style="margin-top:0;"><strong>Nome utente / Login:</strong> {login}</p>
+    <p style="font-size:14px; color:#495057;">La tua password iniziale è stata impostata dal tuo amministratore. Utilizza la password che ti è stata fornita (ad esempio di persona o tramite i canali abituali della tua organizzazione). Per motivi di sicurezza, non è inclusa in questa e-mail.</p>
+    <table role="presentation" cellpadding="0" cellspacing="0">
+        <tr><td style="background-color:#0d6efd; border-radius:6px;"><a href="{site_url}login/" style="display:inline-block; padding:12px 28px; color:#ffffff; text-decoration:none; font-weight:600; font-family:sans-serif; font-size:15px;">Accedi ora</a></td></tr>
+    </table>
+</div>
+<p>Dopo l'accesso, puoi modificare la password nella pagina <a href="{change_password_url}" style="color:#0d6efd;">Cambia password</a>, se la tua organizzazione lo consente.</p>

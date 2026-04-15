@@ -419,7 +419,7 @@
   "email.ttl.one_hour_n_minutes": "1 hora :m minutos",
   "email.ttl.one_hour_one_minute": "1 hora 1 minuto",
   "email.ttl.one_minute": "1 minuto",
-  "email.footer.auto_message": "Este es un mensaje generado automáticamente. Por favor, no responda a este correo electrónico.",
+  "email.footer.auto_message": "Este es un mensaje generado automáticamente por el sistema de gestión de :org. Por favor, no responda a este correo electrónico.",
   "email.footer.help_link": "Para obtener ayuda, visite :url.",
   "email.preheader.new_account": "Establezca su contraseña para activar su cuenta de :org.",
   "email.preheader.account_welcome": "Su cuenta de :org está lista para usar.",

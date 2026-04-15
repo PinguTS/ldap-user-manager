@@ -419,7 +419,7 @@
   "email.ttl.one_hour_n_minutes": "1 uur :m minuten",
   "email.ttl.one_hour_one_minute": "1 uur 1 minuut",
   "email.ttl.one_minute": "1 minuut",
-  "email.footer.auto_message": "Dit is een automatisch gegenereerd bericht. Gelieve niet op deze e-mail te reageren.",
+  "email.footer.auto_message": "Dit is een automatisch gegenereerd bericht uit het beheersysteem van :org. Gelieve niet op deze e-mail te reageren.",
   "email.footer.help_link": "Voor hulp, bezoek :url.",
   "email.preheader.new_account": "Stel uw wachtwoord in om uw :org-account te activeren.",
   "email.preheader.account_welcome": "Uw :org-account is klaar voor gebruik.",

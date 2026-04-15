@@ -1,15 +1,13 @@
-Subject: Your {organisation} account is ready
+Subject: Welcome to {organisation}: Your new account is ready
 
 <p>Hello,</p>
-
-<p>An administrator has created an account for you in <strong>{organisation}</strong>.</p>
-
-<p><strong>Sign-in identifier:</strong> {login}</p>
-
-<p>Your initial password was set by your administrator. Please use the password they gave you (for example in person or through your organization’s usual channel). For security reasons, it is not included in this email.</p>
-
-<p>You can sign in at <a href="{site_url}">{site_url}</a>. After signing in, you may change your password on the <a href="{change_password_url}">change password</a> page if your organization allows it.</p>
-
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr><td style="background-color:#0d6efd;border-radius:6px;"><a href="{site_url}login/" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-weight:600;font-family:system-ui,-apple-system,sans-serif;font-size:15px;">Sign in</a></td></tr></table>
-
-<p>If you were not expecting this account, please contact your organization administrator.</p>
+<p>An authorized administrator has created an account for you within the <strong>{organisation}</strong> management system.</p>
+<div style="background:#f8f9fa; border:1px solid #dee2e6; border-radius:4px; padding:15px; margin:20px 0;">
+    <p style="margin-top:0;"><strong>Username / Login ID:</strong> {login}</p>
+    <p style="font-size:14px; color:#495057;">Your initial password was set by your administrator. Please use the password provided to you (e.g., in person or via your organization’s internal channels). For security reasons, it is not included in this email.</p>
+    <table role="presentation" cellpadding="0" cellspacing="0">
+        <tr><td style="background-color:#0d6efd; border-radius:6px;"><a href="{site_url}login/" style="display:inline-block; padding:12px 28px; color:#ffffff; text-decoration:none; font-weight:600; font-family:sans-serif; font-size:15px;">Sign In Now</a></td></tr>
+    </table>
+</div>
+<p>After signing in, you may change your password on the <a href="{change_password_url}" style="color:#0d6efd;">change password</a> page if your organization allows it.</p>
+<p>If you were not expecting this account, please contact your organization's local office or your designated administrator.</p>

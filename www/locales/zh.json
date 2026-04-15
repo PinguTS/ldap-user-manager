@@ -419,7 +419,7 @@
   "email.ttl.one_hour_n_minutes": "1 小时 :m 分钟",
   "email.ttl.one_hour_one_minute": "1 小时 1 分钟",
   "email.ttl.one_minute": "1 分钟",
-  "email.footer.auto_message": "这是一封自动生成的邮件。请勿直接回复。",
+  "email.footer.auto_message": "这是来自 :org 管理系统的自动生成通知。请勿直接回复此邮件。",
   "email.footer.help_link": "如需帮助，请访问 :url。",
   "email.preheader.new_account": "设置密码以激活您的 :org 账户。",
   "email.preheader.account_welcome": "您的 :org 账户已准备就绪。",

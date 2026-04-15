@@ -317,17 +317,22 @@ function lum_build_email_html_document(string $inner_html, string $preheader = '
     $site_url_safe = htmlspecialchars($base_url, ENT_QUOTES, 'UTF-8');
 
     $locale = lum_outgoing_email_locale();
-    $footer_auto = htmlspecialchars(
-        lum_email_localized_string($locale, 'email.footer.auto_message', 'This is an automatically generated message. Please do not reply to this email.'),
-        ENT_QUOTES,
-        'UTF-8'
-    );
-    $footer_help_tpl = htmlspecialchars(
-        lum_email_localized_string($locale, 'email.footer.help_link', 'For help, visit :url.'),
-        ENT_QUOTES,
-        'UTF-8'
-    );
     $link_html = '<a href="' . $site_url_safe . '" style="color:#888;">' . $site_url_safe . '</a>';
+
+    $footer_auto = htmlspecialchars(
+        lum_email_localized_string('email.footer.auto_message', 'This is an automatically generated message. Please do not reply to this email.', ['org' => $org]),
+        ENT_QUOTES,
+        'UTF-8'
+    );
+    $footer_auto = str_replace(':url', $link_html, $footer_auto);
+
+    $footer_help_tpl = htmlspecialchars(
+        lum_email_localized_string('email.footer.help_link', 'For help, visit :url.', ['org' => $org]),
+        ENT_QUOTES,
+        'UTF-8'
+    );
+    $footer_help_tpl = str_replace(':url', $link_html, $footer_help_tpl);
+
     $footer_html = $footer_auto . ' ' . str_replace(':url', $link_html, $footer_help_tpl);
 
     $logo_html = '';
@@ -374,16 +379,24 @@ function lum_build_email_html_document(string $inner_html, string $preheader = '
 /**
  * Retrieve a localized string for email content, with English fallback.
  */
-function lum_email_localized_string(string $locale, string $key, string $fallback): string
+function lum_email_localized_string(string $key, string $fallback, array $replacements = []): string
 {
+    $loc = lum_outgoing_email_locale();
     if (function_exists('lum_i18n_t_for_locale')) {
-        $result = lum_i18n_t_for_locale($locale, $key);
-        if ($result !== $key) {
-            return $result;
-        }
+        return lum_i18n_t_for_locale($loc, $key, $replacements);
+    }
+    if (function_exists('t')) {
+        return t($key, $replacements);
     }
 
-    return $fallback;
+    $msg = $fallback;
+    if ($replacements === []) {
+        return $msg;
+    }
+    foreach ($replacements as $name => $value) {
+        $msg = str_replace(':' . (string) $name, (string) $value, $msg);
+    }
+    return $msg;
 }
 
 /**
@@ -395,10 +408,7 @@ function lum_email_localized_string(string $locale, string $key, string $fallbac
 function lum_email_preheader(string $i18n_key, string $fallback): string
 {
     global $ORGANISATION_NAME;
-    $locale = lum_outgoing_email_locale();
-    $text = lum_email_localized_string($locale, $i18n_key, $fallback);
-
-    return str_replace(':org', (string) ($ORGANISATION_NAME ?? ''), $text);
+    return lum_email_localized_string($i18n_key, $fallback, ['org' => (string) ($ORGANISATION_NAME ?? '')]);
 }
 
 /**

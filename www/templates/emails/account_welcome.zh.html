@@ -1,15 +1,12 @@
-Subject: 您的 {organisation} 账户已就绪
+Subject: 欢迎加入 {organisation}：您的新账户已准备就绪
 
 <p>您好：</p>
-
-<p>管理员已在 <strong>{organisation}</strong> 中为您创建了账户。</p>
-
-<p><strong>登录标识符：</strong> {login}</p>
-
-<p>您的初始密码已由管理员设置。请使用向您提供的密码（例如通过面对面告知或您组织常用的沟通渠道）。出于安全原因，此电子邮件中不包含该密码。</p>
-
-<p>您可以访问 <a href="{site_url}">{site_url}</a> 进行登录。登录后，如果您的组织允许，您可以在 <a href="{change_password_url}">修改密码</a> 页面更改您的密码。</p>
-
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr><td style="background-color:#0d6efd;border-radius:6px;"><a href="{site_url}login/" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-weight:600;font-family:system-ui,-apple-system,sans-serif;font-size:15px;">登录</a></td></tr></table>
-
-<p>如果您并未申请此账户，请联系您的组织管理员。</p>
+<p>授权管理员已在 <strong>{organisation}</strong> 管理系统中为您创建了一个账户。</p>
+<div style="background:#f8f9fa; border:1px solid #dee2e6; border-radius:4px; padding:15px; margin:20px 0;">
+    <p style="margin-top:0;"><strong>用户名 / 登录标识：</strong> {login}</p>
+    <p style="font-size:14px; color:#495057;">您的初始密码已由管理员设置。请使用提供给您的密码（例如通过面对面告知或您机构的常用渠道）。出于安全原因，此邮件不包含该密码。</p>
+    <table role="presentation" cellpadding="0" cellspacing="0">
+        <tr><td style="background-color:#0d6efd; border-radius:6px;"><a href="{site_url}login/" style="display:inline-block; padding:12px 28px; color:#ffffff; text-decoration:none; font-weight:600; font-family:sans-serif; font-size:15px;">立即登录</a></td></tr>
+    </table>
+</div>
+<p>登录后，如果您的机构允许，您可以在 <a href="{change_password_url}" style="color:#0d6efd;">修改密码</a> 页面更改您的密码。</p>

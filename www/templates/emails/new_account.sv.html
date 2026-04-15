@@ -1,15 +1,13 @@
-Subject: Ditt {organisation}-konto — välj ditt lösenord
+Subject: Välkommen till {organisation}: Ditt nya konto är klart
 
 <p>Hej,</p>
-
-<p>En administratör har skapat ett konto åt dig i <strong>{organisation}</strong>.</p>
-
-<p><strong>Inloggningsidentifierare:</strong> {login}</p>
-
-<p style="background:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:8px 12px;font-size:13px;color:#664d03;">För att välja ditt lösenord, öppna länken nedan. Den är giltig i <strong>{token_expires_human}</strong></p>
-
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr><td style="background-color:#0d6efd;border-radius:6px;"><a href="{password_set_url}" style="display:inline-block;padding:12px 28px;color:#ffffff;text-decoration:none;font-weight:600;font-family:system-ui,-apple-system,sans-serif;font-size:15px;">Välj ditt lösenord</a></td></tr></table>
-
-<p style="font-size:12px;color:#888;word-break:break-all;">{password_set_url}</p>
-
-<p>Om du inte förväntade dig detta meddelande, vänligen kontakta din organisationsadministratör.</p>
+<p>En auktoriserad administratör har skapat ett nytt konto för dig i <strong>{organisation}</strong>s hanteringssystem.</p>
+<p><strong>Användarnamn / Login:</strong> {login}</p>
+<div style="background:#f8f9fa; border:1px solid #dee2e6; border-radius:4px; padding:15px; margin:20px 0;">
+    <p style="margin-top:0; font-size:14px; color:#495057;">För att komma igång och välja ditt personliga lösenord, använd knappen nedan. Länken är giltig i <strong>{token_expires_human}</strong>.</p>
+    <table role="presentation" cellpadding="0" cellspacing="0">
+        <tr><td style="background-color:#0d6efd; border-radius:6px;"><a href="{password_set_url}" style="display:inline-block; padding:12px 28px; color:#ffffff; text-decoration:none; font-weight:600; font-family:sans-serif; font-size:15px;">Välj lösenord</a></td></tr>
+    </table>
+</div>
+<p style="font-size:12px; color:#888; word-break:break-all;">Om knappen inte fungerar kan du kopiera och klistra in denna länk i din webbläsare:<br>{password_set_url}</p>
+<p>Om du inte förväntade dig detta meddelande, kontakta omedelbart din organisations lokala kontor.</p>

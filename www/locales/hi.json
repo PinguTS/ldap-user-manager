@@ -419,7 +419,7 @@
   "email.ttl.one_hour_n_minutes": "1 घंटा :m मिनट",
   "email.ttl.one_hour_one_minute": "1 घंटा 1 मिनट",
   "email.ttl.one_minute": "1 मिनट",
-  "email.footer.auto_message": "यह एक स्वचालित रूप से जेनरेट किया गया संदेश है। कृपया इस ईमेल का उत्तर न दें।",
+  "email.footer.auto_message": "यह :org प्रबंधन प्रणाली से एक स्वचालित सूचना है। कृपया इस ईमेल का उत्तर न दें।",
   "email.footer.help_link": "सहायता के लिए :url पर जाएं।",
   "email.preheader.new_account": "अपना :org खाता सक्रिय करने के लिए अपना पासवर्ड सेट करें।",
   "email.preheader.account_welcome": "आपका :org खाता उपयोग के लिए तैयार है।",

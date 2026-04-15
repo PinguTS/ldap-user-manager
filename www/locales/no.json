@@ -419,7 +419,7 @@
   "email.ttl.one_hour_n_minutes": "1 time :m minutter",
   "email.ttl.one_hour_one_minute": "1 time 1 minutt",
   "email.ttl.one_minute": "1 minutt",
-  "email.footer.auto_message": "Dette er ei automatisk generert melding. Venlegst ikkje svar på denne e-posten.",
+  "email.footer.auto_message": "Dette er ei automatisk generert melding frå :org sitt administrasjonssystem. Venlegst ikkje svar på denne e-posten.",
   "email.footer.help_link": "For hjelp, besøk :url.",
   "email.preheader.new_account": "Opprett passordet ditt for å aktivere :org-kontoen din.",
   "email.preheader.account_welcome": "Din :org-konto er klar til bruk.",

@@ -419,7 +419,7 @@
   "email.ttl.one_hour_n_minutes": "1 timme :m minuter",
   "email.ttl.one_hour_one_minute": "1 timme 1 minut",
   "email.ttl.one_minute": "1 minut",
-  "email.footer.auto_message": "Detta är ett automatiskt genererat meddelande. Svara inte på detta e-postmeddelande.",
+  "email.footer.auto_message": "Detta är ett automatiskt genererat meddelande från :orgs hanteringssystem. Svara inte på detta e-postmeddelande.",
   "email.footer.help_link": "För hjälp, besök :url.",
   "email.preheader.new_account": "Välj ditt lösenord för att aktivera ditt :org-konto.",
   "email.preheader.account_welcome": "Ditt :org-konto är redo att använda.",
