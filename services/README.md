@@ -12,5 +12,6 @@ Each file contains only the OIDC-relevant configuration. Copy the relevant snipp
 | WordPress | `wordpress/wp-config.php` | [docs/integrations/wordpress.md](../docs/integrations/wordpress.md) |
 | Joomla | `joomla/configuration.php` | [docs/integrations/joomla.md](../docs/integrations/joomla.md) |
 | TYPO3 | `typo3/composer.json` | [docs/integrations/typo3.md](../docs/integrations/typo3.md) |
+| TYPO3 tt_address sync | `lum_sync/` | [lum_sync/README.md](lum_sync/README.md) |
 
 See [docs/integrations/](../docs/integrations/) for the full configuration guides.

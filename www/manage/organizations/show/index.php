@@ -37,6 +37,15 @@ $can_modify_org = currentUserCanModifyOrganization($org_name);
 renderHeader((string) $ORGANISATION_NAME . ' ' . t('manage.orgs.show.account_manager'));
 render_submenu();
 
+if ($can_modify_org && (empty($_SESSION['lum_ldap_pwd_enc'] ?? null)) && $VALIDATED === true) {
+    ?>
+    <div class="alert alert-info alert-dismissible fade show container mt-2" role="alert">
+        <p class="mb-0 text-center"><?php echo htmlspecialchars(t('manage.orgs.show.notice_directory_service_account'), ENT_QUOTES, 'UTF-8'); ?></p>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="<?php echo htmlspecialchars(t('modal.close_aria'), ENT_QUOTES, 'UTF-8'); ?>"></button>
+    </div>
+    <?php
+}
+
 // Handle org deletion action
 if (isset($_POST['action']) && $_POST['action'] === 'delete_organization') {
     if (session_status() !== PHP_SESSION_ACTIVE) {
@@ -44,14 +53,14 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete_organization') {
     } elseif (!validateCsrfToken()) {
         renderAlertBanner(t('manage.common.msg.security_validation_failed'), "danger");
     } else {
-        $ldap_connection_action = open_ldap_connection();
+        $ldap_connection_action = lum_ldap_data_connection();
         if ($ldap_connection_action === false) {
             renderAlertBanner(t('manage.orgs.msg.ldap_fail'), "danger");
         } else {
             if (currentUserCanDeleteOrganization($org_name)) {
                 $posted_uuid = isset($_POST['org_uuid']) ? trim((string) $_POST['org_uuid']) : '';
                 if (ldap_delete_organization($ldap_connection_action, $org_name, $posted_uuid)) {
-                    ldap_close($ldap_connection_action);
+                    lum_close_ldap_if_not_manage($ldap_connection_action);
                     header('Location: /manage/organizations/');
                     exit;
                 }
@@ -63,7 +72,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete_organization') {
             } else {
                 renderAlertBanner(t('manage.orgs.show.msg.permission_delete_org'), "danger");
             }
-            ldap_close($ldap_connection_action);
+            lum_close_ldap_if_not_manage($ldap_connection_action);
         }
     }
 }
@@ -75,7 +84,7 @@ if (isset($_POST['action']) && ($_POST['action'] === 'disable_organization' || $
     } elseif (!validateCsrfToken()) {
         renderAlertBanner(t('manage.common.msg.security_validation_failed'), "danger");
     } else {
-        $ldap_connection_action = open_ldap_connection();
+        $ldap_connection_action = lum_ldap_data_connection();
         if ($ldap_connection_action === false) {
             renderAlertBanner(t('manage.orgs.msg.ldap_fail'), "danger");
         } else {
@@ -120,7 +129,7 @@ if (isset($_POST['action']) && ($_POST['action'] === 'disable_organization' || $
                     }
                 }
             }
-            ldap_close($ldap_connection_action);
+            lum_close_ldap_if_not_manage($ldap_connection_action);
         }
     }
 }
@@ -174,7 +183,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'toggle_recent_user_active')
                 renderAlertBanner(t('manage.users.msg.user_not_found'), "danger");
             } else {
                 $userDisplay = org_get_user_display($userDn, $userIdentifier);
-                $ldapConnection = open_ldap_connection();
+                $ldapConnection = lum_ldap_data_connection();
                 if ($ldapConnection === false) {
                     renderAlertBanner(t('manage.orgs.msg.ldap_fail'), "danger");
                 } else {
@@ -193,7 +202,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'toggle_recent_user_active')
                             renderAlertBanner(t('manage.users.msg.deactivate_fail', ['user' => $userDisplay, 'error' => $error]), "danger");
                         }
                     }
-                    ldap_close($ldapConnection);
+                    lum_close_ldap_if_not_manage($ldapConnection);
                 }
             }
         }
@@ -209,7 +218,7 @@ if (isset($_POST['action']) && ($_POST['action'] === 'member_organization' || $_
     } elseif (!(currentUserIsGlobalAdmin() || currentUserIsMaintainer())) {
         renderAlertBanner(t('manage.orgs.show.msg.permission_modify_membership'), "danger");
     } else {
-        $ldap_connection_action = open_ldap_connection();
+        $ldap_connection_action = lum_ldap_data_connection();
         if ($ldap_connection_action === false) {
             renderAlertBanner(t('manage.orgs.msg.ldap_fail'), "danger");
         } else {
@@ -248,7 +257,7 @@ if (isset($_POST['action']) && ($_POST['action'] === 'member_organization' || $_
                     }
                 }
             }
-            ldap_close($ldap_connection_action);
+            lum_close_ldap_if_not_manage($ldap_connection_action);
         }
     }
 }
@@ -357,12 +366,12 @@ if (isset($_POST['update_organization'])) {
                         renderAlertBanner(t('manage.orgs.show.msg.user_limit_invalid'), "warning", 15000);
                     }
                 }
-                $limit_ldap = open_ldap_connection();
+                $limit_ldap = lum_ldap_data_connection();
                 if ($limit_ldap !== false) {
                     if (!function_exists('ldap_org_set_user_limit') || !ldap_org_set_user_limit($limit_ldap, $org_name, $limit_val)) {
                         renderAlertBanner(t('manage.orgs.show.msg.user_limit_update_fail'), "danger", 15000);
                     }
-                    ldap_close($limit_ldap);
+                    lum_close_ldap_if_not_manage($limit_ldap);
                 }
             }
 
@@ -414,7 +423,7 @@ if ($org_uuid !== '') {
         if ($refreshed_org !== false) {
             $organization_by_uuid = $refreshed_org;
         }
-        ldap_close($ldap_refresh);
+        lum_close_ldap_if_not_manage($ldap_refresh);
     }
 }
 
@@ -523,7 +532,11 @@ if (!isset($organization['facsimileTelephoneNumber'])) {
 // Get organization users
 $org_users = getOrganizationUsers($org_name);
 
+$is_global_admin = currentUserIsGlobalAdmin();
+$is_maintainer   = currentUserIsMaintainer();
+
 // Get organization roles and status group flags
+// Use admin bind for all reads — same reliability pattern as listOrganizations().
 $org_roles = [];
 $ldap_connection = open_ldap_connection();
 $org_dn = "o=" . ldap_escape($org_name, "", LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
@@ -903,6 +916,155 @@ if ($orgExists) {
     
    </div>
   </div>
+
+  <!-- Change History Section (admin and maintainer only) -->
+  <?php if (($is_global_admin || $is_maintainer) && function_exists('is_org_accesslog_available') && $ldap_connection !== false) : ?>
+        <?php
+        $auditLdap = open_ldap_connection();
+        if ($auditLdap === false) {
+            $accesslog_available = false;
+        } else {
+            $accesslog_available = is_org_accesslog_available($auditLdap);
+        }
+        $change_history      = [];
+        $changes_by_role     = ['admin' => null, 'maintainer' => null, 'org_admin' => null];
+        $show_history        = false;
+
+        if ($auditLdap !== false && $accesslog_available && $org_dn !== '') {
+            $change_history  = get_org_accesslog_history($auditLdap, $org_dn, 20);
+            $show_history    = true;
+
+            // Fetch system role members once for role classification
+            $admin_role_group_dn      = 'cn=' . ldap_escape($LDAP['admin_role'] ?? 'administrators', '', LDAP_ESCAPE_DN) . ',' . ($LDAP['roles_dn'] ?? '');
+            $maintainer_role_group_dn = 'cn=' . ldap_escape($LDAP['maintainer_role'] ?? 'maintainers', '', LDAP_ESCAPE_DN) . ',' . ($LDAP['roles_dn'] ?? '');
+            $admin_member_dns         = get_group_member_dns($auditLdap, $admin_role_group_dn);
+            $maintainer_member_dns    = get_group_member_dns($auditLdap, $maintainer_role_group_dn);
+            $changes_by_role          = get_org_changes_by_role($auditLdap, $org_dn, $admin_member_dns, $maintainer_member_dns, 50);
+        }
+        if ($auditLdap !== false && (is_resource($auditLdap) || (is_object($auditLdap) && $auditLdap instanceof \LDAP\Connection))) {
+            @ldap_close($auditLdap);
+        }
+        if (!$accesslog_available && $org_dn !== '') {
+            // Fallback: use modifyTimestamp / modifiersName from the org entry itself
+            $fallback_ts   = (string) ($organization_by_uuid['modifytimestamp'][0] ?? '');
+            $fallback_mod  = (string) ($organization_by_uuid['modifiersname'][0] ?? '');
+            if ($fallback_ts !== '') {
+                $show_history   = true;
+                $change_history = [
+                    [
+                  'timestamp'     => parse_accesslog_timestamp($fallback_ts),
+                  'actor_dn'      => $fallback_mod,
+                  'actor_display' => extract_actor_display_name($fallback_mod),
+                  'changed_attrs' => [],
+                    ],
+                ];
+            }
+        }
+        ?>
+
+  <div class="card mt-3">
+   <div class="card-header">
+    <h4 class="h5 mb-0"><?php echo htmlspecialchars(t('manage.orgs.show.change_history_heading'), ENT_QUOTES, 'UTF-8'); ?></h4>
+   </div>
+   <div class="card-body">
+        <?php if (!$accesslog_available) : ?>
+     <p class="text-muted small">
+            <?php echo htmlspecialchars(t('manage.orgs.show.change_history_no_accesslog'), ENT_QUOTES, 'UTF-8'); ?>
+     </p>
+        <?php endif; ?>
+
+        <?php if ($accesslog_available && array_filter($changes_by_role) !== []) : ?>
+    <!-- Role-class summary: latest change per role -->
+    <div class="row mb-3">
+            <?php
+            $role_configs = [
+            'admin'       => ['label' => t('manage.orgs.show.change_history_role_admin'),       'badge' => 'danger'],
+            'maintainer'  => ['label' => t('manage.orgs.show.change_history_role_maintainer'),  'badge' => 'warning'],
+            'org_admin'   => ['label' => t('manage.orgs.show.change_history_role_org_admin'),   'badge' => 'info'],
+            ];
+     // Determine which role has the most recent change (for highlighting)
+            $latest_role = null;
+            $latest_ts   = 0;
+            foreach ($changes_by_role as $role_key => $role_change) {
+                if ($role_change !== null && $role_change['timestamp'] > $latest_ts) {
+                    $latest_ts   = $role_change['timestamp'];
+                    $latest_role = $role_key;
+                }
+            }
+            foreach ($role_configs as $role_key => $role_cfg) :
+                $role_change = $changes_by_role[$role_key];
+                $is_latest   = ($role_key === $latest_role);
+                ?>
+      <div class="col-sm-4 mb-2">
+       <div class="card h-100<?php echo $is_latest ? ' border-primary' : ''; ?>">
+        <div class="card-body p-2">
+         <div class="d-flex align-items-center gap-1 mb-1">
+          <span class="badge bg-<?php echo htmlspecialchars($role_cfg['badge'], ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($role_cfg['label'], ENT_QUOTES, 'UTF-8'); ?></span>
+                <?php if ($is_latest) : ?>
+           <span class="badge bg-primary"><?php echo htmlspecialchars(t('manage.orgs.show.change_history_latest'), ENT_QUOTES, 'UTF-8'); ?></span>
+                <?php endif; ?>
+         </div>
+                <?php if ($role_change !== null) : ?>
+          <small class="d-block" title="<?php echo htmlspecialchars(date('Y-m-d H:i:s', $role_change['timestamp']), ENT_QUOTES, 'UTF-8'); ?>">
+           <strong><?php echo htmlspecialchars($role_change['actor_display'], ENT_QUOTES, 'UTF-8'); ?></strong><br>
+                    <?php echo htmlspecialchars(format_relative_time($role_change['timestamp']), ENT_QUOTES, 'UTF-8'); ?>
+          </small>
+                <?php else : ?>
+          <small class="text-muted"><?php echo htmlspecialchars(t('manage.orgs.show.change_history_no_changes_role'), ENT_QUOTES, 'UTF-8'); ?></small>
+                <?php endif; ?>
+        </div>
+       </div>
+      </div>
+            <?php endforeach; ?>
+    </div>
+        <?php endif; ?>
+
+        <?php if (!$show_history || empty($change_history)) : ?>
+     <p class="text-muted"><?php echo htmlspecialchars(t('manage.orgs.show.change_history_empty'), ENT_QUOTES, 'UTF-8'); ?></p>
+        <?php else : ?>
+            <?php if (!$accesslog_available) : ?>
+      <p class="text-muted small"><?php echo htmlspecialchars(t('manage.orgs.show.change_history_fallback_note'), ENT_QUOTES, 'UTF-8'); ?></p>
+            <?php endif; ?>
+     <div class="table-responsive">
+      <table class="table table-sm table-striped">
+       <thead>
+        <tr>
+         <th><?php echo htmlspecialchars(t('manage.orgs.show.change_history_col_time'), ENT_QUOTES, 'UTF-8'); ?></th>
+         <th><?php echo htmlspecialchars(t('manage.orgs.show.change_history_col_by'), ENT_QUOTES, 'UTF-8'); ?></th>
+            <?php if ($accesslog_available) : ?>
+          <th><?php echo htmlspecialchars(t('manage.orgs.show.change_history_col_attrs'), ENT_QUOTES, 'UTF-8'); ?></th>
+            <?php endif; ?>
+        </tr>
+       </thead>
+       <tbody>
+            <?php foreach ($change_history as $change_entry) : ?>
+         <tr>
+          <td>
+           <span title="<?php echo htmlspecialchars(date('Y-m-d H:i:s T', $change_entry['timestamp']), ENT_QUOTES, 'UTF-8'); ?>">
+                <?php echo htmlspecialchars(date('Y-m-d H:i', $change_entry['timestamp']), ENT_QUOTES, 'UTF-8'); ?>
+           </span>
+           <br>
+           <small class="text-muted"><?php echo htmlspecialchars(format_relative_time($change_entry['timestamp']), ENT_QUOTES, 'UTF-8'); ?></small>
+          </td>
+          <td><?php echo htmlspecialchars($change_entry['actor_display'], ENT_QUOTES, 'UTF-8'); ?></td>
+                <?php if ($accesslog_available) : ?>
+           <td>
+                    <?php if (!empty($change_entry['changed_attrs'])) : ?>
+             <small><?php echo htmlspecialchars(implode(', ', $change_entry['changed_attrs']), ENT_QUOTES, 'UTF-8'); ?></small>
+                    <?php else : ?>
+             <small class="text-muted">—</small>
+                    <?php endif; ?>
+           </td>
+                <?php endif; ?>
+         </tr>
+            <?php endforeach; ?>
+       </tbody>
+      </table>
+     </div>
+        <?php endif; ?>
+   </div>
+  </div>
+  <?php endif; ?>
 
   <!-- Edit Organization Form (Hidden by default) -->
   <?php if ($can_modify_org) : ?>

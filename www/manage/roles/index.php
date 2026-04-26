@@ -15,7 +15,7 @@ $orgName = (string) ($ORGANISATION_NAME ?? 'System');
 renderHeader(t('manage.roles.page_title', ['org' => $orgName]));
 render_submenu();
 
-$ldap_connection = open_ldap_connection();
+$ldap_connection = lum_ldap_data_connection();
 if ($ldap_connection === false) {
     renderAlertBanner(t('manage.users.msg.ldap_unavailable'), 'danger');
     $users = [];
@@ -98,8 +98,18 @@ if ($ldap_connection === false) {
     }
 
     # Now get users with our normal function
+    # Use admin bind for listing reliability — same pattern as listOrganizations().
     $required_fields = ['entryUUID', 'sn', 'mail', 'cn', 'givenname'];
-    $users = ldap_get_system_users($ldap_connection, 0, null, 'asc', null, null, $required_fields);
+    $listConn = open_ldap_connection();
+    $users = ldap_get_system_users(
+        $listConn !== false ? $listConn : $ldap_connection,
+        0,
+        null,
+        'asc',
+        null,
+        null,
+        $required_fields
+    );
 
     # Debug: Let's see what we're actually getting from the normal function
     if ($LDAP_DEBUG) {
@@ -355,6 +365,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <?php
 
-ldap_close($ldap_connection);
+lum_close_ldap_if_not_manage($ldap_connection);
 renderFooter();
 ?> 

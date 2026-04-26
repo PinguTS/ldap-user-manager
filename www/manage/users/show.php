@@ -70,9 +70,14 @@ if ($user_uuid !== null && $user_uuid !== '') {
     }
 
     // Get user by UUID
-    $ldap_connection = open_ldap_connection();
+    $ldap_connection = lum_ldap_data_connection();
+    if ($ldap_connection === false) {
+        renderAlertBanner(t('manage.orgs.msg.ldap_fail'), 'danger');
+        renderFooter();
+        exit(0);
+    }
     $user_by_uuid = ldap_get_user_by_uuid($ldap_connection, $user_uuid);
-    ldap_close($ldap_connection);
+    lum_close_ldap_if_not_manage($ldap_connection);
 
     if (!$user_by_uuid) {
         renderAlertBanner(t('manage.users.msg.user_not_found'), "warning");
@@ -98,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     validateCsrfToken();
 }
 
-$ldap_connection = open_ldap_connection();
+$ldap_connection = lum_ldap_data_connection();
 if ($ldap_connection === false) {
     renderAlertBanner(t('manage.orgs.msg.ldap_fail'), 'danger');
     renderFooter();
@@ -269,7 +274,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile']) && 
     }
 }
 
-ldap_close($ldap_connection);
+lum_close_ldap_if_not_manage($ldap_connection);
 
 ?>
 
@@ -283,7 +288,7 @@ ldap_close($ldap_connection);
             
             <?php
             // Reopen LDAP connection for role lookup in display
-            $ldap_connection = open_ldap_connection();
+            $ldap_connection = lum_ldap_data_connection();
             ?>
             
             <?php if ($can_edit) : ?>
@@ -524,7 +529,7 @@ document.addEventListener('DOMContentLoaded', function(){
 
 <?php
 // Close LDAP connection
-ldap_close($ldap_connection);
+lum_close_ldap_if_not_manage($ldap_connection);
 
 renderFooter();
 ?>

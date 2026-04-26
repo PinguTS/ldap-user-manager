@@ -21,7 +21,7 @@ if (!$org_uuid && !$org_name) {
 
 // If UUID is provided, get organization by UUID
 if ($org_uuid) {
-    $ldap = open_ldap_connection();
+    $ldap = lum_ldap_data_connection();
     if (!$ldap) {
         renderAlertBanner(t('manage.orgs.ldap_conn_failed'), "danger");
         renderFooter();
@@ -33,7 +33,7 @@ if ($org_uuid) {
     // Debug: log the organization data structure
     error_log("add_org_user.php: Organization data retrieved for UUID $org_uuid: " . print_r($organization, true));
 
-    ldap_close($ldap);
+    lum_close_ldap_if_not_manage($ldap);
 
     if (!$organization) {
         // Debug: log the UUID and search details
@@ -265,7 +265,7 @@ if (isset($_POST['create_org_user'])) {
         }
 
         // Check if username already exists
-        $ldap_connection = open_ldap_connection();
+        $ldap_connection = lum_ldap_data_connection();
         $existing_user = ldap_search($ldap_connection, $LDAP['org_dn'], "({$LDAP['account_attribute']}=" . ldap_escape($account_identifier, "", LDAP_ESCAPE_FILTER) . ")");
         if ($existing_user && ldap_count_entries($ldap_connection, $existing_user) > 0) {
             $invalid_username = true;
@@ -372,7 +372,7 @@ if (isset($_POST['create_org_user'])) {
                 renderAlertBanner(t('manage.org_users.add.msg.create_failed'), "danger");
             }
 
-            ldap_close($ldap_connection);
+            lum_close_ldap_if_not_manage($ldap_connection);
         }
     }
 }

@@ -120,7 +120,7 @@ if (isset($_GET['toggle_manager']) && isset($_GET['uid'])) {
     $toggleUserDisplay = get_ldap_attribute($userEntry, 'uid') !== '' ? get_ldap_attribute($userEntry, 'uid') : (string) $toggleUserParam;
 
     $orgManagerDns = org_get_manager_dns($orgName);
-    $ldap = open_ldap_connection();
+    $ldap = lum_ldap_data_connection();
     if ($ldap === false) {
         $message = t('manage.orgs.msg.ldap_fail');
         $message_type = 'danger';
@@ -146,7 +146,7 @@ if (isset($_GET['toggle_manager']) && isset($_GET['uid'])) {
             error_log("Failed to create roles directory at DN: $rolesDN -- LDAP error: $ldap_err");
             $message = t('manage.org_users.msg.roles_directory_create_fail', ['error' => $ldap_err]);
             $message_type = 'danger';
-            ldap_close($ldap);
+            lum_close_ldap_if_not_manage($ldap);
             goto after_toggle_manager;
         }
     }
@@ -173,7 +173,7 @@ if (isset($_GET['toggle_manager']) && isset($_GET['uid'])) {
             error_log("Failed to create OrgAdmins group at DN: $orgAdminsDn -- LDAP error: $ldap_err");
             $message = t('manage.org_users.msg.org_admin_group_create_fail', ['error' => $ldap_err]);
             $message_type = 'danger';
-            ldap_close($ldap);
+            lum_close_ldap_if_not_manage($ldap);
             goto after_toggle_manager;
         }
         // Refresh orgManagerDns after creation
@@ -213,12 +213,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $user_dn = (string) $resolved['dn'];
         $user_display = get_ldap_attribute($resolved, 'uid') !== '' ? get_ldap_attribute($resolved, 'uid') : $user_identifier;
-        $ldap_connection = open_ldap_connection();
+        $ldap_connection = lum_ldap_data_connection();
         if ($ldap_connection === false) {
             $message = t('manage.orgs.msg.ldap_fail');
             $message_type = 'danger';
             goto after_disable_user;
         }
+        assert($ldap_connection !== false);
 
         if (ldap_disable_user_account($ldap_connection, $user_dn)) {
             $message = t('manage.users.msg.deactivate_ok', ['user' => $user_display]);
@@ -228,7 +229,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = t('manage.users.msg.deactivate_fail', ['user' => $user_display, 'error' => $ldap_error]);
             $message_type = 'danger';
         }
-        ldap_close($ldap_connection);
+        lum_close_ldap_if_not_manage($ldap_connection);
         after_disable_user:
     } elseif (isset($_POST['enable_user']) && currentUserCanEnableUser($_POST['enable_user'])) {
         $user_identifier = trim($_POST['enable_user']);
@@ -240,12 +241,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $user_dn = (string) $resolved['dn'];
         $user_display = get_ldap_attribute($resolved, 'uid') !== '' ? get_ldap_attribute($resolved, 'uid') : $user_identifier;
-        $ldap_connection = open_ldap_connection();
+        $ldap_connection = lum_ldap_data_connection();
         if ($ldap_connection === false) {
             $message = t('manage.orgs.msg.ldap_fail');
             $message_type = 'danger';
             goto after_enable_user;
         }
+        assert($ldap_connection !== false);
 
         if (ldap_enable_user_account($ldap_connection, $user_dn)) {
             $message = t('manage.users.msg.activate_ok', ['user' => $user_display]);
@@ -255,7 +257,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = t('manage.users.msg.activate_fail', ['user' => $user_display, 'error' => $ldap_error]);
             $message_type = 'danger';
         }
-        ldap_close($ldap_connection);
+        lum_close_ldap_if_not_manage($ldap_connection);
         after_enable_user:
     } elseif (isset($_POST['delete_user']) && currentUserCanDisableUser($_POST['delete_user'])) {
         $user_identifier = trim($_POST['delete_user']);
@@ -267,12 +269,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $user_dn = (string) $resolved['dn'];
         $user_display = get_ldap_attribute($resolved, 'uid') !== '' ? get_ldap_attribute($resolved, 'uid') : $user_identifier;
-        $ldap_connection = open_ldap_connection();
+        $ldap_connection = lum_ldap_data_connection();
         if ($ldap_connection === false) {
             $message = t('manage.orgs.msg.ldap_fail');
             $message_type = 'danger';
             goto after_delete_user;
         }
+        assert($ldap_connection !== false);
 
         $group_cleanup_success = ldap_remove_user_from_all_groups($ldap_connection, $user_dn);
         if (!$group_cleanup_success) {
@@ -286,7 +289,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = t('manage.org_users.msg.delete_fail_ldap', ['error' => $ldap_error]);
             $message_type = 'danger';
         }
-        ldap_close($ldap_connection);
+        lum_close_ldap_if_not_manage($ldap_connection);
     }
 }
 
@@ -344,7 +347,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
     // Duplicate user check
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
     $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
-    $ldap = open_ldap_connection();
+    $ldap = lum_ldap_data_connection();
     if ($ldap === false) {
         $message = t('manage.orgs.msg.ldap_fail');
         $message_type = 'danger';
@@ -367,7 +370,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
             error_log("Failed to create users directory at DN: $usersDn -- LDAP error: $ldap_err");
             $message = t('manage.org_users.msg.users_directory_create_fail', ['error' => $ldap_err]);
             $message_type = 'danger';
-            ldap_close($ldap);
+            lum_close_ldap_if_not_manage($ldap);
             goto after_add_user;
         }
     }
@@ -381,7 +384,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
     if ($entries && $entries['count'] > 0) {
         $message = t('manage.org_users.msg.email_exists_in_org');
         $message_type = 'danger';
-        ldap_close($ldap);
+        lum_close_ldap_if_not_manage($ldap);
         goto after_add_user;
     }
 
@@ -394,7 +397,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
         if (!$validation['ok']) {
             $message = implode(' ', $validation['errors']);
             $message_type = 'danger';
-            ldap_close($ldap);
+            lum_close_ldap_if_not_manage($ldap);
             goto after_add_user;
         }
     }
@@ -465,7 +468,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
         $message_type = 'danger';
     }
 
-    ldap_close($ldap);
+    lum_close_ldap_if_not_manage($ldap);
 }
 after_add_user:
 
@@ -487,12 +490,13 @@ if (isset($_GET['delete_user'])) {
     $userDn = (string) $resolvedDelete['dn'];
     $deleteUserDisplay = get_ldap_attribute($resolvedDelete, 'uid') !== '' ? get_ldap_attribute($resolvedDelete, 'uid') : (string) $deleteUserParam;
 
-    $ldap = open_ldap_connection();
+    $ldap = lum_ldap_data_connection();
     if ($ldap === false) {
         $message = t('manage.orgs.msg.ldap_fail');
         $message_type = 'danger';
         goto after_delete_user;
     }
+    assert($ldap !== false);
 
     $group_cleanup_success = ldap_remove_user_from_all_groups($ldap, $userDn);
     if (!$group_cleanup_success) {
@@ -507,7 +511,7 @@ if (isset($_GET['delete_user'])) {
         $message = t('manage.org_users.msg.delete_fail_exception', ['error' => $e->getMessage()]);
         $message_type = 'danger';
     }
-    ldap_close($ldap);
+    lum_close_ldap_if_not_manage($ldap);
 }
 after_delete_user:
 
@@ -537,7 +541,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
         goto after_edit_user;
     }
 
-    $ldap = open_ldap_connection();
+    $ldap = lum_ldap_data_connection();
     if ($ldap === false) {
         $message = t('manage.orgs.msg.ldap_fail');
         $message_type = 'danger';
@@ -554,7 +558,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
         if (!$validation['ok']) {
             $message = implode(' ', $validation['errors']);
             $message_type = 'danger';
-            ldap_close($ldap);
+            lum_close_ldap_if_not_manage($ldap);
             goto after_edit_user;
         }
         $entry['userPassword'] = ldap_hashed_password($password);
@@ -568,7 +572,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
         $message = t('manage.users.msg.profile_update_fail') . ' ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8');
         $message_type = 'danger';
     }
-    ldap_close($ldap);
+    lum_close_ldap_if_not_manage($ldap);
 }
 after_edit_user:
 
@@ -597,7 +601,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
     }
     $passScore = isset($_POST['pass_score']) && is_numeric($_POST['pass_score']) ? (int) $_POST['pass_score'] : null;
 
-    $ldap = open_ldap_connection();
+    $ldap = lum_ldap_data_connection();
     if ($ldap === false) {
         $_SESSION['manage_org_users_reset_flash'] = [
             'type' => 'danger',
@@ -610,7 +614,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
     if ($send_reset_link) {
         global $EMAIL_SENDING_ENABLED;
         if (($EMAIL_SENDING_ENABLED ?? false) !== true) {
-            ldap_close($ldap);
+            lum_close_ldap_if_not_manage($ldap);
             $_SESSION['manage_org_users_reset_flash'] = [
                 'type' => 'warning',
                 'message' => t('manage.password_reset_admin.msg.unavailable'),
@@ -619,7 +623,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
             exit;
         }
         $sendResult = send_password_reset_email_for_user_dn($ldap, $resetDn, 'admin');
-        ldap_close($ldap);
+        lum_close_ldap_if_not_manage($ldap);
         if ($sendResult['ok']) {
             $sentTo = (string) ($sendResult['email'] ?? '');
             header('Location: ?' . $baseParam . '&reset_link_sent=1&email=' . rawurlencode($sentTo));
@@ -643,7 +647,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
 
     $validation = validate_password_submission($new_password, $new_password_match, $passScore);
     if (!$validation['ok']) {
-        ldap_close($ldap);
+        lum_close_ldap_if_not_manage($ldap);
         $_SESSION['manage_org_users_reset_flash'] = [
             'type' => 'danger',
             'message' => implode(' ', $validation['errors']),
@@ -654,11 +658,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
     $entry = ['userPassword' => ldap_hashed_password($new_password)];
     try {
         ldap_modify($ldap, $resetDn, $entry);
-        ldap_close($ldap);
+        lum_close_ldap_if_not_manage($ldap);
         header('Location: ?' . $baseParam . '&credentials_reset=1');
         exit;
     } catch (Exception $e) {
-        ldap_close($ldap);
+        lum_close_ldap_if_not_manage($ldap);
         $_SESSION['manage_org_users_reset_flash'] = [
             'type' => 'danger',
             'message' => t('manage.org_users.msg.credentials_reset_fail', ['error' => htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8')]),
@@ -674,7 +678,8 @@ if (!is_array($users)) {
 }
 $orgManagerDns = org_get_manager_dns($orgName);
 
-// Open LDAP connection for display and operations
+// Admin bind for display/listing — same reliability pattern as listOrganizations().
+// Write actions in POST handlers each open their own lum_ldap_data_connection() (user-bind).
 $ldap_connection = open_ldap_connection();
 if ($ldap_connection === false) {
     $message = ($message ?? '') !== '' ? $message : t('manage.orgs.msg.ldap_fail');
@@ -1124,7 +1129,7 @@ render_submenu();
 </script>
 <?php
 // Close LDAP connection
-ldap_close($ldap_connection);
+lum_close_ldap_if_not_manage($ldap_connection);
 
 renderFooter();
 ?> 

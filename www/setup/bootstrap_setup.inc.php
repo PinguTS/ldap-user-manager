@@ -5,6 +5,9 @@
  * only a minimal "Setup complete" page and exit. No LDAP connection, no
  * verification details, no links to run_checks/ldap/verify.
  *
+ * Logged-in global administrators ($IS_ADMIN) bypass this guard so they can
+ * re-open verification and related setup pages without LDAP_SETUP_LOCKED=false.
+ *
  * Must be included after web_functions.inc.php (so renderHeader, renderFooter,
  * getBaseUrl / $SERVER_PATH are available).
  */
@@ -13,7 +16,9 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/setup_lock.inc.php';
 
-if (!is_setup_locked()) {
+global $IS_ADMIN;
+
+if (!is_setup_locked() || !empty($IS_ADMIN)) {
     return;
 }
 

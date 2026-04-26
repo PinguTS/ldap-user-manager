@@ -8,126 +8,130 @@ bootstrapManage(['ldap']);
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    $ldap_connection = open_ldap_connection();
+    $ldap_connection = lum_ldap_data_connection();
+    if ($ldap_connection === false) {
+        $message = t('manage.orgs.msg.ldap_fail');
+        $message_type = 'danger';
+    } else {
+        switch ($_POST['action']) {
+            case 'disable_user':
+                if (isset($_POST['user_identifier']) && currentUserCanDisableUser($_POST['user_identifier'])) {
+                    $user_identifier = trim($_POST['user_identifier']);
 
-    switch ($_POST['action']) {
-        case 'disable_user':
-            if (isset($_POST['user_identifier']) && currentUserCanDisableUser($_POST['user_identifier'])) {
-                $user_identifier = trim($_POST['user_identifier']);
-
-                // Get user DN from the user data we already have
-                $user_dn = null;
-                if (isset($people[$user_identifier]['dn'])) {
-                    $user_dn = $people[$user_identifier]['dn'];
-                } else {
-                    // Fallback to searching if not found in current data
-                    $user_dn = get_user_dn_from_identifier($ldap_connection, $user_identifier);
-                }
-
-                if ($user_dn && ldap_disable_user_account($ldap_connection, $user_dn)) {
-                    $message = t('manage.users.msg.deactivate_ok', ['user' => $user_identifier]);
-                    $message_type = 'success';
-                } else {
-                    // Get the actual LDAP error for debugging
-                    $ldap_error = ldap_error($ldap_connection);
-                    $message = t('manage.users.msg.deactivate_fail', ['user' => $user_identifier, 'error' => $ldap_error]);
-                    $message_type = 'danger';
-
-                    // Log additional debugging information
-                    error_log("Disable user failed - User: $user_identifier, DN: $user_dn, LDAP Error: $ldap_error");
-                }
-            } else {
-                $message = t('manage.users.msg.permission_denied_invalid_user');
-                $message_type = 'danger';
-            }
-            break;
-
-        case 'enable_user':
-            if (isset($_POST['user_identifier']) && currentUserCanEnableUser($_POST['user_identifier'])) {
-                $user_identifier = trim($_POST['user_identifier']);
-
-                // Get user DN from the user data we already have
-                $user_dn = null;
-                if (isset($people[$user_identifier]['dn'])) {
-                    $user_dn = $people[$user_identifier]['dn'];
-                } else {
-                    // Fallback to searching if not found in current data
-                    $user_dn = get_user_dn_from_identifier($ldap_connection, $user_identifier);
-                }
-
-                if ($user_dn && ldap_enable_user_account($ldap_connection, $user_dn)) {
-                    $message = t('manage.users.msg.activate_ok', ['user' => $user_identifier]);
-                    $message_type = 'success';
-                } else {
-                    // Get the actual LDAP error for debugging
-                    $ldap_error = ldap_error($ldap_connection);
-                    $message = t('manage.users.msg.activate_fail', ['user' => $user_identifier, 'error' => $ldap_error]);
-                    $message_type = 'danger';
-
-                    // Log additional debugging information
-                    error_log("Enable user failed - User: $user_identifier, DN: $user_dn, LDAP Error: $ldap_error");
-                }
-            } else {
-                $message = t('manage.users.msg.permission_denied_invalid_user');
-                $message_type = 'danger';
-            }
-            break;
-
-        case 'delete_user':
-            // Existing delete logic
-            if (isset($_POST['user_identifier'])) {
-                $this_user = urldecode($_POST['user_identifier']);
-
-                // Check if this is a UUID or account identifier
-                $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $this_user);
-
-                if ($is_uuid) {
-                    // Convert UUID to account identifier for delete operation
-                    $user_entry = ldap_get_entry_by_uuid($ldap_connection, $this_user, $LDAP['people_dn']);
-                    if (!$user_entry || !isset($user_entry['uid'][0])) {
-                        renderAlertBanner(t('manage.users.msg.user_not_found'), "danger");
-                        return;
-                    }
-                    $this_user = $user_entry['uid'][0];
-                }
-
-                // Check if user can delete this user
-                $can_delete = false;
-                $delete_reason = '';
-
-                // Prevent self-deletion
-                if ($this_user === $USER_ID) {
-                    renderAlertBanner(t('manage.users.msg.cannot_delete_self'), "danger");
-                }
-                // Check role-based permissions
-            } elseif (currentUserIsGlobalAdmin()) {
-                $can_delete = true;
-            } elseif (currentUserIsMaintainer()) {
-                // Get the target user's role membership
-                $target_user_dn = get_user_dn_from_identifier($ldap_connection, $this_user);
-                if ($target_user_dn) {
-                    $role_membership = ldap_user_group_membership($ldap_connection, $target_user_dn);
-                    if (is_array($role_membership) && !in_array($LDAP['admin_role'], $role_membership)) {
-                        $can_delete = true;
+                    // Get user DN from the user data we already have
+                    $user_dn = null;
+                    if (isset($people[$user_identifier]['dn'])) {
+                        $user_dn = $people[$user_identifier]['dn'];
                     } else {
-                        $delete_reason = $LDAP['error_messages']['maintainer_cannot_delete_admin'];
+                        // Fallback to searching if not found in current data
+                        $user_dn = get_user_dn_from_identifier($ldap_connection, $user_identifier);
+                    }
+
+                    if ($user_dn && ldap_disable_user_account($ldap_connection, $user_dn)) {
+                        $message = t('manage.users.msg.deactivate_ok', ['user' => $user_identifier]);
+                        $message_type = 'success';
+                    } else {
+                        // Get the actual LDAP error for debugging
+                        $ldap_error = ldap_error($ldap_connection);
+                        $message = t('manage.users.msg.deactivate_fail', ['user' => $user_identifier, 'error' => $ldap_error]);
+                        $message_type = 'danger';
+
+                        // Log additional debugging information
+                        error_log("Disable user failed - User: $user_identifier, DN: $user_dn, LDAP Error: $ldap_error");
+                    }
+                } else {
+                    $message = t('manage.users.msg.permission_denied_invalid_user');
+                    $message_type = 'danger';
+                }
+                break;
+
+            case 'enable_user':
+                if (isset($_POST['user_identifier']) && currentUserCanEnableUser($_POST['user_identifier'])) {
+                    $user_identifier = trim($_POST['user_identifier']);
+
+                    // Get user DN from the user data we already have
+                    $user_dn = null;
+                    if (isset($people[$user_identifier]['dn'])) {
+                        $user_dn = $people[$user_identifier]['dn'];
+                    } else {
+                        // Fallback to searching if not found in current data
+                        $user_dn = get_user_dn_from_identifier($ldap_connection, $user_identifier);
+                    }
+
+                    if ($user_dn && ldap_enable_user_account($ldap_connection, $user_dn)) {
+                        $message = t('manage.users.msg.activate_ok', ['user' => $user_identifier]);
+                        $message_type = 'success';
+                    } else {
+                        // Get the actual LDAP error for debugging
+                        $ldap_error = ldap_error($ldap_connection);
+                        $message = t('manage.users.msg.activate_fail', ['user' => $user_identifier, 'error' => $ldap_error]);
+                        $message_type = 'danger';
+
+                        // Log additional debugging information
+                        error_log("Enable user failed - User: $user_identifier, DN: $user_dn, LDAP Error: $ldap_error");
+                    }
+                } else {
+                    $message = t('manage.users.msg.permission_denied_invalid_user');
+                    $message_type = 'danger';
+                }
+                break;
+
+            case 'delete_user':
+                // Existing delete logic
+                if (isset($_POST['user_identifier'])) {
+                    $this_user = urldecode($_POST['user_identifier']);
+
+                    // Check if this is a UUID or account identifier
+                    $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $this_user);
+
+                    if ($is_uuid) {
+                        // Convert UUID to account identifier for delete operation
+                        $user_entry = ldap_get_entry_by_uuid($ldap_connection, $this_user, $LDAP['people_dn']);
+                        if (!$user_entry || !isset($user_entry['uid'][0])) {
+                            renderAlertBanner(t('manage.users.msg.user_not_found'), "danger");
+                            return;
+                        }
+                        $this_user = $user_entry['uid'][0];
+                    }
+
+                    // Check if user can delete this user
+                    $can_delete = false;
+                    $delete_reason = '';
+
+                    // Prevent self-deletion
+                    if ($this_user === $USER_ID) {
+                        renderAlertBanner(t('manage.users.msg.cannot_delete_self'), "danger");
+                    }
+                    // Check role-based permissions
+                } elseif (currentUserIsGlobalAdmin()) {
+                    $can_delete = true;
+                } elseif (currentUserIsMaintainer()) {
+                    // Get the target user's role membership
+                    $target_user_dn = get_user_dn_from_identifier($ldap_connection, $this_user);
+                    if ($target_user_dn) {
+                        $role_membership = ldap_user_group_membership($ldap_connection, $target_user_dn);
+                        if (is_array($role_membership) && !in_array($LDAP['admin_role'], $role_membership)) {
+                            $can_delete = true;
+                        } else {
+                            $delete_reason = $LDAP['error_messages']['maintainer_cannot_delete_admin'];
+                        }
                     }
                 }
-            }
 
-            if ($can_delete) {
-                $del_user = ldap_delete_account($ldap_connection, $this_user);
-                if ($del_user) {
-                    renderAlertBanner(t('manage.users.msg.delete_ok', ['user' => $this_user]));
+                if ($can_delete) {
+                    $del_user = ldap_delete_account($ldap_connection, $this_user);
+                    if ($del_user) {
+                        renderAlertBanner(t('manage.users.msg.delete_ok', ['user' => $this_user]));
+                    } else {
+                        renderAlertBanner(t('manage.users.msg.delete_fail'), "danger", 15000);
+                    }
                 } else {
-                    renderAlertBanner(t('manage.users.msg.delete_fail'), "danger", 15000);
+                    renderAlertBanner(t('manage.users.msg.permission_denied_reason', ['reason' => $delete_reason]), "danger");
                 }
-            } else {
-                renderAlertBanner(t('manage.users.msg.permission_denied_reason', ['reason' => $delete_reason]), "danger");
-            }
-            break;
+                break;
         } // phpcs:ignore Generic.WhiteSpace.ScopeIndent.IncorrectExact,Squiz.WhiteSpace.ScopeClosingBrace.Indent -- switch at 8 spaces
-    ldap_close($ldap_connection);
+        lum_close_ldap_if_not_manage($ldap_connection);
+    }
 }
 
 // Ensure CSRF token is generated early
@@ -139,14 +143,16 @@ $orgName = (string) ($ORGANISATION_NAME ?? 'System');
 renderHeader(t('manage.users.page_title', ['org' => $orgName]));
 render_submenu();
 
-$ldap_connection = open_ldap_connection();
-if ($ldap_connection === false) {
+$ldap_connection = lum_ldap_data_connection();
+// Use admin bind for the users listing for reliability — user-bind ACLs on ou=people
+// may not be fully configured yet, same pattern as listOrganizations().
+$listConn = open_ldap_connection();
+if ($listConn === false) {
     $message = t('manage.users.msg.ldap_unavailable');
     $message_type = 'danger';
     $people = [];
 } else {
-    // Get only system users (not organization users)
-    $people = ldap_get_system_users($ldap_connection);
+    $people = ldap_get_system_users($listConn);
 }
 
 ?>

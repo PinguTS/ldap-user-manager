@@ -24,6 +24,11 @@ if (isset($_POST["user_id"]) && isset($_POST["password"])) {
     }
 
     $ldap_connection = open_ldap_connection();
+    if ($ldap_connection === false) {
+        http_response_code(503);
+        header("Location: " . getBaseUrl() . "login/?invalid");
+        exit;
+    }
     $user_dn = ldap_auth_username($ldap_connection, $_POST["user_id"], $_POST["password"]);
 
     if ($user_dn === false) {
@@ -176,12 +181,13 @@ if (isset($_POST["user_id"]) && isset($_POST["password"])) {
 
   // Use UUID for cookie data when available, fallback to username
     $cookie_user_id = $user_uuid ?: $_POST["user_id"];
-    setPasskeyCookie($cookie_user_id, $is_admin, $is_maintainer, $is_org_admin, $user_org_name, $org_uuid);
+    $ldapBindKeyHex = captureUserLdapCredentials($user_dn, (string) $_POST['password']);
+    setPasskeyCookie($cookie_user_id, $is_admin, $is_maintainer, $is_org_admin, $user_org_name, $org_uuid, $ldapBindKeyHex);
 
     if (isset($_POST["redirect_to"])) {
         $validated_redirect = validateRedirectUrl($_POST['redirect_to']);
         if ($validated_redirect !== false) {
-            $redirect_url = getBaseUrl() . ltrim($validated_redirect, '/');
+            $redirect_url = buildPostAuthRedirectFromValidatedPath($validated_redirect);
             $auth_tok = createOneTimeAuthToken($cookie_user_id, $is_admin, $is_maintainer, $is_org_admin, $user_org_name, $org_uuid, $login_display_name);
             $redirect_url .= (strpos($redirect_url, '?') !== false ? '&' : '?') . 'auth_tok=' . $auth_tok;
             header("Content-Type: text/html; charset=utf-8");
@@ -189,7 +195,6 @@ if (isset($_POST["user_id"]) && isset($_POST["password"])) {
             echo '<!DOCTYPE html><html lang="' . htmlspecialchars(lum_current_locale(), ENT_QUOTES, 'UTF-8') . '"><head><meta http-equiv="Refresh" content="0;url=' . htmlspecialchars($redirect_url, ENT_QUOTES, 'UTF-8') . '"></head><body>' . htmlspecialchars(t('login.redirecting'), ENT_QUOTES, 'UTF-8') . '</body></html>';
             exit;
         }
-        exit;
     }
 
     if ($is_admin) {
@@ -311,7 +316,9 @@ renderHeader(t('login.page_title', ['org' => $ORGANISATION_NAME]));
 
    <form class="form-horizontal" action='' method='post'>
     <?php if (isset($redirect_to) and ($redirect_to != "")) {
-        ?><input type="hidden" name="redirect_to" value="<?php print htmlspecialchars($redirect_to); ?>"><?php
+        // Raw base64; the browser form-encodes the value. Pre-encoding with rawurlencode caused
+        // double-encoding and invalid base64 on POST (blank page after submit).
+        ?><input type="hidden" name="redirect_to" value="<?php print htmlspecialchars($redirect_to, ENT_QUOTES, 'UTF-8'); ?>"><?php
     } ?>
 
     <div class="form-group">

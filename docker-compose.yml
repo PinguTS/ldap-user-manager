@@ -16,6 +16,10 @@ services:
       LDAP_BACKEND: "mdb"
       # Enables ppolicy (pwdAccountLockedTime) on supported osixia images — do not also mount 06-ppolicy.ldif (duplicate overlay).
       LDAP_BACKEND_OVERLAY_PPOLICY: "true"
+      # Enables accesslog overlay for org change history. Set to "true" to record successful writes.
+      # Also set LDAP_ACCESSLOG_ENABLED=true in the ldap-user-manager service to activate UI features.
+      # Do not also mount 07-accesslog.ldif when this is enabled (duplicate overlay).
+      # LDAP_BACKEND_OVERLAY_ACCESSLOG: "true"
       LDAP_TLS: "true"
       LDAP_TLS_CRT_FILENAME: "server.crt"
       LDAP_TLS_KEY_FILENAME: "server.key"

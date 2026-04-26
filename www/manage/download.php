@@ -31,12 +31,12 @@ if (!preg_match('/^[a-zA-Z][a-zA-Z0-9]*$/', $_GET['attribute'])) {
 }
 
 // Additional security: ensure the resource is within allowed organizational scope
-$ldap_connection = open_ldap_connection();
+$ldap_connection = lum_ldap_data_connection();
 
 // Verify the DN exists and is accessible
 $dn_check = ldap_read($ldap_connection, $this_resource, '(objectClass=*)', ['dn']);
 if (!$dn_check || ldap_count_entries($ldap_connection, $dn_check) === 0) {
-    ldap_close($ldap_connection);
+    lum_close_ldap_if_not_manage($ldap_connection);
     http_response_code(404);
     exit("Resource not found");
 }
@@ -46,7 +46,7 @@ if (!currentUserIsGlobalAdmin() && !currentUserIsMaintainer()) {
   // For organization managers, check if the resource belongs to their organization
     $resource_org = getUserOrganization($this_resource);
     if (!$resource_org || !currentUserIsOrgManager($resource_org)) {
-        ldap_close($ldap_connection);
+        lum_close_ldap_if_not_manage($ldap_connection);
         http_response_code(403);
         exit("Access denied");
     }
@@ -83,4 +83,4 @@ if ($ldap_search) {
     }
 }
 
-ldap_close($ldap_connection);
+lum_close_ldap_if_not_manage($ldap_connection);

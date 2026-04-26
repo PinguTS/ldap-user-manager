@@ -13,7 +13,7 @@ if (!function_exists('get_ldap_attribute')) {
 /**
  * Status column on organization user list (POST enable/disable by permission, org-wide disable badge).
  *
- * @param resource $ldapConnection
+ * @param resource|\LDAP\Connection $ldapConnection
  */
 function renderOrgUsersTableStatusCell($ldapConnection, string $userDn, bool $isOrgDisabled, string $userIdentifier): void
 {
@@ -52,7 +52,7 @@ function renderOrgUsersTableStatusCell($ldapConnection, string $userDn, bool $is
 /**
  * Status column on organization show "recent users" (POST toggle_recent_user_active).
  *
- * @param resource $ldapConnection
+ * @param resource|\LDAP\Connection $ldapConnection
  */
 function renderOrgShowRecentStatusCell($ldapConnection, string $userDn, string $userIdentifier, bool $orgDisabled): void
 {
@@ -187,7 +187,7 @@ function renderOrgUsersPageActionCell(
 /**
  * System users list: inactive/active/unknown badge with deactivate reason tooltip.
  *
- * @param resource $ldapConnection
+ * @param resource|\LDAP\Connection $ldapConnection
  */
 function renderSystemUserStatusBadge($ldapConnection, ?string $userDn): void
 {

@@ -200,6 +200,22 @@ function buildDocumentIdentifierMembership(?string $memberNumber, ?string $membe
 }
 
 /**
+ * Recover organization UUID from pretty URLs when the front (proxy) does not pass ?uuid= to PHP.
+ */
+function lum_organization_uuid_from_request_uri_path(): ?string
+{
+    $path = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
+    if ($path === '' || $path === '/') {
+        return null;
+    }
+    if (preg_match('~/manage/organizations/([0-9a-fA-F-]{36})(?:/|$|\?|#)~i', $path, $m)) {
+        return (string) $m[1];
+    }
+
+    return null;
+}
+
+/**
  * Resolve organization from request parameters (uuid or org).
  * Uses $_GET['uuid'] or $_GET['org']; opens/closes LDAP when resolving by UUID.
  *
@@ -207,8 +223,16 @@ function buildDocumentIdentifierMembership(?string $memberNumber, ?string $membe
  */
 function resolve_organization_from_request(): array
 {
-    if (isset($_GET['uuid']) && $_GET['uuid'] !== '') {
+    $org_uuid = null;
+    if (isset($_GET['uuid']) && is_string($_GET['uuid']) && $_GET['uuid'] !== '') {
         $org_uuid = $_GET['uuid'];
+    } else {
+        $fromPath = lum_organization_uuid_from_request_uri_path();
+        if ($fromPath !== null) {
+            $org_uuid = $fromPath;
+        }
+    }
+    if ($org_uuid !== null && $org_uuid !== '') {
         if (!is_valid_uuid($org_uuid)) {
             return [
                 'org_name' => null,
@@ -217,9 +241,20 @@ function resolve_organization_from_request(): array
                 'error' => t('manage.common.org_not_found'),
             ];
         }
+        // Route resolution uses the service bind, not the per-user /manage data connection. User
+        // ACIs often allow read/write on a given o=… entry but not a subtree (entryUUID=…) search
+        // to resolve that entry from a URL, which would make this lookup return nothing.
         $ldap = open_ldap_connection();
+        if ($ldap === false) {
+            return [
+                'org_name' => null,
+                'org_uuid' => $org_uuid,
+                'organization' => null,
+                'error' => t('manage.common.org_not_found'),
+            ];
+        }
         $organization = ldap_get_organization_by_uuid($ldap, $org_uuid);
-        ldap_close($ldap);
+        @ldap_close($ldap);
         if (!$organization) {
             return [
                 'org_name' => null,
@@ -255,7 +290,10 @@ function resolve_organization_from_request(): array
 function createOrganization($orgData)
 {
     global $LDAP;
-    $ldap = open_ldap_connection();
+    $ldap = lum_ldap_data_connection();
+    if ($ldap === false) {
+        return [false, 'LDAP connection failed'];
+    }
 
     // Check that required field 'o' (organization name) is present
     if (empty($orgData['o'])) {
@@ -364,21 +402,21 @@ function createOrganization($orgData)
     // Note: org_admin role will be created dynamically when users are assigned to it
     // This prevents creating empty groups and ensures proper role management
 
-    ldap_close($ldap);
+    lum_close_ldap_if_not_manage($ldap);
     return [true, "Organization '{$orgData['o']}' created successfully"];
 }
 
 function deleteOrganization($orgName)
 {
     global $LDAP;
-    $ldap = open_ldap_connection();
+    $ldap = lum_ldap_data_connection();
 
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
     $orgDN = "o={$orgRDN}," . $LDAP['org_dn'];
 
     // Recursively delete the organization
     $result = ldap_delete_recursive($ldap, $orgDN);
-    ldap_close($ldap);
+    lum_close_ldap_if_not_manage($ldap);
 
     if ($result) {
         return [true, "Organization '$orgName' deleted successfully"];
@@ -391,23 +429,36 @@ function deleteOrganization($orgName)
 
 function listOrganizations()
 {
-    global $LDAP;
+    global $LDAP, $LDAP_DEBUG;
+    // Enumerate organizations with the app service bind, not the per-user /manage link. Per-user
+    // ACIs (user-bind) often do not allow subtree (entryUUID=) / search on ou=org even when org
+    // entries exist; maintainers and org-admin filtering still get a full index from LDAP here.
     $ldap = open_ldap_connection();
+    if ($ldap === false) {
+        if (isset($LDAP_DEBUG) && $LDAP_DEBUG === true) {
+            error_log("listOrganizations: open_ldap_connection() failed", 0);
+        }
+        return [];
+    }
 
-    $search = ldap_search(
+    // @: avoid PHP warning on failure (missing base, etc.).
+    $search = @ldap_search(
         $ldap,
         $LDAP['org_dn'],
         '(objectClass=organization)',
-        ['o', 'postalAddress', 'telephoneNumber', 'facsimileTelephoneNumber', 'labeledURI', 'mail', 'description', 'entryUUID']
+        ['o', 'postalAddress', 'telephoneNumber', 'facsimileTelephoneNumber', 'labeledURI', 'mail', 'description', 'entryUUID', 'modifyTimestamp', 'modifiersName']
     );
 
     if (!$search) {
-        ldap_close($ldap);
+        if (isset($LDAP_DEBUG) && $LDAP_DEBUG === true) {
+            error_log("listOrganizations: ldap_search on {$LDAP['org_dn']}: " . ldap_error($ldap), 0);
+        }
+        @ldap_close($ldap);
         return [];
     }
 
     $entries = ldap_get_entries($ldap, $search);
-    ldap_close($ldap);
+    @ldap_close($ldap);
 
     $organizations = [];
     for ($i = 0; $i < $entries['count']; $i++) {
@@ -428,7 +479,9 @@ function listOrganizations()
             'telephoneNumber' => isset($org['telephonenumber'][0]) ? $org['telephonenumber'][0] : '',
             'facsimileTelephoneNumber' => isset($org['facsimiletelephonenumber'][0]) ? $org['facsimiletelephonenumber'][0] : '',
             'labeledURI' => isset($org['labeleduri'][0]) ? $org['labeleduri'][0] : '',
-            'mail' => isset($org['mail'][0]) ? $org['mail'][0] : '',
+            'mail'            => isset($org['mail'][0]) ? $org['mail'][0] : '',
+            'modifyTimestamp' => isset($org['modifytimestamp'][0]) ? $org['modifytimestamp'][0] : '',
+            'modifiersName'   => isset($org['modifiersname'][0]) ? $org['modifiersname'][0] : '',
         ];
     }
 
@@ -453,7 +506,7 @@ function ldap_delete_recursive($ldap, $dn)
 function addUserToOrgAdmin($orgName, $userDn)
 {
     global $LDAP;
-    $ldap = open_ldap_connection();
+    $ldap = lum_ldap_data_connection();
 
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
     $groupDN = "cn={$LDAP['org_admin_role']},ou=roles,o={$orgRDN}," . $LDAP['org_dn'];
@@ -473,7 +526,7 @@ function addUserToOrgAdmin($orgName, $userDn)
         if (!$createRolesDir) {
             $err = ldap_error($ldap);
             error_log("addUserToOrgAdmin: Failed to create roles directory: $err");
-            ldap_close($ldap);
+            lum_close_ldap_if_not_manage($ldap);
             return [false, "Failed to create roles directory: $err"];
         }
     }
@@ -492,17 +545,17 @@ function addUserToOrgAdmin($orgName, $userDn)
         if (!$result) {
             $err = ldap_error($ldap);
             error_log("addUserToOrgAdmin: Failed to create org_admin group: $err");
-            ldap_close($ldap);
+            lum_close_ldap_if_not_manage($ldap);
             return [false, "Failed to create organization admin group: $err"];
         }
-        ldap_close($ldap);
+        lum_close_ldap_if_not_manage($ldap);
         return [true, "User added to organization admin group"];
     }
 
     // Add user to existing group
     $modifications = ['member' => $userDn];
     $result = ldap_mod_add($ldap, $groupDN, $modifications);
-    ldap_close($ldap);
+    lum_close_ldap_if_not_manage($ldap);
 
     if ($result) {
         return [true, "User added to organization admin group"];
@@ -516,7 +569,7 @@ function addUserToOrgAdmin($orgName, $userDn)
 /**
  * Remove all values for an LDAP attribute; treat "no such attribute" as success.
  *
- * @param resource $ldap Open LDAP connection
+ * @param resource|\LDAP\Connection $ldap Open LDAP connection
  */
 function ldap_organization_attribute_delete_all($ldap, string $dn, string $attr): bool
 {
@@ -544,14 +597,17 @@ function ldap_organization_attribute_delete_all($ldap, string $dn, string $attr)
 function updateOrganization($orgIdentifier, $orgData)
 {
     global $LDAP;
-    $ldap = open_ldap_connection();
+    $ldap = lum_ldap_data_connection();
+    if ($ldap === false) {
+        return false;
+    }
 
     // Determine if we're using UUID or name-based lookup
     if ($LDAP['use_uuid_identification'] && is_valid_uuid($orgIdentifier)) {
         // UUID-based lookup
         $org_entry = ldap_get_organization_by_uuid($ldap, $orgIdentifier);
         if (!$org_entry) {
-            ldap_close($ldap);
+            lum_close_ldap_if_not_manage($ldap);
             return false;
         }
         $org_dn = $org_entry['dn'];
@@ -609,13 +665,13 @@ function updateOrganization($orgIdentifier, $orgData)
 
     foreach ($attrsToDelete as $attr) {
         if (!ldap_organization_attribute_delete_all($ldap, $org_dn, $attr)) {
-            ldap_close($ldap);
+            lum_close_ldap_if_not_manage($ldap);
             return false;
         }
     }
 
     if (empty($modifications)) {
-        ldap_close($ldap);
+        lum_close_ldap_if_not_manage($ldap);
         return true;
     }
 
@@ -623,7 +679,7 @@ function updateOrganization($orgIdentifier, $orgData)
     $result = @ldap_modify($ldap, $org_dn, $modifications);
 
     if ($result) {
-        ldap_close($ldap);
+        lum_close_ldap_if_not_manage($ldap);
         return true;
     }
 
@@ -650,11 +706,11 @@ function updateOrganization($orgIdentifier, $orgData)
         }
 
         if (!empty($successful_attrs) && empty($non_schema_failures)) {
-            ldap_close($ldap);
+            lum_close_ldap_if_not_manage($ldap);
             return true;
         }
     }
-    ldap_close($ldap);
+    lum_close_ldap_if_not_manage($ldap);
     error_log("updateOrganization: Failed to update organization $orgIdentifier: " . $error_msg);
     return false;
 }
@@ -674,7 +730,7 @@ function renameOrganization(string $orgIdentifier, string $newOrgName): bool
         return false;
     }
 
-    $ldap = open_ldap_connection();
+    $ldap = lum_ldap_data_connection();
     if ($ldap === false) {
         return false;
     }
@@ -682,7 +738,7 @@ function renameOrganization(string $orgIdentifier, string $newOrgName): bool
     if ($LDAP['use_uuid_identification'] && is_valid_uuid($orgIdentifier)) {
         $org_entry = ldap_get_organization_by_uuid($ldap, $orgIdentifier);
         if (!$org_entry) {
-            ldap_close($ldap);
+            lum_close_ldap_if_not_manage($ldap);
             return false;
         }
         $org_dn = $org_entry['dn'];
@@ -691,19 +747,19 @@ function renameOrganization(string $orgIdentifier, string $newOrgName): bool
         $org_dn = 'o=' . ldap_escape($orgIdentifier, '', LDAP_ESCAPE_DN) . ',' . $LDAP['org_dn'];
         $read = @ldap_read($ldap, $org_dn, '(objectClass=organization)', ['o']);
         if (!$read) {
-            ldap_close($ldap);
+            lum_close_ldap_if_not_manage($ldap);
             return false;
         }
         $entries = ldap_get_entries($ldap, $read);
         if (!is_array($entries) || ($entries['count'] ?? 0) < 1) {
-            ldap_close($ldap);
+            lum_close_ldap_if_not_manage($ldap);
             return false;
         }
         $current_o = (string) ($entries[0]['o'][0] ?? '');
     }
 
     if ($current_o === $newOrgName) {
-        ldap_close($ldap);
+        lum_close_ldap_if_not_manage($ldap);
         return true;
     }
 
@@ -711,7 +767,7 @@ function renameOrganization(string $orgIdentifier, string $newOrgName): bool
     $collision = @ldap_read($ldap, $new_dn, '(objectClass=*)', ['dn']);
     if ($collision) {
         error_log("renameOrganization: Target organization DN already exists: $new_dn");
-        ldap_close($ldap);
+        lum_close_ldap_if_not_manage($ldap);
         return false;
     }
 
@@ -719,11 +775,11 @@ function renameOrganization(string $orgIdentifier, string $newOrgName): bool
     $ok = @ldap_rename($ldap, $org_dn, $new_rdn, $LDAP['org_dn'], true);
     if (!$ok) {
         error_log('renameOrganization: ldap_rename failed for ' . $org_dn . ': ' . ldap_error($ldap));
-        ldap_close($ldap);
+        lum_close_ldap_if_not_manage($ldap);
         return false;
     }
 
-    ldap_close($ldap);
+    lum_close_ldap_if_not_manage($ldap);
     return true;
 }
 
@@ -764,7 +820,7 @@ function org_admin_group_member_dns_from_entry(array $entry): array
 function removeUserFromOrgAdmin($orgName, $userDn)
 {
     global $LDAP;
-    $ldap = open_ldap_connection();
+    $ldap = lum_ldap_data_connection();
     if ($ldap === false) {
         return [false, 'LDAP connection failed'];
     }
@@ -774,21 +830,21 @@ function removeUserFromOrgAdmin($orgName, $userDn)
 
     $read = @ldap_read($ldap, $groupDN, '(objectClass=groupOfNames)', ['member']);
     if (!$read || ldap_count_entries($ldap, $read) === 0) {
-        ldap_close($ldap);
+        lum_close_ldap_if_not_manage($ldap);
 
         return [true, 'Organization admin group does not exist'];
     }
 
     $entries = ldap_get_entries($ldap, $read);
     if (!is_array($entries) || ($entries['count'] ?? 0) < 1) {
-        ldap_close($ldap);
+        lum_close_ldap_if_not_manage($ldap);
 
         return [false, 'Failed to read organization admin group'];
     }
 
     $groupEntry = $entries[0];
     if (!is_array($groupEntry)) {
-        ldap_close($ldap);
+        lum_close_ldap_if_not_manage($ldap);
 
         return [false, 'Failed to read organization admin group'];
     }
@@ -802,7 +858,7 @@ function removeUserFromOrgAdmin($orgName, $userDn)
         }
     }
     if (!$userIsMember) {
-        ldap_close($ldap);
+        lum_close_ldap_if_not_manage($ldap);
 
         return [true, 'User not in organization admin group'];
     }
@@ -810,7 +866,7 @@ function removeUserFromOrgAdmin($orgName, $userDn)
     if (count($members) === 1) {
         $ok = @ldap_delete($ldap, $groupDN);
         $err = ldap_error($ldap);
-        ldap_close($ldap);
+        lum_close_ldap_if_not_manage($ldap);
         if ($ok) {
             return [true, 'Last organization admin removed; group entry deleted'];
         }
@@ -821,7 +877,7 @@ function removeUserFromOrgAdmin($orgName, $userDn)
 
     $ok = @ldap_mod_del($ldap, $groupDN, ['member' => $userDn]);
     $err = ldap_error($ldap);
-    ldap_close($ldap);
+    lum_close_ldap_if_not_manage($ldap);
     if ($ok) {
         return [true, 'User removed from organization admin group'];
     }
@@ -842,7 +898,7 @@ function getOrganizationUsers($orgName)
     $dnExists = @ldap_read($ldap, $usersDN, '(objectClass=*)', ['dn']);
     if (!$dnExists) {
         // The users DN doesn't exist, which means no users have been created yet
-        ldap_close($ldap);
+        lum_close_ldap_if_not_manage($ldap);
         return [];
     }
 
@@ -856,7 +912,7 @@ function getOrganizationUsers($orgName)
     if (!$search) {
         // Log the error but don't show it to the user
         $error_msg = ldap_error($ldap);
-        ldap_close($ldap);
+        lum_close_ldap_if_not_manage($ldap);
         error_log("getOrganizationUsers: LDAP search failed for DN: $usersDN. Error: " . $error_msg);
         return [];
     }
@@ -878,7 +934,7 @@ function getOrganizationUsers($orgName)
         }
     }
 
-    ldap_close($ldap);
+    lum_close_ldap_if_not_manage($ldap);
 
     $users = [];
     for ($i = 0; $i < $entries['count']; $i++) {
@@ -911,7 +967,7 @@ function getOrganizationUsers($orgName)
 function isUserOrgAdmin($orgName, $userDn)
 {
     global $LDAP;
-    $ldap = open_ldap_connection();
+    $ldap = lum_ldap_data_connection();
 
     $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
     $groupDN = "cn={$LDAP['org_admin_role']},ou=roles,o={$orgRDN}," . $LDAP['org_dn'];
@@ -920,14 +976,14 @@ function isUserOrgAdmin($orgName, $userDn)
     $dnExists = @ldap_read($ldap, $groupDN, '(objectClass=*)', ['dn']);
     if (!$dnExists) {
         // The group DN doesn't exist, which means no org admin group has been created yet
-        ldap_close($ldap);
+        lum_close_ldap_if_not_manage($ldap);
         return false;
     }
 
     $search = @ldap_search($ldap, $groupDN, '(member=' . ldap_escape($userDn, '', LDAP_ESCAPE_FILTER) . ')', ['dn']);
     $isMember = $search && ldap_count_entries($ldap, $search) > 0;
 
-    ldap_close($ldap);
+    lum_close_ldap_if_not_manage($ldap);
     return $isMember;
 }
 
@@ -946,14 +1002,17 @@ function isUserOrgManager($orgName, $userDn)
 function updateUser($userIdentifier, $userData)
 {
     global $LDAP;
-    $ldap = open_ldap_connection();
+    $ldap = lum_ldap_data_connection();
+    if ($ldap === false) {
+        return false;
+    }
 
     // Determine if we're using UUID or DN-based lookup
     if ($LDAP['use_uuid_identification'] && is_valid_uuid($userIdentifier)) {
         // UUID-based lookup
         $user_entry = ldap_get_user_by_uuid($ldap, $userIdentifier);
         if (!$user_entry) {
-            ldap_close($ldap);
+            lum_close_ldap_if_not_manage($ldap);
             return false;
         }
         $user_dn = $user_entry['dn'];
@@ -971,7 +1030,7 @@ function updateUser($userIdentifier, $userData)
     }
 
     if (empty($modifications)) {
-        ldap_close($ldap);
+        lum_close_ldap_if_not_manage($ldap);
         return true; // Nothing to update
     }
 
@@ -979,12 +1038,12 @@ function updateUser($userIdentifier, $userData)
     $result = @ldap_modify($ldap, $user_dn, $modifications);
 
     if ($result) {
-        ldap_close($ldap);
+        lum_close_ldap_if_not_manage($ldap);
         return true;
     } else {
         // Get error message before closing the connection
         $error_msg = ldap_error($ldap);
-        ldap_close($ldap);
+        lum_close_ldap_if_not_manage($ldap);
         error_log("updateUser: Failed to update user $userIdentifier: " . $error_msg);
         return false;
     }
@@ -998,14 +1057,17 @@ function updateUser($userIdentifier, $userData)
 function deleteUser($userIdentifier)
 {
     global $LDAP;
-    $ldap = open_ldap_connection();
+    $ldap = lum_ldap_data_connection();
+    if ($ldap === false) {
+        return false;
+    }
 
     // Determine if we're using UUID or DN-based lookup
     if ($LDAP['use_uuid_identification'] && is_valid_uuid($userIdentifier)) {
         // UUID-based lookup
         $user_entry = ldap_get_user_by_uuid($ldap, $userIdentifier);
         if (!$user_entry) {
-            ldap_close($ldap);
+            lum_close_ldap_if_not_manage($ldap);
             return false;
         }
         $user_dn = $user_entry['dn'];
@@ -1025,12 +1087,12 @@ function deleteUser($userIdentifier)
     $result = @ldap_delete($ldap, $user_dn);
 
     if ($result) {
-        ldap_close($ldap);
+        lum_close_ldap_if_not_manage($ldap);
         return true;
     } else {
         // Get error message before closing the connection
         $error_msg = ldap_error($ldap);
-        ldap_close($ldap);
+        lum_close_ldap_if_not_manage($ldap);
         error_log("deleteUser: Failed to delete user $userIdentifier: " . $error_msg);
         return false;
     }
@@ -1044,7 +1106,10 @@ function deleteUser($userIdentifier)
 function createUserAccount($userData)
 {
     global $LDAP;
-    $ldap = open_ldap_connection();
+    $ldap = lum_ldap_data_connection();
+    if ($ldap === false) {
+        return [false, 'LDAP connection failed'];
+    }
 
     try {
         // Determine if this is a system user or organization user
@@ -1058,14 +1123,14 @@ function createUserAccount($userData)
             return createOrganizationUser($ldap, $userData);
         }
     } catch (Exception $e) {
-        ldap_close($ldap);
+        lum_close_ldap_if_not_manage($ldap);
         return [false, "Error creating user account: " . $e->getMessage()];
     }
 }
 
 /**
  * Create a system user (administrator/maintainer)
- * @param resource $ldap LDAP connection
+ * @param resource|\LDAP\Connection $ldap LDAP connection
  * @param array $userData User data
  * @return array [success, message]
  */
@@ -1119,7 +1184,7 @@ function createSystemUser($ldap, $userData)
 
 /**
  * Create an organization user
- * @param resource $ldap LDAP connection
+ * @param resource|\LDAP\Connection $ldap LDAP connection
  * @param array $userData User data
  * @return array [success, message]
  */

@@ -1,0 +1,36 @@
+# Fallback when LDAP_BACKEND_OVERLAY_ACCESSLOG is unavailable — do not use with that env (duplicate overlay).
+# Accesslog module + overlay for recording successful write operations.
+# First slapd init only (empty slapd.d). Else: ldapmodify cn=config — see docker/openldap/README.md.
+#
+# Overlay index {3} assumes default ordering:
+#   {0} memberof, {1} refint, {2} ppolicy  (see 06-ppolicy.ldif).
+
+# Load accesslog module
+dn: cn=module{0},cn=config
+changetype: modify
+add: olcModuleLoad
+olcModuleLoad: accesslog
+
+# Accesslog database — stores change records under cn=accesslog
+dn: olcDatabase={2}mdb,cn=config
+changetype: add
+objectClass: olcDatabaseConfig
+objectClass: olcMdbConfig
+olcDatabase: {2}mdb
+olcDbDirectory: /var/lib/ldap/accesslog
+olcSuffix: cn=accesslog
+olcRootDN: cn=admin,cn=accesslog
+olcDbIndex: default eq
+olcDbIndex: entryCSN,objectClass,reqEnd,reqResult,reqStart
+olcAccess: to * by dn.base="cn=admin,{{ LDAP_BASE_DN }}" manage by * none
+
+# Accesslog overlay on the main database — log only successful writes
+dn: olcOverlay={3}accesslog,olcDatabase={1}{{ LDAP_BACKEND }},cn=config
+changetype: add
+objectClass: olcOverlayConfig
+objectClass: olcAccessLogConfig
+olcOverlay: accesslog
+olcAccessLogDB: cn=accesslog
+olcAccessLogOps: writes
+olcAccessLogSuccess: TRUE
+olcAccessLogPurge: 90+00:00 1+00:00

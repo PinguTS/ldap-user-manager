@@ -843,7 +843,7 @@ function canOrgAdminDisableUser(string $targetUserIdentifier): bool
 /**
  * Finds a user's DN by their identifier
  *
- * @param resource $ldap LDAP connection resource
+ * @param resource|\LDAP\Connection $ldap LDAP connection
  * @param string $userIdentifier User identifier to search for
  * @return string|null User DN or null if not found
  */
@@ -973,7 +973,7 @@ function currentUserCanPerformBulkDisableOperations(): bool
 /**
  * Gets the organization name for a user by their identifier
  *
- * @param resource $ldap LDAP connection resource
+ * @param resource|\LDAP\Connection $ldap LDAP connection
  * @param string $userIdentifier User identifier
  * @return string|null Organization name or null if not found
  */

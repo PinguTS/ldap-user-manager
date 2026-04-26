@@ -8,6 +8,13 @@ include_once "web_functions.inc.php";
 include_once "ldap_functions.inc.php";
 include_once __DIR__ . '/bootstrap_setup.inc.php';
 
+global $IS_ADMIN;
+
+if (!empty($IS_ADMIN)) {
+    header('Location: ' . getBaseUrl() . 'setup/run_checks.php');
+    exit;
+}
+
 // CRITICAL: Check for role configuration conflicts before allowing setup
 // This prevents setup completion with broken access control configuration
 if (function_exists('checkRuntimeRoleConflicts') && checkRuntimeRoleConflicts()) {

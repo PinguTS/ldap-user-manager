@@ -217,6 +217,207 @@ function getSessionFilePath(string $session_hash): string
 }
 
 /**
+ * Encrypt the user's LDAP password for storage in the PHP session; the decryption key is stored only in orf_cookie.
+ * Returns 64 hex chars, or null if libsodium is unavailable.
+ */
+function captureUserLdapCredentials(string $user_dn, string $password): ?string
+{
+    if (!function_exists('sodium_crypto_secretbox') || !function_exists('sodium_crypto_secretbox_open')) {
+        return null;
+    }
+    $key = random_bytes(32);
+    $nonce = random_bytes(24);
+    $ct = sodium_crypto_secretbox($password, $nonce, $key);
+    $_SESSION['lum_ldap_user_dn'] = $user_dn;
+    $_SESSION['lum_ldap_pwd_enc'] = base64_encode($nonce . $ct);
+
+    return bin2hex($key);
+}
+
+/**
+ * @return array{dn: string, password: string}|null
+ */
+function getUserLdapCredentials(): ?array
+{
+    if (empty($_SESSION['lum_ldap_user_dn']) || empty($_SESSION['lum_ldap_pwd_enc']) || !isset($_COOKIE['orf_cookie'])) {
+        return null;
+    }
+    if (!is_string($_COOKIE['orf_cookie']) || !function_exists('sodium_crypto_secretbox_open')) {
+        return null;
+    }
+    $parts = explode(':', $_COOKIE['orf_cookie'], 3);
+    if (count($parts) < 3 || $parts[2] === '') {
+        return null;
+    }
+    $key = @hex2bin($parts[2]);
+    if ($key === false || strlen($key) !== 32) {
+        return null;
+    }
+    $raw = base64_decode((string) $_SESSION['lum_ldap_pwd_enc'], true);
+    if ($raw === false || strlen($raw) < 25) {
+        return null;
+    }
+    $nonce = substr($raw, 0, 24);
+    $ciphertext = substr($raw, 24);
+    $plain = sodium_crypto_secretbox_open($ciphertext, $nonce, $key);
+    if ($plain === false) {
+        clearUserLdapCredentials();
+
+        return null;
+    }
+
+    return ['dn' => (string) $_SESSION['lum_ldap_user_dn'], 'password' => $plain];
+}
+
+/**
+ * Remove encrypted LDAP password material from the session.
+ */
+function clearUserLdapCredentials(): void
+{
+    unset($_SESSION['lum_ldap_user_dn'], $_SESSION['lum_ldap_pwd_enc']);
+}
+
+/**
+ * Return the current request's LDAP link for /manage: user bind when credentials exist, else admin bind.
+ * Cached for one HTTP request. Sets $GLOBALS['lumManageLdapLink'].
+ *
+ * @return resource|\LDAP\Connection|false
+ */
+function getManageLdapConnection()
+{
+    static $requestCached = null;
+    static $resolved = false;
+    if ($resolved) {
+        return $requestCached;
+    }
+    $resolved = true;
+    global $log_prefix;
+
+    // LUM_WRITE_BIND_FALLBACK (default true):
+    // When true  — if user-bind fails at the LDAP bind level, fall back to admin bind so the
+    //              session can continue with reduced LDAP accountability (current default).
+    // When false — if user-bind fails, return false for data connections; write operations will
+    //              fail visibly. Reads still work (they use open_ldap_connection() directly).
+    $allowFallback = strcasecmp((string) (getenv('LUM_WRITE_BIND_FALLBACK') ?: 'true'), 'true') === 0;
+
+    $creds = getUserLdapCredentials();
+    if ($creds !== null) {
+        $uconn = open_ldap_connection_as($creds['dn'], $creds['password'], false);
+        if ($uconn === false) {
+            if ($allowFallback) {
+                error_log("{$log_prefix} manage: user LDAP bind failed, clearing stored creds; falling back to admin bind", 0);
+                clearUserLdapCredentials();
+                $requestCached = open_ldap_connection();
+                $GLOBALS['lumManageLdapBindMode'] = 'admin_fallback';
+            } else {
+                error_log("{$log_prefix} manage: user LDAP bind failed; LUM_WRITE_BIND_FALLBACK=false — write operations will be denied for this request", 0);
+                clearUserLdapCredentials();
+                $requestCached = false;
+                $GLOBALS['lumManageLdapBindMode'] = 'bind_failed';
+            }
+        } else {
+            $requestCached = $uconn;
+            $GLOBALS['lumManageLdapBindMode'] = 'user';
+        }
+    } else {
+        $requestCached = open_ldap_connection();
+        $GLOBALS['lumManageLdapBindMode'] = 'admin';
+    }
+    $GLOBALS['lumManageLdapLink'] = $requestCached;
+
+    return $requestCached;
+}
+
+/**
+ * @return 'user'|'admin'|'admin_fallback'|'bind_failed'|null null before first getManageLdapConnection() in this request
+ */
+function lumGetManageLdapBindMode(): ?string
+{
+    if (!isset($GLOBALS['lumManageLdapBindMode']) || !is_string($GLOBALS['lumManageLdapBindMode'])) {
+        return null;
+    }
+    return match ($GLOBALS['lumManageLdapBindMode']) {
+        'user', 'admin', 'admin_fallback', 'bind_failed' => $GLOBALS['lumManageLdapBindMode'],
+        default => null,
+    };
+}
+
+/**
+ * Shown on /manage when LUM_DEBUG_MANAGE_BIND=true and user is global admin or maintainer.
+ */
+function lumRenderManageLdapBindDebugBar(): void
+{
+    if (!defined('LUM_MANAGE_CONTEXT') || !LUM_MANAGE_CONTEXT) {
+        return;
+    }
+    if (strcasecmp((string) (getenv('LUM_DEBUG_MANAGE_BIND') ?: ''), 'true') !== 0) {
+        return;
+    }
+    global $IS_ADMIN, $IS_MAINTAINER, $VALIDATED;
+    if ($VALIDATED !== true || (!$IS_ADMIN && !$IS_MAINTAINER)) {
+        return;
+    }
+    if (!function_exists('getManageLdapConnection') || !function_exists('t')) {
+        return;
+    }
+    getManageLdapConnection();
+    $mode = lumGetManageLdapBindMode() ?? 'unknown';
+    $modeLabel = match ($mode) {
+        'user'         => t('manage.debug.ldap_bind_user'),
+        'admin'        => t('manage.debug.ldap_bind_admin'),
+        'admin_fallback' => t('manage.debug.ldap_bind_admin_fallback'),
+        'bind_failed'  => t('manage.debug.ldap_bind_failed'),
+        default        => $mode,
+    };
+    ?>
+  <div class="container-fluid py-1 px-0 border-bottom bg-warning-subtle small">
+    <div class="container d-flex flex-wrap align-items-center gap-2 text-muted">
+      <strong class="text-dark"><?php echo htmlspecialchars(t('manage.debug.ldap_bind_heading'), ENT_QUOTES, 'UTF-8'); ?></strong>
+      <code><?php echo htmlspecialchars($modeLabel, ENT_QUOTES, 'UTF-8'); ?></code>
+    </div>
+  </div>
+    <?php
+}
+
+/**
+ * After login, if the account is administratively disabled in LDAP, end the web session. Call from /manage bootstrap only.
+ */
+function lumEnforceManageSessionAccountActive(): void
+{
+    if (!defined('LUM_MANAGE_CONTEXT') || !LUM_MANAGE_CONTEXT) {
+        return;
+    }
+    global $USER_DN, $VALIDATED;
+    if (empty($USER_DN) || $VALIDATED !== true) {
+        return;
+    }
+    if (!function_exists('is_user_account_disabled') || !function_exists('getManageLdapConnection')) {
+        return;
+    }
+    $conn = getManageLdapConnection();
+    if ($conn === false) {
+        return;
+    }
+    $r = @ldap_read($conn, (string) $USER_DN, '(objectClass=*)', ['pwdAccountLockedTime']);
+    if ($r === false) {
+        return;
+    }
+    $ent = @ldap_get_entries($conn, $r);
+    if (!is_array($ent) || (int) ($ent['count'] ?? 0) < 1) {
+        return;
+    }
+    $entry = $ent[0];
+    if (!is_array($entry)) {
+        return;
+    }
+    if (is_user_account_disabled($entry)) {
+        if (function_exists('logOut')) {
+            logOut('auto');
+        }
+    }
+}
+
+/**
  * Store auth in PHP session so the next request can restore login when orf_cookie is not sent (e.g. after 302).
  */
 function setLumSessionAuth($user_id, $is_admin, $is_maintainer, $is_org_admin, $org_name, $org_uuid, $display_name = null): void
@@ -300,7 +501,22 @@ function tryConsumeOneTimeAuthToken(): void
     $USER_DISPLAY_NAME = (is_string($display_name) && $display_name !== false) ? $display_name : null;
     $USER_ID = $user_id;
     $VALIDATED = true;
-    setPasskeyCookie($user_id, $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $USER_ORG_NAME, $USER_ORG_UUID);
+    // Keep LDAP user-bind key from the login response cookie (3rd segment). Without it, setPasskeyCookie
+    // would emit a 2-segment orf cookie and getUserLdapCredentials() could not decrypt the session copy.
+    $ldapBindKeyHex = null;
+    if (isset($_COOKIE['orf_cookie']) && is_string($_COOKIE['orf_cookie'])) {
+        $oc = explode(':', $_COOKIE['orf_cookie'], 3);
+        if (
+            count($oc) === 3
+            && (string) $oc[0] === (string) $user_id
+            && $oc[2] !== ''
+            && strlen($oc[2]) === 64
+            && ctype_xdigit($oc[2])
+        ) {
+            $ldapBindKeyHex = $oc[2];
+        }
+    }
+    setPasskeyCookie($user_id, $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $USER_ORG_NAME, $USER_ORG_UUID, $ldapBindKeyHex);
     setLumSessionAuth($user_id, $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $USER_ORG_NAME, $USER_ORG_UUID, $USER_DISPLAY_NAME);
     // Redirect to same path/query without auth_tok (getBaseUrl() already includes app path)
     $uri = $_SERVER['REQUEST_URI'];
@@ -327,9 +543,10 @@ function tryConsumeOneTimeAuthToken(): void
  * @param bool $is_org_admin Whether user is organization admin
  * @param string|null $org_name Organization name
  * @param string|null $org_uuid Organization UUID
+ * @param string|null $ldapBindKeyHex Optional; when set, orf_cookie is user:passkey:hexKey for decrypting stored LDAP password in session
  * @return void
  */
-function setPasskeyCookie($user_id, $is_admin, $is_maintainer = false, $is_org_admin = false, $org_name = null, $org_uuid = null)
+function setPasskeyCookie($user_id, $is_admin, $is_maintainer = false, $is_org_admin = false, $org_name = null, $org_uuid = null, $ldapBindKeyHex = null)
 {
 
     # Create a random value, store it locally and set it in a cookie.
@@ -398,7 +615,11 @@ function setPasskeyCookie($user_id, $is_admin, $is_maintainer = false, $is_org_a
         'httponly' => true,
         'samesite' => 'Lax'
     ];
-    setcookie('orf_cookie', "$user_id:$passkey", $cookie_opts);
+    $orfValue = (string) $user_id . ':' . $passkey;
+    if (is_string($ldapBindKeyHex) && $ldapBindKeyHex !== '') {
+        $orfValue .= ':' . $ldapBindKeyHex;
+    }
+    setcookie('orf_cookie', $orfValue, $cookie_opts);
     $sessto_cookie_opts = $cookie_opts;
     $sessto_cookie_opts['expires'] = $this_time + 7200;
     setcookie('sessto_cookie', (string)($this_time + (60 * $SESSION_TIMEOUT)), $sessto_cookie_opts);
@@ -479,7 +700,15 @@ function validatePasskeyCookie()
     }
 
     if (isset($_COOKIE['orf_cookie'])) {
-        list($user_id,$c_passkey) = explode(":", $_COOKIE['orf_cookie']);
+        $orfCookieParts = explode(":", (string) $_COOKIE['orf_cookie'], 3);
+        $user_id = $orfCookieParts[0] ?? '';
+        $c_passkey = $orfCookieParts[1] ?? '';
+        if ($user_id === '' || $c_passkey === '') {
+            if ($SESSION_DEBUG == true) {
+                error_log("$log_prefix Session: orf_cookie missing user_id or passkey segment", 0);
+            }
+            return;
+        }
 
       // Validate user_id format - allow UUIDs and standard usernames
         if (!preg_match('/^[a-zA-Z0-9@._-]+$/', $user_id) && !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $user_id)) {
@@ -592,7 +821,8 @@ function validatePasskeyCookie()
                 if ($SESSION_DEBUG == true) {
                     error_log("$log_prefix Setup session: Cookie and session file values match for user {$user_id} - VALIDATED (ADMIN = {$IS_ADMIN}, MAINTAINER = {$IS_MAINTAINER}, ORG_ADMIN = {$IS_ORG_ADMIN}, ORG = {$f_org_name}, ORG_UUID = {$f_org_uuid})", 0);
                 }
-                setPasskeyCookie($USER_ID, $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $USER_ORG_NAME, $USER_ORG_UUID);
+                $preserveLdapKey = (isset($orfCookieParts[2]) && is_string($orfCookieParts[2]) && $orfCookieParts[2] !== '') ? $orfCookieParts[2] : null;
+                setPasskeyCookie($USER_ID, $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $USER_ORG_NAME, $USER_ORG_UUID, $preserveLdapKey);
               // Populate currentUserGroups and display name from LDAP
                 $ldap_connection = open_ldap_connection();
                 $user_dn = get_user_dn_from_identifier($ldap_connection, $USER_ID);
@@ -685,31 +915,40 @@ function validateSetupCookie()
 
     if (isset($_COOKIE['setup_cookie'])) {
         $c_passkey = $_COOKIE['setup_cookie'];
-        $session_file = file_get_contents("/tmp/ldap_setup");
-        if (!$session_file) {
+        $session_file = @file_get_contents("/tmp/ldap_setup");
+        if ($session_file === false || $session_file === '') {
             $IS_SETUP_ADMIN = false;
             if ($SESSION_DEBUG == true) {
                 error_log("$log_prefix Setup session: setup_cookie was sent by the client but the session file wasn't found at /tmp/ldap_setup", 0);
             }
-        }
-        list($f_passkey,$f_time) = explode(":", $session_file);
-        $this_time = time();
-        if (!empty($c_passkey) and $f_passkey == $c_passkey and $this_time < $f_time + (60 * $SESSION_TIMEOUT)) {
-            $IS_SETUP_ADMIN = true;
-            if ($SESSION_DEBUG == true) {
-                error_log("$log_prefix Setup session: Cookie and session file values match - VALIDATED ", 0);
+        } else {
+            $session_parts = explode(':', $session_file, 2);
+            if (count($session_parts) < 2) {
+                $IS_SETUP_ADMIN = false;
+                if ($SESSION_DEBUG == true) {
+                    error_log("$log_prefix Setup session: Invalid session file format at /tmp/ldap_setup", 0);
+                }
+            } else {
+                list($f_passkey, $f_time) = $session_parts;
+                $this_time = time();
+                if (!empty($c_passkey) and $f_passkey == $c_passkey and $this_time < $f_time + (60 * $SESSION_TIMEOUT)) {
+                    $IS_SETUP_ADMIN = true;
+                    if ($SESSION_DEBUG == true) {
+                        error_log("$log_prefix Setup session: Cookie and session file values match - VALIDATED ", 0);
+                    }
+                    setSetupCookie();
+                } elseif ($SESSION_DEBUG == true) {
+                    $this_error = "$log_prefix Setup session: setup_cookie was sent by the client and the session file was found at /tmp/ldap_setup, but";
+                    if (empty($c_passkey)) {
+                        $this_error .= " the cookie passkey wasn't set;";
+                    }
+                    if ($c_passkey != $f_passkey) {
+                        $this_error .= " the session file passkey didn't match the cookie passkey;";
+                    }
+                    $this_error .= " Cookie: {$_COOKIE['setup_cookie']} - Session file contents: $session_file";
+                    error_log($this_error, 0);
+                }
             }
-            setSetupCookie();
-        } elseif ($SESSION_DEBUG == true) {
-            $this_error = "$log_prefix Setup session: setup_cookie was sent by the client and the session file was found at /tmp/ldap_setup, but";
-            if (empty($c_passkey)) {
-                $this_error .= " the cookie passkey wasn't set;";
-            }
-            if ($c_passkey != $f_passkey) {
-                $this_error .= " the session file passkey didn't match the cookie passkey;";
-            }
-            $this_error += " Cookie: {$_COOKIE['setup_cookie']} - Session file contents: $session_file";
-            error_log($this_error, 0);
         }
     } elseif ($SESSION_DEBUG == true) {
         error_log("$log_prefix Session: setup_cookie wasn't sent by the client.", 0);
@@ -734,6 +973,8 @@ function logOut($method = 'normal')
 
     setcookie('orf_cookie', "", $DEFAULT_COOKIE_OPTIONS);
     setcookie('sessto_cookie', "", $DEFAULT_COOKIE_OPTIONS);
+
+    clearUserLdapCredentials();
 
  // Use a hash of the user_id to find the session file
     $session_hash = hash('sha256', $USER_ID ?? '');
@@ -809,6 +1050,10 @@ function renderHeader($title = "", $menu = true)
 
     if ($menu == true) {
         renderMenu();
+    }
+
+    if (function_exists('lumRenderManageLdapBindDebugBar')) {
+        lumRenderManageLdapBindDebugBar();
     }
 
     if (isset($_GET['logged_in'])) {
@@ -1090,7 +1335,7 @@ function setPageAccess($allowed_levels)
         } else {
        // Redirect to login
             $reason = ($SESSION_TIMED_OUT == true) ? "session_timeout" : "unauthorised";
-            header("Location: " . getBaseUrl() . "login/?$reason&redirect_to=" . base64_encode($_SERVER['REQUEST_URI']));
+            header("Location: " . getBaseUrl() . "login/?$reason&redirect_to=" . getLoginRedirectToQueryValue());
             if ($SESSION_DEBUG == true) {
                 error_log("$log_prefix setPageAccess: Redirecting unauthenticated user to login from $current_path");
             }
@@ -1151,17 +1396,14 @@ function setPageAccess($allowed_levels)
 
             case 'maintainer':
                 if ($IS_MAINTAINER == true && $VALIDATED == true) {
-                   // Path-based restrictions for maintainers
+                    // Path-based restrictions for maintainers
                     if (strpos($current_path, '/setup') === 0) {
-                  // Maintainers cannot access setup
+                        // Maintainers cannot access setup
                         break;
                     }
-                    if (
-                        strpos($current_path, '/manage/users') === 0 ||
-                        strpos($current_path, '/manage/roles') === 0
-                    ) {
-                            // Maintainers cannot access user and role management
-                            break;
+                    if (strpos($current_path, '/manage/roles') === 0) {
+                        // Role assignment is admin-only
+                        break;
                     }
                     $has_access = true;
                     $user_level = 'maintainer';
@@ -1233,6 +1475,44 @@ function getBaseUrl(): string
 }
 
 /**
+ * Value for the login "redirect_to" query field: base64 of the full request path, then percent-encoded
+ * (so e.g. '+' in base64 is not treated as a space in the URL or in application/x-www-form-urlencoded body).
+ */
+function getLoginRedirectToQueryValue(?string $requestUri = null): string
+{
+    $uri = ($requestUri !== null && $requestUri !== '') ? $requestUri : (string) ($_SERVER['REQUEST_URI'] ?? '');
+
+    return rawurlencode(base64_encode($uri));
+}
+
+/**
+ * Turn validateRedirectUrl() output (absolute path) into a full URL for getBaseUrl() (avoids
+ * duplicating SERVER_PATH when the path already contains the app mount prefix, e.g. /app/manage/...).
+ */
+function buildPostAuthRedirectFromValidatedPath(string $decodedPath): string
+{
+    global $SERVER_PATH;
+    if ($decodedPath === '') {
+        return getBaseUrl();
+    }
+    $sp = rtrim((string) $SERVER_PATH, '/');
+    if ($sp === '' || $sp === '/') {
+        $rel = ltrim($decodedPath, '/');
+
+        return getBaseUrl() . $rel;
+    }
+    if (strpos($decodedPath, $sp . '/') === 0) {
+        $rel = (string) substr($decodedPath, strlen($sp) + 1);
+    } elseif ($decodedPath === $sp) {
+        $rel = '';
+    } else {
+        $rel = ltrim($decodedPath, '/');
+    }
+
+    return getBaseUrl() . $rel;
+}
+
+/**
  * Path prefix for static assets (CSS, JS). Always starts and ends with / so href/src work from any page.
  */
 function getAssetBase(): string
@@ -1253,7 +1533,7 @@ function getDefaultRedirectForUser()
  // If user is not validated, redirect to login
     if (!$VALIDATED) {
         $reason = (!empty($SESSION_TIMED_OUT)) ? "session_timeout" : "unauthorised";
-        return getBaseUrl() . "login/?$reason&redirect_to=" . base64_encode($_SERVER['REQUEST_URI']);
+        return getBaseUrl() . "login/?$reason&redirect_to=" . getLoginRedirectToQueryValue();
     }
 
  // Determine default redirect based on user's highest access level
@@ -1729,8 +2009,13 @@ function validateCsrfToken()
  */
 function validateRedirectUrl($redirect_url, $base_path = '/')
 {
-    // Decode the base64 URL
-    $decoded = base64_decode($redirect_url, true);
+    $b64 = (string) $redirect_url;
+    // Base64 of the return path. If a client double-encoded, retry after rawurldecode.
+    $decoded = base64_decode($b64, true);
+    if ($decoded === false) {
+        $b64 = rawurldecode($b64);
+        $decoded = base64_decode($b64, true);
+    }
     if ($decoded === false) {
         return false;
     }

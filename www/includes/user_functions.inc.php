@@ -85,7 +85,7 @@ function get_user_identifier($user_attribs, $username)
 
 /**
  * Get username from user identifier (UUID or email)
- * @param resource $ldap_connection LDAP connection
+ * @param resource|\LDAP\Connection $ldap_connection LDAP connection
  * @param string $user_identifier UUID or email
  * @return string Username/email for display purposes
  */
@@ -108,7 +108,7 @@ function get_username_from_identifier($ldap_connection, $user_identifier)
 
 /**
  * Get user display name from DN for role memberships
- * @param resource $ldap_connection LDAP connection
+ * @param resource|\LDAP\Connection $ldap_connection LDAP connection
  * @param string $user_dn User DN
  * @return string Formatted display name
  */

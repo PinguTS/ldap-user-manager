@@ -63,6 +63,7 @@ All deployment options, full configuration reference, and operations.
 |---|---|
 | [LDAP Structure](ldap-structure.md) | Directory layout, OUs, roles, and status groups |
 | [LDAP Setup](ldap/setup.md) | Configuring the OpenLDAP server |
+| [User-Bound ACLs](ldap/userbind-acls.md) | Baseline `olcAccess` for user-bound `/manage` and setup remediation |
 | [LDAP Examples](ldap/examples.md) | Sample LDIF files |
 | [LDAP Backup](ldap/backup.md) | Backup and restore procedures |
 

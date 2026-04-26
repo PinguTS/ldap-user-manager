@@ -149,11 +149,15 @@ $is_uuid = preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f
 
 if ($is_uuid) {
     // UUID-based lookup
-    $ldap_connection = open_ldap_connection();
-    $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
-    $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
-    $user_by_uuid = ldap_get_entry_by_uuid($ldap_connection, $fetchUserParam, $usersDn);
-    ldap_close($ldap_connection);
+    $ldap_connection = lum_ldap_data_connection();
+    if ($ldap_connection === false) {
+        $user_by_uuid = null;
+    } else {
+        $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
+        $usersDn = "ou=people,o={$orgRDN}," . $LDAP['org_dn'];
+        $user_by_uuid = ldap_get_entry_by_uuid($ldap_connection, $fetchUserParam, $usersDn);
+        lum_close_ldap_if_not_manage($ldap_connection);
+    }
 
     if ($user_by_uuid) {
         $user_data = [

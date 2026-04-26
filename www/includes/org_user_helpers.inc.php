@@ -42,13 +42,13 @@ function org_get_manager_dns(string $orgName): array
     $groupDn = "cn={$LDAP['org_admin_role']},ou=roles,o={$orgRdn}," . $LDAP['org_dn'];
     $result = @ldap_read($ldapConnection, $groupDn, '(objectClass=groupOfNames)', ['member']);
     if (!$result) {
-        ldap_close($ldapConnection);
+        lum_close_ldap_if_not_manage($ldapConnection);
 
         return [];
     }
 
     $entries = ldap_get_entries($ldapConnection, $result);
-    ldap_close($ldapConnection);
+    lum_close_ldap_if_not_manage($ldapConnection);
     $dns = [];
     if ($entries['count'] > 0 && isset($entries[0]['member'])) {
         for ($i = 0; $i < $entries[0]['member']['count']; $i++) {
@@ -107,7 +107,7 @@ function org_resolve_user_dn(string $orgName, string $userIdentifier): ?string
         }
         $usersDn = org_get_people_base_dn($orgName);
         $userByUuid = ldap_get_entry_by_uuid($ldapConnection, $userIdentifier, $usersDn);
-        ldap_close($ldapConnection);
+        @ldap_close($ldapConnection);
         if (!$userByUuid || !isset($userByUuid['dn'])) {
             return null;
         }
@@ -138,7 +138,7 @@ function org_resolve_user_entry(string $orgName, string $userIdentifier): ?array
         }
         $usersDn = org_get_people_base_dn($orgName);
         $userByUuid = ldap_get_entry_by_uuid($ldapConnection, $userIdentifier, $usersDn);
-        ldap_close($ldapConnection);
+        @ldap_close($ldapConnection);
 
         if (!$userByUuid || !isset($userByUuid['dn'])) {
             return null;
@@ -153,18 +153,18 @@ function org_resolve_user_entry(string $orgName, string $userIdentifier): ?array
     }
     $dn = org_resolve_user_dn($orgName, $userIdentifier);
     if ($dn === null || $dn === '') {
-        ldap_close($ldapConnection);
+        @ldap_close($ldapConnection);
 
         return null;
     }
     $read = @ldap_read($ldapConnection, $dn, '(objectClass=*)');
     if (!$read) {
-        ldap_close($ldapConnection);
+        @ldap_close($ldapConnection);
 
         return null;
     }
     $entries = ldap_get_entries($ldapConnection, $read);
-    ldap_close($ldapConnection);
+    @ldap_close($ldapConnection);
     if (!is_array($entries) || ($entries['count'] ?? 0) < 1) {
         return null;
     }
@@ -186,13 +186,13 @@ function org_get_user_display(string $userDn, string $fallback): string
 
     $read = @ldap_read($ldapConnection, $userDn, '(objectClass=*)', ['uid']);
     if (!$read) {
-        ldap_close($ldapConnection);
+        @ldap_close($ldapConnection);
 
         return $fallback;
     }
 
     $entries = ldap_get_entries($ldapConnection, $read);
-    ldap_close($ldapConnection);
+    @ldap_close($ldapConnection);
 
     if (is_array($entries) && ($entries['count'] ?? 0) > 0 && isset($entries[0]['uid'][0])) {
         return (string) $entries[0]['uid'][0];

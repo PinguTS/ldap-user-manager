@@ -20,15 +20,12 @@ if (!defined('LDAP_ESCAPE_DN')) {
 ###################################
 
 /**
- * Opens a connection to the LDAP server with optional binding
+ * Create an LDAP link to the configured server with TLS/STARTTLS applied, but do not bind.
  *
- * @param bool $ldap_bind Whether to bind as admin user
- * @return resource|false LDAP connection resource or false on failure
- * @throws Exception When connection fails in production environment
+ * @return resource|\LDAP\Connection|false
  */
-function open_ldap_connection($ldap_bind = true)
+function ldap_new_connection_unbound()
 {
-
     global $log_prefix, $LDAP, $SENT_HEADERS, $LDAP_DEBUG, $LDAP_VERBOSE_CONNECTION_LOGS;
 
     if (!is_array($LDAP) || empty($LDAP['uri'])) {
@@ -40,7 +37,6 @@ function open_ldap_connection($ldap_bind = true)
         exit(1);
     }
 
-    // Enforce TLS in production environments
     if (getenv('ENVIRONMENT') !== 'development' && getenv('ENVIRONMENT') !== 'test') {
         if ($LDAP['ignore_cert_errors'] === true) {
             error_log("$log_prefix WARNING: Certificate errors are being ignored in production environment", 0);
@@ -62,7 +58,6 @@ function open_ldap_connection($ldap_bind = true)
         ldap_set_option(null, LDAP_OPT_DEBUG_LEVEL, 7);
     }
 
-    // Enforce TLS for non-localhost connections in production
     $is_localhost = preg_match('/^ldap:\/\/127\.0\.0\.([0-9]+)(:[0-9]+)$/', $LDAP['uri']) ||
                     preg_match('/^ldap:\/\/localhost(:[0-9]+)?$/', $LDAP['uri']);
 
@@ -98,6 +93,77 @@ function open_ldap_connection($ldap_bind = true)
         $LDAP['connection_type'] = 'LDAPS';
     }
 
+    return $ldap_connection;
+}
+
+/**
+ * Test whether a bind with the given credentials succeeds (same connection, new bind).
+ *
+ * @param resource|\LDAP\Connection $ldap_connection
+ */
+function ldap_test_user_bind($ldap_connection, string $user_dn, string $password): bool
+{
+    return @ldap_bind($ldap_connection, $user_dn, $password) === true;
+}
+
+/**
+ * Open LDAP and bind with an arbitrary DN and password.
+ *
+ * @param bool $exitOnFailure If true, print a message and exit on bind failure. If false, return false after closing the link.
+ * @return resource|\LDAP\Connection|false
+ */
+function open_ldap_connection_as(string $bind_dn, string $bind_pwd, bool $exitOnFailure = true)
+{
+    global $log_prefix, $LDAP, $SENT_HEADERS, $LDAP_DEBUG;
+
+    $ldap_connection = ldap_new_connection_unbound();
+    if ($ldap_connection === false) {
+        if ($exitOnFailure) {
+            exit(1);
+        }
+        return false;
+    }
+
+    if ($LDAP_DEBUG === true) {
+        error_log("$log_prefix Attempting bind as {$bind_dn}", 0);
+    }
+    $bind_result = @ldap_bind($ldap_connection, $bind_dn, $bind_pwd);
+
+    if ($bind_result !== true) {
+        $err = ldap_error($ldap_connection);
+        if ($exitOnFailure) {
+            if (!$SENT_HEADERS) {
+                print "Problem: Failed to bind to LDAP as {$bind_dn}.";
+            }
+            error_log("$log_prefix Failed to bind to {$bind_dn}: {$err}", 0);
+            exit(1);
+        }
+        error_log("$log_prefix Failed to bind to {$bind_dn} (no exit): {$err}", 0);
+        @ldap_close($ldap_connection);
+        return false;
+    }
+    if ($LDAP_DEBUG === true) {
+        error_log("$log_prefix Bound successfully as {$bind_dn}", 0);
+    }
+
+    return $ldap_connection;
+}
+
+/**
+ * Opens a connection to the LDAP server with optional binding
+ *
+ * @param bool $ldap_bind Whether to bind as admin user
+ * @return resource|\LDAP\Connection|false
+ */
+function open_ldap_connection($ldap_bind = true)
+{
+    global $log_prefix, $LDAP, $SENT_HEADERS, $LDAP_DEBUG;
+
+    $ldap_connection = ldap_new_connection_unbound();
+    if ($ldap_connection === false) {
+        return false;
+    }
+
     if ($ldap_bind === true) {
         if ($LDAP_DEBUG === true) {
             error_log("$log_prefix Attempting to bind to {$LDAP['uri']} as {$LDAP['admin_bind_dn']}", 0);
@@ -112,7 +178,6 @@ function open_ldap_connection($ldap_bind = true)
             $this_error .= ": " . ldap_error($ldap_connection);
             print "Problem: Failed to bind as {$LDAP['admin_bind_dn']}";
             error_log("$log_prefix $this_error", 0);
-
             exit(1);
         } elseif ($LDAP_DEBUG === true) {
             error_log("$log_prefix Bound successfully as {$LDAP['admin_bind_dn']}", 0);
@@ -127,7 +192,7 @@ function open_ldap_connection($ldap_bind = true)
 /**
  * Authenticates a username and password against LDAP
  *
- * @param resource $ldap_connection LDAP connection resource
+ * @param resource|\LDAP\Connection $ldap_connection LDAP connection
  * @param string $username Username to authenticate
  * @param string $password Password to authenticate
  * @return string|false DN string if authentication succeeds, false otherwise
@@ -224,9 +289,12 @@ function ldap_auth_username($ldap_connection, $username, $password): string|fals
         error_log("$log_prefix Attempting authenticate as $username by binding with {$this_dn} ", 0);
     }
 
-    $auth_ldap_connection = open_ldap_connection(false);
+    $auth_ldap_connection = ldap_new_connection_unbound();
+    if ($auth_ldap_connection === false) {
+        return false;
+    }
 
-    $can_bind =  @ldap_bind($auth_ldap_connection, $this_dn, $password);
+    $can_bind = ldap_test_user_bind($auth_ldap_connection, $this_dn, $password);
     if ($can_bind) {
         if ($LDAP_DEBUG === true) {
             error_log("$log_prefix Able to bind as {$username}: dn is {$this_dn}", 0);
@@ -1670,7 +1738,7 @@ function ldap_update_user_attributes($ldap_connection, $username, $attributes)
 
 /**
  * Get entry by UUID
- * @param resource $ldap_connection LDAP connection
+ * @param resource|\LDAP\Connection $ldap_connection LDAP connection
  * @param string $uuid Entry UUID
  * @param string $base_dn Base DN to search in
  * @param array $attributes Attributes to retrieve
@@ -1702,7 +1770,7 @@ function ldap_get_entry_by_uuid($ldap_connection, $uuid, $base_dn, $attributes =
 
 /**
  * Get organization by UUID
- * @param resource $ldap_connection LDAP connection
+ * @param resource|\LDAP\Connection $ldap_connection LDAP connection
  * @param string $uuid Organization UUID
  * @return array|false Organization data or false if not found
  */
@@ -1714,7 +1782,7 @@ function ldap_get_organization_by_uuid($ldap_connection, $uuid)
 
 /**
  * Get user by UUID
- * @param resource $ldap_connection LDAP connection
+ * @param resource|\LDAP\Connection $ldap_connection LDAP connection
  * @param string $uuid User UUID
  * @param string $org_dn Organization DN (optional, for org users)
  * @return array|false User data or false if not found
@@ -1951,7 +2019,7 @@ function ldap_detect_rfc2307bis($ldap_connection)
 
 /**
  * Get the DN of a user by username
- * @param resource $ldap_connection LDAP connection
+ * @param resource|\LDAP\Connection $ldap_connection LDAP connection
  * @param string $username Username to look up
  * @return string|false User DN or false if not found
  */
@@ -1992,7 +2060,7 @@ function ldap_get_user_dn($ldap_connection, $username)
 
 /**
  * Add a user to a role group
- * @param resource $ldap_connection LDAP connection
+ * @param resource|\LDAP\Connection $ldap_connection LDAP connection
  * @param string $role_name Role name (e.g., 'administrators', 'maintainers')
  * @param string $username Username to add
  * @return bool Success status
@@ -2061,7 +2129,7 @@ function ldap_add_member_to_group($ldap_connection, $role_name, $username)
 
 /**
  * Remove a user from a role group
- * @param resource $ldap_connection LDAP connection
+ * @param resource|\LDAP\Connection $ldap_connection LDAP connection
  * @param string $role_name Role name (e.g., 'administrators', 'maintainers')
  * @param string $username Username to remove
  * @return bool Success status
@@ -2155,7 +2223,7 @@ function ldap_delete_member_from_group($ldap_connection, $role_name, $username)
 
 /**
  * Find all groups that a user is a member of
- * @param resource $ldap_connection LDAP connection
+ * @param resource|\LDAP\Connection $ldap_connection LDAP connection
  * @param string $user_dn User DN to search for
  * @return array Array of group DNs that the user is a member of
  */
@@ -2214,7 +2282,7 @@ function ldap_get_user_groups($ldap_connection, $user_dn)
 
 /**
  * Remove a user from all groups they belong to
- * @param resource $ldap_connection LDAP connection
+ * @param resource|\LDAP\Connection $ldap_connection LDAP connection
  * @param string $user_dn User DN to remove from groups
  * @return bool Success status
  */
@@ -2398,7 +2466,7 @@ function ldap_user_is_disabled($ldap_connection, $user_dn)
 /**
  * Check if an organization is disabled
  *
- * @param resource $ldap_connection LDAP connection resource
+ * @param resource|\LDAP\Connection $ldap_connection LDAP connection resource
  * @param string $org_name Organization name to check
  * @return bool True if organization is disabled, false otherwise
  */
@@ -2430,7 +2498,7 @@ function ldap_organization_is_disabled($ldap_connection, $org_name)
 /**
  * Disable a user account using standard pwdAccountLockedTime
  *
- * @param resource $ldap_connection LDAP connection resource
+ * @param resource|\LDAP\Connection $ldap_connection LDAP connection resource
  * @param string $user_dn User DN to disable
  * @return bool True if successful, false otherwise
  */
@@ -2481,7 +2549,7 @@ function ldap_disable_user_account($ldap_connection, $user_dn)
 /**
  * Enable a user account by removing pwdAccountLockedTime
  *
- * @param resource $ldap_connection LDAP connection resource
+ * @param resource|\LDAP\Connection $ldap_connection LDAP connection resource
  * @param string $user_dn User DN to enable
  * @return bool True if successful, false otherwise
  */
@@ -2532,7 +2600,7 @@ function ldap_enable_user_account($ldap_connection, $user_dn)
 /**
  * Disable an organization and all its users
  *
- * @param resource $ldap_connection LDAP connection resource
+ * @param resource|\LDAP\Connection $ldap_connection LDAP connection resource
  * @param string $org_name Organization name to disable
  * @return bool True if successful, false otherwise
  */
@@ -2588,18 +2656,11 @@ function ldap_disable_organization($ldap_connection, $org_name)
 ##################################
 
 /**
- * Enable an organization and all its users
- *
- * @param resource $ldap_connection LDAP connection resource
- * @param string $org_name Organization name to enable
- * @return bool True if successful, false otherwise
- */
-/**
  * Enable an organization: remove from disabledOrganizations, then selectively clear
  * pwdAccountLockedTime on users who are not individually disabled.
  *
- * @param resource|\LDAP\Connection $ldap_connection LDAP connection resource
- * @param string                    $org_name        Organization name to enable
+ * @param resource|\LDAP\Connection $ldap_connection LDAP connection
+ * @param string $org_name Organization name to enable
  * @return array{ok: bool, enabled: int, still_disabled: int}|false Result counts, or false on error
  */
 function ldap_enable_organization($ldap_connection, $org_name)
@@ -2662,7 +2723,7 @@ function ldap_enable_organization($ldap_connection, $org_name)
 /**
  * Get disable status information for a user
  *
- * @param resource $ldap_connection LDAP connection resource
+ * @param resource|\LDAP\Connection $ldap_connection LDAP connection resource
  * @param string $user_dn User DN to check
  * @return array|false Disable status information or false if error
  */
@@ -2728,7 +2789,7 @@ function ldap_get_user_disable_status($ldap_connection, $user_dn)
 /**
  * Get disable status information for an organization
  *
- * @param resource $ldap_connection LDAP connection resource
+ * @param resource|\LDAP\Connection $ldap_connection LDAP connection resource
  * @param string $org_name Organization name to check
  * @return array|false Disable status information or false if error
  */
@@ -2861,4 +2922,38 @@ function ldap_delete_subtree($ldap_connection, string $dn): bool
     }
 
     return true;
+}
+
+/**
+ * True when $conn is the cached per-request LDAP link used for /manage data operations (do not ldap_close it).
+ */
+function lum_is_manage_ldap_link(mixed $conn): bool
+{
+    return isset($GLOBALS['lumManageLdapLink']) && $GLOBALS['lumManageLdapLink'] === $conn;
+}
+
+/**
+ * Close an LDAP link unless it is the shared /manage connection.
+ */
+function lum_close_ldap_if_not_manage(mixed $conn): void
+{
+    if (lum_is_manage_ldap_link($conn)) {
+        return;
+    }
+    if (is_resource($conn) || (is_object($conn) && $conn instanceof \LDAP\Connection)) {
+        @ldap_close($conn);
+    }
+}
+
+/**
+ * Data-plane LDAP: user bind under /manage when LUM_MANAGE_CONTEXT and getManageLdapConnection exists, else admin bind.
+ *
+ * @return resource|\LDAP\Connection|false
+ */
+function lum_ldap_data_connection()
+{
+    if (defined('LUM_MANAGE_CONTEXT') && LUM_MANAGE_CONTEXT && function_exists('getManageLdapConnection')) {
+        return getManageLdapConnection();
+    }
+    return open_ldap_connection();
 }

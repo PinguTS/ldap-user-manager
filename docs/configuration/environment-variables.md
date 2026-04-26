@@ -153,6 +153,30 @@ The system sets security headers (effective values depend on your deployment):
 - `AUDIT_LOG_ENABLED` - Enable audit logging (default: TRUE)
 - `AUDIT_LOG_FILE` - Audit log file path (default: '/var/log/ldap_user_manager/audit.log')
 
+#### **Organization Change History (LDAP accesslog)**
+- `LDAP_ACCESSLOG_ENABLED` - Enable reading organization change history from the OpenLDAP accesslog overlay (default: `false`).
+  When set to `true`, the organization list shows a "last modified" badge per entry and the detail view shows a full change timeline with actor and timestamp.
+  **Prerequisites:** The OpenLDAP accesslog overlay must be active on the LDAP server and the bind DN (`LDAP_ADMIN_BIND_DN`) must have read access to `cn=accesslog`.
+  See `docker/openldap/README.md` for detailed setup instructions, including how to enable on an existing database via `ldapmodify`.
+
+**User-bound `/manage` (LDAP as the signed-in user):** After a successful **form-based** login, the app encrypts the submitted LDAP password, stores the ciphertext in the PHP session, and holds the decryption key only in the signed `orf_cookie` (libsodium). Subsequent `/manage` requests open a per-request LDAP connection bound as that user so ACLs apply to data changes. Flows with **no** LDAP password (OIDC, reverse-proxy header login, one-time `auth_tok` handoff) continue to use `LDAP_ADMIN_BIND_DN` for directory operations, so the accesslog actor for writes may be the service account for those sessions.
+
+**Role-based OpenLDAP ACLs:** For user-bind writes to work correctly (so each role — administrator, maintainer, org admin — can write only what it is permitted to change), OpenLDAP must have `olcAccess` rules that grant access based on `groupOfNames` membership. The setup pages at `/setup/run_checks.php` and `/setup/apply_user_bind_acls.php` verify and apply two layers:
+
+- **Step 1 — Baseline:** Self password write + authenticated read on the tree (minimum for login and role resolution).
+- **Step 2 — Role-based write:** Group-scoped write for system administrators (`manage` on the whole tree), system maintainers (`write` on the organisations subtree), and per-org admins (`write` on their org subtree via `dn.regex` + `group.expand`).
+
+Both steps provide copy/paste `ldapmodify` LDIF blocks pre-filled from your environment. See [`docs/ldap/userbind-acls.md`](../ldap/userbind-acls.md) for the complete rule set, explanation, and `ldapsearch` verification commands.
+
+- `LDAP_OLC_MDB_DN` - (Optional) DN of the main `mdb` database entry in `cn=config` (default: `olcDatabase={1}mdb,cn=config`). Used by setup to locate `olcAccess` for ACL verification and the corrective LDIF apply. Override if your primary database is not `olcDatabase={1}mdb`.
+- `LUM_WRITE_BIND_FALLBACK` - Controls what happens when the app holds a user's LDAP credentials in the session but the LDAP bind with those credentials fails (e.g. the user's password was changed externally while their app session is still valid).
+  - `true` (default) — fall back to the admin service account so the session continues. Writes succeed but the LDAP accesslog records the service account DN instead of the user's DN.
+  - `false` — strict mode. Deny write operations for that request, clear the stale credentials, and log the failure. The user's next request uses admin bind for reads only; they must re-login to restore per-user write accountability. In strict mode the debug bar (see `LUM_DEBUG_MANAGE_BIND`) shows a prominent **bind_failed** state.
+
+  Note: this flag only governs the *bind-level* fallback (the LDAP bind itself failing). If the bind succeeds but a write is later denied by an OpenLDAP ACL, that failure is returned as a visible error by the application regardless of this setting. See [`docs/ldap/userbind-acls.md`](../ldap/userbind-acls.md) for ACL troubleshooting.
+
+- `LUM_DEBUG_MANAGE_BIND` - When set to `true` (string, case-insensitive), **global administrators and maintainers** see a small debug bar on manage UI pages (after the main nav) that states whether the current request uses a **per-user** LDAP bind, the **admin** bind (no per-user password, e.g. OIDC/SSO), **admin fallback** (user password was in session but the bind failed and the app fell back to the service account), or **bind_failed** (strict mode: bind failed and no fallback was permitted). Unset in production unless troubleshooting bind mode.
+
 ### User Account Configuration
 These settings control how new user accounts are created:
 - `DEFAULT_USER_GROUP` - Default group for new users (default: 'everybody')

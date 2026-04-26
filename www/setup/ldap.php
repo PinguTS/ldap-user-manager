@@ -11,7 +11,7 @@ include_once "organization_functions.inc.php";
 include_once __DIR__ . '/bootstrap_setup.inc.php';
 
 validateSetupCookie();
-setPageAccess("setup");
+setPageAccess(['setup', 'admin']);
 
 renderHeader("$ORGANISATION_NAME account manager setup");
 

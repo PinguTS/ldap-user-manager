@@ -1,0 +1,42 @@
+# Role-based ACL fragment for user-bound /manage operations.
+# Applied during first slapd initialisation (empty slapd.d) by the osixia/openldap entrypoint.
+# For existing instances prefer the idempotent setup helper:
+#   /setup/run_checks.php → "Open ACL apply helper"
+#
+# Template variables (replaced by the entrypoint at boot):
+#   {{ LDAP_BACKEND }}         — typically "mdb"
+#   {{ LDAP_BASE_DN }}         — e.g. "dc=example,dc=com"
+#   {{ LDAP_ORG_OU }}          — value of LDAP_ORG_OU (default: organizations)
+#   {{ LDAP_ADMIN_ROLE }}      — value of LDAP_ADMIN_ROLE (default: administrators)
+#   {{ LDAP_MAINTAINER_ROLE }} — value of LDAP_MAINTAINER_ROLE (default: maintainers)
+#   {{ LDAP_ORG_ADMIN_ROLE }}  — value of LDAP_ORG_ADMIN_ROLE (default: org_admin)
+#
+# Rule 5 uses a dn.regex with {{ LDAP_BASE_DN }} directly. OpenLDAP uses POSIX ERE.
+# If your base DN contains regex-special characters (e.g. a dot in a dc value like
+# dc=my.domain,dc=com), replace the dot in that rule with "\." after substitution.
+# Most installations (dc=example,dc=com) require no escaping.
+#
+# See docs/ldap/userbind-acls.md for explanation of each rule and ldapsearch verification commands.
+
+dn: olcDatabase={1}{{ LDAP_BACKEND }},cn=config
+changetype: modify
+add: olcAccess
+olcAccess: to attrs=userPassword,shadowLastChange by self write by anonymous auth by * break
+-
+add: olcAccess
+olcAccess: to dn.subtree="{{ LDAP_BASE_DN }}" by group/groupOfNames/member="cn={{ LDAP_ADMIN_ROLE }},ou=roles,{{ LDAP_BASE_DN }}" manage by * break
+-
+add: olcAccess
+olcAccess: to dn.subtree="ou={{ LDAP_ORG_OU }},{{ LDAP_BASE_DN }}" by group/groupOfNames/member="cn={{ LDAP_MAINTAINER_ROLE }},ou=roles,{{ LDAP_BASE_DN }}" write by * break
+-
+add: olcAccess
+olcAccess: to dn.subtree="ou=people,{{ LDAP_BASE_DN }}" by group/groupOfNames/member="cn={{ LDAP_MAINTAINER_ROLE }},ou=roles,{{ LDAP_BASE_DN }}" write by * break
+-
+add: olcAccess
+olcAccess: to dn.regex="^(.+,)?o=([^,]+),ou={{ LDAP_ORG_OU }},{{ LDAP_BASE_DN }}$" by group/groupOfNames/member.expand="cn={{ LDAP_ORG_ADMIN_ROLE }},ou=roles,o=$2,ou={{ LDAP_ORG_OU }},{{ LDAP_BASE_DN }}" write by * break
+-
+add: olcAccess
+olcAccess: to dn.subtree="{{ LDAP_BASE_DN }}" by self write by * break
+-
+add: olcAccess
+olcAccess: to dn.subtree="{{ LDAP_BASE_DN }}" by users read by * none

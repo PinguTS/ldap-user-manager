@@ -28,8 +28,23 @@ if (isset($_POST['change_password'])) {
     }
 
     if (!isset($mismatched) and !isset($not_strong_enough) and !isset($invalid_chars)) {
+        global $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $USER_ORG_NAME, $USER_ORG_UUID;
+
         $ldap_connection = open_ldap_connection();
         ldap_change_password($ldap_connection, $USER_ID, $_POST['password']) or die("change_ldap_password() failed.");
+        $user_dn = get_user_dn_from_identifier($ldap_connection, (string) $USER_ID);
+        if ($user_dn) {
+            $bindKeyHex = captureUserLdapCredentials($user_dn, (string) $_POST['password']);
+            setPasskeyCookie(
+                (string) $USER_ID,
+                (bool) $IS_ADMIN,
+                (bool) $IS_MAINTAINER,
+                (bool) $IS_ORG_ADMIN,
+                $USER_ORG_NAME,
+                $USER_ORG_UUID,
+                $bindKeyHex
+            );
+        }
 
         renderHeader(t('password.change.success_title', ['org' => $ORGANISATION_NAME]));
         ?>

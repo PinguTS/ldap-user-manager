@@ -16,6 +16,9 @@ include_once __DIR__ . '/modules.inc.php';
  */
 function bootstrapManage(array $modules = []): void
 {
+    if (!defined('LUM_MANAGE_CONTEXT')) {
+        define('LUM_MANAGE_CONTEXT', true);
+    }
     $inc = __DIR__ . '/';
     include_once $inc . 'web_functions.inc.php';
     include_once $inc . 'access_functions.inc.php';
@@ -31,11 +34,15 @@ function bootstrapManage(array $modules = []): void
         include_once $inc . 'organization_functions.inc.php';
         include_once $inc . 'org_config_functions.inc.php';
         include_once $inc . 'org_user_helpers.inc.php';
+        include_once $inc . 'org_audit_functions.inc.php';
     }
     if (in_array('user', $modules, true)) {
         include_once $inc . 'user_functions.inc.php';
     }
     if (in_array('mail', $modules, true)) {
         include_once $inc . 'mail_functions.inc.php';
+    }
+    if (in_array('ldap', $modules, true) && function_exists('lumEnforceManageSessionAccountActive')) {
+        lumEnforceManageSessionAccountActive();
     }
 }
