@@ -164,7 +164,12 @@ function lumPublicSiteBaseUrl(): string
         return ($base === '') ? '/' : ($base . '/');
     }
 
-    return (string) $SITE_PROTOCOL . (string) $SERVER_HOSTNAME . (string) $SERVER_PATH;
+    $hostname = (string) $SERVER_HOSTNAME;
+    if ($hostname === '') {
+        error_log('lumPublicSiteBaseUrl() called without APP_HTTP_HOST or APP_PUBLIC_BASE_URL — email links will be broken');
+        return '';
+    }
+    return (string) $SITE_PROTOCOL . $hostname . (string) $SERVER_PATH;
 }
 
 $DEFAULT_COOKIE_OPTIONS = [

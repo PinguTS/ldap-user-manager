@@ -224,7 +224,7 @@ These settings control runtime mode, branding, HTTP service identity, setup lock
 - `APP_SITE_NAME` - Site name (default: `{APP_ORGANIZATION_NAME} user manager`)
 - `APP_LOGIN_LDAP_ATTRIBUTE` - LDAP attribute for login (default: `mail`)
 - `APP_LOGIN_FIELD_LABEL` - Login field label (default: `Email`)
-- `APP_HTTP_HOST` - Hostname used in generated links when `APP_PUBLIC_BASE_URL` is not set (default: `ldapusermanager.org`). Include a non-default port if needed (e.g. `idm.example.org:8443`).
+- `APP_HTTP_HOST` - **Required.** Hostname used in generated links and redirects when `APP_PUBLIC_BASE_URL` is not set. Include a non-standard port if needed (e.g. `idm.example.org:8443`). If neither this nor `APP_PUBLIC_BASE_URL` is set, the app will display a startup error.
 - `APP_HTTP_PATH` - URL path prefix for the app (default: `/`)
 - `APP_PUBLIC_BASE_URL` - Optional full public site base for **email links** and similar (scheme + host + optional port + optional path). When unset, links use inferred protocol plus `APP_HTTP_HOST` and `APP_HTTP_PATH`.
 - `APP_SERVE_HTTP_ONLY` - When `TRUE`, Apache serves HTTP only (`VirtualHost :80`) and PHP session cookies omit `Secure` (default: `FALSE`). Use behind a TLS-terminating reverse proxy only as appropriate for your deployment.

@@ -15,7 +15,9 @@ env_file_replace() {
   done
 }
 
-if [ -z "${APP_HTTP_HOST:-}" ]; then export APP_HTTP_HOST="ldapusermanager.org"; fi
+if [ -z "${APP_HTTP_HOST:-}" ]; then
+  echo "WARNING: APP_HTTP_HOST is not set. Set it to your public hostname to avoid broken redirects (e.g. APP_HTTP_HOST=app.example.org). Or set APP_PUBLIC_BASE_URL for the full public base URL."
+fi
 if [ -z "${APP_HTTP_PATH:-}" ]; then
   export APP_HTTP_PATH="/";
   apache_alias=""

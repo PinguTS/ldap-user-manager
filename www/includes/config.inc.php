@@ -383,7 +383,7 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
  $SITE_LOGIN_LDAP_ATTRIBUTE = (getenv('APP_LOGIN_LDAP_ATTRIBUTE') ? getenv('APP_LOGIN_LDAP_ATTRIBUTE') : 'mail' );
  $SITE_LOGIN_FIELD_LABEL = (getenv('APP_LOGIN_FIELD_LABEL') ? getenv('APP_LOGIN_FIELD_LABEL') : "Email" );
 
- $SERVER_HOSTNAME = (getenv('APP_HTTP_HOST') ? getenv('APP_HTTP_HOST') : "ldapusermanager.org");
+ $SERVER_HOSTNAME = (getenv('APP_HTTP_HOST') ? getenv('APP_HTTP_HOST') : '');
  $SERVER_PATH = (getenv('APP_HTTP_PATH') !== false ? (string) getenv('APP_HTTP_PATH') : '/');
  if ($SERVER_PATH === '') {
      $SERVER_PATH = '/';
@@ -411,7 +411,7 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
 
  $EMAIL_DOMAIN = (getenv('EMAIL_DOMAIN') ? getenv('EMAIL_DOMAIN') : null);
 
- $default_email_from_domain = ($EMAIL_DOMAIN ? $EMAIL_DOMAIN : 'ldapusermanger.org');
+ $default_email_from_domain = ($EMAIL_DOMAIN ? $EMAIL_DOMAIN : ($SERVER_HOSTNAME ?: 'localhost'));
 
  $EMAIL['from_address'] = (getenv('EMAIL_FROM_ADDRESS') ? getenv('EMAIL_FROM_ADDRESS') : "admin@" . $default_email_from_domain );
  $EMAIL['from_name'] = (getenv('EMAIL_FROM_NAME') ? getenv('EMAIL_FROM_NAME') : $SITE_NAME );
@@ -477,6 +477,9 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
  }
  if (empty($LDAP['admin_role'])) {
      $errors .= "<div class='alert alert-warning'><p class='text-center'>LDAP_ADMIN_ROLE isn't set</p></div>\n";
+ }
+ if (empty($SERVER_HOSTNAME) && empty(getenv('APP_PUBLIC_BASE_URL'))) {
+     $errors .= "<div class='alert alert-warning'><p class='text-center'>Neither APP_HTTP_HOST nor APP_PUBLIC_BASE_URL is set — redirects and email links will be broken. Set APP_HTTP_HOST to your public hostname (e.g. <code>app.example.org</code>).</p></div>\n";
  }
 
  if ($errors != "") {
