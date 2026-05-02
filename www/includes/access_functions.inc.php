@@ -58,7 +58,7 @@ function resolveUserDn(string $userId): ?string
     }
 
     try {
-        $userFilter = "(&(objectclass=inetOrgPerson)({$LDAP['account_attribute']}={$userId}))";
+        $userFilter = "(&(objectclass=inetOrgPerson)({$LDAP['account_attribute']}=" . lum_filter_value($userId) . '))';
 
         // Search in organizations first
         $search = @ldap_search($ldap, $LDAP['org_dn'], $userFilter, ['dn']);
@@ -102,7 +102,7 @@ function checkUserAdminRole(string $userDn): bool
     try {
         // Check if user is in the administrator role using config variable
         // IMPORTANT: Check global roles only, regardless of role value conflicts
-        $adminRoleFilter = "(&(objectclass=groupOfNames)(cn={$LDAP['admin_role']})(member={$userDn}))";
+        $adminRoleFilter = '(&(objectclass=groupOfNames)(cn=' . lum_filter_value($LDAP['admin_role']) . ')(member=' . lum_filter_value($userDn) . '))';
         $search = @ldap_search($ldap, $LDAP['roles_dn'], $adminRoleFilter, ['cn']);
 
         if ($search) {
@@ -165,7 +165,7 @@ function checkUserMaintainerRole(string $userDn): bool
     try {
         // Check if user is in the maintainer role using config variable
         // IMPORTANT: Check global roles only, regardless of role value conflicts
-        $maintainerRoleFilter = "(&(objectclass=groupOfNames)(cn={$LDAP['maintainer_role']})(member={$userDn}))";
+        $maintainerRoleFilter = '(&(objectclass=groupOfNames)(cn=' . lum_filter_value($LDAP['maintainer_role']) . ')(member=' . lum_filter_value($userDn) . '))';
         $search = @ldap_search($ldap, $LDAP['roles_dn'], $maintainerRoleFilter, ['cn']);
 
         if ($search) {
@@ -211,7 +211,7 @@ function currentUserIsOrgManager(string $orgName): bool
 
         // Check if user is in the org_admin role for this organization
         // The org_admin role is stored under ou=roles within the organization
-        $orgAdminFilter = "(&(objectclass=groupOfNames)(cn={$LDAP['org_admin_role']})(member={$USER_DN}))";
+        $orgAdminFilter = '(&(objectclass=groupOfNames)(cn=' . lum_filter_value($LDAP['org_admin_role']) . ')(member=' . lum_filter_value($USER_DN ?? '') . '))';
         $orgRolesDn = "ou=roles,o={$orgRDN}," . $LDAP['org_dn'];
         $search = @ldap_search($ldap, $orgRolesDn, $orgAdminFilter, ['cn']);
 
@@ -256,7 +256,7 @@ function currentUserIsOrgAdmin(): bool
     try {
         // Check if user is in the organization admin role within their specific organization
         $orgRolesDn = "ou=roles,o=" . ldap_escape($USER_ORG_NAME, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
-        $orgAdminFilter = "(&(objectclass=groupOfNames)(cn={$LDAP['org_admin_role']})(member={$USER_DN}))";
+        $orgAdminFilter = '(&(objectclass=groupOfNames)(cn=' . lum_filter_value($LDAP['org_admin_role']) . ')(member=' . lum_filter_value($USER_DN ?? '') . '))';
 
         $search = @ldap_search($ldap, $orgRolesDn, $orgAdminFilter, ['cn']);
         if ($search) {
@@ -336,7 +336,7 @@ function currentUserCanModifyUser(string $targetUserDN): bool
 
         try {
             // IMPORTANT: Check global admin role independently, regardless of role value conflicts
-            $adminRoleFilter = "(&(objectclass=groupOfNames)(cn={$LDAP['admin_role']})(member={$targetUserDN}))";
+            $adminRoleFilter = '(&(objectclass=groupOfNames)(cn=' . lum_filter_value($LDAP['admin_role']) . ')(member=' . lum_filter_value($targetUserDN) . '))';
             $search = @ldap_search($ldap, $LDAP['roles_dn'], $adminRoleFilter, ['cn']);
 
             if ($search) {
@@ -484,7 +484,7 @@ function currentUserCanDeleteUser(string $targetUserDN): bool
 
         try {
             // IMPORTANT: Check global admin role independently, regardless of role value conflicts
-            $adminRoleFilter = "(&(objectclass=groupOfNames)(cn={$LDAP['admin_role']})(member={$targetUserDN}))";
+            $adminRoleFilter = '(&(objectclass=groupOfNames)(cn=' . lum_filter_value($LDAP['admin_role']) . ')(member=' . lum_filter_value($targetUserDN) . '))';
             $search = @ldap_search($ldap, $LDAP['roles_dn'], $adminRoleFilter, ['cn']);
 
             if ($search) {
@@ -536,7 +536,7 @@ function debugUserRoles(?string $username = null): bool
     try {
         // Get user DN
         $userDn = null;
-        $userFilter = "(&(objectclass=inetOrgPerson)({$LDAP['account_attribute']}={$username}))";
+        $userFilter = "(&(objectclass=inetOrgPerson)({$LDAP['account_attribute']}=" . lum_filter_value($username ?? '') . '))';
 
         // Search in organizations first
         $search = @ldap_search($ldap, $LDAP['org_dn'], $userFilter, ['dn']);
@@ -566,7 +566,7 @@ function debugUserRoles(?string $username = null): bool
         error_log("debugUserRoles: User {$username} has DN: {$userDn}");
 
         // Check global roles
-        $globalRolesFilter = "(&(objectclass=groupOfNames)(member={$userDn}))";
+        $globalRolesFilter = '(&(objectclass=groupOfNames)(member=' . lum_filter_value($userDn) . '))';
         $search = @ldap_search($ldap, $LDAP['roles_dn'], $globalRolesFilter, ['cn']);
         if ($search) {
             $result = @ldap_get_entries($ldap, $search);
@@ -587,7 +587,7 @@ function debugUserRoles(?string $username = null): bool
                 $orgName = $matches[1];
                 $orgRolesDn = "ou=roles,o=" . ldap_escape($orgName, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
 
-                $orgRolesFilter = "(&(objectclass=groupOfNames)(member={$userDn}))";
+                $orgRolesFilter = '(&(objectclass=groupOfNames)(member=' . lum_filter_value($userDn) . '))';
                 $search = @ldap_search($ldap, $orgRolesDn, $orgRolesFilter, ['cn']);
                 if ($search) {
                     $result = ldap_get_entries($ldap, $search);

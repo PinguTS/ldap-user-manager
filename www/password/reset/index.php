@@ -11,19 +11,35 @@ include_once 'password_reset_functions.inc.php';
 
 setPageAccess('hidden_on_login');
 
+getCsrfToken();
+
 $submitted = ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_reset']));
 $message = null;
 $messageType = 'info';
 
 if ($submitted) {
+    if (!validateCsrfToken()) {
+        http_response_code(403);
+        exit('CSRF validation failed');
+    }
     $email = trim((string) ($_POST['email'] ?? ''));
 
-    // Always respond generically to avoid user enumeration.
-    $message = t('password.reset.message');
-    $messageType = 'info';
+    // Rate limit by IP to prevent enumeration / abuse.
+    $resetIp = (string) ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
+    if (isRateLimited('password_reset_html_' . $resetIp, 5, 300)) {
+        http_response_code(429);
+        $message = t('password.reset.message');
+        $messageType = 'info';
+    } else {
+        recordLoginAttempt('password_reset_html_' . $resetIp, false);
 
-    if ($email !== '' && isValidEmail($email)) {
-        process_password_reset_request_for_email($email);
+        // Always respond generically to avoid user enumeration.
+        $message = t('password.reset.message');
+        $messageType = 'info';
+
+        if ($email !== '' && isValidEmail($email)) {
+            process_password_reset_request_for_email($email);
+        }
     }
 }
 
@@ -46,6 +62,7 @@ renderHeader('Request password reset');
                 </p>
 
                 <form method="post" action="">
+                    <?php echo csrfTokenField(); ?>
                     <input type="hidden" name="request_reset" value="1">
                     <div class="form-group">
                         <label for="email" class="form-label"><?php echo htmlspecialchars(t('password.reset.email_label'), ENT_QUOTES, 'UTF-8'); ?></label>

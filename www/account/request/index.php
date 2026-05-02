@@ -16,8 +16,15 @@ renderFooter();
 exit(0);
 }
 
+getCsrfToken();
+
 if ($_POST) {
     $error_messages = array();
+
+    if (!validateCsrfToken()) {
+        http_response_code(403);
+        exit('CSRF validation failed');
+    }
 
     if (! isset($_POST['validate']) or strcasecmp($_POST['validate'], $_SESSION['proof_of_humanity']) != 0) {
         array_push($error_messages, t('account.request.error.validation_mismatch'));
@@ -126,6 +133,7 @@ if ($_POST) {
    <div class="card-body text-center">
 
     <form class="form-horizontal" action='' method='post'>
+    <?php echo csrfTokenField(); ?>
 
     <div class="form-group">
      <label for="firstname" class="col-sm-4 form-label"><?php echo htmlspecialchars(t('account.request.field_first_name'), ENT_QUOTES, 'UTF-8'); ?></label>

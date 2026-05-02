@@ -19,6 +19,7 @@ include_once 'web_functions.inc.php';
 include_once 'password_reset_functions.inc.php';
 include_once 'mail_functions.inc.php';
 
+setApiResponseHeaders();
 header('Content-Type: application/json; charset=UTF-8');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

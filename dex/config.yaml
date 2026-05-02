@@ -30,7 +30,7 @@ staticClients:
     redirectURIs:
       - https://app.example.org/oidc/callback
     name: "LDAP User Manager"
-    secret: your-client-secret-here
+    secret: <CHANGEME-oidc-client-secret>
     public: false
     trustedPeers: []
     applicationType: web
@@ -67,9 +67,10 @@ connectors:
     config:
       host: ldap-server:636
       insecureNoSSL: false
-      insecureSkipVerify: true
+      # insecureSkipVerify must be false in production; set to true only for local dev with self-signed certs.
+      insecureSkipVerify: false
       bindDN: cn=admin,dc=example,dc=com
-      bindPW: admin123
+      bindPW: <CHANGEME-strong-ldap-admin-password>
       userSearch:
         baseDN: dc=example,dc=com
         filter: "(objectClass=inetOrgPerson)"

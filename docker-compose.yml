@@ -9,8 +9,8 @@ services:
     environment:
       LDAP_ORGANISATION: "Example Organization"
       LDAP_DOMAIN: "example.com"
-      LDAP_ADMIN_PASSWORD: "admin123"
-      LDAP_CONFIG_PASSWORD: "config123"
+      LDAP_ADMIN_PASSWORD: "<CHANGEME-strong-ldap-admin-password>"
+      LDAP_CONFIG_PASSWORD: "<CHANGEME-strong-ldap-config-password>"
       LDAP_READONLY_USER: "false"
       LDAP_RFC2307BIS_SCHEMA: "false"
       LDAP_BACKEND: "mdb"
@@ -35,7 +35,7 @@ services:
     networks:
       - ldap-network
     healthcheck:
-      test: ["CMD", "ldapsearch", "-x", "-H", "ldaps://localhost:636", "-b", "dc=example,dc=com", "-D", "cn=admin,dc=example,dc=com", "-w", "admin123", "-o", "tls_reqcert=never"]
+      test: ["CMD", "ldapsearch", "-x", "-H", "ldaps://localhost:636", "-b", "dc=example,dc=com", "-D", "cn=admin,dc=example,dc=com", "-w", "${LDAP_ADMIN_PASSWORD:-<CHANGEME-strong-ldap-admin-password>}"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -74,7 +74,7 @@ services:
       LDAP_URI: "ldaps://ldap-server:636"
       LDAP_BASE_DN: "dc=example,dc=com"
       LDAP_ADMIN_BIND_DN: "cn=admin,dc=example,dc=com"
-      LDAP_ADMIN_BIND_PWD: "admin123"
+      LDAP_ADMIN_BIND_PWD: "<CHANGEME-strong-ldap-admin-password>"
 
       # Application Settings
       ORGANISATION_NAME: "LDAP User Manager"
@@ -86,13 +86,13 @@ services:
       OIDC_ENABLED: "true"
       OIDC_ISSUER: "https://id.example.org"
       OIDC_CLIENT_ID: "ldap-user-manager"
-      OIDC_CLIENT_SECRET: "your-client-secret-here"
+      OIDC_CLIENT_SECRET: "<CHANGEME-oidc-client-secret>"
       OIDC_REDIRECT_URI: "https://app.example.org/oidc/callback"
       OIDC_SCOPES: "openid profile email groups"
       
       # Security Settings
-      LDAP_REQUIRE_STARTTLS: "false"
-      LDAP_IGNORE_CERT_ERRORS: "true"
+      LDAP_REQUIRE_STARTTLS: "true"
+      LDAP_IGNORE_CERT_ERRORS: "false"
       NO_HTTPS: "true"
       # Password set/reset links (email): set PASSWORD_RESET_TOKEN_SECRET to enable; optional TTL in seconds (default 3600 = 1 hour)
       # PASSWORD_RESET_TOKEN_SECRET: "replace-with-openssl-rand-hex-32"

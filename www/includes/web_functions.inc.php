@@ -10,7 +10,17 @@
 declare(strict_types=1);
 
 if (session_status() === PHP_SESSION_NONE) {
-    session_set_cookie_params(['path' => '/', 'samesite' => 'Lax']);
+    // Wire security_config session params before session_start().
+    // $SECURITY_CONFIG may not be loaded yet; fall back to safe defaults.
+    $lum_session_config = $SECURITY_CONFIG['session'] ?? [];
+    $lum_no_https       = (bool) (getenv('NO_HTTPS') === 'TRUE' || getenv('NO_HTTPS') === 'true');
+    session_set_cookie_params([
+        'path'     => '/',
+        'secure'   => !$lum_no_https && ($lum_session_config['secure_cookies'] ?? true),
+        'httponly' => $lum_session_config['http_only'] ?? true,
+        'samesite' => $lum_session_config['same_site'] ?? 'Strict',
+    ]);
+    unset($lum_session_config, $lum_no_https);
     session_start();
 }
 include_once 'ldap_functions.inc.php';
@@ -127,7 +137,7 @@ function lumI18nInitFromRequest(): void
 lumI18nInitFromRequest();
 
 // When this file is included from inside a function (e.g. bootstrapManage()), config vars are in global scope
-global $SERVER_PATH, $SESSION_TIMEOUT, $NO_HTTPS, $REMOTE_HTTP_HEADERS_LOGIN, $COOKIE_PATH, $THIS_MODULE_PATH, $DEFAULT_COOKIE_OPTIONS;
+global $SERVER_PATH, $SESSION_TIMEOUT, $NO_HTTPS, $COOKIE_PATH, $THIS_MODULE_PATH, $DEFAULT_COOKIE_OPTIONS;
 
 $SERVER_PATH = (string) ($SERVER_PATH ?? '/');
 if (substr($SERVER_PATH, -1) !== '/') {
@@ -171,35 +181,57 @@ $DEFAULT_COOKIE_OPTIONS = [
 // Initialize OIDC if enabled
 init_oidc_config();
 
-if ($REMOTE_HTTP_HEADERS_LOGIN) {
-    loginViaHeaders();
+// Check OIDC authentication first
+if (require_oidc_auth()) {
+    redirect_to_oidc_if_required();
 } else {
-    // Check OIDC authentication first
-    if (require_oidc_auth()) {
-        redirect_to_oidc_if_required();
-    } else {
-        // One-time URL token: when cookies are not sent on redirect, this authenticates and sets cookies
-        if (!empty($_GET['auth_tok'])) {
-            tryConsumeOneTimeAuthToken();
-        }
-        validatePasskeyCookie();
+    // One-time URL token: when cookies are not sent on redirect, this authenticates and sets cookies
+    if (!empty($_GET['auth_tok'])) {
+        tryConsumeOneTimeAuthToken();
     }
+    validatePasskeyCookie();
 }
 
 ######################################################
 
 /**
- * Generates a random passkey for session management
+ * Return the writable state directory used for setup and rate-limit files.
  *
- * @return string Random hexadecimal passkey
+ * Defaults to /var/lib/ldap_user_manager; override with LUM_STATE_DIR env var.
+ * Creates the directory (with group-writable permissions 0775) if it doesn't
+ * exist yet; logs a warning and falls back to sys_get_temp_dir() if that fails.
  */
-function generatePasskey()
+function lumStateDir(): string
 {
+    static $resolved = null;
+    if ($resolved !== null) {
+        return $resolved;
+    }
 
-    $rnd1 = mt_rand(10000000, mt_getrandmax());
-    $rnd2 = mt_rand(10000000, mt_getrandmax());
-    $rnd3 = mt_rand(10000000, mt_getrandmax());
-    return sprintf("%0x", $rnd1) . sprintf("%0x", $rnd2) . sprintf("%0x", $rnd3);
+    $env = getenv('LUM_STATE_DIR');
+    $dir = ($env !== false && $env !== '') ? rtrim($env, '/') : '/var/lib/ldap_user_manager';
+
+    if (!is_dir($dir)) {
+        if (!@mkdir($dir, 0775, true) && !is_dir($dir)) {
+            error_log("lumStateDir: could not create state directory $dir; falling back to " . sys_get_temp_dir());
+            $dir = sys_get_temp_dir();
+        }
+    }
+
+    $resolved = $dir;
+    return $resolved;
+}
+
+######################################################
+
+/**
+ * Generates a cryptographically secure random passkey for session management.
+ *
+ * @return string 64-character hexadecimal string (256 bits of entropy)
+ */
+function generatePasskey(): string
+{
+    return bin2hex(random_bytes(32));
 }
 
 ######################################################
@@ -650,24 +682,6 @@ function setPasskeyCookie($user_id, $is_admin, $is_maintainer = false, $is_org_a
 
 ######################################################
 
-function loginViaHeaders()
-{
-
-    global $IS_ADMIN, $USER_ID, $VALIDATED, $LDAP, $currentUserGroups;
-  //['admins_group'];
-    $USER_ID = $_SERVER['HTTP_REMOTE_USER'];
-    $remote_groups = explode(',', $_SERVER['HTTP_REMOTE_GROUPS']);
-          $IS_ADMIN = in_array($LDAP['admin_role'], $remote_groups);
-  // users are always validated as we assume, that the auth server does this
-    $VALIDATED = true;
-  // Populate currentUserGroups from LDAP
-    $ldap_connection = open_ldap_connection();
-    $currentUserGroups = ldap_user_group_membership($ldap_connection, $USER_ID);
-    ldap_close($ldap_connection);
-}
-
-######################################################
-
 function validatePasskeyCookie()
 {
 
@@ -892,7 +906,7 @@ function setSetupCookie()
 
     $IS_SETUP_ADMIN = true;
 
-    @ file_put_contents("/tmp/ldap_setup", "$passkey:$this_time");
+    @ file_put_contents(lumStateDir() . '/ldap_setup', "$passkey:$this_time");
 
     setcookie('setup_cookie', $passkey, $DEFAULT_COOKIE_OPTIONS);
 
@@ -915,18 +929,18 @@ function validateSetupCookie()
 
     if (isset($_COOKIE['setup_cookie'])) {
         $c_passkey = $_COOKIE['setup_cookie'];
-        $session_file = @file_get_contents("/tmp/ldap_setup");
+        $session_file = @file_get_contents(lumStateDir() . '/ldap_setup');
         if ($session_file === false || $session_file === '') {
             $IS_SETUP_ADMIN = false;
             if ($SESSION_DEBUG == true) {
-                error_log("$log_prefix Setup session: setup_cookie was sent by the client but the session file wasn't found at /tmp/ldap_setup", 0);
+                error_log("$log_prefix Setup session: setup_cookie was sent by the client but the session file wasn't found at " . lumStateDir() . "/ldap_setup", 0);
             }
         } else {
             $session_parts = explode(':', $session_file, 2);
             if (count($session_parts) < 2) {
                 $IS_SETUP_ADMIN = false;
                 if ($SESSION_DEBUG == true) {
-                    error_log("$log_prefix Setup session: Invalid session file format at /tmp/ldap_setup", 0);
+                    error_log("$log_prefix Setup session: Invalid session file format at " . lumStateDir() . "/ldap_setup", 0);
                 }
             } else {
                 list($f_passkey, $f_time) = $session_parts;
@@ -938,7 +952,7 @@ function validateSetupCookie()
                     }
                     setSetupCookie();
                 } elseif ($SESSION_DEBUG == true) {
-                    $this_error = "$log_prefix Setup session: setup_cookie was sent by the client and the session file was found at /tmp/ldap_setup, but";
+                    $this_error = "$log_prefix Setup session: setup_cookie was sent by the client and the session file was found at " . lumStateDir() . "/ldap_setup, but";
                     if (empty($c_passkey)) {
                         $this_error .= " the cookie passkey wasn't set;";
                     }
@@ -957,42 +971,67 @@ function validateSetupCookie()
 
 ######################################################
 
-function logOut($method = 'normal')
+function logOut(string $method = 'normal'): void
 {
-
- # Delete the passkey from the database and the passkey cookie
-
-    global $USER_ID, $SERVER_PATH, $DEFAULT_COOKIE_OPTIONS;
+    global $USER_ID, $DEFAULT_COOKIE_OPTIONS;
 
     $this_time = time();
 
-    $orf_cookie_opts = $DEFAULT_COOKIE_OPTIONS;
-    $orf_cookie_opts['expires'] = $this_time - 20000;
-    $sessto_cookie_opts = $DEFAULT_COOKIE_OPTIONS;
-    $sessto_cookie_opts['expires'] = $this_time - 20000;
+    // Expire both app cookies by setting their expiry to the past
+    $expired_opts            = $DEFAULT_COOKIE_OPTIONS;
+    $expired_opts['expires'] = $this_time - 20000;
 
-    setcookie('orf_cookie', "", $DEFAULT_COOKIE_OPTIONS);
-    setcookie('sessto_cookie', "", $DEFAULT_COOKIE_OPTIONS);
+    setcookie('orf_cookie', '', $expired_opts);
+    setcookie('sessto_cookie', '', $expired_opts);
 
     clearUserLdapCredentials();
 
- // Use a hash of the user_id to find the session file
+    // Remove the server-side session file
     $session_hash = hash('sha256', $USER_ID ?? '');
-    @ unlink(getSessionFilePath($session_hash));
+    @unlink(getSessionFilePath($session_hash));
 
-    // Clear PHP session auth fallback
+    // Clear ALL auth-related PHP session keys (not just lum_* prefix)
+    $auth_keys = [
+        'user_id', 'is_admin', 'is_maintainer', 'is_org_admin',
+        'org_name', 'org_uuid', 'login_time', 'last_activity',
+    ];
+    foreach ($auth_keys as $k) {
+        unset($_SESSION[$k]);
+    }
+    // Also clear the lum_* prefixed session fallback keys
     foreach (array_keys($_SESSION) as $k) {
-        if (strpos($k, 'lum_') === 0) {
+        if (is_string($k) && strpos($k, 'lum_') === 0) {
             unset($_SESSION[$k]);
         }
     }
 
-    if ($method == 'auto') {
-        $options = "?logged_out";
-    } else {
-        $options = "";
+    // Expire the PHP session cookie itself
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        $session_params  = session_get_cookie_params();
+        $session_name    = (string) session_name();
+        // Normalise samesite to one of the values PHP's setcookie() accepts
+        $raw_samesite    = (string) ($session_params['samesite']);
+        $allowed_samesite = ['Lax', 'lax', 'None', 'none', 'Strict', 'strict'];
+        $samesite_value  = in_array($raw_samesite, $allowed_samesite, true) ? $raw_samesite : 'Lax';
+        setcookie(
+            $session_name,
+            '',
+            [
+                'expires'  => $this_time - 20000,
+                'path'     => $session_params['path'],
+                'domain'   => $session_params['domain'],
+                'secure'   => $session_params['secure'],
+                'httponly' => $session_params['httponly'],
+                'samesite' => $samesite_value,
+            ]
+        );
+        session_unset();
+        session_destroy();
+        session_regenerate_id(true);
     }
-    header("Location: " . getBaseUrl() . "index.php" . $options);
+
+    $options = ($method === 'auto') ? '?logged_out' : '';
+    header('Location: ' . getBaseUrl() . 'index.php' . $options);
 }
 
 ######################################################
@@ -1071,6 +1110,18 @@ function renderHeader($title = "", $menu = true)
 }
 
 /**
+ * Return the CSP nonce for this request, generating it once per request.
+ * Use this in templates: <script nonce="<?= getCspNonce() ?>">
+ */
+function getCspNonce(): string
+{
+    if (!isset($_SESSION['csp_nonce'])) {
+        $_SESSION['csp_nonce'] = base64_encode(random_bytes(16));
+    }
+    return $_SESSION['csp_nonce'];
+}
+
+/**
  * Set security headers to prevent common web attacks
  */
 function setSecurityHeaders()
@@ -1092,12 +1143,47 @@ function setSecurityHeaders()
     // Referrer policy
     header('Referrer-Policy: ' . $headers['referrer_policy']);
 
-    // Content Security Policy
-    header('Content-Security-Policy: ' . $headers['content_security_policy']);
+    // Content Security Policy – inject per-request nonce so unsafe-inline is
+    // not required.  The nonce is refreshed each time getCspNonce() is first
+    // called for a request cycle (stored in session only for templating
+    // convenience; the header is the authoritative value).
+    $nonce = base64_encode(random_bytes(16));
+    $_SESSION['csp_nonce'] = $nonce;
+    $csp = $headers['content_security_policy'];
+    // Replace 'unsafe-inline' directives with the nonce.
+    $nonce_token = "'nonce-{$nonce}'";
+    $csp = preg_replace(
+        "/script-src\s+'unsafe-inline'/",
+        "script-src {$nonce_token}",
+        $csp
+    ) ?? $csp;
+    $csp = preg_replace(
+        "/style-src\s+'unsafe-inline'/",
+        "style-src {$nonce_token} 'unsafe-inline'",
+        $csp
+    ) ?? $csp;
+    header('Content-Security-Policy: ' . $csp);
 
     // HSTS (only if HTTPS and enabled)
     if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' && $headers['strict_transport_security']) {
         header('Strict-Transport-Security: ' . $headers['strict_transport_security']);
+    }
+}
+
+/**
+ * Emit baseline security headers for API / export / data-download endpoints
+ * that do not render HTML (so the CSP nonce / X-Frame-Options logic in
+ * setSecurityHeaders() may not be appropriate, but we still want the minimum
+ * hardenening set).
+ */
+function setApiResponseHeaders(): void
+{
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: DENY');
+    header('Cache-Control: no-store, no-cache, must-revalidate');
+    header('Pragma: no-cache');
+    if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
+        header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
     }
 }
 
@@ -1469,9 +1555,32 @@ function setPageAccess($allowed_levels)
  */
 function getBaseUrl(): string
 {
-    global $SERVER_PATH;
+    global $SERVER_PATH, $SERVER_HOSTNAME, $SITE_PROTOCOL;
+
     $path = trim((string) $SERVER_PATH, '/');
-    return "//" . $_SERVER['HTTP_HOST'] . "/" . ($path !== '' ? $path . '/' : '');
+
+    // Prefer SITE_PUBLIC_URL env var (already used by lumPublicSiteBaseUrl).
+    // Fall back to SERVER_HOSTNAME from config, which is set from the
+    // SERVER_HOSTNAME environment variable — never from a request header.
+    $fromEnv = trim((string) (getenv('SITE_PUBLIC_URL') ?: ''));
+    if ($fromEnv !== '') {
+        $base = rtrim($fromEnv, '/');
+        return ($base === '') ? '/' : ($base . '/' . ($path !== '' ? $path . '/' : ''));
+    }
+
+    $hostname = (string) ($SERVER_HOSTNAME ?? '');
+    if ($hostname === '') {
+        // Last resort: use the Host header but only in a development context.
+        // In production this should never be reached because SERVER_HOSTNAME is required.
+        if (getenv('ENVIRONMENT') === 'production') {
+            error_log('LUM: getBaseUrl() called without SERVER_HOSTNAME in production — returning relative URL');
+            return '/' . ($path !== '' ? $path . '/' : '');
+        }
+        $hostname = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    }
+
+    $protocol = (string) ($SITE_PROTOCOL ?? '//');
+    return $protocol . $hostname . '/' . ($path !== '' ? $path . '/' : '');
 }
 
 /**
@@ -2160,7 +2269,7 @@ function safeUserAttribute($user, $key, $default = '')
  */
 function isRateLimited($identifier, $max_attempts = 5, $time_window = 300)
 {
-    $rate_limit_file = "/tmp/rate_limit_" . md5($identifier);
+    $rate_limit_file = lumStateDir() . "/rate_limit_" . md5($identifier);
 
     if (file_exists($rate_limit_file)) {
         $data = file_get_contents($rate_limit_file);
@@ -2190,7 +2299,7 @@ function isRateLimited($identifier, $max_attempts = 5, $time_window = 300)
  */
 function recordLoginAttempt($identifier, $success = false)
 {
-    $rate_limit_file = "/tmp/rate_limit_" . md5($identifier);
+    $rate_limit_file = lumStateDir() . "/rate_limit_" . md5($identifier);
 
     if ($success) {
         // Clear rate limiting on successful login

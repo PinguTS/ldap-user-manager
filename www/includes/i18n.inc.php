@@ -263,9 +263,41 @@ function lum_current_locale(): string
 }
 
 /**
- * Translate key; optional :placeholder replacement from $replacements.
+ * Translate key; replacement values are HTML-encoded by default so they
+ * are safe to echo directly into HTML context.  The translated message
+ * template itself is stored in locale JSON and is trusted; only the
+ * caller-supplied :placeholder values are encoded.
+ *
+ * Use t_raw() when a replacement value is already trusted/pre-encoded HTML.
+ *
+ * @param array<string, int|float|string> $replacements
  */
 function t(string $key, array $replacements = []): string
+{
+    global $lum_i18n_messages;
+
+    $msg = $lum_i18n_messages[$key] ?? $key;
+    if ($replacements === []) {
+        return $msg;
+    }
+    foreach ($replacements as $name => $value) {
+        $msg = str_replace(
+            ':' . (string) $name,
+            htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+            $msg
+        );
+    }
+
+    return $msg;
+}
+
+/**
+ * Like t(), but replacement values are inserted verbatim (no HTML-encoding).
+ * Only use this when the replacement value is already trusted or pre-encoded HTML.
+ *
+ * @param array<string, int|float|string> $replacements
+ */
+function t_raw(string $key, array $replacements = []): string
 {
     global $lum_i18n_messages;
 
@@ -306,6 +338,7 @@ function lum_i18n_messages_for_locale(string $locale): array
 
 /**
  * @param array<string, string> $messages
+ * @param array<string, string> $replacements
  */
 function lum_i18n_translate_from_messages(array $messages, string $key, array $replacements = []): string
 {

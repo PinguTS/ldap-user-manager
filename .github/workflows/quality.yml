@@ -1,0 +1,95 @@
+name: Quality & Security Checks
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Run make quality (PHPStan + PHPCS + naming check)
+        run: make quality
+
+  unsafe-pattern-grep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Grep for unsafe PHP patterns
+        # Fail if any of these dangerous patterns are introduced into www/ PHP files.
+        # Patterns checked:
+        #   mt_rand / rand( usage (non-cryptographic RNG)
+        #   md5( / sha1( used in security contexts (avoid as hash for passwords/tokens)
+        #   assert( – runtime code execution risk
+        #   unserialize($_  – deserialization of user-supplied data
+        #   eval(  – code injection risk
+        #   header( with $_GET/$_POST/$_REQUEST – header injection
+        #   setcookie( with $_GET/$_POST/$_REQUEST – cookie injection
+        #   LDAP filter strings with raw $_ variables – injection risk
+        run: |
+          set +e
+          FAIL=0
+
+          echo "=== Checking for mt_rand() usage ==="
+          rg --glob='www/**/*.php' 'mt_rand\(' && FAIL=1 || true
+
+          echo "=== Checking for non-cryptographic rand() usage ==="
+          rg --glob='www/**/*.php' '\brand\(' && FAIL=1 || true
+
+          echo "=== Checking for array_rand() usage ==="
+          rg --glob='www/**/*.php' 'array_rand\(' && FAIL=1 || true
+
+          echo "=== Checking for md5() in security-sensitive contexts ==="
+          rg --glob='www/**/*.php' 'password.*md5\(|md5\(.*password|md5\(.*token|token.*md5\(' -i && FAIL=1 || true
+
+          echo "=== Checking for eval() ==="
+          rg --glob='www/**/*.php' '\beval\(' && FAIL=1 || true
+
+          echo "=== Checking for unserialize() on user input ==="
+          rg --glob='www/**/*.php' 'unserialize\(\s*\$_(GET|POST|REQUEST|COOKIE)' && FAIL=1 || true
+
+          echo "=== Checking for header() injection (raw \$_GET/\$_POST/\$_REQUEST) ==="
+          rg --glob='www/**/*.php' 'header\s*\([^)]*\$_(GET|POST|REQUEST|COOKIE)' && FAIL=1 || true
+
+          echo "=== Checking for setcookie() injection (raw \$_GET/\$_POST/\$_REQUEST) ==="
+          rg --glob='www/**/*.php' 'setcookie\s*\([^)]*\$_(GET|POST|REQUEST|COOKIE)' && FAIL=1 || true
+
+          echo "=== Checking for LDAP filter strings with raw \$_GET/\$_POST ==="
+          rg --glob='www/**/*.php' 'ldap_search.*\$_(GET|POST|REQUEST|COOKIE)' && FAIL=1 || true
+
+          echo "=== Checking for loginViaHeaders (removed SSO, must not return) ==="
+          rg --glob='www/**/*.php' '^[^#/*]\S*loginViaHeaders' && FAIL=1 || true
+
+          echo "=== Checking for REMOTE_HTTP_HEADERS_LOGIN outside of comments ==="
+          rg --glob='www/**/*.php' '^[^#/*]\S*REMOTE_HTTP_HEADERS_LOGIN' && FAIL=1 || true
+
+          if [ $FAIL -eq 1 ]; then
+            echo "SECURITY: One or more unsafe patterns detected. Review the output above."
+            exit 1
+          fi
+          echo "All pattern checks passed."
+
+  composer-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          tools: composer
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Run composer audit
+        run: composer audit

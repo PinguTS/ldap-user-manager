@@ -9,16 +9,20 @@ include_once "ldap_functions.inc.php";
 
 setPageAccess("user");
 
-if (isset($_POST['change_password'])) {
- // Debug: Log what's being submitted
-    error_log("Password change attempt - pass_score: " . ($_POST['pass_score'] ?? 'NOT_SET') . ", password length: " . strlen($_POST['password'] ?? ''));
+// Generate CSRF token before any form output
+getCsrfToken();
 
+if (isset($_POST['change_password'])) {
+    if (!validateCsrfToken()) {
+        http_response_code(403);
+        header('Location: ' . getBaseUrl() . 'password/change/?error=csrf');
+        exit;
+    }
     if (!$_POST['password']) {
         $not_strong_enough = 1;
     }
     if ((!is_numeric($_POST['pass_score']) or $_POST['pass_score'] < $PASSWORD_STRENGTH_MIN_SCORE) and $ACCEPT_WEAK_PASSWORDS != true) {
         $not_strong_enough = 1;
-        error_log("Password rejected - pass_score: " . ($_POST['pass_score'] ?? 'NOT_SET') . ", numeric check: " . (is_numeric($_POST['pass_score'] ?? '') ? 'TRUE' : 'FALSE') . ", required score: " . $PASSWORD_STRENGTH_MIN_SCORE);
     }
     if (preg_match("/\"|'/", $_POST['password'])) {
         $invalid_chars = 1;
@@ -143,6 +147,7 @@ document.addEventListener('DOMContentLoaded', function(){
    <div class="card-body text-center">
    
     <form class="form-horizontal" action='' method='post'>
+     <?php echo csrfTokenField(); ?>
 
      <input type='hidden' id="change_password" name="change_password">
      <input type='hidden' id="pass_score" value="0" name="pass_score">

@@ -1021,11 +1021,16 @@ function updateUser($userIdentifier, $userData)
         $user_dn = $userIdentifier;
     }
 
-    // Prepare modifications
+    // Mass-assignment prevention: filter to the profile attribute allowlist and skip
+    // structural/critical fields regardless of what the caller passes.
+    $allowlist     = array_map('strtolower', LUM_USER_PROFILE_WRITABLE_ATTRS);
     $modifications = [];
     foreach ($userData as $attr => $value) {
-        if ($attr !== 'uid' && $attr !== 'dn' && !empty($value)) { // Don't modify critical fields
+        $attr_lc = strtolower($attr);
+        if (in_array($attr_lc, $allowlist, true) && !empty($value)) {
             $modifications[$attr] = $value;
+        } elseif (!empty($value) && !in_array($attr_lc, $allowlist, true)) {
+            error_log("updateUser: Dropping non-allowlisted attribute '$attr' for user $userIdentifier");
         }
     }
 
@@ -1167,8 +1172,8 @@ function createSystemUser($ldap, $userData)
     // Create the user
     $result = @ldap_add($ldap, $user_dn, $user_attributes);
     if (!$result) {
-        $error = ldap_error($ldap);
-        return [false, "Failed to create system user: $error"];
+        error_log("createSystemUser: ldap_add failed for $user_dn: " . ldap_error($ldap));
+        return [false, "Failed to create system user"];
     }
 
     // Add user to the appropriate role group
@@ -1249,8 +1254,8 @@ function createOrganizationUser($ldap, $userData)
     // Create the user
     $result = @ldap_add($ldap, $user_dn, $user_attributes);
     if (!$result) {
-        $error = ldap_error($ldap);
-        return [false, "Failed to create organization user: $error"];
+        error_log("createOrganizationUser: ldap_add failed for $user_dn: " . ldap_error($ldap));
+        return [false, "Failed to create organization user"];
     }
 
     // If user is an organization admin, add them to the org_admin role

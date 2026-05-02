@@ -14,8 +14,18 @@ if (function_exists('checkRuntimeRoleConflicts') && checkRuntimeRoleConflicts())
     displayMaintenanceMode();
 }
 
+// Generate a CSRF token early — session may not exist yet on first GET
+getCsrfToken();
+
 // Handle login POST before any output
 if (isset($_POST["user_id"]) && isset($_POST["password"])) {
+    // Enforce CSRF protection on the login form
+    if (!validateCsrfToken()) {
+        http_response_code(403);
+        header("Location: " . getBaseUrl() . "login/?invalid");
+        exit;
+    }
+
   // Check rate limiting before attempting authentication
     if (isRateLimited($_POST["user_id"])) {
         http_response_code(429); // Too Many Requests
@@ -104,7 +114,7 @@ if (isset($_POST["user_id"]) && isset($_POST["password"])) {
     if ($user_org_name && !$is_admin && !$is_maintainer) {
       // Search for org admin role within the user's specific organization
         $org_roles_dn = "ou=roles,o=" . ldap_escape($user_org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
-        $org_admin_filter = "(&(objectclass=groupOfNames)(cn={$LDAP['org_admin_role']})(member=$user_dn))";
+        $org_admin_filter = '(&(objectclass=groupOfNames)(cn=' . lum_filter_value($LDAP['org_admin_role']) . ')(member=' . lum_filter_value($user_dn) . '))';
 
         if ($LDAP_DEBUG) {
             error_log("Login: Checking org admin role in: $org_roles_dn");
@@ -315,6 +325,7 @@ renderHeader(t('login.page_title', ['org' => $ORGANISATION_NAME]));
         <?php endif; ?>
 
    <form class="form-horizontal" action='' method='post'>
+    <?php echo csrfTokenField(); ?>
     <?php if (isset($redirect_to) and ($redirect_to != "")) {
         // Raw base64; the browser form-encodes the value. Pre-encoding with rawurlencode caused
         // double-encoding and invalid base64 on POST (blank page after submit).

@@ -157,7 +157,7 @@ if (isset($_POST['create_org_user'])) {
 
                 if ($file_error !== UPLOAD_ERR_OK) {
                     renderAlertBanner(
-                        t('manage.org_users.add.msg.file_upload_error', ['attribute' => htmlspecialchars((string) $attribute, ENT_QUOTES, 'UTF-8')]),
+                        t('manage.org_users.add.msg.file_upload_error', ['attribute' => (string) $attribute]),
                         'danger',
                         10000
                     );
@@ -165,7 +165,7 @@ if (isset($_POST['create_org_user'])) {
                 }
                 if ($file_size > $max_file_size) {
                     renderAlertBanner(
-                        t('manage.org_users.add.msg.file_too_large', ['attribute' => htmlspecialchars((string) $attribute, ENT_QUOTES, 'UTF-8'), 'max' => '2MB']),
+                        t('manage.org_users.add.msg.file_too_large', ['attribute' => (string) $attribute, 'max' => '2MB']),
                         'danger',
                         10000
                     );
@@ -173,7 +173,7 @@ if (isset($_POST['create_org_user'])) {
                 }
                 if (!in_array($mime_type, $allowed_mime_types)) {
                     renderAlertBanner(
-                        t('manage.org_users.add.msg.file_invalid_type', ['attribute' => htmlspecialchars((string) $attribute, ENT_QUOTES, 'UTF-8')]),
+                        t('manage.org_users.add.msg.file_invalid_type', ['attribute' => (string) $attribute]),
                         'danger',
                         10000
                     );

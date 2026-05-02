@@ -163,9 +163,59 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
  $LDAP['admin_bind_dn'] = getenv('LDAP_ADMIN_BIND_DN');
  $LDAP['admin_bind_pwd'] = getenv('LDAP_ADMIN_BIND_PWD');
  $LDAP['connection_type'] = "plain";
- $LDAP['require_starttls'] = ((strcasecmp(getenv('LDAP_REQUIRE_STARTTLS') ?: 'FALSE', 'TRUE') == 0) ? true : false);
+ $LDAP['require_starttls'] = ((strcasecmp(getenv('LDAP_REQUIRE_STARTTLS') ?: 'TRUE', 'TRUE') == 0) ? true : false);
  $LDAP['ignore_cert_errors'] = ((strcasecmp(getenv('LDAP_IGNORE_CERT_ERRORS') ?: 'FALSE', 'TRUE') == 0) ? true : false);
  $LDAP['rfc2307bis_check_run'] = false;
+
+// ---------------------------------------------------------------------------
+// Startup guard: refuse to run in production with known-weak credentials.
+// Known-weak patterns: placeholder tokens, well-known demo passwords.
+// ---------------------------------------------------------------------------
+ (static function (): void {
+    $is_production = (strtolower((string) (getenv('ENVIRONMENT') ?: 'production')) === 'production');
+
+    $weak_patterns = [
+        'admin123', 'config123', 'password', 'secret',
+        'your-client-secret-here', 'your-password-here',
+        '<changeme', // any <CHANGEME-...> placeholder
+    ];
+
+    $values_to_check = [
+        'LDAP_ADMIN_BIND_PWD'    => (string) (getenv('LDAP_ADMIN_BIND_PWD') ?: ''),
+        'OIDC_CLIENT_SECRET'     => (string) (getenv('OIDC_CLIENT_SECRET') ?: ''),
+        'PASSWORD_RESET_TOKEN_SECRET' => (string) (getenv('PASSWORD_RESET_TOKEN_SECRET') ?: ''),
+    ];
+
+    $flagged = [];
+    foreach ($values_to_check as $var => $value) {
+        if ($value === '') {
+            continue;
+        }
+        foreach ($weak_patterns as $pattern) {
+            if (stripos($value, $pattern) !== false) {
+                $flagged[] = $var;
+                break;
+            }
+        }
+    }
+
+    if ($flagged === []) {
+        return;
+    }
+
+    $msg = 'LUM SECURITY: Weak or placeholder credential detected in: ' . implode(', ', $flagged);
+    error_log($msg);
+
+    if ($is_production) {
+        http_response_code(500);
+        echo '<html><body><h1>Configuration Error</h1><p>'
+            . htmlspecialchars('The application cannot start because a placeholder or weak credential is configured. '
+                . 'Please set a strong password/secret in your environment and restart. '
+                . 'Affected variable(s): ' . implode(', ', $flagged), ENT_QUOTES, 'UTF-8')
+            . '</p></body></html>';
+        exit(1);
+    }
+ })();
 
 
  # Various advanced LDAP settings
@@ -345,7 +395,6 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
 
  $NO_HTTPS = ((strcasecmp(getenv('NO_HTTPS') ?: '', 'TRUE') == 0) ? true : false);
 
- $REMOTE_HTTP_HEADERS_LOGIN = ((strcasecmp(getenv('REMOTE_HTTP_HEADERS_LOGIN') ?: '', 'TRUE') == 0) ? true : false);
 
  # Sending email
 

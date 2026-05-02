@@ -65,7 +65,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete_organization') {
                     exit;
                 }
                 renderAlertBanner(
-                    t('manage.orgs.show.msg.delete_fail', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+                    t('manage.orgs.show.msg.delete_fail', ['org' => (string) $org_name]),
                     "danger",
                     15000
                 );
@@ -91,12 +91,12 @@ if (isset($_POST['action']) && ($_POST['action'] === 'disable_organization' || $
             if ($_POST['action'] === 'disable_organization') {
                 if (currentUserCanDisableOrganization($org_name) && ldap_disable_organization($ldap_connection_action, $org_name)) {
                     renderAlertBanner(
-                        t('manage.orgs.show.msg.deactivate_ok', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+                        t('manage.orgs.show.msg.deactivate_ok', ['org' => (string) $org_name]),
                         "success"
                     );
                 } else {
                     renderAlertBanner(
-                        t('manage.orgs.show.msg.deactivate_fail', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+                        t('manage.orgs.show.msg.deactivate_fail', ['org' => (string) $org_name]),
                         "danger",
                         15000
                     );
@@ -104,15 +104,14 @@ if (isset($_POST['action']) && ($_POST['action'] === 'disable_organization' || $
             } elseif ($_POST['action'] === 'enable_organization') {
                 if (!currentUserCanEnableOrganization($org_name)) {
                     renderAlertBanner(
-                        t('manage.orgs.show.msg.activate_fail', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+                        t('manage.orgs.show.msg.activate_fail', ['org' => (string) $org_name]),
                         "danger",
                         15000
                     );
                 } else {
                     $enable_result = ldap_enable_organization($ldap_connection_action, $org_name);
                     if ($enable_result !== false && $enable_result['ok']) {
-                        $safe_org = htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8');
-                        $msg = t('manage.orgs.show.msg.activate_ok', ['org' => $safe_org]);
+                        $msg = t('manage.orgs.show.msg.activate_ok', ['org' => (string) $org_name]);
                         if ($enable_result['still_disabled'] > 0) {
                             $msg .= ' ' . t('manage.orgs.show.msg.activate_summary', [
                                 'activated' => $enable_result['enabled'],
@@ -122,7 +121,7 @@ if (isset($_POST['action']) && ($_POST['action'] === 'disable_organization' || $
                         renderAlertBanner($msg, "success");
                     } else {
                         renderAlertBanner(
-                            t('manage.orgs.show.msg.activate_fail', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+                            t('manage.orgs.show.msg.activate_fail', ['org' => (string) $org_name]),
                             "danger",
                             15000
                         );
@@ -155,7 +154,8 @@ if (isset($_POST['action']) && $_POST['action'] === 'toggle_recent_user_manager'
                 if ($result[0]) {
                     renderAlertBanner(t('manage.org_users.msg.removed_org_manager', ['user' => $userDisplay]), "warning");
                 } else {
-                    renderAlertBanner(t('manage.org_users.msg.update_org_manager_fail', ['error' => $result[1]]), "danger");
+                    error_log("show/org toggle_manager: removeUserFromOrgAdmin failed: " . $result[1]);
+                    renderAlertBanner(t('manage.org_users.msg.update_org_manager_fail'), "danger");
                 }
             } else {
                 addUserToOrgAdmin($org_name, $userDn);
@@ -191,15 +191,15 @@ if (isset($_POST['action']) && $_POST['action'] === 'toggle_recent_user_active')
                         if (ldap_enable_user_account($ldapConnection, $userDn)) {
                             renderAlertBanner(t('manage.users.msg.activate_ok', ['user' => $userDisplay]), "success");
                         } else {
-                            $error = ldap_error($ldapConnection);
-                            renderAlertBanner(t('manage.users.msg.activate_fail', ['user' => $userDisplay, 'error' => $error]), "danger");
+                            error_log("show/org enable_user failed for $userDn: " . ldap_error($ldapConnection));
+                            renderAlertBanner(t('manage.users.msg.activate_fail', ['user' => $userDisplay]), "danger");
                         }
                     } elseif ($targetState === 'disable') {
                         if (ldap_disable_user_account($ldapConnection, $userDn)) {
                             renderAlertBanner(t('manage.users.msg.deactivate_ok', ['user' => $userDisplay]), "success");
                         } else {
-                            $error = ldap_error($ldapConnection);
-                            renderAlertBanner(t('manage.users.msg.deactivate_fail', ['user' => $userDisplay, 'error' => $error]), "danger");
+                            error_log("show/org disable_user failed for $userDn: " . ldap_error($ldapConnection));
+                            renderAlertBanner(t('manage.users.msg.deactivate_fail', ['user' => $userDisplay]), "danger");
                         }
                     }
                     lum_close_ldap_if_not_manage($ldapConnection);
@@ -232,12 +232,12 @@ if (isset($_POST['action']) && ($_POST['action'] === 'member_organization' || $_
                 if ($_POST['action'] === 'member_organization') {
                     if (add_to_status_group($ldap_connection_action, $org_dn_action, $member_group_cn_post, $base_dn)) {
                         renderAlertBanner(
-                            t('manage.orgs.show.msg.member_ok', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+                            t('manage.orgs.show.msg.member_ok', ['org' => (string) $org_name]),
                             "success"
                         );
                     } else {
                         renderAlertBanner(
-                            t('manage.orgs.show.msg.member_fail', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+                            t('manage.orgs.show.msg.member_fail', ['org' => (string) $org_name]),
                             "danger",
                             15000
                         );
@@ -245,12 +245,12 @@ if (isset($_POST['action']) && ($_POST['action'] === 'member_organization' || $_
                 } else {
                     if (remove_from_status_group($ldap_connection_action, $org_dn_action, $member_group_cn_post, $base_dn)) {
                         renderAlertBanner(
-                            t('manage.orgs.show.msg.unmember_ok', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+                            t('manage.orgs.show.msg.unmember_ok', ['org' => (string) $org_name]),
                             "success"
                         );
                     } else {
                         renderAlertBanner(
-                            t('manage.orgs.show.msg.unmember_fail', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+                            t('manage.orgs.show.msg.unmember_fail', ['org' => (string) $org_name]),
                             "danger",
                             15000
                         );
@@ -404,7 +404,7 @@ if (isset($_POST['update_organization'])) {
 
             if ($result && $rename_ok) {
                 renderAlertBanner(
-                    t('manage.orgs.show.msg.org_update_ok', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+                    t('manage.orgs.show.msg.org_update_ok', ['org' => (string) $org_name]),
                     "success"
                 );
             } elseif (!$result) {
@@ -507,7 +507,7 @@ if ($org_uuid) {
 
     if (!$organization) {
         renderAlertBanner(
-            t('manage.orgs.show.msg.org_not_found', ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]),
+            t('manage.orgs.show.msg.org_not_found', ['org' => (string) $org_name]),
             "danger"
         );
         renderFooter();

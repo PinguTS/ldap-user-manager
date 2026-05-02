@@ -10,6 +10,70 @@ if (!defined('LDAP_ESCAPE_DN')) {
     define('LDAP_ESCAPE_DN', 0);
 }
 
+// ---------------------------------------------------------------------------
+// Per-action attribute allowlists (mass-assignment prevention)
+//
+// Only keys present in the relevant list may be written to LDAP by each code
+// path. Keys outside the list are silently dropped and logged.  'objectClass',
+// 'dn', and all LDAP operational attributes are deliberately absent from all
+// lists.
+// ---------------------------------------------------------------------------
+
+/**
+ * Attributes writable when saving a user's own profile or when an admin/
+ * maintainer updates a user profile via manage/users/show.php.
+ */
+define('LUM_USER_PROFILE_WRITABLE_ATTRS', [
+    'cn', 'givenname', 'sn', 'displayname', 'mail',
+    'telephonenumber', 'mobile', 'description',
+    'o', 'ou', 'title', 'departmentnumber', 'employeetype',
+    'street', 'postaladdress', 'postalcode', 'l', 'st', 'co',
+    'jpegphoto', 'labeleduri', 'userpassword',
+]);
+
+/**
+ * Attributes allowed when creating a new LDAP account via ldap_new_account().
+ * Password and objectClass are handled separately and are not in this list.
+ */
+define('LUM_USER_CREATE_WRITABLE_ATTRS', [
+    'uid', 'cn', 'givenname', 'sn', 'displayname', 'mail',
+    'telephonenumber', 'mobile', 'description',
+    'o', 'ou', 'title', 'departmentnumber', 'employeetype',
+    'street', 'postaladdress', 'postalcode', 'l', 'st', 'co',
+    'jpegphoto', 'labeleduri',
+]);
+
+/**
+ * Attributes synced from OIDC claims (future use; kept minimal).
+ */
+define('LUM_OIDC_SYNC_ATTRS', [
+    'mail', 'cn', 'givenname', 'sn', 'displayname',
+]);
+
+// ---------------------------------------------------------------------------
+// LDAP escape helpers — always use these when building filters or DNs from
+// user-supplied input to prevent LDAP injection.
+// ---------------------------------------------------------------------------
+
+/**
+ * Escape a value for safe inclusion inside an LDAP search filter.
+ * Use for the value part of (attr=VALUE), e.g. (uid=VALUE).
+ */
+function lum_filter_value(string $v): string
+{
+    return ldap_escape($v, '', LDAP_ESCAPE_FILTER);
+}
+
+/**
+ * Escape a value for safe inclusion as an RDN component in an LDAP DN.
+ * Use when constructing DNs from user-supplied attribute values,
+ * e.g. "cn=ROLE_NAME,ou=roles,dc=example,dc=com".
+ */
+function lum_dn_value(string $v): string
+{
+    return ldap_escape($v, '', LDAP_ESCAPE_DN);
+}
+
 /**
  * LDAP connection and authentication functions
  *
@@ -37,13 +101,21 @@ function ldap_new_connection_unbound()
         exit(1);
     }
 
-    if (getenv('ENVIRONMENT') !== 'development' && getenv('ENVIRONMENT') !== 'test') {
-        if ($LDAP['ignore_cert_errors'] === true) {
-            error_log("$log_prefix WARNING: Certificate errors are being ignored in production environment", 0);
-        }
-    }
-
+    $environment = strtolower((string) (getenv('ENVIRONMENT') ?: 'production'));
     if ($LDAP['ignore_cert_errors'] === true) {
+        if ($environment === 'production') {
+            // Refuse to establish an unverified TLS connection in production.
+            error_log("$log_prefix FATAL: LDAP_IGNORE_CERT_ERRORS=true is not permitted in ENVIRONMENT=production. "
+                . "Set LDAP_IGNORE_CERT_ERRORS=false or switch to ENVIRONMENT=development.", 0);
+            http_response_code(500);
+            echo '<html><body><h1>Configuration Error</h1><p>'
+                . 'LDAP_IGNORE_CERT_ERRORS=true is not permitted in production. '
+                . 'Please configure proper TLS certificates and set LDAP_IGNORE_CERT_ERRORS=false.'
+                . '</p></body></html>';
+            exit(1);
+        }
+        error_log("$log_prefix WARNING: Certificate errors are being ignored (LDAP_IGNORE_CERT_ERRORS=true). "
+            . "This is only acceptable in development/test environments.", 0);
         putenv('LDAPTLS_REQCERT=never');
     }
     $ldap_connection = @ldap_connect($LDAP['uri']);
@@ -69,11 +141,15 @@ function ldap_new_connection_unbound()
                 error_log("$log_prefix Failed to start STARTTLS connection to {$LDAP['uri']}: " . ldap_error($ldap_connection), 0);
             }
 
-            if ($LDAP["require_starttls"] === true || (!$is_localhost && getenv('ENVIRONMENT') !== 'development')) {
-                print "<div style='position: fixed;bottom: 0;width: 100%;' class='alert alert-danger'>Fatal:  Couldn't create a secure connection to {$LDAP['uri']} and LDAP_REQUIRE_STARTTLS is TRUE.</div>";
+            // In production STARTTLS is always required; in dev only when explicitly required.
+            $env_is_prod = ($environment === 'production');
+            if ($LDAP["require_starttls"] === true || $env_is_prod || (!$is_localhost && $environment !== 'development')) {
+                error_log("$log_prefix FATAL: STARTTLS failed for {$LDAP['uri']}. Refusing plaintext fallback.", 0);
+                print "<div style='position: fixed;bottom: 0;width: 100%;' class='alert alert-danger'>Fatal: Couldn't create a secure connection to {$LDAP['uri']}. STARTTLS is required.</div>";
                 exit(0);
             } else {
-                if ($SENT_HEADERS === true and !preg_match('/^ldap:\/\/localhost(:[0-9]+)?$/', $LDAP['uri']) and !preg_match('/^ldap:\/\/127\.0\.0\.([0-9]+)(:[0-9]+)$/', $LDAP['uri'])) {
+                // Development only: warn but allow plaintext for localhost connections
+                if ($SENT_HEADERS === true) {
                     print "<div style='position: fixed;bottom: 0px;width: 100%;height: 20px;border-bottom:solid 20px yellow;'>WARNING: Insecure LDAP connection to {$LDAP['uri']}</div>";
                 }
                 ldap_close($ldap_connection);
@@ -351,12 +427,11 @@ function generate_salt($length)
 {
 
     $permitted_chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ./';
-
-    mt_srand(intval(microtime()) * 1000000);
+    $charset_len     = strlen($permitted_chars);
 
     $salt = '';
     while (strlen($salt) < $length) {
-        $salt .= substr($permitted_chars, (rand() % strlen($permitted_chars)), 1);
+        $salt .= substr($permitted_chars, random_int(0, $charset_len - 1), 1);
     }
 
     return $salt;
@@ -857,7 +932,7 @@ function ldap_is_group_member($ldap_connection, $base_dn, $group_name, $user_dn)
         return false;
     }
 
-    $ldap_search_query = "(&(objectclass=groupOfNames)(cn=$group_name)(member=$user_dn))";
+    $ldap_search_query = '(&(objectclass=groupOfNames)(cn=' . lum_filter_value($group_name) . ')(member=' . lum_filter_value($user_dn) . '))';
     $ldap_search = @ldap_search($ldap_connection, $base_dn, $ldap_search_query);
     if (!$ldap_search) {
         return false;
@@ -1397,6 +1472,19 @@ function ldap_new_account($ldap_connection, $account_r)
             // Internal control field used to resolve org DN; not guaranteed to exist in LDAP schema.
             unset($account_r['organization']);
 
+            // Mass-assignment prevention: keep only explicitly allowlisted attributes.
+            $allowlist  = array_map('strtolower', LUM_USER_CREATE_WRITABLE_ATTRS);
+            $account_r_filtered = [];
+            foreach ($account_r as $attr => $value) {
+                $attr_lc = strtolower($attr);
+                if (in_array($attr_lc, $allowlist, true)) {
+                    $account_r_filtered[$attr] = $value;
+                } else {
+                    error_log("$log_prefix ldap_new_account: Dropping non-allowlisted attribute '$attr'");
+                }
+            }
+            $account_r = $account_r_filtered;
+
             $objectclasses = $LDAP['account_objectclasses'];
 
             $account_attributes = array('objectclass' => $objectclasses,
@@ -1686,6 +1774,24 @@ function ldap_update_user_attributes($ldap_connection, $username, $attributes)
         return false;
     }
 
+    // Mass-assignment prevention: only allowlisted profile attributes may be written.
+    $allowlist  = array_map('strtolower', LUM_USER_PROFILE_WRITABLE_ATTRS);
+    $attributes_filtered = [];
+    foreach ($attributes as $attr => $value) {
+        $attr_lc = strtolower($attr);
+        if (in_array($attr_lc, $allowlist, true)) {
+            $attributes_filtered[$attr] = $value;
+        } else {
+            error_log("$log_prefix ldap_update_user_attributes: Dropping non-allowlisted attribute '$attr'");
+        }
+    }
+    $attributes = $attributes_filtered;
+
+    if (empty($attributes)) {
+        error_log("$log_prefix Update user attributes; all provided attributes were rejected by allowlist", 0);
+        return false;
+    }
+
  # Find the user across all organizations and system users
     $ldap_search_query = "{$LDAP['account_attribute']}=" . ldap_escape(($username === null ? '' : $username), "", LDAP_ESCAPE_FILTER);
     $user_dn = null;
@@ -1879,11 +1985,11 @@ function get_user_dn_from_identifier($ldap_connection, $identifier)
 
   // Check if identifier is a UUID
     if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $identifier)) {
-      // Search by UUID
+      // Search by UUID — escape even though format is already validated
         $ldap_search = @ldap_search(
             $ldap_connection,
             $LDAP['base_dn'],
-            "({$LDAP['uuid_attribute']}=$identifier)",
+            '(' . $LDAP['uuid_attribute'] . '=' . lum_filter_value($identifier) . ')',
             ['dn']
         );
         if ($ldap_search) {
@@ -1898,7 +2004,7 @@ function get_user_dn_from_identifier($ldap_connection, $identifier)
     $ldap_search = @ldap_search(
         $ldap_connection,
         $LDAP['org_dn'],
-        "({$LDAP['account_attribute']}=$identifier)",
+        '(' . $LDAP['account_attribute'] . '=' . lum_filter_value($identifier) . ')',
         ['dn']
     );
     if ($ldap_search) {
@@ -1912,7 +2018,7 @@ function get_user_dn_from_identifier($ldap_connection, $identifier)
     $ldap_search = @ldap_search(
         $ldap_connection,
         $LDAP['people_dn'],
-        "({$LDAP['account_attribute']}=$identifier)",
+        '(' . $LDAP['account_attribute'] . '=' . lum_filter_value($identifier) . ')',
         ['dn']
     );
     if ($ldap_search) {
@@ -2031,7 +2137,7 @@ function ldap_get_user_dn($ldap_connection, $username)
     $search = @ldap_search(
         $ldap_connection,
         $LDAP['people_dn'],
-        "(uid=$username)",
+        '(uid=' . lum_filter_value($username) . ')',
         ['dn']
     );
     if ($search) {
@@ -2045,7 +2151,7 @@ function ldap_get_user_dn($ldap_connection, $username)
     $search = @ldap_search(
         $ldap_connection,
         $LDAP['org_dn'],
-        "(uid=$username)",
+        '(uid=' . lum_filter_value($username) . ')',
         ['dn']
     );
     if ($search) {
@@ -2081,11 +2187,11 @@ function ldap_add_member_to_group($ldap_connection, $role_name, $username)
 
     if (in_array($role_name, $global_roles)) {
       // Global role - add to ou=roles,dc=example,dc=com
-        $group_dn = "cn=$role_name,{$LDAP['roles_dn']}";
+        $group_dn = 'cn=' . lum_dn_value($role_name) . ',' . $LDAP['roles_dn'];
     } else {
       // Organization role - need to determine which organization
       // For now, assume it's a global role if not found
-        $group_dn = "cn=$role_name,{$LDAP['roles_dn']}";
+        $group_dn = 'cn=' . lum_dn_value($role_name) . ',' . $LDAP['roles_dn'];
     }
 
   // Check if the group exists
@@ -2150,11 +2256,11 @@ function ldap_delete_member_from_group($ldap_connection, $role_name, $username)
 
     if (in_array($role_name, $global_roles)) {
       // Global role - remove from ou=roles,dc=example,dc=com
-        $group_dn = "cn=$role_name,{$LDAP['roles_dn']}";
+        $group_dn = 'cn=' . lum_dn_value($role_name) . ',' . $LDAP['roles_dn'];
     } else {
       // Organization role - need to determine which organization
       // For now, assume it's a global role if not found
-        $group_dn = "cn=$role_name,{$LDAP['roles_dn']}";
+        $group_dn = 'cn=' . lum_dn_value($role_name) . ',' . $LDAP['roles_dn'];
     }
 
   // Check if the group exists

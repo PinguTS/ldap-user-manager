@@ -20,6 +20,10 @@ getCsrfToken();
 
 setPageAccess(["admin", "user"]); // Allow both admin and user roles
 
+// RBAC: a non-admin/non-maintainer user may only view their own profile.
+// Admins and maintainers keep their current broad access.
+$viewing_as_plain_user = (!$IS_ADMIN && !$IS_MAINTAINER && $VALIDATED);
+
 $orgName = (string) ($ORGANISATION_NAME ?? 'System');
 renderHeader(t('manage.users.profile.page_title', ['org' => $orgName]));
 render_submenu();
@@ -100,7 +104,12 @@ if ($user_uuid !== null && $user_uuid !== '') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    validateCsrfToken();
+    if (!validateCsrfToken()) {
+        http_response_code(403);
+        renderAlertBanner(t('manage.common.csrf_error'), 'danger');
+        renderFooter();
+        exit;
+    }
 }
 
 $ldap_connection = lum_ldap_data_connection();
@@ -159,6 +168,23 @@ if (!is_array($userRow)) {
     exit(0);
 }
 $user_data = $userRow;
+
+// RBAC: users with role 'user' (not admin/maintainer) may only view their own profile.
+// Resolve the target user's account identifier and compare to the session identity.
+if ($viewing_as_plain_user) {
+    $target_account = (string) ($user_data[$LDAP['account_attribute']][0] ?? '');
+    $session_account = (string) ($USER_ID ?? '');
+    // Also allow match via UUID if both are available
+    $target_uuid = (string) ($user_data[$LDAP['uuid_attribute']][0] ?? '');
+    $is_self = ($session_account !== '' && $target_account !== '' && $session_account === $target_account)
+            || ($user_uuid !== null && $user_uuid !== '' && $target_uuid !== '' && $user_uuid === $target_uuid);
+    if (!$is_self) {
+        http_response_code(403);
+        renderAlertBanner(t('manage.users.msg.access_denied'), 'danger');
+        renderFooter();
+        exit;
+    }
+}
 
 // Check if current user can edit this profile
 $can_edit = false;

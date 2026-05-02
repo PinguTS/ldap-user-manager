@@ -14,6 +14,11 @@ declare(strict_types=1);
 /**
  * Return the path of the setup lock file.
  *
+ * Priority:
+ *   1. LDAP_SETUP_LOCK_FILE env var (absolute path override)
+ *   2. LUM_STATE_DIR / ldap_user_manager_setup_complete
+ *   3. /var/lib/ldap_user_manager / ldap_user_manager_setup_complete (default state dir)
+ *
  * @return string
  */
 function get_setup_lock_file_path(): string
@@ -22,7 +27,12 @@ function get_setup_lock_file_path(): string
     if ($path !== false && $path !== '') {
         return $path;
     }
-    return '/tmp/ldap_user_manager_setup_complete';
+    // Use the shared state directory so the lock file survives /tmp cleanup.
+    $stateDir = getenv('LUM_STATE_DIR');
+    if ($stateDir === false || $stateDir === '') {
+        $stateDir = '/var/lib/ldap_user_manager';
+    }
+    return rtrim($stateDir, '/') . '/ldap_user_manager_setup_complete';
 }
 
 /**

@@ -69,7 +69,8 @@ if (isset($_POST['action']) && $_POST['action'] == 'create_organization') {
                 $message = t('manage.orgs.add.msg.created_ok');
                 $message_type = 'success';
             } else {
-                $message = t('manage.orgs.add.msg.create_fail', ['error' => (string) $result[1]]);
+                error_log("createOrganization failed: " . (string) $result[1]);
+                $message = t('manage.orgs.add.msg.create_fail');
                 $message_type = 'danger';
             }
         }

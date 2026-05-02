@@ -112,7 +112,8 @@ function renderOrgUsersPageManagerToggle(
     string $orgName
 ): void {
     ?>
-                        <form method="get" class="d-inline-flex align-items-center justify-content-center">
+                        <form method="post" class="d-inline-flex align-items-center justify-content-center">
+                            <?= csrfTokenField() ?>
                             <input type="hidden" name="<?= $orgUuid ? 'uuid' : 'org' ?>" value="<?= htmlspecialchars($orgUuid ?: $orgName, ENT_QUOTES, 'UTF-8') ?>">
                             <input type="hidden" name="uid" value="<?= htmlspecialchars($userIdentifier, ENT_QUOTES, 'UTF-8') ?>">
                             <input type="hidden" name="toggle_manager" value="1">

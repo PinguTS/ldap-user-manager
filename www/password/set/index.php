@@ -26,7 +26,13 @@ $purpose = $payload['purpose'];
 $errors = [];
 $success = false;
 
+getCsrfToken();
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['set_password'])) {
+    if (!validateCsrfToken()) {
+        http_response_code(403);
+        exit('CSRF validation failed');
+    }
     $password = (string) ($_POST['password'] ?? '');
     $confirm = (string) ($_POST['password_match'] ?? '');
     $passScore = isset($_POST['pass_score']) && is_numeric($_POST['pass_score']) ? (int) $_POST['pass_score'] : null;
@@ -40,6 +46,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['set_password'])) {
         ldap_close($ldap);
 
         if ($changed) {
+            // Mark the token consumed so it cannot be replayed.
+            markPasswordTokenConsumed($token);
             $success = true;
         } else {
             $errors[] = t('password.set.fail_admin');
@@ -74,6 +82,7 @@ renderHeader(t('password.set.page_title'));
                     </p>
 
                     <form class="form-horizontal" action="" method="post">
+                        <?php echo csrfTokenField(); ?>
                         <input type="hidden" name="set_password" value="1">
                         <input type="hidden" id="pass_score" value="0" name="pass_score">
 

@@ -19,6 +19,4 @@ declare(strict_types=1);
  if ($ACCOUNT_REQUESTS_ENABLED == true) {
      $MODULES['request_account'] = 'hidden_on_login';
  }
- if (!$REMOTE_HTTP_HEADERS_LOGIN) {
-     $MODULES['logOut'] = 'auth';
- }
+ $MODULES['logOut'] = 'auth';

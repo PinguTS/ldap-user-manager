@@ -209,7 +209,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
           // Clear form data
             $new_account_r = array();
         } else {
-            renderAlertBanner(t('manage.users.new.msg.created_fail', ['error' => $result[1]]), 'danger', 10000);
+            error_log("new user: ldap_new_account failed: " . $result[1]);
+            renderAlertBanner(t('manage.users.new.msg.created_fail'), 'danger', 10000);
         }
     } else {
         renderAlertBanner(t('manage.users.new.msg.validation_failed', ['errors' => implode(', ', $errors)]), 'danger', 10000);

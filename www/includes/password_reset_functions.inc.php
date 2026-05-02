@@ -115,6 +115,11 @@ function verify_password_action_token(string $token): ?array
         return null;
     }
 
+    // Reject tokens that have already been consumed (single-use enforcement).
+    if (isPasswordTokenConsumed($token)) {
+        return null;
+    }
+
     return [
         'sub' => $sub,
         'exp' => $exp,
@@ -126,6 +131,56 @@ function is_password_reset_link_enabled(): bool
 {
     $secret = (string) (getenv('PASSWORD_RESET_TOKEN_SECRET') ?: '');
     return $secret !== '';
+}
+
+/**
+ * Return the file path used to mark a token as consumed.
+ * We store a SHA-256 hash of the token (not the token itself) so that the file
+ * cannot be reversed back to the original token.
+ */
+function getConsumedTokenFilePath(string $token): string
+{
+    $hash = hash('sha256', $token);
+    // lumStateDir() is defined in web_functions.inc.php and uses LUM_STATE_DIR.
+    // If the caller hasn't loaded web_functions.inc.php, fall back to /tmp.
+    $dir = function_exists('lumStateDir') ? lumStateDir() : sys_get_temp_dir();
+    return $dir . '/lum_token_used_' . $hash;
+}
+
+/**
+ * Record that a password-reset / set-link token has been consumed so that it
+ * cannot be replayed.  The file is given a TTL so the state directory does not
+ * grow indefinitely.
+ */
+function markPasswordTokenConsumed(string $token, int $ttlSeconds = 7200): void
+{
+    $path = getConsumedTokenFilePath($token);
+    @file_put_contents($path, (string) (time() + $ttlSeconds));
+    // Opportunistic cleanup of stale consumed-token files.
+    $dir = function_exists('lumStateDir') ? lumStateDir() : sys_get_temp_dir();
+    foreach (glob($dir . '/lum_token_used_*') ?: [] as $f) {
+        $exp = (int) @file_get_contents($f);
+        if ($exp > 0 && time() > $exp) {
+            @unlink($f);
+        }
+    }
+}
+
+/**
+ * Return true if the given token has already been consumed (i.e. used once).
+ */
+function isPasswordTokenConsumed(string $token): bool
+{
+    $path = getConsumedTokenFilePath($token);
+    if (!is_file($path)) {
+        return false;
+    }
+    $exp = (int) @file_get_contents($path);
+    if ($exp > 0 && time() > $exp) {
+        @unlink($path);
+        return false;
+    }
+    return true;
 }
 
 function get_password_reset_token_ttl_seconds(): int

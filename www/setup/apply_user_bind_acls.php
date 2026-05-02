@@ -115,7 +115,7 @@ renderHeader("{$ORGANISATION_NAME} — user-bind ACLs");
         </div>
       <?php elseif (isset($_POST['apply_lum_user_bind_acls']) && $baselineError !== '') : ?>
         <div class="alert alert-danger">ldap_mod_add failed: <?php echo htmlspecialchars($baselineError, ENT_QUOTES, 'UTF-8'); ?></div>
-        <?php if ($baselineInsufficient) : ?>
+          <?php if ($baselineInsufficient) : ?>
           <div class="alert alert-warning">
             <p class="mb-2"><strong>App bind cannot modify <code>cn=config</code>.</strong> Use one of the commands below instead, then <a href="run_checks.php">re-run checks</a>.</p>
             <p class="mb-1"><strong>Option A — EXTERNAL (osixia/openldap, recommended)</strong></p>
@@ -123,7 +123,7 @@ renderHeader("{$ORGANISATION_NAME} — user-bind ACLs");
             <p class="mb-1"><strong>Option B — config admin over LDAPS</strong></p>
             <pre class="bg-light p-2 border rounded small"><code><?php echo htmlspecialchars($configAdminBaselineCmd, ENT_QUOTES, 'UTF-8'); ?></code></pre>
           </div>
-        <?php endif; ?>
+          <?php endif; ?>
       <?php endif; ?>
 
       <form method="post" action="">
@@ -154,10 +154,10 @@ renderHeader("{$ORGANISATION_NAME} — user-bind ACLs");
     </div>
     <div class="card-body">
       <?php
-      $hasLegacyBlocking = $currentAclVerify['has_legacy_blocking'] ?? false;
-      $isReachable       = $currentAclVerify['reachable'] ?? false;
-      $allPresent        = $currentAclVerify['all_present'] ?? false;
-      if ($hasLegacyBlocking) : ?>
+        $hasLegacyBlocking = $currentAclVerify['has_legacy_blocking'] ?? false;
+        $isReachable       = $currentAclVerify['reachable'] ?? false;
+        $allPresent        = $currentAclVerify['all_present'] ?? false;
+        if ($hasLegacyBlocking) : ?>
         <div class="alert alert-warning">
           <strong>Legacy blocking rules detected.</strong>
           Your current <code>olcAccess</code> configuration contains one or more rules ending
@@ -170,14 +170,14 @@ renderHeader("{$ORGANISATION_NAME} — user-bind ACLs");
           blocking rules and installing the correct LUM rule set. The UNIX-socket EXTERNAL
           manage rule is preserved automatically.
         </div>
-      <?php elseif ($allPresent && !$isReachable) : ?>
+        <?php elseif ($allPresent && !$isReachable) : ?>
         <div class="alert alert-warning">
           <strong>All LUM rules are present, but some are unreachable.</strong>
           A rule earlier in the list ends with <code>by&nbsp;*&nbsp;none</code> and shadows the
           LUM rules. Click <strong>Apply role-based ACLs</strong> to restructure the rule set
           into the correct order.
         </div>
-      <?php endif; ?>
+        <?php endif; ?>
       <p>
         Applies <code>olcAccess</code> rules that grant write access based on LDAP
         <code>groupOfNames</code> membership — so each role can bind as itself and the
@@ -208,7 +208,7 @@ renderHeader("{$ORGANISATION_NAME} — user-bind ACLs");
         The LDAP rootDN (<code>cn=admin,...</code>) bypasses ACLs entirely — it does not need an
         explicit grant. See <code>docs/ldap/userbind-acls.md</code> for full explanation.
       </p>
-      <?php if ($hasLegacyBlocking || (!$allPresent && $currentAclVerify !== null && count($currentAclVerify['present'] ?? []) > 0)) : ?>
+      <?php if ($hasLegacyBlocking || (!$allPresent && $currentAclVerify !== null && count($currentAclVerify['present']) > 0)) : ?>
       <p class="text-muted small mb-2">
         <strong>Note:</strong> the <em>Apply</em> button will use <code>replace: olcAccess</code>
         (not individual <code>add:</code> operations) because legacy or partial rules are present.
@@ -223,7 +223,7 @@ renderHeader("{$ORGANISATION_NAME} — user-bind ACLs");
         </div>
       <?php elseif (isset($_POST['apply_lum_role_acls']) && $roleError !== '') : ?>
         <div class="alert alert-danger">ldap_mod_add failed: <?php echo htmlspecialchars($roleError, ENT_QUOTES, 'UTF-8'); ?></div>
-        <?php if ($roleInsufficient) : ?>
+          <?php if ($roleInsufficient) : ?>
           <div class="alert alert-warning">
             <p class="mb-2"><strong>App bind cannot modify <code>cn=config</code>.</strong> Use one of the commands below instead, then <a href="run_checks.php">re-run checks</a>.</p>
             <p class="mb-1"><strong>Option A — EXTERNAL (osixia/openldap, recommended)</strong></p>
@@ -231,7 +231,7 @@ renderHeader("{$ORGANISATION_NAME} — user-bind ACLs");
             <p class="mb-1"><strong>Option B — config admin over LDAPS</strong></p>
             <pre class="bg-light p-2 border rounded small"><code><?php echo htmlspecialchars($configAdminRoleCmd, ENT_QUOTES, 'UTF-8'); ?></code></pre>
           </div>
-        <?php endif; ?>
+          <?php endif; ?>
       <?php endif; ?>
 
       <form method="post" action="">
