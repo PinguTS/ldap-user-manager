@@ -49,8 +49,8 @@ export ACCEPT_WEAK_PASSWORDS=FALSE
 
 ```bash
 # Your organization name
-export ORGANISATION_NAME="Your Company Name"
-export SITE_NAME="Your Company User Manager"
+export APP_ORGANIZATION_NAME="Your Company Name"
+export APP_SITE_NAME="Your Company User Manager"
 
 # Session timeout (in minutes)
 export SESSION_TIMEOUT=120
@@ -79,8 +79,8 @@ services:
       - ACCEPT_WEAK_PASSWORDS=FALSE
       
       # Organization
-      - ORGANISATION_NAME=Your Company Name
-      - SITE_NAME=Your Company User Manager
+      - APP_ORGANIZATION_NAME=Your Company Name
+      - APP_SITE_NAME=Your Company User Manager
       - SESSION_TIMEOUT=120
     ports:
       - "8080:80"
@@ -147,10 +147,10 @@ export PASSWORD_STRENGTH_REQUIRE_SYMBOLS=FALSE
 
 Once LDAP setup verification succeeds, the `/setup/` area is locked: visitors see only a short "Setup complete" message and a link to the application login. No detailed LDAP information is shown.
 
-- **`LDAP_SETUP_LOCK_FILE`** – Path of the lock file (default: `/tmp/ldap_user_manager_setup_complete`). Set this to a persistent path in production (e.g. a volume mount) so the lock survives restarts.
-- **`LDAP_SETUP_LOCKED`** – Set to `false` to force-unlock the setup area (e.g. for development or to re-run the wizard). When `false`, the full setup flow is available even if the lock file exists.
-- **Re-enable setup**: Remove the lock file, or set `LDAP_SETUP_LOCKED=false`. There is no in-app unlock; this is intentional for security.
-- **Docker**: The container entrypoint runs a verification check on startup; if LDAP is reachable and passes the same checks as the web wizard, the setup lock file is created automatically (so you may see the setup area already locked after first start). This check is skipped when `ENVIRONMENT=development` so the setup wizard stays available.
+- **`APP_SETUP_LOCK_FILE`** – Optional absolute path to the setup lock file. When unset, the file `ldap_user_manager_setup_complete` in `APP_STATE_DIR` is used (`/var/lib/ldap_user_manager` when `APP_STATE_DIR` is unset). Set `APP_SETUP_LOCK_FILE` to a persistent path in production when needed.
+- **`APP_SETUP_LOCKED`** – Set to `false` to force-unlock the setup area (e.g. for development or to re-run the wizard). When `false`, the full setup flow is available even if the lock file exists.
+- **Re-enable setup**: Remove the lock file, or set `APP_SETUP_LOCKED=false`. There is no in-app unlock; this is intentional for security.
+- **Docker**: The container entrypoint runs a verification check on startup; if LDAP is reachable and passes the same checks as the web wizard, the setup lock file is created automatically (so you may see the setup area already locked after first start). This check is skipped when `APP_ENV=development` so the setup wizard stays available.
 
 ## **Need More Details?**
 

@@ -463,7 +463,7 @@
   "manage.debug.ldap_bind_user": "Benutzer (Passwort in Session + Schlüssel im Cookie)",
   "manage.debug.ldap_bind_admin": "Admin (LDAP_ADMIN_BIND_DN, kein Benutzerpasswort in der Session)",
   "manage.debug.ldap_bind_admin_fallback": "Admin-Fallback (Benutzer-Bind fehlgeschlagen oder ohne Passwort; Servicekonto)",
-  "manage.debug.ldap_bind_failed": "Benutzer-LDAP-Bind fehlgeschlagen — LUM_WRITE_BIND_FALLBACK=false — Schreibzugriffe für diese Anfrage verweigert",
+  "manage.debug.ldap_bind_failed": "Benutzer-LDAP-Bind fehlgeschlagen — LDAP_FALLBACK_ADMIN_ON_FAILED_USER_BIND=false — Schreibzugriffe für diese Anfrage verweigert",
   "manage.submenu.organizations": "Organisationen",
   "manage.submenu.role_management": "Rollenverwaltung",
   "manage.submenu.system_users": "Systembenutzer",

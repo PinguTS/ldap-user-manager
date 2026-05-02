@@ -104,7 +104,7 @@ Content-Type: application/json
 }
 ```
 
-The `pid` value comes from the `TYPO3_EXPORT_PID` environment variable (default: `0`).
+The `pid` value comes from the `EXPORT_TYPO3_PAGE_ID` environment variable (default: `0`).
 
 ### csv
 

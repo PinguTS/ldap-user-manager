@@ -181,10 +181,10 @@ services:
       LDAP_ADMIN_BIND_PWD: "admin123"
 
       # Application Settings
-      ORGANISATION_NAME: "LDAP User Manager"
-      SITE_NAME: "LDAP User Manager"
-      SERVER_HOSTNAME: "ldap-user-manager.example.com"
-      SERVER_PATH: "/"
+      APP_ORGANIZATION_NAME: "LDAP User Manager"
+      APP_SITE_NAME: "LDAP User Manager"
+      APP_HTTP_HOST: "ldap-user-manager.example.com"
+      APP_HTTP_PATH: "/"
       
       # Optional: Email Configuration
       SMTP_HOSTNAME: "smtp.example.com"

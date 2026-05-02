@@ -2,6 +2,36 @@
 
 This document explains all the configurable settings available in the LDAP User Manager system. These settings allow you to customize the system for your organization's needs without modifying any code.
 
+## Upgrade from previous releases (breaking)
+
+If you upgraded from an older deployment, rename these variables in your environment—the application no longer reads the old names:
+
+| Previous | Current |
+|----------|---------|
+| `ENVIRONMENT` | `APP_ENV` |
+| `ORGANISATION_NAME` | `APP_ORGANIZATION_NAME` |
+| `SITE_NAME` | `APP_SITE_NAME` |
+| `SERVER_HOSTNAME` | `APP_HTTP_HOST` |
+| `SERVER_PATH` | `APP_HTTP_PATH` |
+| `SITE_PUBLIC_URL` | `APP_PUBLIC_BASE_URL` |
+| `SITE_LOGIN_LDAP_ATTRIBUTE` | `APP_LOGIN_LDAP_ATTRIBUTE` |
+| `SITE_LOGIN_FIELD_LABEL` | `APP_LOGIN_FIELD_LABEL` |
+| `NO_HTTPS` | `APP_SERVE_HTTP_ONLY` |
+| `SERVER_PORT` | `APP_HTTP_PORT` |
+| `SERVER_CERT_FILENAME` | `APP_TLS_CERT_FILE` |
+| `SERVER_KEY_FILENAME` | `APP_TLS_KEY_FILE` |
+| `CA_CERT_FILENAME` | `APP_TLS_CA_CHAIN_FILE` |
+| `LUM_STATE_DIR` | `APP_STATE_DIR` |
+| `LDAP_SETUP_LOCK_FILE` | `APP_SETUP_LOCK_FILE` |
+| `LDAP_SETUP_LOCKED` | `APP_SETUP_LOCKED` |
+| `LUM_WRITE_BIND_FALLBACK` | `LDAP_FALLBACK_ADMIN_ON_FAILED_USER_BIND` |
+| `LUM_DEBUG_MANAGE_BIND` | `APP_DEBUG_MANAGE_LDAP_BIND` |
+| `FORCE_RFC2307BIS` | `LDAP_FORCE_RFC2307BIS` |
+| `PHPMailer_PATH` | `PHPMAILER_CUSTOM_PATH` |
+| `TYPO3_EXPORT_PID` | `EXPORT_TYPO3_PAGE_ID` |
+
+See also the migration block at the bottom of [`env.example`](../../env.example).
+
 ## Environment Variables
 
 ### LDAP Server Configuration
@@ -107,6 +137,7 @@ These settings define the organization of your LDAP directory:
 - `LDAP_ORG_OU` - Organizations organizational unit (default: 'organizations')
 - `LDAP_ACCOUNT_ATTRIBUTE` - Primary account identifier attribute (default: 'mail')
 - `LDAP_GROUP_ATTRIBUTE` - Group identifier attribute (default: 'cn')
+- `LDAP_FORCE_RFC2307BIS` - When `TRUE`, skip RFC2307bis autodetection and assume the extended `posixGroup` schema (optional; default is autodetect)
 
 ### Status Group Names (Membership and Disabled Flags)
 These settings define the CNs of status groups used for organization membership and disabled states. Group membership is the authoritative flag (not boolean attributes on entries):
@@ -117,7 +148,7 @@ These settings define the CNs of status groups used for organization membership 
 ### Member Organizations Export (TYPO3)
 These settings control the export endpoint used by external systems (e.g. TYPO3) to fetch member organization data:
 - `EXPORT_SHARED_SECRET` - Shared secret for machine-to-machine auth. Send via **`Authorization: Bearer <secret>` header only** (never as a query parameter). Generate with `openssl rand -hex 32` (min 32 characters). Empty = export endpoint returns 503 (disabled).
-- `TYPO3_EXPORT_PID` - Page ID for tt_address export (default: 0)
+- `EXPORT_TYPO3_PAGE_ID` - Page ID for tt_address export (default: 0)
 
 ### Security Configuration
 These settings control security features and access control:
@@ -126,7 +157,7 @@ These settings control security features and access control:
 - `SESSION_TIMEOUT` - Session timeout in **minutes** (default: 60 - 1 hour)
 - `SESSION_SAVE_PATH` - Directory for app session files (default: `/tmp`). When running **multiple app instances** (e.g. Docker replicas or load-balanced containers), set this to a **shared writable path** (e.g. a mounted volume) so all instances see the same sessions; otherwise login may succeed but the next request can hit another instance and fail with "session file wasn't found", causing redirects or "corrupted content" errors.
 
-**Note:** Only `SESSION_TIMEOUT` and `SESSION_SAVE_PATH` are currently configurable via environment variables. Other session/cookie settings are controlled by the application code (with `NO_HTTPS` affecting whether cookies are marked `Secure`).
+**Note:** Only `SESSION_TIMEOUT` and `SESSION_SAVE_PATH` are currently configurable via environment variables. Other session/cookie settings are controlled by the application code (with `APP_SERVE_HTTP_ONLY` affecting whether cookies are marked `Secure`).
 
 #### **Rate Limiting**
 
@@ -169,13 +200,13 @@ The system sets security headers (effective values depend on your deployment):
 Both steps provide copy/paste `ldapmodify` LDIF blocks pre-filled from your environment. See [`docs/ldap/userbind-acls.md`](../ldap/userbind-acls.md) for the complete rule set, explanation, and `ldapsearch` verification commands.
 
 - `LDAP_OLC_MDB_DN` - (Optional) DN of the main `mdb` database entry in `cn=config` (default: `olcDatabase={1}mdb,cn=config`). Used by setup to locate `olcAccess` for ACL verification and the corrective LDIF apply. Override if your primary database is not `olcDatabase={1}mdb`.
-- `LUM_WRITE_BIND_FALLBACK` - Controls what happens when the app holds a user's LDAP credentials in the session but the LDAP bind with those credentials fails (e.g. the user's password was changed externally while their app session is still valid).
+- `LDAP_FALLBACK_ADMIN_ON_FAILED_USER_BIND` - Controls what happens when the app holds a user's LDAP credentials in the session but the LDAP bind with those credentials fails (e.g. the user's password was changed externally while their app session is still valid).
   - `true` (default) — fall back to the admin service account so the session continues. Writes succeed but the LDAP accesslog records the service account DN instead of the user's DN.
-  - `false` — strict mode. Deny write operations for that request, clear the stale credentials, and log the failure. The user's next request uses admin bind for reads only; they must re-login to restore per-user write accountability. In strict mode the debug bar (see `LUM_DEBUG_MANAGE_BIND`) shows a prominent **bind_failed** state.
+  - `false` — strict mode. Deny write operations for that request, clear the stale credentials, and log the failure. The user's next request uses admin bind for reads only; they must re-login to restore per-user write accountability. In strict mode the debug bar (see `APP_DEBUG_MANAGE_LDAP_BIND`) shows a prominent **bind_failed** state.
 
   Note: this flag only governs the *bind-level* fallback (the LDAP bind itself failing). If the bind succeeds but a write is later denied by an OpenLDAP ACL, that failure is returned as a visible error by the application regardless of this setting. See [`docs/ldap/userbind-acls.md`](../ldap/userbind-acls.md) for ACL troubleshooting.
 
-- `LUM_DEBUG_MANAGE_BIND` - When set to `true` (string, case-insensitive), **global administrators and maintainers** see a small debug bar on manage UI pages (after the main nav) that states whether the current request uses a **per-user** LDAP bind, the **admin** bind (no per-user password, e.g. OIDC/SSO), **admin fallback** (user password was in session but the bind failed and the app fell back to the service account), or **bind_failed** (strict mode: bind failed and no fallback was permitted). Unset in production unless troubleshooting bind mode.
+- `APP_DEBUG_MANAGE_LDAP_BIND` - When set to `true` (string, case-insensitive), **global administrators and maintainers** see a small debug bar on manage UI pages (after the main nav) that states whether the current request uses a **per-user** LDAP bind, the **admin** bind (no per-user password, e.g. OIDC/SSO), **admin fallback** (user password was in session but the bind failed and the app fell back to the service account), or **bind_failed** (strict mode: bind failed and no fallback was permitted). Unset in production unless troubleshooting bind mode.
 
 ### User Account Configuration
 These settings control how new user accounts are created:
@@ -186,17 +217,23 @@ These settings control how new user accounts are created:
 - `USERNAME_REGEX` - Username validation rules (default: '^[a-z][a-zA-Z0-9\._-]{3,32}$')
 - `SHOW_POSIX_ATTRIBUTES` - Whether to show POSIX attributes (default: FALSE)
 
-### Site Configuration
-These settings control the appearance and behavior of your website:
-- `ORGANISATION_NAME` - Organization name (default: 'LDAP')
-- `SITE_NAME` - Site name (default: '{ORGANISATION_NAME} user manager')
-- `SITE_LOGIN_LDAP_ATTRIBUTE` - LDAP attribute for login (default: 'mail')
-- `SITE_LOGIN_FIELD_LABEL` - Login field label (default: 'Email')
-- `SERVER_HOSTNAME` - Server hostname used in generated links when `SITE_PUBLIC_URL` is not set (default: 'ldapusermanager.org'). Include a non-default port here if needed (e.g. `idm.example.org:8443`).
-- `SITE_PUBLIC_URL` - Optional full public site base for **email links** and similar (scheme + host + optional port + optional path), e.g. `http://idm.example.org:8443` or `https://idm.example.com/lum/`. When unset, links use `SITE_PROTOCOL` + `SERVER_HOSTNAME` + `SERVER_PATH` (which may resolve to `localhost` inside Docker if `SERVER_HOSTNAME` is wrong).
-- `SERVER_PATH` - Server path (default: '/')
-- `SESSION_TIMEOUT` - Session timeout in minutes (default: 60)
-- `NO_HTTPS` - Whether HTTPS is disabled (default: FALSE)
+### Application shell (`APP_`)
+These settings control runtime mode, branding, HTTP service identity, setup lock paths, and link generation:
+- `APP_ENV` - Process environment: `development`, `test`, or `production` (default: `production`)
+- `APP_ORGANIZATION_NAME` - Organization name (default: `LDAP`)
+- `APP_SITE_NAME` - Site name (default: `{APP_ORGANIZATION_NAME} user manager`)
+- `APP_LOGIN_LDAP_ATTRIBUTE` - LDAP attribute for login (default: `mail`)
+- `APP_LOGIN_FIELD_LABEL` - Login field label (default: `Email`)
+- `APP_HTTP_HOST` - Hostname used in generated links when `APP_PUBLIC_BASE_URL` is not set (default: `ldapusermanager.org`). Include a non-default port if needed (e.g. `idm.example.org:8443`).
+- `APP_HTTP_PATH` - URL path prefix for the app (default: `/`)
+- `APP_PUBLIC_BASE_URL` - Optional full public site base for **email links** and similar (scheme + host + optional port + optional path). When unset, links use inferred protocol plus `APP_HTTP_HOST` and `APP_HTTP_PATH`.
+- `APP_SERVE_HTTP_ONLY` - When `TRUE`, Apache serves HTTP only (`VirtualHost :80`) and PHP session cookies omit `Secure` (default: `FALSE`). Use behind a TLS-terminating reverse proxy only as appropriate for your deployment.
+- `APP_STATE_DIR` - Writable directory for setup lock file, rate-limit data, etc. (default: `/var/lib/ldap_user_manager` when not overridden).
+- `APP_SETUP_LOCK_FILE` - Absolute path override for the setup-complete lock file.
+- `APP_SETUP_LOCKED` - Set to `false` to force-unlock `/setup/` (e.g. development), even when the lock file exists.
+- `APP_HTTP_PORT` / `APP_TLS_CERT_FILE` / `APP_TLS_KEY_FILE` / `APP_TLS_CA_CHAIN_FILE` - Used by the container `entrypoint` for HTTPS listen port and certificate filenames under `/opt/ssl`.
+
+Session timeout (`SESSION_TIMEOUT`, `SESSION_SAVE_PATH`) appears under Session Security above.
 
 ### Email Configuration
 These settings control how the system sends emails:
@@ -210,7 +247,7 @@ These settings control how the system sends emails:
 - `EMAIL_DOMAIN` - Default email domain
 - `EMAIL_FROM_ADDRESS` - From email address
 - `EMAIL_FROM_NAME` - From email name
-- `PHPMailer_PATH` - PHPMailer installation path (default: '/opt/PHPMailer/src')
+- `PHPMAILER_CUSTOM_PATH` - Override path to PHPMailer when not using Composer autoload (default: Composer `vendor/phpmailer/phpmailer/src`)
 - `EMAIL_TEMPLATES_DIR` - Optional. Directory containing email template files; when set, overrides the default `www/templates/emails`. Use an absolute path. Each file: first line = subject, blank line, then HTML body. Basenames include: **`new_account.html`** (invite / set-password link for new users), **`account_welcome.html`** (admin set password; no link), **`reset_password.html`** (self-service forgot-password), **`reset_password_admin.html`** (admin sent reset link). For translations, add `basename.<locale>.html` (e.g. `new_account.de.html`) using the same locale codes as `www/locales`. Missing localized files fall back to the default `*.html` (English).
 - `EMAIL_DEFAULT_LOCALE` - Optional installation default locale (e.g. `de`, `fr`) used in the **recipient** email locale chain (see below) and as the sole language for **system/service** accounts (administrator / maintainer invites). Invalid values are ignored and logged. When unset, that step is skipped.
 - `EMAIL_USER_LOCALE_LDAP_ATTR` - Optional. LDAP attribute on **users** for preferred language (default: `preferredLanguage`). Set to an empty string to disable reading user locale from LDAP.
@@ -232,7 +269,6 @@ These settings help diagnose problems:
 - `SESSION_DEBUG` - Enable session debugging (default: FALSE)
 - `SETUP_DEBUG` - Enable setup debugging (default: FALSE)
 - `SMTP_LOG_LEVEL` - SMTP logging level (default: 0)
-- `ENVIRONMENT` - Environment (development/test/production)
 
 ### File Upload
 These settings control file upload limits:
@@ -269,9 +305,9 @@ services:
       - LDAP_ORG_ADMIN_ROLE=org_manager
       - LDAP_USER_ROLE=member
       
-      # Site Configuration
-      - ORGANISATION_NAME=Example Corp
-      - SITE_NAME=Example Corp User Manager
+      # Application shell
+      - APP_ORGANIZATION_NAME=Example Corp
+      - APP_SITE_NAME=Example Corp User Manager
       - SESSION_TIMEOUT=120
 ```
 
@@ -298,9 +334,9 @@ LDAP_MAINTAINER_ROLE=tech_support
 LDAP_ORG_ADMIN_ROLE=org_manager
 LDAP_USER_ROLE=member
 
-# Site
-ORGANISATION_NAME=Example Corp
-SITE_NAME=Example Corp User Manager
+# Application shell
+APP_ORGANIZATION_NAME=Example Corp
+APP_SITE_NAME=Example Corp User Manager
 SESSION_TIMEOUT=120
 ```
 
@@ -343,7 +379,7 @@ SESSION_TIMEOUT=120
 ### Production Security
 - Use strong password requirements (score 2+)
 - Require minimum 8-12 characters
-- Enable HTTPS (set NO_HTTPS=FALSE)
+- Enable HTTPS in the container (set `APP_SERVE_HTTP_ONLY=FALSE` and supply TLS certs; or terminate TLS upstream)
 - Use secure LDAP connections
 - Regular security updates
 

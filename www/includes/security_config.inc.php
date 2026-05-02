@@ -84,13 +84,13 @@ $SECURITY_CONFIG = [
 ];
 
 // Environment-based overrides
-if (getenv('ENVIRONMENT') === 'development') {
+if (getenv('APP_ENV') === 'development') {
     $SECURITY_CONFIG['ldap']['require_tls'] = false;
     $SECURITY_CONFIG['ldap']['ignore_cert_errors'] = true;
     $SECURITY_CONFIG['security_headers']['strict_transport_security'] = false;
 }
 
-if (getenv('ENVIRONMENT') === 'test') {
+if (getenv('APP_ENV') === 'test') {
     $SECURITY_CONFIG['audit']['enabled'] = false;
     $SECURITY_CONFIG['rate_limit']['max_attempts'] = 100; // Allow more attempts in testing
 }

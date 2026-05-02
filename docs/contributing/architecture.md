@@ -121,4 +121,4 @@ The `Dockerfile` uses a two-stage build:
 1. Composer stage: installs production PHP dependencies.
 2. `php:8.2-apache` stage: installs PHP extensions (`ldap`, `gd`), Apache modules (`rewrite`, `ssl`, `headers`, etc.), copies application and vendor files, sets the session path.
 
-The `entrypoint` script: loads `*_FILE` Docker secret variables, sets defaults for `SERVER_HOSTNAME`/`SERVER_PATH`/`SESSION_SAVE_PATH`, generates Apache vhosts, handles `NO_HTTPS` and TLS certificate configuration, and on non-development environments runs the setup verification check to auto-lock the setup wizard.
+The `entrypoint` script: loads `*_FILE` Docker secret variables, sets defaults for `APP_HTTP_HOST`/`APP_HTTP_PATH`/`SESSION_SAVE_PATH`, generates Apache vhosts, handles `APP_SERVE_HTTP_ONLY` and TLS certificate configuration, and when `APP_ENV` is not `development` runs the setup verification check to auto-lock the setup wizard.

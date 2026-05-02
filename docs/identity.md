@@ -167,8 +167,8 @@ sequenceDiagram
 
 | Variable | Description | Example | Required |
 |----------|-------------|---------|----------|
-| `SERVER_HOSTNAME` | Application hostname | `app.example.org` | Yes |
-| `SERVER_PATH` | Application path | `/` | No |
+| `APP_HTTP_HOST` | Application hostname | `app.example.org` | Yes |
+| `APP_HTTP_PATH` | Application path | `/` | No |
 
 ### External Services OIDC Configuration
 
@@ -266,7 +266,7 @@ LDAP_ADMIN_BIND_DN=cn=admin,dc=example,dc=com
 LDAP_ADMIN_BIND_PWD=your-ldap-admin-password
 
 # Application Configuration
-SERVER_HOSTNAME=app.example.org
+APP_HTTP_HOST=app.example.org
 ```
 
 ## Security Checklist

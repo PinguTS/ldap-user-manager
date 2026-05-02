@@ -47,8 +47,8 @@ The application is configured entirely through environment variables. Copy `env.
 | `LDAP_BASE_DN` | Base DN of your directory | `dc=example,dc=com` |
 | `LDAP_ADMIN_BIND_DN` | Admin bind DN | `cn=admin,dc=example,dc=com` |
 | `LDAP_ADMIN_BIND_PWD` | Admin bind password | — |
-| `SERVER_HOSTNAME` | Public hostname of this app | `app.example.org` |
-| `ORGANISATION_NAME` | Your organization name | `Acme Corp` |
+| `APP_HTTP_HOST` | Public hostname of this app | `app.example.org` |
+| `APP_ORGANIZATION_NAME` | Your organization name | `Acme Corp` |
 
 See [env.example](env.example) for all available settings and [Environment Variables](docs/configuration/environment-variables.md) for the full reference.
 

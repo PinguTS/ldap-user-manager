@@ -172,7 +172,7 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
 // Known-weak patterns: placeholder tokens, well-known demo passwords.
 // ---------------------------------------------------------------------------
  (static function (): void {
-    $is_production = (strtolower((string) (getenv('ENVIRONMENT') ?: 'production')) === 'production');
+    $is_production = (strtolower((string) (getenv('APP_ENV') ?: 'production')) === 'production');
 
     $weak_patterns = [
         'admin123', 'config123', 'password', 'secret',
@@ -203,7 +203,7 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
         return;
     }
 
-    $msg = 'LUM SECURITY: Weak or placeholder credential detected in: ' . implode(', ', $flagged);
+    $msg = 'APP SECURITY: Weak or placeholder credential detected in: ' . implode(', ', $flagged);
     error_log($msg);
 
     if ($is_production) {
@@ -331,7 +331,7 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
  $LDAP['group_ou'] = (getenv('LDAP_GROUP_OU') ? getenv('LDAP_GROUP_OU') : 'groups');
  $LDAP['user_ou'] = (getenv('LDAP_USER_OU') ? getenv('LDAP_USER_OU') : 'people');
  $LDAP['org_ou'] = (getenv('LDAP_ORG_OU') ? getenv('LDAP_ORG_OU') : 'organizations');
- $LDAP['forced_rfc2307bis'] = ((strcasecmp(getenv('FORCE_RFC2307BIS') ?: '', 'TRUE') == 0) ? true : false);
+ $LDAP['forced_rfc2307bis'] = ((strcasecmp(getenv('LDAP_FORCE_RFC2307BIS') ?: '', 'TRUE') == 0) ? true : false);
 
  if (getenv('LDAP_ACCOUNT_ADDITIONAL_OBJECTCLASSES')) {
      $account_additional_objectclasses = strtolower(getenv('LDAP_ACCOUNT_ADDITIONAL_OBJECTCLASSES'));
@@ -377,14 +377,14 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
 
  # Interface customisation
 
- $ORGANISATION_NAME = (getenv('ORGANISATION_NAME') ? getenv('ORGANISATION_NAME') : 'LDAP');
- $SITE_NAME = (getenv('SITE_NAME') ? getenv('SITE_NAME') : "$ORGANISATION_NAME user manager");
+ $ORGANISATION_NAME = (getenv('APP_ORGANIZATION_NAME') ? getenv('APP_ORGANIZATION_NAME') : 'LDAP');
+ $SITE_NAME = (getenv('APP_SITE_NAME') ? getenv('APP_SITE_NAME') : "$ORGANISATION_NAME user manager");
 
- $SITE_LOGIN_LDAP_ATTRIBUTE = (getenv('SITE_LOGIN_LDAP_ATTRIBUTE') ? getenv('SITE_LOGIN_LDAP_ATTRIBUTE') : 'mail' );
- $SITE_LOGIN_FIELD_LABEL = (getenv('SITE_LOGIN_FIELD_LABEL') ? getenv('SITE_LOGIN_FIELD_LABEL') : "Email" );
+ $SITE_LOGIN_LDAP_ATTRIBUTE = (getenv('APP_LOGIN_LDAP_ATTRIBUTE') ? getenv('APP_LOGIN_LDAP_ATTRIBUTE') : 'mail' );
+ $SITE_LOGIN_FIELD_LABEL = (getenv('APP_LOGIN_FIELD_LABEL') ? getenv('APP_LOGIN_FIELD_LABEL') : "Email" );
 
- $SERVER_HOSTNAME = (getenv('SERVER_HOSTNAME') ? getenv('SERVER_HOSTNAME') : "ldapusermanager.org");
- $SERVER_PATH = (getenv('SERVER_PATH') !== false ? (string) getenv('SERVER_PATH') : '/');
+ $SERVER_HOSTNAME = (getenv('APP_HTTP_HOST') ? getenv('APP_HTTP_HOST') : "ldapusermanager.org");
+ $SERVER_PATH = (getenv('APP_HTTP_PATH') !== false ? (string) getenv('APP_HTTP_PATH') : '/');
  if ($SERVER_PATH === '') {
      $SERVER_PATH = '/';
  }
@@ -393,7 +393,7 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
 // Directory for app session files (must be writable and shared across all app instances, e.g. a volume in Docker)
  $SESSION_SAVE_PATH = rtrim(getenv('SESSION_SAVE_PATH') ?: '/tmp', '/');
 
- $NO_HTTPS = ((strcasecmp(getenv('NO_HTTPS') ?: '', 'TRUE') == 0) ? true : false);
+ $NO_HTTPS = ((strcasecmp(getenv('APP_SERVE_HTTP_ONLY') ?: '', 'TRUE') == 0) ? true : false);
 
 
  # Sending email
@@ -443,7 +443,7 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
  if (!is_dir($vendorPhpMailer)) {
      $vendorPhpMailer = dirname(__DIR__, 2) . '/vendor/phpmailer/phpmailer/src';
  }
- $PHPMailer_PATH = (getenv('PHPMailer_PATH') ? getenv('PHPMailer_PATH') : $vendorPhpMailer);
+ $PHPMailer_PATH = (getenv('PHPMAILER_CUSTOM_PATH') ? getenv('PHPMAILER_CUSTOM_PATH') : $vendorPhpMailer);
 
  # Debugging
 

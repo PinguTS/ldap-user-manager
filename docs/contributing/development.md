@@ -95,7 +95,7 @@ The app container (`ldap-user-manager` image) is built with **production** Compo
 ### Environment Variables for Development
 ```bash
 # Development environment
-export ENVIRONMENT=development
+export APP_ENV=development
 export DEBUG=true
 export LOG_LEVEL=debug
 
@@ -106,9 +106,9 @@ export LDAP_ADMIN_BIND_DN=cn=admin,dc=example,dc=com
 export LDAP_ADMIN_BIND_PWD=admin
 
 # Web settings
-export SERVER_HOSTNAME=localhost:8080
-export ORGANISATION_NAME="Development Organization"
-export SITE_NAME="LDAP User Manager (Dev)"
+export APP_HTTP_HOST=localhost:8080
+export APP_ORGANIZATION_NAME="Development Organization"
+export APP_SITE_NAME="LDAP User Manager (Dev)"
 
 # Password policy (lenient for development)
 export PASSWORD_STRENGTH_MIN_SCORE=0
@@ -124,7 +124,7 @@ services:
   ldap-user-manager:
     build: .
     environment:
-      - ENVIRONMENT=development
+      - APP_ENV=development
       - DEBUG=true
     volumes:
       - ./www:/var/www/html

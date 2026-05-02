@@ -39,7 +39,7 @@ docker build -t ldap-user-manager:latest .
 docker run -d \
   -p 80:80 \
   -p 443:443 \
-  -e SERVER_HOSTNAME=your-domain.com \
+  -e APP_HTTP_HOST=your-domain.com \
   ldap-user-manager:latest
 ```
 

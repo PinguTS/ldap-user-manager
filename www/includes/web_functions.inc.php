@@ -13,7 +13,7 @@ if (session_status() === PHP_SESSION_NONE) {
     // Wire security_config session params before session_start().
     // $SECURITY_CONFIG may not be loaded yet; fall back to safe defaults.
     $lum_session_config = $SECURITY_CONFIG['session'] ?? [];
-    $lum_no_https       = (bool) (getenv('NO_HTTPS') === 'TRUE' || getenv('NO_HTTPS') === 'true');
+    $lum_no_https       = (bool) (getenv('APP_SERVE_HTTP_ONLY') === 'TRUE' || getenv('APP_SERVE_HTTP_ONLY') === 'true');
     session_set_cookie_params([
         'path'     => '/',
         'secure'   => !$lum_no_https && ($lum_session_config['secure_cookies'] ?? true),
@@ -149,7 +149,7 @@ $THIS_MODULE_PATH = "{$SERVER_PATH}{$THIS_MODULE}";
 
 /**
  * Public base URL for links in emails and other out-of-band contexts (trailing slash).
- * When SITE_PUBLIC_URL is set (e.g. http://lum.example.org:8080/), it is normalized to a trailing slash
+ * When APP_PUBLIC_BASE_URL is set (e.g. http://lum.example.org:8080/), it is normalized to a trailing slash
  * so links match the hostname users open in the browser, independent of in-container Host headers.
  * Otherwise falls back to SITE_PROTOCOL + SERVER_HOSTNAME + SERVER_PATH from config.
  */
@@ -157,7 +157,7 @@ function lumPublicSiteBaseUrl(): string
 {
     global $SITE_PROTOCOL, $SERVER_HOSTNAME, $SERVER_PATH;
 
-    $fromEnv = trim((string) (getenv('SITE_PUBLIC_URL') ?: ''));
+    $fromEnv = trim((string) (getenv('APP_PUBLIC_BASE_URL') ?: ''));
     if ($fromEnv !== '') {
         $base = rtrim($fromEnv, '/');
 
@@ -171,7 +171,7 @@ $DEFAULT_COOKIE_OPTIONS = [
     'expires' => time() + (60 * $SESSION_TIMEOUT),
     'path' => $COOKIE_PATH,
     'domain' => '',
-    // Allow Secure=false if $NO_HTTPS is true (e.g., behind a proxy)
+    // Allow Secure=false if $NO_HTTPS is true (APP_SERVE_HTTP_ONLY in env)
     'secure' => $NO_HTTPS ? false : true,
     'httponly' => true,
     // Lax so cookie is sent when browser follows redirect after login (e.g. to /manage/users/)
@@ -197,7 +197,7 @@ if (require_oidc_auth()) {
 /**
  * Return the writable state directory used for setup and rate-limit files.
  *
- * Defaults to /var/lib/ldap_user_manager; override with LUM_STATE_DIR env var.
+ * Defaults to /var/lib/ldap_user_manager; override with APP_STATE_DIR env var.
  * Creates the directory (with group-writable permissions 0775) if it doesn't
  * exist yet; logs a warning and falls back to sys_get_temp_dir() if that fails.
  */
@@ -208,7 +208,7 @@ function lumStateDir(): string
         return $resolved;
     }
 
-    $env = getenv('LUM_STATE_DIR');
+    $env = getenv('APP_STATE_DIR');
     $dir = ($env !== false && $env !== '') ? rtrim($env, '/') : '/var/lib/ldap_user_manager';
 
     if (!is_dir($dir)) {
@@ -325,12 +325,12 @@ function getManageLdapConnection()
     $resolved = true;
     global $log_prefix;
 
-    // LUM_WRITE_BIND_FALLBACK (default true):
+    // LDAP_FALLBACK_ADMIN_ON_FAILED_USER_BIND (default true):
     // When true  — if user-bind fails at the LDAP bind level, fall back to admin bind so the
     //              session can continue with reduced LDAP accountability (current default).
     // When false — if user-bind fails, return false for data connections; write operations will
     //              fail visibly. Reads still work (they use open_ldap_connection() directly).
-    $allowFallback = strcasecmp((string) (getenv('LUM_WRITE_BIND_FALLBACK') ?: 'true'), 'true') === 0;
+    $allowFallback = strcasecmp((string) (getenv('LDAP_FALLBACK_ADMIN_ON_FAILED_USER_BIND') ?: 'true'), 'true') === 0;
 
     $creds = getUserLdapCredentials();
     if ($creds !== null) {
@@ -342,7 +342,7 @@ function getManageLdapConnection()
                 $requestCached = open_ldap_connection();
                 $GLOBALS['lumManageLdapBindMode'] = 'admin_fallback';
             } else {
-                error_log("{$log_prefix} manage: user LDAP bind failed; LUM_WRITE_BIND_FALLBACK=false — write operations will be denied for this request", 0);
+                error_log("{$log_prefix} manage: user LDAP bind failed; LDAP_FALLBACK_ADMIN_ON_FAILED_USER_BIND=false — write operations will be denied for this request", 0);
                 clearUserLdapCredentials();
                 $requestCached = false;
                 $GLOBALS['lumManageLdapBindMode'] = 'bind_failed';
@@ -375,14 +375,14 @@ function lumGetManageLdapBindMode(): ?string
 }
 
 /**
- * Shown on /manage when LUM_DEBUG_MANAGE_BIND=true and user is global admin or maintainer.
+ * Shown on /manage when APP_DEBUG_MANAGE_LDAP_BIND=true and user is global admin or maintainer.
  */
 function lumRenderManageLdapBindDebugBar(): void
 {
     if (!defined('LUM_MANAGE_CONTEXT') || !LUM_MANAGE_CONTEXT) {
         return;
     }
-    if (strcasecmp((string) (getenv('LUM_DEBUG_MANAGE_BIND') ?: ''), 'true') !== 0) {
+    if (strcasecmp((string) (getenv('APP_DEBUG_MANAGE_LDAP_BIND') ?: ''), 'true') !== 0) {
         return;
     }
     global $IS_ADMIN, $IS_MAINTAINER, $VALIDATED;
@@ -1559,10 +1559,10 @@ function getBaseUrl(): string
 
     $path = trim((string) $SERVER_PATH, '/');
 
-    // Prefer SITE_PUBLIC_URL env var (already used by lumPublicSiteBaseUrl).
+    // Prefer APP_PUBLIC_BASE_URL env var (already used by lumPublicSiteBaseUrl).
     // Fall back to SERVER_HOSTNAME from config, which is set from the
-    // SERVER_HOSTNAME environment variable — never from a request header.
-    $fromEnv = trim((string) (getenv('SITE_PUBLIC_URL') ?: ''));
+    // APP_HTTP_HOST environment variable — never from a request header.
+    $fromEnv = trim((string) (getenv('APP_PUBLIC_BASE_URL') ?: ''));
     if ($fromEnv !== '') {
         $base = rtrim($fromEnv, '/');
         return ($base === '') ? '/' : ($base . '/' . ($path !== '' ? $path . '/' : ''));
@@ -1571,9 +1571,9 @@ function getBaseUrl(): string
     $hostname = (string) ($SERVER_HOSTNAME ?? '');
     if ($hostname === '') {
         // Last resort: use the Host header but only in a development context.
-        // In production this should never be reached because SERVER_HOSTNAME is required.
-        if (getenv('ENVIRONMENT') === 'production') {
-            error_log('LUM: getBaseUrl() called without SERVER_HOSTNAME in production — returning relative URL');
+        // In production this should never be reached because APP_HTTP_HOST is configured as SERVER_HOSTNAME.
+        if (getenv('APP_ENV') === 'production') {
+            error_log('getBaseUrl() called without APP_HTTP_HOST-derived hostname in production — returning relative URL');
             return '/' . ($path !== '' ? $path . '/' : '');
         }
         $hostname = $_SERVER['HTTP_HOST'] ?? 'localhost';

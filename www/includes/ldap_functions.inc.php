@@ -101,12 +101,12 @@ function ldap_new_connection_unbound()
         exit(1);
     }
 
-    $environment = strtolower((string) (getenv('ENVIRONMENT') ?: 'production'));
+    $environment = strtolower((string) (getenv('APP_ENV') ?: 'production'));
     if ($LDAP['ignore_cert_errors'] === true) {
         if ($environment === 'production') {
             // Refuse to establish an unverified TLS connection in production.
-            error_log("$log_prefix FATAL: LDAP_IGNORE_CERT_ERRORS=true is not permitted in ENVIRONMENT=production. "
-                . "Set LDAP_IGNORE_CERT_ERRORS=false or switch to ENVIRONMENT=development.", 0);
+            error_log("$log_prefix FATAL: LDAP_IGNORE_CERT_ERRORS=true is not permitted in APP_ENV=production. "
+                . "Set LDAP_IGNORE_CERT_ERRORS=false or switch to APP_ENV=development.", 0);
             http_response_code(500);
             echo '<html><body><h1>Configuration Error</h1><p>'
                 . 'LDAP_IGNORE_CERT_ERRORS=true is not permitted in production. '
@@ -2045,7 +2045,7 @@ function ldap_detect_rfc2307bis($ldap_connection)
 
         if ($LDAP['forced_rfc2307bis'] === true) {
             if ($LDAP_DEBUG === true) {
-                error_log("$log_prefix LDAP RFC2307BIS detection - skipping autodetection because FORCE_RFC2307BIS is TRUE", 0);
+                error_log("$log_prefix LDAP RFC2307BIS detection - skipping autodetection because LDAP_FORCE_RFC2307BIS is TRUE", 0);
             }
             $LDAP['rfc2307bis_available'] = true;
         } else {
@@ -2053,7 +2053,7 @@ function ldap_detect_rfc2307bis($ldap_connection)
 
             if (!$schema_base_query) {
                 error_log("$log_prefix LDAP RFC2307BIS detection - unable to query LDAP for objectClasses under {$schema_base_dn}:" . ldap_error($ldap_connection), 0);
-                error_log("$log_prefix LDAP RFC2307BIS detection - we'll assume that the RFC2307BIS schema isn't available.  Set FORCE_RFC2307BIS to TRUE if you DO use RFC2307BIS.", 0);
+                error_log("$log_prefix LDAP RFC2307BIS detection - we'll assume that the RFC2307BIS schema isn't available.  Set LDAP_FORCE_RFC2307BIS to TRUE if you DO use RFC2307BIS.", 0);
             } else {
                 $schema_base_results = @ ldap_get_entries($ldap_connection, $schema_base_query);
 
@@ -2081,7 +2081,7 @@ function ldap_detect_rfc2307bis($ldap_connection)
                                 $LDAP['rfc2307bis_available'] = true;
                             } else {
                                 if ($LDAP_DEBUG === true) {
-                                    error_log("$log_prefix LDAP RFC2307BIS detection - couldn't find AUXILIARY in the posixGroup definition which suggests we're not using the RFC2307BIS schema.  Set FORCE_RFC2307BIS to TRUE if you DO use RFC2307BIS. ", 0);
+                                    error_log("$log_prefix LDAP RFC2307BIS detection - couldn't find AUXILIARY in the posixGroup definition which suggests we're not using the RFC2307BIS schema.  Set LDAP_FORCE_RFC2307BIS to TRUE if you DO use RFC2307BIS. ", 0);
                                 }
                             }
                         } else {

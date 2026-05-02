@@ -329,7 +329,7 @@ The system uses the following URL patterns for different features:
 **Solutions:**
 1. **Check session authentication:**
    - Ensure you are logged in and the session cookie is sent with requests.
-   - For detailed AJAX debug logs (session, CSRF, roles), set `ENVIRONMENT=development` and check application logs (e.g. `docker-compose logs ldap-user-manager | grep "AJAX Handler"`). Do not use development mode in production.
+   - For detailed AJAX debug logs (session, CSRF, roles), set `APP_ENV=development` and check application logs (e.g. `docker-compose logs ldap-user-manager | grep "AJAX Handler"`). Do not use development mode in production.
 
 2. **Verify CSRF token:**
    - Check if CSRF token is included in AJAX requests

@@ -150,7 +150,7 @@ When the LDAP server already has data and you want to add the overlay later:
 3. Set `LDAP_ACCESSLOG_ENABLED=true` in the `ldap-user-manager` service environment
    and restart the app container.
 
-4. Visit `/setup` (set `LDAP_SETUP_LOCKED=false` if setup was previously completed)
+4. Visit `/setup` (set `APP_SETUP_LOCKED=false` if setup was previously completed)
    to verify that `cn=accesslog` is accessible.
 
 ---

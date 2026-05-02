@@ -141,7 +141,7 @@ function is_password_reset_link_enabled(): bool
 function getConsumedTokenFilePath(string $token): string
 {
     $hash = hash('sha256', $token);
-    // lumStateDir() is defined in web_functions.inc.php and uses LUM_STATE_DIR.
+    // lumStateDir() is defined in web_functions.inc.php and uses APP_STATE_DIR.
     // If the caller hasn't loaded web_functions.inc.php, fall back to /tmp.
     $dir = function_exists('lumStateDir') ? lumStateDir() : sys_get_temp_dir();
     return $dir . '/lum_token_used_' . $hash;

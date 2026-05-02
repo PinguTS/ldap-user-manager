@@ -21,7 +21,7 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-$ajax_debug = (getenv('ENVIRONMENT') === 'development');
+$ajax_debug = (getenv('APP_ENV') === 'development');
 if ($ajax_debug) {
     error_log("AJAX Handler - Session ID: " . session_id());
     error_log("AJAX Handler - Session path: " . session_save_path());

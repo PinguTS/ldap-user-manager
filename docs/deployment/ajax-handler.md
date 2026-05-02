@@ -213,7 +213,7 @@ if ($is_uuid) {
 
 ## Debugging
 
-When `ENVIRONMENT=development`, the handler logs session and request details (e.g. session ID, CSRF presence, roles) to the error log. In production, debug logging is disabled.
+When `APP_ENV=development`, the handler logs session and request details (e.g. session ID, CSRF presence, roles) to the error log. In production, debug logging is disabled.
 
 ## Best Practices
 

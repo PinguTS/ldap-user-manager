@@ -54,7 +54,7 @@ if ($baseDn === '' || $orgDn === '') {
 
 $memberGroupCn = getenv('LDAP_GROUP_MEMBER_ORGS') ?: 'memberOrganizations';
 $disabledGroupCn = getenv('LDAP_GROUP_DISABLED_ORGS') ?: 'disabledOrganizations';
-$typo3Pid = (int) (getenv('TYPO3_EXPORT_PID') ?: '0');
+$typo3Pid = (int) (getenv('EXPORT_TYPO3_PAGE_ID') ?: '0');
 
 $ldap = open_ldap_connection();
 if (!$ldap) {

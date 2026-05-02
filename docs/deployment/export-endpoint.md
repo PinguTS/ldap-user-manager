@@ -54,7 +54,7 @@ Attributes exported include: `o`, `mail`, `postalAddress`, `telephoneNumber`, `f
 ## Related configuration
 
 - **`EXPORT_SHARED_SECRET`** – Shared secret for Bearer auth (see above).
-- **`TYPO3_EXPORT_PID`** – Page ID used in TYPO3-oriented export (default: `0`).
+- **`EXPORT_TYPO3_PAGE_ID`** – Page ID used in TYPO3-oriented export (default: `0`).
 - **`LDAP_GROUP_MEMBER_ORGS`** – CN of the “member organizations” status group (default: `memberOrganizations`).
 - **`LDAP_GROUP_DISABLED_ORGS`** – CN of the “disabled organizations” status group (default: `disabledOrganizations`).
 

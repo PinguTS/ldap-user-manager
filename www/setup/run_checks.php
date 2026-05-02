@@ -386,7 +386,7 @@ docker exec -it ldap-server chown openldap:openldap /var/lib/ldap/accesslog</cod
         <?php endif; ?>
         <p class="text-muted small mt-2 mb-0">
           This feature is optional. A failing check here does not block setup completion.
-          To re-run this check on an existing installation: set <code>LDAP_SETUP_LOCKED=false</code> and visit <code>/setup/</code>.
+          To re-run this check on an existing installation: set <code>APP_SETUP_LOCKED=false</code> and visit <code>/setup/</code>.
         </p>
       </div>
     </div>

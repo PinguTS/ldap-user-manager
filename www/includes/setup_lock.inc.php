@@ -7,28 +7,28 @@ declare(strict_types=1);
  * "locked" so that all /setup/ requests show only a minimal success message and
  * no detailed LDAP information (OUs, DNs, members, etc.).
  *
- * Lock file path is configurable via LDAP_SETUP_LOCK_FILE. Force-unlock via
- * LDAP_SETUP_LOCKED=false (e.g. for development).
+ * Lock file path is configurable via APP_SETUP_LOCK_FILE. Force-unlock via
+ * APP_SETUP_LOCKED=false (e.g. for development).
  */
 
 /**
  * Return the path of the setup lock file.
  *
  * Priority:
- *   1. LDAP_SETUP_LOCK_FILE env var (absolute path override)
- *   2. LUM_STATE_DIR / ldap_user_manager_setup_complete
+ *   1. APP_SETUP_LOCK_FILE env var (absolute path override)
+ *   2. APP_STATE_DIR / ldap_user_manager_setup_complete
  *   3. /var/lib/ldap_user_manager / ldap_user_manager_setup_complete (default state dir)
  *
  * @return string
  */
 function get_setup_lock_file_path(): string
 {
-    $path = getenv('LDAP_SETUP_LOCK_FILE');
+    $path = getenv('APP_SETUP_LOCK_FILE');
     if ($path !== false && $path !== '') {
         return $path;
     }
     // Use the shared state directory so the lock file survives /tmp cleanup.
-    $stateDir = getenv('LUM_STATE_DIR');
+    $stateDir = getenv('APP_STATE_DIR');
     if ($stateDir === false || $stateDir === '') {
         $stateDir = '/var/lib/ldap_user_manager';
     }
@@ -42,7 +42,7 @@ function get_setup_lock_file_path(): string
  */
 function is_setup_locked(): bool
 {
-    if (strcasecmp(getenv('LDAP_SETUP_LOCKED') ?: 'true', 'false') === 0) {
+    if (strcasecmp(getenv('APP_SETUP_LOCKED') ?: 'true', 'false') === 0) {
         return false;
     }
     $path = get_setup_lock_file_path();

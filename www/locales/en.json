@@ -73,7 +73,7 @@
   "manage.debug.ldap_bind_user": "user (password in session + cookie key)",
   "manage.debug.ldap_bind_admin": "admin (LDAP_ADMIN_BIND_DN, no user password in session)",
   "manage.debug.ldap_bind_admin_fallback": "admin fallback (user bind failed or creds missing; service account used)",
-  "manage.debug.ldap_bind_failed": "user LDAP bind failed — LUM_WRITE_BIND_FALLBACK=false — writes denied this request",
+  "manage.debug.ldap_bind_failed": "user LDAP bind failed — LDAP_FALLBACK_ADMIN_ON_FAILED_USER_BIND=false — writes denied this request",
   "manage.submenu.organizations": "Organizations",
   "manage.submenu.role_management": "Role Management",
   "manage.submenu.system_users": "System users",
