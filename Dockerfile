@@ -43,9 +43,13 @@ EXPOSE 443
 COPY www/ /opt/ldap_user_manager
 COPY --from=builder /app/vendor /opt/ldap_user_manager/vendor
 
-# Default session directory for app session files (writable by www-data; override with SESSION_SAVE_PATH)
+# State directory for rate-limit files, setup lock, password-reset tokens, etc.
+# Must be writable by www-data; override with APP_STATE_DIR.
+ENV APP_STATE_DIR=/var/lib/ldap_user_manager
+# Default session directory (writable by www-data; override with SESSION_SAVE_PATH)
 ENV SESSION_SAVE_PATH=/var/lib/ldap_user_manager/sessions
-RUN mkdir -p "$SESSION_SAVE_PATH" && chown www-data:www-data "$SESSION_SAVE_PATH"
+RUN mkdir -p "$APP_STATE_DIR" "$SESSION_SAVE_PATH" && \
+    chown -R www-data:www-data "$APP_STATE_DIR"
 
 RUN chown -R www-data:www-data /opt/ldap_user_manager
 RUN find /opt/ldap_user_manager -type d -exec chmod 755 {} \;

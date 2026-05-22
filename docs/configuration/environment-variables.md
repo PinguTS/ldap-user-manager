@@ -228,7 +228,7 @@ These settings control runtime mode, branding, HTTP service identity, setup lock
 - `APP_HTTP_PATH` - URL path prefix for the app (default: `/`)
 - `APP_PUBLIC_BASE_URL` - Optional full public site base for **email links** and similar (scheme + host + optional port + optional path). When unset, links use inferred protocol plus `APP_HTTP_HOST` and `APP_HTTP_PATH`.
 - `APP_SERVE_HTTP_ONLY` - When `TRUE`, Apache serves HTTP only (`VirtualHost :80`) and PHP session cookies omit `Secure` (default: `FALSE`). Use behind a TLS-terminating reverse proxy only as appropriate for your deployment.
-- `APP_STATE_DIR` - Writable directory for setup lock file, rate-limit data, etc. (default: `/var/lib/ldap_user_manager` when not overridden).
+- `APP_STATE_DIR` - Writable directory used by the application to persist state files: rate-limit counters (one file per IP hash), the setup-complete lock file, and password-reset tokens (default: `/var/lib/ldap_user_manager`). **The directory and all files written to it must be writable by the `www-data` user.** In the official Docker image this is handled automatically; if you mount an external volume for this path, ensure the ownership is set to `www-data:www-data` (e.g. `chown -R 33:33 /your/volume`). If `SESSION_SAVE_PATH` is not set it defaults to `$APP_STATE_DIR/sessions`.
 - `APP_SETUP_LOCK_FILE` - Absolute path override for the setup-complete lock file.
 - `APP_SETUP_LOCKED` - Set to `false` to force-unlock `/setup/` (e.g. development), even when the lock file exists.
 - `APP_HTTP_PORT` / `APP_TLS_CERT_FILE` / `APP_TLS_KEY_FILE` / `APP_TLS_CA_CHAIN_FILE` - Used by the container `entrypoint` for HTTPS listen port and certificate filenames under `/opt/ssl`.

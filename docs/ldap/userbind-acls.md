@@ -193,8 +193,14 @@ of group X" as an ACL condition; it can only evaluate the *requesting* user's gr
 
 Replace all your current values (preserving the UNIX-socket EXTERNAL rule):
 
+> **Important — shell quoting:** rule 5 contains the literal string `$2` (a back-reference used
+> by OpenLDAP's `dn.regex`). If you paste this into a shell that expands variables, `$2` will be
+> replaced by an empty string and the rule will be stored broken. Use the single-quoted heredoc
+> delimiter `<<'EOF'` shown below, or use the setup helper at `/setup/apply_user_bind_acls.php`
+> which applies the rules via PHP and preserves `$2` correctly.
+
 ```bash
-docker exec -it ldap-server sh -lc 'ldapmodify -Y EXTERNAL -H ldapi:/// <<EOF
+docker exec -it ldap-server sh -lc 'ldapmodify -Y EXTERNAL -H ldapi:/// <<'"'"'EOF'"'"'
 dn: olcDatabase={1}mdb,cn=config
 changetype: modify
 replace: olcAccess
@@ -209,6 +215,9 @@ olcAccess: to dn.subtree="dc=example,dc=com" by users read by * none
 EOF'
 ```
 
+The quoting pattern `<<'"'"'EOF'"'"'` produces a single-quoted heredoc delimiter (`<<'EOF'`) inside
+the outer single-quoted `sh -lc '...'` argument, preventing the shell from expanding `$2`.
+
 The setup page at `/setup/apply_user_bind_acls.php` shows the same commands **with values
 filled from your environment variables** and provides a one-click apply button.
 
@@ -216,7 +225,7 @@ filled from your environment variables** and provides a one-click apply button.
 
 ```bash
 ldapmodify -x -H ldaps://ldap-server:636 \
-  -D "cn=admin,cn=config" -w "<LDAP_CONFIG_PASSWORD>" <<EOF
+  -D "cn=admin,cn=config" -w "<LDAP_CONFIG_PASSWORD>" <<'EOF'
 # ... same LDIF body as Option A ...
 EOF
 ```
@@ -281,6 +290,20 @@ docker exec -i ldap-server sh -lc \
 ---
 
 ## Considerations
+
+- **Shell quoting and `$2`.** Rule 5 contains the literal string `$2` (an OpenLDAP back-reference,
+  not a shell variable). If you paste Option A or B commands into a shell using an unquoted heredoc
+  (`<<EOF`), the shell expands `$2` to an empty string before passing the text to `ldapmodify`,
+  resulting in a broken `member.expand` value (`o=,ou=...` instead of `o=$2,ou=...`). The commands
+  above use `<<'EOF'` (single-quoted delimiter) to prevent this. The setup helper at
+  `/setup/apply_user_bind_acls.php` applies rules via PHP and is not affected by this issue.
+  To verify that `$2` is stored correctly after applying, run:
+  ```bash
+  docker exec -i ldap-server sh -lc \
+    'ldapsearch -Y EXTERNAL -H ldapi:/// -LLL -b "olcDatabase={1}mdb,cn=config" olcAccess' \
+    | tr '\n' ' ' | grep -o 'member.expand="[^"]*"'
+  ```
+  The output must contain `o=$2,` (literal dollar-two).
 
 - **ACL order is critical.** OpenLDAP stops at the first rule that grants or denies.
   `by * break` passes control to the next rule, so put more specific rules first.

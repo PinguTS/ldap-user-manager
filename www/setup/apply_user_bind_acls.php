@@ -73,8 +73,8 @@ $configAdminBaselineCmd = "ldapmodify -x -H ldaps://ldap-server:636 -D \"cn=admi
 
 // role-based ldif
 $roleAclLdifBody    = setupBuildRoleBasedAclLdif($mdbDn);
-$externalRoleCmd    = "docker exec -it ldap-server sh -lc 'ldapmodify -Y EXTERNAL -H ldapi:/// <<EOF\n{$roleAclLdifBody}EOF'";
-$configAdminRoleCmd = "ldapmodify -x -H ldaps://ldap-server:636 -D \"cn=admin,cn=config\" -w \"<LDAP_CONFIG_PASSWORD>\" <<EOF\n{$roleAclLdifBody}EOF";
+$externalRoleCmd    = "docker exec -it ldap-server sh -lc 'ldapmodify -Y EXTERNAL -H ldapi:/// <<'\"'\"'EOF'\"'\"'\n{$roleAclLdifBody}EOF'";
+$configAdminRoleCmd = "ldapmodify -x -H ldaps://ldap-server:636 -D \"cn=admin,cn=config\" -w \"<LDAP_CONFIG_PASSWORD>\" <<'EOF'\n{$roleAclLdifBody}EOF";
 
 renderHeader("{$ORGANISATION_NAME} — user-bind ACLs");
 

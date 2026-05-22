@@ -158,8 +158,13 @@ if (isset($_POST['action']) && $_POST['action'] === 'toggle_recent_user_manager'
                     renderAlertBanner(t('manage.org_users.msg.update_org_manager_fail'), "danger");
                 }
             } else {
-                addUserToOrgAdmin($org_name, $userDn);
-                renderAlertBanner(t('manage.org_users.msg.assigned_org_manager', ['user' => $userDisplay]), "success");
+                $result = addUserToOrgAdmin($org_name, $userDn);
+                if ($result[0]) {
+                    renderAlertBanner(t('manage.org_users.msg.assigned_org_manager', ['user' => $userDisplay]), "success");
+                } else {
+                    error_log("show/org toggle_manager: addUserToOrgAdmin failed: " . $result[1]);
+                    renderAlertBanner(t('manage.org_users.msg.update_org_manager_fail'), "danger");
+                }
             }
         }
     }
@@ -597,7 +602,7 @@ if ($orgExists) {
   <div class="card">
    <div class="card-header clearfix">
     <span class="card-title mb-0 float-start"><h3 class="h5 mb-0"><?php print htmlspecialchars($org_name); ?></h3></span>
-    <a href="<?php print $THIS_MODULE_PATH; ?>/organizations" class="btn btn-secondary float-end"><?php echo htmlspecialchars(t('manage.orgs.show.back_to_organizations'), ENT_QUOTES, 'UTF-8'); ?></a>
+    <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/organizations/', ENT_QUOTES, 'UTF-8');?>" class="btn btn-secondary float-end"><?php echo htmlspecialchars(t('manage.orgs.show.back_to_organizations'), ENT_QUOTES, 'UTF-8'); ?></a>
    </div>
    <div class="card-body">
     
@@ -879,7 +884,7 @@ if ($orgExists) {
           <?php if (count($org_users) > 5) { ?>
                 <?php $shown_users_count = min(5, count($org_users)); ?>
         <p><em><?php echo htmlspecialchars(t('manage.orgs.show.showing_users_summary', ['shown' => (string) $shown_users_count, 'total' => (string) count($org_users)]), ENT_QUOTES, 'UTF-8'); ?>
-            <a href="<?php print $THIS_MODULE_PATH; ?>/org_users.php?<?php echo $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($org_name); ?>"><?php echo htmlspecialchars(t('manage.orgs.show.view_all_users'), ENT_QUOTES, 'UTF-8'); ?></a>
+            <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/organizations/' . urlencode($org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.orgs.show.view_all_users'), ENT_QUOTES, 'UTF-8'); ?></a>
         </em></p>
           <?php } ?>
       <?php } ?>

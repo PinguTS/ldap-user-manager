@@ -25,9 +25,12 @@ else
   apache_alias="Alias $APP_HTTP_PATH $php_dir"
 fi
 
-# Default session directory for app session files (set in Dockerfile; ensure it exists at runtime)
-if [ -z "$SESSION_SAVE_PATH" ]; then export SESSION_SAVE_PATH="/var/lib/ldap_user_manager/sessions"; fi
-mkdir -p "$SESSION_SAVE_PATH" && chown www-data:www-data "$SESSION_SAVE_PATH"
+# State directory for rate-limit files, setup lock, tokens (set in Dockerfile; ensure writable at runtime)
+if [ -z "$APP_STATE_DIR" ]; then export APP_STATE_DIR="/var/lib/ldap_user_manager"; fi
+# Default session directory for app session files
+if [ -z "$SESSION_SAVE_PATH" ]; then export SESSION_SAVE_PATH="$APP_STATE_DIR/sessions"; fi
+mkdir -p "$APP_STATE_DIR" "$SESSION_SAVE_PATH"
+chown -R www-data:www-data "$APP_STATE_DIR"
 
 #If LDAP_TLS_CACERT is set then write it out as a file
 #and set up the LDAP client conf to use it.
