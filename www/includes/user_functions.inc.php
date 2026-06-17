@@ -62,6 +62,27 @@ function get_user_uuid($user_data)
 }
 
 /**
+ * Prefer entryUUID for URLs/forms; log and fall back to uid when UUID is missing.
+ */
+function get_user_identifier_for_url(array $user_data, string $fallback = ''): string
+{
+    $uuid = get_user_uuid($user_data);
+    if ($uuid !== '') {
+        return $uuid;
+    }
+    $uid = get_ldap_attribute($user_data, 'uid');
+    if ($uid !== '') {
+        error_log('get_user_identifier_for_url: WARNING - no entryUUID, using uid fallback');
+        return $uid;
+    }
+    if ($fallback !== '') {
+        error_log('get_user_identifier_for_url: WARNING - no entryUUID, using provided fallback');
+        return $fallback;
+    }
+    return '';
+}
+
+/**
  * Get user identifier (UUID or email) for form processing
  * @param array $user_attribs User attributes from LDAP
  * @param string $username Username/email (fallback)

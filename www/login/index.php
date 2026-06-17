@@ -215,7 +215,7 @@ if (isset($_POST["user_id"]) && isset($_POST["password"])) {
       // Use UUID-based URL for better security
         $default_module = "manage/organizations/" . urlencode($org_uuid) . "/";
     } elseif ($is_org_admin && $user_org_name) {
-      // Fallback to name-based URL if UUID not available
+        error_log("Login: WARNING - UUID not available for org '$user_org_name', using name-based fallback");
         $default_module = "manage/organizations/show/index.php?org=" . urlencode($user_org_name);
     } else {
         $default_module = "password/change/";

@@ -306,10 +306,14 @@ if ($listConn === false) {
                             if (is_string($user_dn_for_status) && $user_dn_for_status !== '') {
                                 $activate_tooltip = $is_user_org_disabled ? ' title=\'' . htmlspecialchars(t('manage.org_users.activate_tooltip_org_disabled'), ENT_QUOTES, 'UTF-8') . '\'' : '';
                                 $deactivate_tooltip = $is_user_org_disabled ? ' title=\'' . htmlspecialchars(t('manage.org_users.deactivate_tooltip_org_disabled'), ENT_QUOTES, 'UTF-8') . '\'' : '';
+                                $action_identifier = $user_uuid !== '' ? $user_uuid : $account_identifier;
+                                if ($user_uuid === '') {
+                                    error_log("manage/users/index: WARNING - no entryUUID for user '$account_identifier', using account id for enable/disable");
+                                }
                                 if ($is_individually_disabled) {
-                                    print "         <button type='button' class='btn btn-sm btn-success'" . $activate_tooltip . " onclick='confirmEnableUser(\"" . htmlspecialchars($account_identifier) . "\")'>" . htmlspecialchars(t('manage.common.activate'), ENT_QUOTES, 'UTF-8') . "</button>";
+                                    print "         <button type='button' class='btn btn-sm btn-success'" . $activate_tooltip . " onclick='confirmEnableUser(\"" . htmlspecialchars($action_identifier) . "\")'>" . htmlspecialchars(t('manage.common.activate'), ENT_QUOTES, 'UTF-8') . "</button>";
                                 } else {
-                                    print "         <button type='button' class='btn btn-sm btn-warning'" . $deactivate_tooltip . " onclick='confirmDisableUser(\"" . htmlspecialchars($account_identifier) . "\")'>" . htmlspecialchars(t('manage.common.deactivate'), ENT_QUOTES, 'UTF-8') . "</button>";
+                                    print "         <button type='button' class='btn btn-sm btn-warning'" . $deactivate_tooltip . " onclick='confirmDisableUser(\"" . htmlspecialchars($action_identifier) . "\")'>" . htmlspecialchars(t('manage.common.deactivate'), ENT_QUOTES, 'UTF-8') . "</button>";
                                 }
                             }
                         }

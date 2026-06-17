@@ -101,7 +101,7 @@ if (!$orgName || !$orgExists) {
             $org_uuid_val = $org['entryUUID'];
         }
 
-        $link_param = $org_uuid_val ? 'uuid=' . urlencode($org_uuid_val) : 'org=' . urlencode($orgNameVal);
+        $link_param = lum_org_users_query_param($org_uuid_val, $orgNameVal);
         echo '<li><a href="org_users.php?' . $link_param . '">' . htmlspecialchars($orgNameVal) . '</a></li>';
     }
     echo '</ul>';
@@ -598,7 +598,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
     }
     try {
         ldap_modify($ldap, (string) $userDn, $entry);
-        $baseParam = $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName);
+        $baseParam = lum_org_users_query_param((string) $org_uuid, (string) $orgName);
         header('Location: ?' . $baseParam . '&updated=1');
         exit;
     } catch (Exception $e) {
@@ -612,7 +612,7 @@ after_edit_user:
 // Handle reset password (PRG: always redirect; success via query string, failure/warning via session flash)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
     validateCsrfToken();
-    $baseParam = $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName);
+    $baseParam = lum_org_users_query_param((string) $org_uuid, (string) $orgName);
 
     $resetUserParam = $_POST['reset_uid'] ?? '';
     $resetTargetDn = org_resolve_user_dn($orgName, (string) $resetUserParam);
@@ -777,7 +777,7 @@ renderFlash();
             <?php foreach ($users as $user) :
                 // Use robust UUID extraction for user actions
                 $user_uuid = get_user_uuid($user);
-                $user_identifier = $user_uuid !== '' ? $user_uuid : get_ldap_attribute($user, 'uid');
+                $user_identifier = get_user_identifier_for_url($user);
                 $user_dn = $user['dn'] ?? org_resolve_user_dn($orgName, get_ldap_attribute($user, 'uid')) ?? '';
                 $isManager = $user_dn !== '' && org_dn_in_list($user_dn, $orgManagerDns);
                 $isLastManager = $isManager && $orgManagerCount <= 1;
@@ -929,7 +929,7 @@ renderFlash();
             <?= csrfTokenField() ?>
             <div class="modal-header">
               <h5 class="modal-title" id="editUserModalLabel"><?php echo htmlspecialchars(t('manage.common.edit_user'), ENT_QUOTES, 'UTF-8'); ?></h5>
-              <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="btn-close" aria-label="<?php echo htmlspecialchars(t('modal.close_aria'), ENT_QUOTES, 'UTF-8'); ?>"></a>
+              <a href="?<?= lum_org_users_query_param((string) $org_uuid, (string) $orgName) ?>" class="btn-close" aria-label="<?php echo htmlspecialchars(t('modal.close_aria'), ENT_QUOTES, 'UTF-8'); ?>"></a>
             </div>
             <div class="modal-body">
               <input type="hidden" name="edit_uid" id="edit_uid_input" value="<?= htmlspecialchars(get_ldap_attribute($editUser, 'uid')) ?>">
@@ -962,7 +962,7 @@ renderFlash();
             </div>
             <div class="modal-footer">
               <button type="submit" name="save_user" class="btn btn-primary"><?php echo htmlspecialchars(t('manage.common.save_changes'), ENT_QUOTES, 'UTF-8'); ?></button>
-              <a href="?<?= $org_uuid ? 'uuid=' . urlencode($org_uuid) : 'org=' . urlencode($orgName) ?>" class="btn btn-secondary"><?php echo htmlspecialchars(t('manage.common.cancel'), ENT_QUOTES, 'UTF-8'); ?></a>
+              <a href="?<?= lum_org_users_query_param((string) $org_uuid, (string) $orgName) ?>" class="btn btn-secondary"><?php echo htmlspecialchars(t('manage.common.cancel'), ENT_QUOTES, 'UTF-8'); ?></a>
             </div>
           </form>
         </div>

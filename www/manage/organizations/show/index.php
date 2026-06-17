@@ -392,12 +392,8 @@ if (isset($_POST['update_organization'])) {
                 $rename_ok = renameOrganization($update_identifier, $posted_org_name);
                 if ($rename_ok) {
                     $org_name = $posted_org_name;
-                    if (isset($_GET['org']) && (string) $_GET['org'] !== '' && (string) $_GET['org'] !== (string) $org_name) {
-                        $path = parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
-                        if (!is_string($path) || $path === '') {
-                            $path = getBaseUrl() . 'manage/organizations/show/';
-                        }
-                        header('Location: ' . $path . '?org=' . rawurlencode((string) $org_name));
+                    if ($org_uuid !== '') {
+                        header('Location: ' . getBaseUrl() . 'manage/organizations/' . urlencode((string) $org_uuid) . '/');
                         exit;
                     }
                 } else {

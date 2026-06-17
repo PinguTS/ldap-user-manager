@@ -221,6 +221,15 @@ function lum_organization_uuid_from_request_uri_path(): ?string
  *
  * @return array{org_name: string|null, org_uuid: string|null, organization: array|null, error: string|null}
  */
+function lum_org_users_query_param(string $orgUuid, string $orgName): string
+{
+    if ($orgUuid !== '') {
+        return 'uuid=' . urlencode($orgUuid);
+    }
+    error_log('manage org users: WARNING - no org UUID available, using name-based ?org= fallback');
+    return 'org=' . urlencode($orgName);
+}
+
 function resolve_organization_from_request(): array
 {
     $org_uuid = null;
@@ -272,10 +281,51 @@ function resolve_organization_from_request(): array
         ];
     }
     if (isset($_GET['org']) && $_GET['org'] !== '') {
+        $org_name = (string) $_GET['org'];
+        global $LDAP;
+        $ldap = open_ldap_connection();
+        if ($ldap === false) {
+            return [
+                'org_name' => $org_name,
+                'org_uuid' => null,
+                'organization' => null,
+                'error' => t('manage.common.org_not_found'),
+            ];
+        }
+        $orgRDN = ldap_escape($org_name, '', LDAP_ESCAPE_DN);
+        $org_dn = "o={$orgRDN}," . $LDAP['org_dn'];
+        $read = @ldap_read(
+            $ldap,
+            $org_dn,
+            '(objectClass=organization)',
+            ['o', 'entryUUID', 'postalAddress', 'telephoneNumber', 'facsimileTelephoneNumber', 'labeledURI', 'mail', 'description', 'modifyTimestamp', 'modifiersName']
+        );
+        if (!$read) {
+            @ldap_close($ldap);
+            return [
+                'org_name' => $org_name,
+                'org_uuid' => null,
+                'organization' => null,
+                'error' => t('manage.common.org_not_found'),
+            ];
+        }
+        $entries = ldap_get_entries($ldap, $read);
+        @ldap_close($ldap);
+        if ($entries['count'] === 0) {
+            return [
+                'org_name' => $org_name,
+                'org_uuid' => null,
+                'organization' => null,
+                'error' => t('manage.common.org_not_found'),
+            ];
+        }
+        $organization = $entries[0];
+        $resolved_uuid = isset($organization['entryuuid'][0]) ? (string) $organization['entryuuid'][0] : null;
+
         return [
-            'org_name' => $_GET['org'],
-            'org_uuid' => null,
-            'organization' => null,
+            'org_name' => $org_name,
+            'org_uuid' => $resolved_uuid,
+            'organization' => $organization,
             'error' => null,
         ];
     }

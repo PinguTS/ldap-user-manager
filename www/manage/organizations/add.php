@@ -69,7 +69,7 @@ if (isset($_POST['action']) && $_POST['action'] == 'create_organization') {
                 setFlash(t('manage.orgs.add.msg.created_ok'), 'success');
                 $org_name = (string) ($org_data['o'] ?? '');
                 $entryUuid = isset($result[2]) ? (string) $result[2] : '';
-                if (!empty($LDAP['use_uuid_identification']) && $entryUuid !== '') {
+                if ($entryUuid !== '') {
                     header('Location: ' . getBaseUrl() . 'manage/organizations/' . urlencode($entryUuid) . '/');
                 } elseif ($org_name !== '') {
                     header('Location: ' . getBaseUrl() . 'manage/organizations/show/index.php?org=' . urlencode($org_name));
