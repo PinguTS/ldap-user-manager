@@ -15,7 +15,7 @@ init_oidc_config();
 // Handle OIDC callback
 if (handle_oidc_callback()) {
     // Redirect to main application
-    header("Location: /");
+    header('Location: ' . getBaseUrl());
     exit;
 } else {
     // Handle error

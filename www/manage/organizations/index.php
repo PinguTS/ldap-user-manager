@@ -131,6 +131,7 @@ if (!$is_global_admin && !$is_maintainer) {
 
 renderHeader(t('manage.orgs.page_title', ['org' => $ORGANISATION_NAME ?? 'System']));
 render_submenu();
+renderFlash();
 
 // --- Filter and sort parameters (GET) ---
 $valid_sorts   = ['name_asc', 'name_desc', 'change_desc', 'change_asc'];

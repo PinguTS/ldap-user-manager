@@ -438,8 +438,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
     ];
 
     if (ldap_new_account($ldap, $newAccount)) {
-        $message = t('manage.org_users.msg.added_ok', ['user' => $accountIdentifier]);
-        $message_type = 'success';
+        $flashMessage = t('manage.org_users.msg.added_ok', ['user' => $accountIdentifier]);
 
         global $EMAIL_SENDING_ENABLED;
         if (($EMAIL_SENDING_ENABLED ?? false) === true && isValidEmail($mail)) {
@@ -481,11 +480,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
                 );
             });
             if ($sentOk) {
-                $message .= ' ' . t('manage.org_users.add.msg.email_sent_ok', ['email' => $mail]);
+                $flashMessage .= ' ' . t('manage.org_users.add.msg.email_sent_ok', ['email' => htmlspecialchars($mail, ENT_QUOTES, 'UTF-8')]);
             } else {
-                $message .= ' ' . t('manage.org_users.add.msg.email_send_failed');
+                $flashMessage .= ' ' . t('manage.org_users.add.msg.email_send_failed');
             }
         }
+
+        lum_close_ldap_if_not_manage($ldap);
+        setFlash($flashMessage, 'success');
+        if ($org_uuid) {
+            header('Location: ' . getBaseUrl() . 'manage/organizations/' . urlencode((string) $org_uuid) . '/users/');
+        } else {
+            header('Location: ' . getBaseUrl() . 'manage/organizations/');
+        }
+        exit;
     } else {
         error_log("add_user: ldap_new_account failed for org $orgName: " . ldap_error($ldap));
         $message = t('manage.org_users.msg.add_fail');
@@ -714,6 +722,7 @@ if ($ldap_connection === false) {
 
 renderHeader(t('manage.org_users.page_title', ['org' => $orgDisplay]));
 render_submenu();
+renderFlash();
 ?>
 <div class="container">
     <nav aria-label="breadcrumb">

@@ -134,6 +134,7 @@ setPageAccess(["admin", "maintainer"]);
 $orgName = (string) ($ORGANISATION_NAME ?? 'System');
 renderHeader(t('manage.users.page_title', ['org' => $orgName]));
 render_submenu();
+renderFlash();
 
 $ldap_connection = lum_ldap_data_connection();
 // Use admin bind for the users listing for reliability — user-bind ACLs on ou=people
@@ -235,7 +236,7 @@ if ($listConn === false) {
 
                         // Canonical routing is UUID-only.
                         $user_uuid = isset($people[$account_identifier]['entryUUID']) ? (string) $people[$account_identifier]['entryUUID'] : '';
-                        $user_href = $user_uuid !== '' ? '/manage/users/' . urlencode($user_uuid) . '/' : '';
+                        $user_href = $user_uuid !== '' ? getBaseUrl() . 'manage/users/' . urlencode($user_uuid) . '/' : '';
 
                         print " <tr>\n";
                         if ($user_href !== '') {

@@ -66,8 +66,17 @@ if (isset($_POST['action']) && $_POST['action'] == 'create_organization') {
             // Create organization using the createOrganization function
             $result = createOrganization($org_data);
             if ($result[0]) {
-                $message = t('manage.orgs.add.msg.created_ok');
-                $message_type = 'success';
+                setFlash(t('manage.orgs.add.msg.created_ok'), 'success');
+                $org_name = (string) ($org_data['o'] ?? '');
+                $entryUuid = isset($result[2]) ? (string) $result[2] : '';
+                if (!empty($LDAP['use_uuid_identification']) && $entryUuid !== '') {
+                    header('Location: ' . getBaseUrl() . 'manage/organizations/' . urlencode($entryUuid) . '/');
+                } elseif ($org_name !== '') {
+                    header('Location: ' . getBaseUrl() . 'manage/organizations/show/index.php?org=' . urlencode($org_name));
+                } else {
+                    header('Location: ' . getBaseUrl() . 'manage/organizations/');
+                }
+                exit;
             } else {
                 error_log("createOrganization failed: " . (string) $result[1]);
                 $message = t('manage.orgs.add.msg.create_fail');

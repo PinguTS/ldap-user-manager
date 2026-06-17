@@ -34,23 +34,23 @@ function render_submenu()
             if (currentUserIsGlobalAdmin()) {
               // System administrators and maintainers can access users
                 $active = (basename($_SERVER['SCRIPT_FILENAME']) == 'index.php' && strpos($_SERVER['SCRIPT_FILENAME'], '/manage/users/') !== false) ? ' active' : '';
-                print "<li class=\"nav-item\"><a class=\"nav-link$active\" href='/manage/users/'>" . htmlspecialchars(t('manage.submenu.system_users'), ENT_QUOTES, 'UTF-8') . "</a></li>\n";
+                print "<li class=\"nav-item\"><a class=\"nav-link$active\" href=\"" . htmlspecialchars(getBaseUrl() . 'manage/users/', ENT_QUOTES, 'UTF-8') . "\">" . htmlspecialchars(t('manage.submenu.system_users'), ENT_QUOTES, 'UTF-8') . "</a></li>\n";
                 $active = (basename($_SERVER['SCRIPT_FILENAME']) == 'index.php' && strpos($_SERVER['SCRIPT_FILENAME'], '/manage/organizations/') !== false) ? ' active' : '';
-                print "<li class=\"nav-item\"><a class=\"nav-link$active\" href='/manage/organizations/'>" . htmlspecialchars(t('manage.submenu.organizations'), ENT_QUOTES, 'UTF-8') . "</a></li>\n";
+                print "<li class=\"nav-item\"><a class=\"nav-link$active\" href=\"" . htmlspecialchars(getBaseUrl() . 'manage/organizations/', ENT_QUOTES, 'UTF-8') . "\">" . htmlspecialchars(t('manage.submenu.organizations'), ENT_QUOTES, 'UTF-8') . "</a></li>\n";
               // Add Role Management link (only for system administrators)
                 $active = (basename($_SERVER['SCRIPT_FILENAME']) == 'index.php' && strpos($_SERVER['SCRIPT_FILENAME'], '/manage/roles/') !== false) ? ' active' : '';
-                print "<li class=\"nav-item\"><a class=\"nav-link$active\" href='/manage/roles/'>" . htmlspecialchars(t('manage.submenu.role_management'), ENT_QUOTES, 'UTF-8') . "</a></li>\n";
+                print "<li class=\"nav-item\"><a class=\"nav-link$active\" href=\"" . htmlspecialchars(getBaseUrl() . 'manage/roles/', ENT_QUOTES, 'UTF-8') . "\">" . htmlspecialchars(t('manage.submenu.role_management'), ENT_QUOTES, 'UTF-8') . "</a></li>\n";
           // System maintainers can access users and organizations
             } elseif (currentUserIsMaintainer()) {
               // System administrators and maintainers can access users
                 $active = (basename($_SERVER['SCRIPT_FILENAME']) == 'index.php' && strpos($_SERVER['SCRIPT_FILENAME'], '/manage/users/') !== false) ? ' active' : '';
-                print "<li class=\"nav-item\"><a class=\"nav-link$active\" href='/manage/users/'>" . htmlspecialchars(t('manage.submenu.system_users'), ENT_QUOTES, 'UTF-8') . "</a></li>\n";
+                print "<li class=\"nav-item\"><a class=\"nav-link$active\" href=\"" . htmlspecialchars(getBaseUrl() . 'manage/users/', ENT_QUOTES, 'UTF-8') . "\">" . htmlspecialchars(t('manage.submenu.system_users'), ENT_QUOTES, 'UTF-8') . "</a></li>\n";
                 $active = (basename($_SERVER['SCRIPT_FILENAME']) == 'index.php' && strpos($_SERVER['SCRIPT_FILENAME'], '/manage/organizations/') !== false) ? ' active' : '';
-                print "<li class=\"nav-item\"><a class=\"nav-link$active\" href='/manage/organizations/'>" . htmlspecialchars(t('manage.submenu.organizations'), ENT_QUOTES, 'UTF-8') . "</a></li>\n";
+                print "<li class=\"nav-item\"><a class=\"nav-link$active\" href=\"" . htmlspecialchars(getBaseUrl() . 'manage/organizations/', ENT_QUOTES, 'UTF-8') . "\">" . htmlspecialchars(t('manage.submenu.organizations'), ENT_QUOTES, 'UTF-8') . "</a></li>\n";
           // Organization administrators can only access organizations
             } elseif (currentUserIsOrgAdmin()) {
                 $active = (basename($_SERVER['SCRIPT_FILENAME']) == 'index.php' && strpos($_SERVER['SCRIPT_FILENAME'], '/manage/organizations/') !== false) ? ' active' : '';
-                print "<li class=\"nav-item\"><a class=\"nav-link$active\" href='/manage/organizations/'>" . htmlspecialchars(t('manage.submenu.organizations'), ENT_QUOTES, 'UTF-8') . "</a></li>\n";
+                print "<li class=\"nav-item\"><a class=\"nav-link$active\" href=\"" . htmlspecialchars(getBaseUrl() . 'manage/organizations/', ENT_QUOTES, 'UTF-8') . "\">" . htmlspecialchars(t('manage.submenu.organizations'), ENT_QUOTES, 'UTF-8') . "</a></li>\n";
             }
         }
         ?>

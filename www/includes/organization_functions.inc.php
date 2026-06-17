@@ -402,8 +402,17 @@ function createOrganization($orgData)
     // Note: org_admin role will be created dynamically when users are assigned to it
     // This prevents creating empty groups and ensures proper role management
 
+    $entryUuid = '';
+    $readBack = @ldap_read($ldap, $orgDN, '(objectClass=*)', ['entryUUID']);
+    if ($readBack) {
+        $readEntries = ldap_get_entries($ldap, $readBack);
+        if ($readEntries['count'] > 0 && isset($readEntries[0]['entryuuid'][0])) {
+            $entryUuid = (string) $readEntries[0]['entryuuid'][0];
+        }
+    }
+
     lum_close_ldap_if_not_manage($ldap);
-    return [true, "Organization '{$orgData['o']}' created successfully"];
+    return [true, "Organization '{$orgData['o']}' created successfully", $entryUuid];
 }
 
 function deleteOrganization($orgName)

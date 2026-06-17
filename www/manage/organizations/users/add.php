@@ -358,14 +358,11 @@ if (isset($_POST['create_org_user'])) {
                     }
                 }
 
-                renderAlertBanner($creation_message, "success");
-
-                // Redirect back to organization users page
-                // Redirect back to organization users page, preserving UUID if available
+                setFlash($creation_message, 'success');
                 if ($org_uuid) {
-                    header("Location: /manage/organizations/" . urlencode((string) $org_uuid) . "/users/");
+                    header('Location: ' . getBaseUrl() . 'manage/organizations/' . urlencode((string) $org_uuid) . '/users/');
                 } else {
-                    header("Location: /manage/organizations/");
+                    header('Location: ' . getBaseUrl() . 'manage/organizations/');
                 }
                 exit(0);
             } else {

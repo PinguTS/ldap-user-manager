@@ -34,8 +34,37 @@ setPageAccess(["admin", "maintainer", "org_admin"]);
 // Check if user can modify this organization
 $can_modify_org = currentUserCanModifyOrganization($org_name);
 
+// Handle org deletion before any output (redirect requires clean headers)
+if (isset($_POST['action']) && $_POST['action'] === 'delete_organization') {
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        setFlash(t('manage.orgs.show.msg.session_expired'), 'danger');
+    } elseif (!validateCsrfToken()) {
+        setFlash(t('manage.common.msg.security_validation_failed'), 'danger');
+    } else {
+        $ldap_connection_action = lum_ldap_data_connection();
+        if ($ldap_connection_action === false) {
+            setFlash(t('manage.orgs.msg.ldap_fail'), 'danger');
+        } else {
+            if (currentUserCanDeleteOrganization($org_name)) {
+                $posted_uuid = isset($_POST['org_uuid']) ? trim((string) $_POST['org_uuid']) : '';
+                if (ldap_delete_organization($ldap_connection_action, $org_name, $posted_uuid)) {
+                    lum_close_ldap_if_not_manage($ldap_connection_action);
+                    setFlash(t('manage.orgs.msg.delete_ok', ['org' => (string) $org_name]), 'success');
+                    header('Location: ' . getBaseUrl() . 'manage/organizations/');
+                    exit;
+                }
+                setFlash(t('manage.orgs.show.msg.delete_fail', ['org' => (string) $org_name]), 'danger');
+            } else {
+                setFlash(t('manage.orgs.show.msg.permission_delete_org'), 'danger');
+            }
+            lum_close_ldap_if_not_manage($ldap_connection_action);
+        }
+    }
+}
+
 renderHeader((string) $ORGANISATION_NAME . ' ' . t('manage.orgs.show.account_manager'));
 render_submenu();
+renderFlash();
 
 if ($can_modify_org && (empty($_SESSION['lum_ldap_pwd_enc'] ?? null)) && $VALIDATED === true) {
     ?>
@@ -44,37 +73,6 @@ if ($can_modify_org && (empty($_SESSION['lum_ldap_pwd_enc'] ?? null)) && $VALIDA
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="<?php echo htmlspecialchars(t('modal.close_aria'), ENT_QUOTES, 'UTF-8'); ?>"></button>
     </div>
     <?php
-}
-
-// Handle org deletion action
-if (isset($_POST['action']) && $_POST['action'] === 'delete_organization') {
-    if (session_status() !== PHP_SESSION_ACTIVE) {
-        renderAlertBanner(t('manage.orgs.show.msg.session_expired'), "danger");
-    } elseif (!validateCsrfToken()) {
-        renderAlertBanner(t('manage.common.msg.security_validation_failed'), "danger");
-    } else {
-        $ldap_connection_action = lum_ldap_data_connection();
-        if ($ldap_connection_action === false) {
-            renderAlertBanner(t('manage.orgs.msg.ldap_fail'), "danger");
-        } else {
-            if (currentUserCanDeleteOrganization($org_name)) {
-                $posted_uuid = isset($_POST['org_uuid']) ? trim((string) $_POST['org_uuid']) : '';
-                if (ldap_delete_organization($ldap_connection_action, $org_name, $posted_uuid)) {
-                    lum_close_ldap_if_not_manage($ldap_connection_action);
-                    header('Location: /manage/organizations/');
-                    exit;
-                }
-                renderAlertBanner(
-                    t('manage.orgs.show.msg.delete_fail', ['org' => (string) $org_name]),
-                    "danger",
-                    15000
-                );
-            } else {
-                renderAlertBanner(t('manage.orgs.show.msg.permission_delete_org'), "danger");
-            }
-            lum_close_ldap_if_not_manage($ldap_connection_action);
-        }
-    }
 }
 
 // Handle org disable/enable actions
@@ -397,7 +395,7 @@ if (isset($_POST['update_organization'])) {
                     if (isset($_GET['org']) && (string) $_GET['org'] !== '' && (string) $_GET['org'] !== (string) $org_name) {
                         $path = parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
                         if (!is_string($path) || $path === '') {
-                            $path = '/manage/organizations/show/';
+                            $path = getBaseUrl() . 'manage/organizations/show/';
                         }
                         header('Location: ' . $path . '?org=' . rawurlencode((string) $org_name));
                         exit;

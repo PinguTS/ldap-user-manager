@@ -2008,6 +2008,28 @@ function renderAlertBanner($message, $alert_class = "success", $timeout = 4000)
     <?php
 }
 
+function setFlash(string $message, string $type = 'success', int $timeout = 8000): void
+{
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        session_start();
+    }
+    $_SESSION['lum_flash'] = ['message' => $message, 'type' => $type, 'timeout' => $timeout];
+}
+
+function renderFlash(): void
+{
+    if (session_status() !== PHP_SESSION_ACTIVE || !isset($_SESSION['lum_flash'])) {
+        return;
+    }
+    $flash = $_SESSION['lum_flash'];
+    unset($_SESSION['lum_flash']);
+    renderAlertBanner(
+        (string) ($flash['message'] ?? ''),
+        (string) ($flash['type'] ?? 'success'),
+        (int) ($flash['timeout'] ?? 8000)
+    );
+}
+
 /**
  * Render a Bootstrap 5 confirmation modal (e.g. disable/enable/delete).
  *

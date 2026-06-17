@@ -13,13 +13,9 @@ getCsrfToken();
 
 setPageAccess(["admin", "maintainer"]);
 
-$completed_action = "{$SERVER_PATH}manage/users/";
 $page_title = t('manage.users.new.page_title');
 $admin_setup = false;
-
-$orgName = (string) ($ORGANISATION_NAME ?? 'System');
-renderHeader(t('manage.users.new.header', ['org' => $orgName]));
-render_submenu();
+$page_messages = [];
 
 $invalid_password = false;
 $mismatched_passwords = false;
@@ -156,7 +152,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
 
         $result = createUserAccount($new_account_r);
         if ($result[0]) {
-            renderAlertBanner(t('manage.users.new.msg.created_ok'), 'success', 10000);
+            $flashMessage = t('manage.users.new.msg.created_ok');
 
             global $EMAIL_SENDING_ENABLED;
             $login = (string) ($new_account_r['mail'] ?? '');
@@ -202,19 +198,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
                     );
                 });
                 if (!$sentOk) {
-                    renderAlertBanner(t('manage.users.new.msg.email_send_failed'), 'warning', 10000);
+                    $flashMessage .= ' ' . t('manage.users.new.msg.email_send_failed');
                 }
             }
 
-          // Clear form data
-            $new_account_r = array();
+            setFlash($flashMessage, 'success', 10000);
+            header('Location: ' . getBaseUrl() . 'manage/users/');
+            exit;
         } else {
             error_log("new user: ldap_new_account failed: " . $result[1]);
-            renderAlertBanner(t('manage.users.new.msg.created_fail'), 'danger', 10000);
+            $page_messages[] = ['message' => t('manage.users.new.msg.created_fail'), 'type' => 'danger', 'timeout' => 10000];
         }
     } else {
-        renderAlertBanner(t('manage.users.new.msg.validation_failed', ['errors' => implode(', ', $errors)]), 'danger', 10000);
+        $page_messages[] = ['message' => t('manage.users.new.msg.validation_failed', ['errors' => implode(', ', $errors)]), 'type' => 'danger', 'timeout' => 10000];
     }
+}
+
+$orgName = (string) ($ORGANISATION_NAME ?? 'System');
+renderHeader(t('manage.users.new.header', ['org' => $orgName]));
+render_submenu();
+
+foreach ($page_messages as $page_message) {
+    renderAlertBanner(
+        (string) $page_message['message'],
+        (string) $page_message['type'],
+        (int) $page_message['timeout']
+    );
 }
 
 ?>
