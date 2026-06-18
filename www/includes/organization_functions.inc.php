@@ -216,10 +216,7 @@ function lum_organization_uuid_from_request_uri_path(): ?string
 }
 
 /**
- * Resolve organization from request parameters (uuid or org).
- * Uses $_GET['uuid'] or $_GET['org']; opens/closes LDAP when resolving by UUID.
- *
- * @return array{org_name: string|null, org_uuid: string|null, organization: array|null, error: string|null}
+ * Build org-users list query string; prefer UUID, fall back to org name.
  */
 function lum_org_users_query_param(string $orgUuid, string $orgName): string
 {
@@ -230,6 +227,12 @@ function lum_org_users_query_param(string $orgUuid, string $orgName): string
     return 'org=' . urlencode($orgName);
 }
 
+/**
+ * Resolve organization from request parameters (uuid or org).
+ * Uses $_GET['uuid'] or $_GET['org']; opens/closes LDAP when resolving by UUID.
+ *
+ * @return array{org_name: string|null, org_uuid: string|null, organization: array|null, error: string|null}
+ */
 function resolve_organization_from_request(): array
 {
     $org_uuid = null;
