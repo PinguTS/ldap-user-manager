@@ -322,7 +322,16 @@ function resolve_organization_from_request(): array
                 'error' => t('manage.common.org_not_found'),
             ];
         }
-        $organization = $entries[0];
+        $entry = $entries[0] ?? null;
+        if (!is_array($entry)) {
+            return [
+                'org_name' => $org_name,
+                'org_uuid' => null,
+                'organization' => null,
+                'error' => t('manage.common.org_not_found'),
+            ];
+        }
+        $organization = $entry;
         $resolved_uuid = isset($organization['entryuuid'][0]) ? (string) $organization['entryuuid'][0] : null;
 
         return [
