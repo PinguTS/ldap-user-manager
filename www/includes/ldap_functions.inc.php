@@ -578,6 +578,67 @@ function ldap_default_user_search_fields(string $accountAttr, array $extra): arr
     return array_values(array_unique(array_merge([$accountAttr], $extra)));
 }
 
+/**
+ * Map a raw ldap_get_entries user row to a flat attribute array.
+ *
+ * @param array<string, mixed> $record
+ * @param string[]             $fields
+ * @return array<string, mixed>
+ */
+function ldap_map_user_record(array $record, array $fields, string $sort_key): array
+{
+    $mapped = [];
+
+    foreach ($fields as $this_attr) {
+        $found_attr = false;
+        $attr_value = null;
+
+        if (isset($record[$this_attr])) {
+            $found_attr = true;
+            $attr_value = $record[$this_attr];
+        } else {
+            foreach (array_keys($record) as $key) {
+                if (is_string($key) && strcasecmp($key, $this_attr) === 0) {
+                    $found_attr = true;
+                    $attr_value = $record[$key];
+                    break;
+                }
+            }
+        }
+
+        if (!$found_attr) {
+            continue;
+        }
+
+        if ($this_attr === 'dn') {
+            $mapped[$this_attr] = $attr_value;
+        } elseif (is_array($attr_value) && isset($attr_value[0])) {
+            $mapped[$this_attr] = $attr_value[0];
+        }
+    }
+
+    if (!isset($mapped[$sort_key])) {
+        if (isset($record[$sort_key]) && is_array($record[$sort_key]) && isset($record[$sort_key][0])) {
+            $mapped[$sort_key] = $record[$sort_key][0];
+        } else {
+            foreach (array_keys($record) as $key) {
+                if (
+                    is_string($key)
+                    && strcasecmp($key, $sort_key) === 0
+                    && isset($record[$key])
+                    && is_array($record[$key])
+                    && isset($record[$key][0])
+                ) {
+                    $mapped[$sort_key] = $record[$key][0];
+                    break;
+                }
+            }
+        }
+    }
+
+    return $mapped;
+}
+
 ##################################
 
 function ldap_get_system_users($ldap_connection, $start = 0, $entries = null, $sort = "asc", $sort_key = null, $filters = null, $fields = null)
@@ -677,78 +738,8 @@ function ldap_get_system_users($ldap_connection, $start = 0, $entries = null, $s
                     error_log("$log_prefix Sort key: $sort_key, Sort key value: " . (isset($record[$sort_key][0]) ? $record[$sort_key][0] : 'NOT SET'));
                 }
 
-                if (isset($record[$sort_key][0])) {
-                    $add_these = array();
-                    if ($LDAP_DEBUG === true) {
-                        error_log("$log_prefix Processing user record: " . $record[$sort_key][0]);
-                        error_log("$log_prefix Available attributes in record: " . print_r(array_keys($record), true));
-                        error_log("$log_prefix Requested fields: " . print_r($fields, true));
-                    }
-                    foreach ($fields as $this_attr) {
-                        // Skip the sort key attribute itself, but include all other requested fields
-                        if ($this_attr !== $sort_key) {
-                            // Check for case-insensitive attribute match
-                            $found_attr = false;
-                            $attr_value = null;
-
-                            if ($LDAP_DEBUG === true) {
-                                error_log("$log_prefix Processing field: $this_attr");
-                            }
-
-                            // First try exact match
-                            if (isset($record[$this_attr])) {
-                                $found_attr = true;
-                                $attr_value = $record[$this_attr];
-                                if ($LDAP_DEBUG === true) {
-                                    error_log("$log_prefix Found exact match for $this_attr");
-                                }
-                            } else {
-                                // Try case-insensitive match
-                                foreach (array_keys($record) as $key) {
-                                    if (is_string($key) && strcasecmp($key, $this_attr) === 0) {
-                                        $found_attr = true;
-                                        $attr_value = $record[$key];
-                                        if ($LDAP_DEBUG === true) {
-                                            error_log("$log_prefix Found attribute $this_attr with different casing: $key");
-                                            // Special debug for entryUUID
-                                            if (strcasecmp($this_attr, 'entryUUID') === 0) {
-                                                error_log("$log_prefix entryUUID case-insensitive match - key: $key, value: " . print_r($attr_value, true));
-                                                error_log("$log_prefix Will store as: $this_attr (requested name)");
-                                            }
-                                        }
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if ($found_attr) {
-                                if ($this_attr === 'dn') {
-                                    // DN is a special case - it's not an array
-                                    $add_these[$this_attr] = $attr_value;
-                                } else {
-                                    $add_these[$this_attr] = $attr_value[0];
-                                }
-                                if ($LDAP_DEBUG === true) {
-                                    error_log("$log_prefix Added attribute $this_attr: " . print_r($add_these[$this_attr], true));
-                                    // Special debug for entryUUID
-                                    if (strcasecmp($this_attr, 'entryUUID') === 0) {
-                                        error_log("$log_prefix entryUUID raw value: " . print_r($attr_value, true));
-                                        error_log("$log_prefix entryUUID extracted value: " . print_r($add_these[$this_attr], true));
-                                        error_log("$log_prefix entryUUID stored with key: $this_attr");
-                                    }
-                                }
-                            } else {
-                                if ($LDAP_DEBUG === true) {
-                                    error_log("$log_prefix Attribute $this_attr not found in record (case-insensitive check)");
-                                }
-                            }
-                        } else {
-                            if ($LDAP_DEBUG === true) {
-                                error_log("$log_prefix Skipping sort key attribute: $this_attr");
-                            }
-                        }
-                    }
-                    $users[$record[$sort_key][0]] = $add_these;
+                if (is_array($record) && isset($record[$sort_key][0])) {
+                    $users[$record[$sort_key][0]] = ldap_map_user_record($record, $fields, $sort_key);
                     if ($LDAP_DEBUG === true) {
                         error_log("$log_prefix Added user to array: " . $record[$sort_key][0]);
                     }
@@ -806,14 +797,8 @@ function ldap_get_user_list($ldap_connection, $start = 0, $entries = null, $sort
         }
 
         foreach ($result as $record) {
-            if (isset($record[$sort_key][0])) {
-                  $add_these = array();
-                foreach ($fields as $this_attr) {
-                    if ($this_attr !== $sort_key and isset($record[$this_attr])) {
-                        $add_these[$this_attr] = $record[$this_attr][0];
-                    }
-                }
-                $users[$record[$sort_key][0]] = $add_these;
+            if (is_array($record) && isset($record[$sort_key][0])) {
+                $users[$record[$sort_key][0]] = ldap_map_user_record($record, $fields, $sort_key);
             }
         }
     }
@@ -827,14 +812,8 @@ function ldap_get_user_list($ldap_connection, $start = 0, $entries = null, $sort
         }
 
         foreach ($result as $record) {
-            if (isset($record[$sort_key][0])) {
-                  $add_these = array();
-                foreach ($fields as $this_attr) {
-                    if ($this_attr !== $sort_key and isset($record[$this_attr])) {
-                        $add_these[$this_attr] = $record[$this_attr][0];
-                    }
-                }
-                $users[$record[$sort_key][0]] = $add_these;
+            if (is_array($record) && isset($record[$sort_key][0])) {
+                $users[$record[$sort_key][0]] = ldap_map_user_record($record, $fields, $sort_key);
             }
         }
     }
