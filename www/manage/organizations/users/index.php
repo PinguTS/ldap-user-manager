@@ -138,7 +138,7 @@ if (isset($_POST['toggle_manager']) && isset($_POST['uid'])) {
         $message_type = 'danger';
         goto after_toggle_manager;
     }
-    $userDn = (string) $userEntry['dn'];
+    $userDn = is_string($userEntry['dn'] ?? null) ? $userEntry['dn'] : '';
     $toggleUserDisplay = get_ldap_attribute($userEntry, 'uid') !== '' ? get_ldap_attribute($userEntry, 'uid') : (string) $toggleUserParam;
 
     $orgManagerDns = org_get_manager_dns($orgName);
@@ -235,7 +235,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message_type = 'danger';
             goto after_disable_user;
         }
-        $user_dn = (string) $resolved['dn'];
+        $user_dn = is_string($resolved['dn'] ?? null) ? $resolved['dn'] : '';
         $user_display = get_ldap_attribute($resolved, 'uid') !== '' ? get_ldap_attribute($resolved, 'uid') : $user_identifier;
         $ldap_connection = lum_ldap_data_connection();
         if ($ldap_connection === false) {
@@ -263,7 +263,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message_type = 'danger';
             goto after_enable_user;
         }
-        $user_dn = (string) $resolved['dn'];
+        $user_dn = is_string($resolved['dn'] ?? null) ? $resolved['dn'] : '';
         $user_display = get_ldap_attribute($resolved, 'uid') !== '' ? get_ldap_attribute($resolved, 'uid') : $user_identifier;
         $ldap_connection = lum_ldap_data_connection();
         if ($ldap_connection === false) {
@@ -291,7 +291,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message_type = 'danger';
             goto after_delete_user;
         }
-        $user_dn = (string) $resolved['dn'];
+        $user_dn = is_string($resolved['dn'] ?? null) ? $resolved['dn'] : '';
         $user_display = get_ldap_attribute($resolved, 'uid') !== '' ? get_ldap_attribute($resolved, 'uid') : $user_identifier;
         $ldap_connection = lum_ldap_data_connection();
         if ($ldap_connection === false) {
@@ -519,7 +519,7 @@ if (isset($_GET['delete_user'])) {
         $message_type = 'danger';
         goto after_delete_user;
     }
-    $userDn = (string) $resolvedDelete['dn'];
+    $userDn = is_string($resolvedDelete['dn'] ?? null) ? $resolvedDelete['dn'] : '';
     $deleteUserDisplay = get_ldap_attribute($resolvedDelete, 'uid') !== '' ? get_ldap_attribute($resolvedDelete, 'uid') : (string) $deleteUserParam;
 
     $ldap = lum_ldap_data_connection();

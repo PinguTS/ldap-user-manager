@@ -572,7 +572,7 @@ function handle_oidc_callback(): bool
         return false;
     }
 
-    $user_id      = (string) ($ldap_user['uid'] ?? '');
+    $user_id      = is_string($ldap_user['uid'] ?? null) ? $ldap_user['uid'] : '';
     $groups       = is_array($ldap_user['groups'] ?? null) ? (array) $ldap_user['groups'] : [];
     $is_admin     = check_oidc_user_admin_status($user_dn, $groups);
     $is_maintainer = check_oidc_user_maintainer_status($user_dn, $groups);

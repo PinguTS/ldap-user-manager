@@ -54,8 +54,8 @@ foreach ($result['ou_results'] as $ou_name => $ok) {
 print "<li class='list-group-item'><strong>Test 2: System Users</strong></li>\n";
 if ($result['admin_exists']) {
     $admin_attrs = $result['admin_attrs'];
-    $admin_mail = $admin_attrs['mail'][0] ?? null;
-    $admin_uid = $admin_attrs['uid'][0] ?? null;
+    $admin_mail = is_array($admin_attrs['mail'] ?? null) ? ($admin_attrs['mail'][0] ?? null) : null;
+    $admin_uid = is_array($admin_attrs['uid'] ?? null) ? ($admin_attrs['uid'][0] ?? null) : null;
     $label = $admin_mail ?: ($admin_uid ?: $result['admin_member_dn']);
     $label = htmlspecialchars((string) $label);
     print "<li class='list-group-item list-group-item-success'>✓ Administrator User exists ({$label})</li>\n";
@@ -64,8 +64,8 @@ if ($result['admin_exists']) {
 }
 if ($result['maintainer_exists']) {
     $maintainer_attrs = $result['maintainer_attrs'];
-    $maintainer_mail = $maintainer_attrs['mail'][0] ?? null;
-    $maintainer_uid = $maintainer_attrs['uid'][0] ?? null;
+    $maintainer_mail = is_array($maintainer_attrs['mail'] ?? null) ? ($maintainer_attrs['mail'][0] ?? null) : null;
+    $maintainer_uid = is_array($maintainer_attrs['uid'] ?? null) ? ($maintainer_attrs['uid'][0] ?? null) : null;
     $label = $maintainer_mail ?: ($maintainer_uid ?: $result['maintainer_member_dn']);
     $label = htmlspecialchars((string) $label);
     print "<li class='list-group-item list-group-item-success'>✓ Maintainer User exists ({$label})</li>\n";

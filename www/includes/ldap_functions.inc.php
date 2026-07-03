@@ -1125,6 +1125,9 @@ function status_group_member_dns_from_ldap_entry(array $entry): array
         return [];
     }
     $m = $entry['member'];
+    if (!is_array($m)) {
+        return [];
+    }
     $out = [];
     if (isset($m['count'])) {
         $n = (int) $m['count'];
@@ -2491,7 +2494,8 @@ function ldap_remove_user_from_all_groups($ldap_connection, $user_dn)
  */
 function is_user_account_disabled(array $ldapEntry): bool
 {
-    $lockTime = $ldapEntry['pwdaccountlockedtime'][0] ?? '';
+    $lockAttr = $ldapEntry['pwdaccountlockedtime'] ?? null;
+    $lockTime = is_array($lockAttr) ? ($lockAttr[0] ?? '') : '';
 
     return $lockTime === '000001010000Z';
 }

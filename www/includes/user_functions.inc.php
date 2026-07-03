@@ -29,7 +29,8 @@ function get_ldap_attribute($user_data, $attribute_name)
         if (is_array($user_data[$attribute_name])) {
             return $user_data[$attribute_name][0] ?? '';
         } else {
-            return $user_data[$attribute_name];
+            $value = $user_data[$attribute_name];
+            return is_scalar($value) ? (string) $value : '';
         }
     }
 
@@ -39,7 +40,8 @@ function get_ldap_attribute($user_data, $attribute_name)
             if (is_array($user_data[$key])) {
                 return $user_data[$key][0] ?? '';
             } else {
-                return $user_data[$key];
+                $value = $user_data[$key];
+                return is_scalar($value) ? (string) $value : '';
             }
         }
     }

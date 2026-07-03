@@ -866,6 +866,9 @@ function org_admin_group_member_dns_from_entry(array $entry): array
         return [];
     }
     $m = $entry['member'];
+    if (!is_array($m)) {
+        return [];
+    }
     $out = [];
     if (isset($m['count'])) {
         $n = (int) $m['count'];

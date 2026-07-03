@@ -745,7 +745,9 @@ function checkRoleGroupConflicts(array $roles, array $groups): array
     foreach ($roles as $roleKey => $roleValue) {
         foreach ($groups as $groupKey => $groupValue) {
             if ($roleValue === $groupValue) {
-                $conflicts[] = "Role value '{$roleValue}' conflicts with group name '{$groupValue}'";
+                $roleLabel = is_scalar($roleValue) ? (string) $roleValue : '';
+                $groupLabel = is_scalar($groupValue) ? (string) $groupValue : '';
+                $conflicts[] = "Role value '{$roleLabel}' conflicts with group name '{$groupLabel}'";
             }
         }
     }

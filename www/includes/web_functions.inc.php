@@ -2339,7 +2339,8 @@ function recordLoginAttempt($identifier, $success = false)
     $attempts = [];
     if (file_exists($rate_limit_file)) {
         $data = file_get_contents($rate_limit_file);
-        $attempts = json_decode($data, true) ?: [];
+        $decoded = json_decode($data, true);
+        $attempts = is_array($decoded) ? $decoded : [];
     }
 
     $attempts[] = time();

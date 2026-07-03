@@ -521,14 +521,17 @@ function send_password_reset_email_for_ldap_user_row(array $userRow, string $tri
     $trigger = ($trigger === 'admin') ? 'admin' : 'self';
     $templateBase = ($trigger === 'admin') ? 'reset_password_admin.html' : 'reset_password.html';
 
-    $userMail = (string) ($userRow['mail'][0] ?? '');
+    $userMail = is_array($userRow['mail'] ?? null) ? (string) ($userRow['mail'][0] ?? '') : '';
     $acctKey = strtolower((string) ($LDAP['account_attribute'] ?? 'mail'));
-    $login = (string) ($userRow[$acctKey][0] ?? '');
+    $loginAttr = $userRow[$acctKey] ?? null;
+    $login = is_array($loginAttr) ? (string) ($loginAttr[0] ?? '') : '';
     if ($login === '') {
         $login = $userMail;
     }
-    $first = (string) ($userRow['givenname'][0] ?? $userRow['givenName'][0] ?? '');
-    $last = (string) ($userRow['sn'][0] ?? '');
+    $givenNameAttr = $userRow['givenname'] ?? $userRow['givenName'] ?? null;
+    $first = is_array($givenNameAttr) ? (string) ($givenNameAttr[0] ?? '') : '';
+    $snAttr = $userRow['sn'] ?? null;
+    $last = is_array($snAttr) ? (string) ($snAttr[0] ?? '') : '';
 
     if ($userMail === '' || !function_exists('isValidEmail') || !isValidEmail($userMail)) {
         return ['ok' => false, 'reason' => 'no_valid_email'];
