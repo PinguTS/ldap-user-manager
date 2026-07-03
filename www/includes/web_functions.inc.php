@@ -495,7 +495,9 @@ function createOneTimeAuthToken($user_id, $is_admin, $is_maintainer, $is_org_adm
         $enc_display
     ]);
     $path = $SESSION_SAVE_PATH . '/auth_tok_' . $token;
-    @file_put_contents($path, $line);
+    if (@file_put_contents($path, $line) !== false) {
+        @chmod($path, 0600);
+    }
     return $token;
 }
 
@@ -658,7 +660,7 @@ function setPasskeyCookie($user_id, $is_admin, $is_maintainer = false, $is_org_a
     }
     setcookie('orf_cookie', $orfValue, $cookie_opts);
     $sessto_cookie_opts = $cookie_opts;
-    $sessto_cookie_opts['expires'] = $this_time + 7200;
+    $sessto_cookie_opts['expires'] = $this_time + (60 * (int) ($SESSION_TIMEOUT ?? 60));
     setcookie('sessto_cookie', (string)($this_time + (60 * $SESSION_TIMEOUT)), $sessto_cookie_opts);
 
     if ($SESSION_DEBUG == true) {
@@ -808,7 +810,7 @@ function validatePasskeyCookie()
             }
 
           // Validate passkey
-            if (!empty($c_passkey) and $f_passkey == $c_passkey) {
+            if (!empty($c_passkey) && hash_equals((string) $f_passkey, (string) $c_passkey)) {
                 if ($f_is_admin == 1) {
                     $IS_ADMIN = true;
                 }
@@ -876,7 +878,7 @@ function validatePasskeyCookie()
                     if ($c_passkey != $f_passkey) {
                         $this_error .= " the session file passkey didn't match the cookie passkey;";
                     }
-                    $this_error .= " Cookie: {$_COOKIE['orf_cookie']} - Session file contents: $session_file";
+                    $this_error .= ' (passkey mismatch; cookie and session file contents redacted)';
                     error_log($this_error, 0);
                 }
             }
@@ -950,7 +952,7 @@ function validateSetupCookie()
             } else {
                 list($f_passkey, $f_time) = $session_parts;
                 $this_time = time();
-                if (!empty($c_passkey) and $f_passkey == $c_passkey and $this_time < $f_time + (60 * $SESSION_TIMEOUT)) {
+                if (!empty($c_passkey) && hash_equals((string) $f_passkey, (string) $c_passkey) && $this_time < $f_time + (60 * $SESSION_TIMEOUT)) {
                     $IS_SETUP_ADMIN = true;
                     if ($SESSION_DEBUG == true) {
                         error_log("$log_prefix Setup session: Cookie and session file values match - VALIDATED ", 0);
@@ -964,7 +966,7 @@ function validateSetupCookie()
                     if ($c_passkey != $f_passkey) {
                         $this_error .= " the session file passkey didn't match the cookie passkey;";
                     }
-                    $this_error .= " Cookie: {$_COOKIE['setup_cookie']} - Session file contents: $session_file";
+                    $this_error .= ' (passkey mismatch; cookie and session file contents redacted)';
                     error_log($this_error, 0);
                 }
             }
@@ -1998,11 +2000,13 @@ function humanReadableFilesize($bytes)
 
 function renderAlertBanner($message, $alert_class = "success", $timeout = 4000)
 {
+    $safe_class = preg_replace('/[^a-z0-9_-]/i', '', (string) $alert_class) ?: 'success';
+    $safe_message = htmlspecialchars((string) $message, ENT_QUOTES, 'UTF-8');
 
     ?>
     <script>window.setTimeout(function() {$(".alert").fadeTo(500, 0).slideUp(500, function(){ $(this).remove(); }); }, <?php print (int) $timeout; ?>);</script>
-    <div class="alert alert-<?php print $alert_class; ?> alert-dismissible fade show" role="alert">
-     <p class="text-center mb-0"><?php print $message; ?></p>
+    <div class="alert alert-<?php print $safe_class; ?> alert-dismissible fade show" role="alert">
+     <p class="text-center mb-0"><?php print $safe_message; ?></p>
      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
     <?php

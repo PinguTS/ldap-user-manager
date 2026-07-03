@@ -43,8 +43,8 @@ These settings connect the system to your LDAP directory server:
 - `LDAP_BASE_DN` - Base directory path in your LDAP tree (required)
 - `LDAP_ADMIN_BIND_DN` - Administrator account for LDAP operations (required)
 - `LDAP_ADMIN_BIND_PWD` - Administrator password (required)
-- `LDAP_REQUIRE_STARTTLS` - Whether to require encrypted connections (default: FALSE)
-- `LDAP_IGNORE_CERT_ERRORS` - Whether to ignore SSL certificate errors (default: TRUE for development)
+- `LDAP_REQUIRE_STARTTLS` - Whether to require encrypted connections (default: TRUE). In production (`APP_ENV=production`), STARTTLS failure is always fatal even when this is FALSE.
+- `LDAP_IGNORE_CERT_ERRORS` - Whether to ignore SSL certificate errors (default: FALSE). Refused in production.
 
 ### Password Security Configuration
 These settings control how strong passwords must be in your system:
@@ -64,7 +64,7 @@ These settings control how strong passwords must be in your system:
 - `PASSWORD_STRENGTH_REQUIRE_SYMBOLS` - Require special characters (default: FALSE)
 
 #### **Legacy Password Settings**
-- `PASSWORD_HASH` - Password encryption method (default: 'SSHA')
+- `PASSWORD_HASH` - Password encryption method (default: 'SSHA'). Supported values include `SSHA`, `SHA512CRYPT`, `SHA256CRYPT`, and `ARGON2` (requires OpenLDAP/bind support for `{ARGON2}` storage).
 - `ACCEPT_WEAK_PASSWORDS` - Allow very weak passwords (default: FALSE)
   - **Note**: If set to TRUE, this overrides the minimum score requirement
 
@@ -245,7 +245,7 @@ These settings control how the system sends emails:
 - `SMTP_HOST_PORT` - SMTP port (default: 25)
 - `SMTP_HELO_HOST` - SMTP HELO hostname
 - `SMTP_USE_SSL` - Whether to use SSL (default: FALSE)
-- `SMTP_USE_TLS` - Whether to use TLS (default: FALSE)
+- `SMTP_USE_TLS` - Whether to use STARTTLS on the SMTP connection (default: FALSE). **Enable this in production** so credentials and message content are not sent in plaintext when using port 25.
 - `EMAIL_DOMAIN` - Default email domain
 - `EMAIL_FROM_ADDRESS` - From email address
 - `EMAIL_FROM_NAME` - From email name

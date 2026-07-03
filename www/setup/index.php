@@ -10,6 +10,8 @@ include_once __DIR__ . '/bootstrap_setup.inc.php';
 
 global $IS_ADMIN;
 
+getCsrfToken();
+
 if (!empty($IS_ADMIN)) {
     header('Location: ' . getBaseUrl() . 'setup/run_checks.php');
     exit;
@@ -22,45 +24,67 @@ if (function_exists('checkRuntimeRoleConflicts') && checkRuntimeRoleConflicts())
 }
 
 if (isset($_POST["admin_password"])) {
+    if (!validateCsrfToken()) {
+        http_response_code(403);
+        header("Location: " . getBaseUrl() . "setup/index.php?invalid");
+        exit;
+    }
+
+    if (isRateLimited('setup_login')) {
+        http_response_code(429);
+        header("Location: " . getBaseUrl() . "setup/index.php?rate_limited");
+        exit;
+    }
+
     $ldap_connection = open_ldap_connection();
     $user_auth = ldap_setup_auth($ldap_connection, $_POST["admin_password"]);
     ldap_close($ldap_connection);
 
     if ($user_auth != false) {
+        recordLoginAttempt('setup_login', true);
         setSetupCookie($user_auth);
         header("Location: " . getBaseUrl() . "setup/check/");
         exit;
-    } else {
-        header("Location: " . getBaseUrl() . "setup/index.php?invalid");
-        exit;
     }
-} else {
-    renderHeader(t('setup.index.page_title', ['org' => $ORGANISATION_NAME]));
 
-    if (isset($_GET["invalid"])) {
-        ?>
-        <div class="alert alert-warning">
-            <p class="text-center"><?php echo htmlspecialchars(t('setup.index.wrong_password'), ENT_QUOTES, 'UTF-8'); ?></p>
-        </div>
-        <?php
-    }
+    recordLoginAttempt('setup_login', false);
+    header("Location: " . getBaseUrl() . "setup/index.php?invalid");
+    exit;
+}
+
+renderHeader(t('setup.index.page_title', ['org' => $ORGANISATION_NAME]));
+
+if (isset($_GET["invalid"])) {
     ?>
-    <div class="container">
-        <div class="card">
-            <div class="card-header text-center"><?php echo htmlspecialchars(t('setup.index.password_for', ['dn' => $LDAP['admin_bind_dn']]), ENT_QUOTES, 'UTF-8'); ?></div>
-            <div class="card-body text-center">
-                <form class="form-inline" action='' method='post'>
-                    <div class="form-group">
-                        <input type='password' class="form-control" name='admin_password'>
-                    </div>
-                    <div class="form-group">
-                        <input type='submit' class="btn btn-secondary" value="<?php echo htmlspecialchars(t('login.submit'), ENT_QUOTES, 'UTF-8'); ?>">
-                    </div>
-                </form>
-            </div>
-        </div>
+    <div class="alert alert-warning">
+        <p class="text-center"><?php echo htmlspecialchars(t('setup.index.wrong_password'), ENT_QUOTES, 'UTF-8'); ?></p>
     </div>
     <?php
 }
+if (isset($_GET["rate_limited"])) {
+    ?>
+    <div class="alert alert-warning">
+        <p class="text-center"><?php echo htmlspecialchars(t('login.rate_limited'), ENT_QUOTES, 'UTF-8'); ?></p>
+    </div>
+    <?php
+}
+?>
+<div class="container">
+    <div class="card">
+        <div class="card-header text-center"><?php echo htmlspecialchars(t('setup.index.password_for', ['dn' => $LDAP['admin_bind_dn']]), ENT_QUOTES, 'UTF-8'); ?></div>
+        <div class="card-body text-center">
+            <form class="form-inline" action='' method='post'>
+                <?php echo csrfTokenField(); ?>
+                <div class="form-group">
+                    <input type='password' class="form-control" name='admin_password'>
+                </div>
+                <div class="form-group">
+                    <input type='submit' class="btn btn-secondary" value="<?php echo htmlspecialchars(t('login.submit'), ENT_QUOTES, 'UTF-8'); ?>">
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<?php
 renderFooter();
 ?>

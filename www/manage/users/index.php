@@ -8,6 +8,10 @@ bootstrapManage(['ldap']);
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    if (!validateCsrfToken()) {
+        $message = t('manage.common.msg.security_validation_failed');
+        $message_type = 'danger';
+    } else {
     $ldap_connection = lum_ldap_data_connection();
     if ($ldap_connection === false) {
         $message = t('manage.orgs.msg.ldap_fail');
@@ -123,6 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 break;
         } // phpcs:ignore Generic.WhiteSpace.ScopeIndent.IncorrectExact,Squiz.WhiteSpace.ScopeClosingBrace.Indent -- switch at 8 spaces
         lum_close_ldap_if_not_manage($ldap_connection);
+    }
     }
 }
 

@@ -74,12 +74,13 @@ if (isset($_POST['telephoneNumber']) && !empty(trim($_POST['telephoneNumber'])))
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
-    validateCsrfToken();
+    if (!validateCsrfToken()) {
+        $page_messages[] = ['type' => 'danger', 'message' => t('manage.common.msg.security_validation_failed')];
+    } else {
+        // Validate required fields
+        $errors = [];
 
-  // Validate required fields
-    $errors = [];
-
-    if (empty($new_account_r['mail'])) {
+        if (empty($new_account_r['mail'])) {
         $invalid_email = true;
         $errors[] = t('manage.users.new.error.email_required');
     }
@@ -211,6 +212,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
         }
     } else {
         $page_messages[] = ['message' => t('manage.users.new.msg.validation_failed', ['errors' => implode(', ', $errors)]), 'type' => 'danger', 'timeout' => 10000];
+    }
     }
 }
 

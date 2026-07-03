@@ -36,7 +36,8 @@ $SECURITY_CONFIG = [
         'allowed_algorithms' => [
             'SSHA',
             'SHA512CRYPT',
-            'SHA256CRYPT'
+            'SHA256CRYPT',
+            'ARGON2',
         ],
         'default_algorithm' => 'SSHA'
     ],
