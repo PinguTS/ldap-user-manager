@@ -266,8 +266,8 @@ if ($ldap_example_org_search === false) {
 include_once __DIR__ . '/../includes/setup_acl_functions.inc.php';
 // Use the cn=config admin bind when available (can actually read olcAccess); otherwise
 // fall back to the app admin bind (will report "cannot read", as it has no cn=config access).
-$acl_read_connection = ($acl_config_connection !== false) ? $acl_config_connection : $ldap_connection;
 if ($ldap_connection !== false) {
+    $acl_read_connection = ($acl_config_connection !== false) ? $acl_config_connection : $ldap_connection;
     $vb = setupVerifyUserBindAcls($acl_read_connection);
     if ($vb['ok']) {
         print "$li_good " . htmlspecialchars($vb['detail'], ENT_QUOTES, 'UTF-8') . " (olcAccess lines in MDB: " . (int) $vb['line_count'] . ")</li>\n";
@@ -297,6 +297,7 @@ if ($ldap_connection !== false) {
 <?php
 
 if ($ldap_connection !== false) {
+    $acl_read_connection = ($acl_config_connection !== false) ? $acl_config_connection : $ldap_connection;
     $rb = setupVerifyRoleBasedAcls($acl_read_connection);
     if (!$rb['can_read_config']) {
         print "$li_warn Cannot read <code>" . htmlspecialchars(setupOlcMdbDn(), ENT_QUOTES, 'UTF-8') . "</code> olcAccess with the app bind. Apply manually — see the ACL helper page.</li>\n";
