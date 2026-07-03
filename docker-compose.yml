@@ -75,6 +75,11 @@ services:
       LDAP_BASE_DN: "dc=example,dc=com"
       LDAP_ADMIN_BIND_DN: "cn=admin,dc=example,dc=com"
       LDAP_ADMIN_BIND_PWD: "<CHANGEME-strong-ldap-admin-password>"
+      # Optional: lets /setup read and apply cn=config olcAccess ACLs automatically.
+      # cn=config is a separate database; LDAP_ADMIN_BIND_DN above has no access to it by
+      # design. Must match the ldap service's LDAP_CONFIG_PASSWORD above. Leave unset to
+      # keep the manual/copy-paste ACL workflow (see docs/ldap/userbind-acls.md).
+      LDAP_CONFIG_BIND_PWD: "<CHANGEME-strong-ldap-config-password>"
 
       # Application Settings
       APP_ORGANIZATION_NAME: "LDAP User Manager"

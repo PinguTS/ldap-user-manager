@@ -24,14 +24,26 @@ $roleDone         = false;
 $roleError        = '';
 $roleInsufficient = false;
 
+// Prefer the cn=config admin bind (LDAP_CONFIG_BIND_PWD / LDAP_CONFIG_PASSWORD) for all
+// cn=config reads/writes below — the app admin bind (LDAP_ADMIN_BIND_DN) has no access to
+// cn=config by design. Falls back to the admin bind (current behavior: fails with
+// "insufficient access", surfacing the manual copy/paste commands) when unset.
+$usingConfigBind = false;
+$aclConn = open_ldap_config_connection();
+if ($aclConn !== false) {
+    $usingConfigBind = true;
+} else {
+    $aclConn = open_ldap_connection();
+}
+
 // Read the current ACL state for informational display (before any POST action)
-$connForVerify        = open_ldap_connection();
+$connForVerify        = $aclConn;
 $currentAclVerify     = ($connForVerify !== false)
     ? setupVerifyRoleBasedAcls($connForVerify)
     : null;
 
 if (isset($_POST['apply_lum_user_bind_acls']) && $baseDn !== '' && $mdbDn !== '') {
-    $conn = open_ldap_connection();
+    $conn = $aclConn;
     if ($conn !== false) {
         $baselineDone = setupApplyUserBindAclsToMdb($conn, $mdbDn, $baseDn, $orgDn);
         if ($baselineDone) {
@@ -46,7 +58,7 @@ if (isset($_POST['apply_lum_user_bind_acls']) && $baseDn !== '' && $mdbDn !== ''
 }
 
 if (isset($_POST['apply_lum_role_acls']) && $baseDn !== '' && $mdbDn !== '') {
-    $conn = open_ldap_connection();
+    $conn = $aclConn;
     if ($conn !== false) {
         $roleDone = setupApplyRoleBasedAclsToMdb($conn, $mdbDn);
         if ($roleDone) {
@@ -80,6 +92,16 @@ renderHeader("{$ORGANISATION_NAME} — user-bind ACLs");
 
 ?>
 <div class="container">
+
+  <?php if (!$usingConfigBind) : ?>
+  <div class="alert alert-info">
+    Using the app admin bind to reach <code>cn=config</code>, which has no access to it by
+    design — the buttons below will likely fail with "insufficient access". Set
+    <code>LDAP_CONFIG_BIND_PWD</code> (cn=config admin password) on the app service to let
+    this page read and apply <code>olcAccess</code> automatically, or use the copy/paste
+    commands shown after a failed attempt.
+  </div>
+  <?php endif; ?>
 
   <!-- ================================================================ -->
   <!-- SECTION 1: Baseline (read + self password)                       -->

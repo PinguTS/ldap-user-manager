@@ -18,6 +18,11 @@ $show_finish_button = true;
 
 $ldap_connection = open_ldap_connection();
 
+// Optional cn=config admin bind (LDAP_CONFIG_BIND_PWD / LDAP_CONFIG_PASSWORD). When set,
+// the ACL checks below can actually read cn=config; the admin bind (LDAP_ADMIN_BIND_DN)
+// has no access to it by design. Falls back to the admin bind (current behavior) when unset.
+$acl_config_connection = open_ldap_config_connection();
+
 ?>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -259,8 +264,11 @@ if ($ldap_example_org_search === false) {
 <?php
 
 include_once __DIR__ . '/../includes/setup_acl_functions.inc.php';
+// Use the cn=config admin bind when available (can actually read olcAccess); otherwise
+// fall back to the app admin bind (will report "cannot read", as it has no cn=config access).
+$acl_read_connection = ($acl_config_connection !== false) ? $acl_config_connection : $ldap_connection;
 if ($ldap_connection !== false) {
-    $vb = setupVerifyUserBindAcls($ldap_connection);
+    $vb = setupVerifyUserBindAcls($acl_read_connection);
     if ($vb['ok']) {
         print "$li_good " . htmlspecialchars($vb['detail'], ENT_QUOTES, 'UTF-8') . " (olcAccess lines in MDB: " . (int) $vb['line_count'] . ")</li>\n";
     } else {
@@ -272,6 +280,9 @@ if ($ldap_connection !== false) {
             print "$li_info Verify directly with this command (copy/paste):<br><code>"
                 . htmlspecialchars($verifyCmd, ENT_QUOTES, 'UTF-8')
                 . "</code></li>\n";
+            if ($acl_config_connection === false) {
+                print "$li_info Or set <code>LDAP_CONFIG_BIND_PWD</code> (cn=config admin password) so this check and the apply helper can read/apply olcAccess automatically.</li>\n";
+            }
         }
     }
 } else {
@@ -286,9 +297,12 @@ if ($ldap_connection !== false) {
 <?php
 
 if ($ldap_connection !== false) {
-    $rb = setupVerifyRoleBasedAcls($ldap_connection);
+    $rb = setupVerifyRoleBasedAcls($acl_read_connection);
     if (!$rb['can_read_config']) {
         print "$li_warn Cannot read <code>" . htmlspecialchars(setupOlcMdbDn(), ENT_QUOTES, 'UTF-8') . "</code> olcAccess with the app bind. Apply manually — see the ACL helper page.</li>\n";
+        if ($acl_config_connection === false) {
+            print "$li_info Set <code>LDAP_CONFIG_BIND_PWD</code> (cn=config admin password) to let this check and the apply helper read/apply olcAccess automatically.</li>\n";
+        }
     } elseif ($rb['all_present'] && $rb['reachable']) {
         print "$li_good All role-based olcAccess rules are present and reachable (" . count($rb['present']) . " rules).</li>\n";
     } elseif ($rb['all_present'] && !$rb['reachable']) {

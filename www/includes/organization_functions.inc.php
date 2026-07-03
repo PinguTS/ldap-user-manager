@@ -1189,7 +1189,7 @@ function createUserAccount($userData)
 
     try {
         // Determine if this is a system user or organization user
-        $is_system_user = in_array($userData['userRole'], [$LDAP['admin_role'], 'maintainer']);
+        $is_system_user = in_array($userData['userRole'], [$LDAP['admin_role'], $LDAP['maintainer_role']]);
 
         if ($is_system_user) {
             // Create system user (administrator/maintainer)
@@ -1247,12 +1247,29 @@ function createSystemUser($ldap, $userData)
         return [false, "Failed to create system user"];
     }
 
-    // Add user to the appropriate role group
+    // Add user to the appropriate role group, creating it if this is the first member
+    // of that role — mirrors the setup flow, which auto-creates cn=administrators /
+    // cn=maintainers the same way when the first admin/maintainer user is created.
     $role_group_dn = "cn={$userData['userRole']}," . $LDAP['roles_dn'];
-    $modify = @ldap_mod_add($ldap, $role_group_dn, ['member' => $user_dn]);
+    $role_group_filter = "(&(objectclass=groupOfNames)(cn=" . ldap_escape($userData['userRole'], '', LDAP_ESCAPE_FILTER) . "))";
+    $role_group_search = @ldap_search($ldap, $LDAP['roles_dn'], $role_group_filter);
+    $role_group_exists = ($role_group_search && @ldap_count_entries($ldap, $role_group_search) > 0);
+
+    if ($role_group_exists) {
+        $modify = @ldap_mod_add($ldap, $role_group_dn, ['member' => $user_dn]);
+    } else {
+        $modify = @ldap_add($ldap, $role_group_dn, [
+            'objectclass' => ['top', 'groupOfNames'],
+            'cn' => $userData['userRole'],
+            'description' => $userData['userRole'],
+            'member' => $user_dn,
+        ]);
+    }
+
     if (!$modify) {
-        // Log the warning but don't fail the user creation
-        error_log("Warning: Failed to add user to role group {$userData['userRole']}: " . ldap_error($ldap));
+        $ldap_err = ldap_error($ldap);
+        error_log("createSystemUser: failed to assign role group {$role_group_dn} for $user_dn: {$ldap_err}");
+        return [false, "User account was created, but assigning the '{$userData['userRole']}' role failed: {$ldap_err}. The account exists without a role; an administrator must add it to {$role_group_dn} manually."];
     }
 
     return [true, "System user created successfully"];

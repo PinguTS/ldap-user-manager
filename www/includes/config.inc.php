@@ -162,6 +162,13 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
  $LDAP['base_dn'] = getenv('LDAP_BASE_DN');
  $LDAP['admin_bind_dn'] = getenv('LDAP_ADMIN_BIND_DN');
  $LDAP['admin_bind_pwd'] = getenv('LDAP_ADMIN_BIND_PWD');
+
+// Optional: cn=config admin bind, used only by /setup to read/apply olcAccess ACLs.
+// cn=config is a separate OpenLDAP database whose rootDN (LDAP_ADMIN_BIND_DN, the
+// directory rootDN) has no access to by design. Leave LDAP_CONFIG_BIND_PWD unset to
+// keep the current manual/copy-paste workflow (see docs/ldap/userbind-acls.md).
+ $LDAP['config_bind_dn'] = getenv('LDAP_CONFIG_BIND_DN') ?: 'cn=admin,cn=config';
+ $LDAP['config_bind_pwd'] = getenv('LDAP_CONFIG_BIND_PWD') ?: (getenv('LDAP_CONFIG_PASSWORD') ?: '');
  $LDAP['connection_type'] = "plain";
  $LDAP['require_starttls'] = ((strcasecmp(getenv('LDAP_REQUIRE_STARTTLS') ?: 'TRUE', 'TRUE') == 0) ? true : false);
  $LDAP['ignore_cert_errors'] = ((strcasecmp(getenv('LDAP_IGNORE_CERT_ERRORS') ?: 'FALSE', 'TRUE') == 0) ? true : false);

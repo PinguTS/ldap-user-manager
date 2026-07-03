@@ -97,7 +97,7 @@ function lum_email_system_account_role_list(): array
 
     return array_values(array_filter([
         (string) ($LDAP['admin_role'] ?? ''),
-        'maintainer',
+        (string) ($LDAP['maintainer_role'] ?? ''),
     ]));
 }
 

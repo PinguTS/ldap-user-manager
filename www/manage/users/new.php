@@ -37,10 +37,10 @@ $new_account_r = array();
 $available_user_roles = [];
 if (currentUserIsGlobalAdmin()) {
     // System administrators can create users with any system role
-    $available_user_roles = [$LDAP['admin_role'], 'maintainer'];
+    $available_user_roles = [$LDAP['admin_role'], $LDAP['maintainer_role']];
 } elseif (currentUserIsMaintainer()) {
     // System maintainers can only create users with maintainer role
-    $available_user_roles = ['maintainer'];
+    $available_user_roles = [$LDAP['maintainer_role']];
 } else {
     // Other users cannot create system users
     $available_user_roles = [];
@@ -268,7 +268,7 @@ foreach ($page_messages as $page_message) {
                                                 <?php
                                                 $role_label = match ($role) {
                                                     $LDAP['admin_role'] => $LDAP['role_display_labels']['admin_role'],
-                                                    'maintainer' => $LDAP['role_display_labels']['maintainer_role'],
+                                                    $LDAP['maintainer_role'] => $LDAP['role_display_labels']['maintainer_role'],
                                                     default => ucfirst(str_replace('_', ' ', $role))
                                                 };
                                                 echo htmlspecialchars($role_label);

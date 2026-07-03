@@ -189,6 +189,16 @@ of group X" as an ACL condition; it can only evaluate the *requesting* user's gr
 > The setup helper at `/setup/apply_user_bind_acls.php` detects this situation and uses
 > `replace:` automatically. The LDIF examples below also use `replace:`.
 
+> **`cn=config` needs its own bind.** `cn=config` is a separate OpenLDAP database whose
+> rootDN is `cn=admin,cn=config` — it is **not** the same as `LDAP_ADMIN_BIND_DN`
+> (`cn=admin,{LDAP_BASE_DN}`), which has no access to `cn=config` by design. The setup
+> check and apply helper can only read/apply `olcAccess` automatically when you set
+> `LDAP_CONFIG_BIND_PWD` (optionally `LDAP_CONFIG_BIND_DN`, default `cn=admin,cn=config`)
+> on the `ldap-user-manager` service — see
+> [environment-variables.md](../configuration/environment-variables.md). Without it, both
+> pages report "cannot read cn=config with the app bind" and fall back to the manual
+> `ldapmodify`/`ldapi://` commands below (still fully supported).
+
 ### Option A — EXTERNAL auth inside the LDAP container (recommended for osixia/openldap)
 
 Replace all your current values (preserving the UNIX-socket EXTERNAL rule):
@@ -335,3 +345,8 @@ docker exec -i ldap-server sh -lc \
 
 - **`LDAP_OLC_MDB_DN`.** If your main database is not `olcDatabase={1}mdb,cn=config`
   (e.g. you have a second database), set this environment variable on the app service.
+
+- **`LDAP_CONFIG_BIND_PWD`.** Optional, but required for the setup check and apply helper
+  to read/apply `olcAccess` themselves (see the note under "Applying the rules" above).
+  Without it you must apply the LDIF manually via Option A or B and re-run the setup check
+  to confirm.

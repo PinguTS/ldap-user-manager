@@ -226,6 +226,29 @@ function open_ldap_connection_as(string $bind_dn, string $bind_pwd, bool $exitOn
 }
 
 /**
+ * Open a connection bound as the OpenLDAP cn=config admin, used only by /setup to read
+ * and apply olcAccess ACLs. cn=config is a separate database whose rootDN
+ * (LDAP_ADMIN_BIND_DN, the directory rootDN) has no access to by design.
+ *
+ * Returns false (never exits) when LDAP_CONFIG_BIND_PWD / LDAP_CONFIG_PASSWORD is not
+ * set, so callers can fall back to the existing manual/copy-paste workflow.
+ *
+ * @return resource|\LDAP\Connection|false
+ */
+function open_ldap_config_connection()
+{
+    global $LDAP;
+
+    $pwd = (string) ($LDAP['config_bind_pwd'] ?? '');
+    if ($pwd === '') {
+        return false;
+    }
+    $dn = (string) ($LDAP['config_bind_dn'] ?? 'cn=admin,cn=config');
+
+    return open_ldap_connection_as($dn, $pwd, false);
+}
+
+/**
  * Opens a connection to the LDAP server with optional binding
  *
  * @param bool $ldap_bind Whether to bind as admin user
@@ -536,6 +559,27 @@ function ldap_hashed_password($password)
 
 ##################################
 
+/**
+ * Build a sequentially-indexed LDAP attributes list for user searches.
+ *
+ * ponytail: array_unique() alone preserves original keys, so when $accountAttr
+ * duplicates one of the entries in $extra (e.g. the default account attribute "mail"
+ * duplicating the hardcoded "mail") the result has a gap in its numeric index. PHP's
+ * ldap_search()/ldap_read() read attribute arrays by sequential index and silently
+ * return false (no request is ever sent) if there is a gap — this previously made the
+ * system users list appear empty whenever LDAP_ACCOUNT_ATTRIBUTE was left at its
+ * default. array_values() closes the gap.
+ *
+ * @param string[] $extra
+ * @return string[]
+ */
+function ldap_default_user_search_fields(string $accountAttr, array $extra): array
+{
+    return array_values(array_unique(array_merge([$accountAttr], $extra)));
+}
+
+##################################
+
 function ldap_get_system_users($ldap_connection, $start = 0, $entries = null, $sort = "asc", $sort_key = null, $filters = null, $fields = null)
 {
     global $log_prefix, $LDAP, $LDAP_DEBUG;
@@ -558,7 +602,7 @@ function ldap_get_system_users($ldap_connection, $start = 0, $entries = null, $s
     $use_uuid = !empty($LDAP['use_uuid_identification']);
 
     if (!isset($fields)) {
-        $fields = array_unique(array($account_attr, "givenname", "sn", "cn", "mail", "description", "dn"));
+        $fields = ldap_default_user_search_fields($account_attr, ["givenname", "sn", "cn", "mail", "description", "dn"]);
         if ($use_uuid) {
             $fields[] = 'entryUUID';
         }
@@ -737,7 +781,7 @@ function ldap_get_user_list($ldap_connection, $start = 0, $entries = null, $sort
     global $log_prefix, $LDAP, $LDAP_DEBUG;
 
     if (!isset($fields)) {
-        $fields = array_unique(array("{$LDAP['account_attribute']}", "givenname", "sn", "cn", "mail", "description", "organization"));
+        $fields = ldap_default_user_search_fields($LDAP['account_attribute'], ["givenname", "sn", "cn", "mail", "description", "organization"]);
         // Add UUID field if UUID identification is enabled
         if ($LDAP['use_uuid_identification']) {
             $fields[] = 'entryUUID';
@@ -1677,7 +1721,7 @@ function ldap_get_user_info($ldap_connection, $username, $fields = null)
     global $log_prefix, $LDAP, $LDAP_DEBUG;
 
     if (!isset($fields)) {
-        $fields = array_unique(array("{$LDAP['account_attribute']}", "givenname", "sn", "cn", "mail", "description", "organization", "userPassword"));
+        $fields = ldap_default_user_search_fields($LDAP['account_attribute'], ["givenname", "sn", "cn", "mail", "description", "organization", "userPassword"]);
     }
 
     $ldap_search_query = "{$LDAP['account_attribute']}=" . ldap_escape(($username === null ? '' : $username), "", LDAP_ESCAPE_FILTER);
