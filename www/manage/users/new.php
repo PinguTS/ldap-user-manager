@@ -153,7 +153,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
 
         $result = createUserAccount($new_account_r);
         if ($result[0]) {
-            $flashMessage = t('manage.users.new.msg.created_ok');
+            $flashMessage = t('manage.users.new.msg.created_ok', ['user' => $new_account_r['cn'] ?? '']);
 
             global $EMAIL_SENDING_ENABLED;
             $login = (string) ($new_account_r['mail'] ?? '');
