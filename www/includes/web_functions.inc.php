@@ -1640,11 +1640,41 @@ function getAssetBase(): string
 }
 
 /**
+ * Relative app path for the authenticated user's role default (no host/base prefix).
+ */
+function getRoleDefaultRedirectPath(): string
+{
+    global $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $IS_SETUP_ADMIN, $USER_ORG_NAME, $USER_ORG_UUID;
+
+    if ($IS_SETUP_ADMIN) {
+        return 'setup/';
+    }
+    if ($IS_ADMIN) {
+        return 'manage/';
+    }
+    if ($IS_MAINTAINER) {
+        return 'manage/organizations/';
+    }
+    if ($IS_ORG_ADMIN) {
+        if (!empty($USER_ORG_UUID)) {
+            return 'manage/organizations/' . urlencode((string) $USER_ORG_UUID) . '/';
+        }
+        if (!empty($USER_ORG_NAME)) {
+            return 'manage/organizations/show/index.php?org=' . urlencode((string) $USER_ORG_NAME);
+        }
+
+        return 'password/change/';
+    }
+
+    return 'password/change/';
+}
+
+/**
  * Get the appropriate default redirect URL based on user's access level
  */
 function getDefaultRedirectForUser()
 {
-    global $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $IS_SETUP_ADMIN, $VALIDATED, $LDAP_DEBUG, $SESSION_TIMED_OUT;
+    global $VALIDATED, $SESSION_TIMED_OUT;
 
  // If user is not validated, redirect to login
     if (!$VALIDATED) {
@@ -1652,26 +1682,7 @@ function getDefaultRedirectForUser()
         return getBaseUrl() . "login/?$reason&redirect_to=" . getLoginRedirectToQueryValue();
     }
 
- // Determine default redirect based on user's highest access level
-    if ($IS_SETUP_ADMIN) {
-        return getBaseUrl() . "setup/";
-    } elseif ($IS_ADMIN) {
-        return getBaseUrl() . "manage/users/";
-    } elseif ($IS_MAINTAINER) {
-        return getBaseUrl() . "manage/organizations/";
-    } elseif ($IS_ORG_ADMIN) {
-      // Get organization info for org admin redirect
-        global $USER_ORG_NAME, $USER_ORG_UUID;
-
-        if (isset($USER_ORG_UUID) && $USER_ORG_UUID) {
-            return getBaseUrl() . "manage/organizations/" . urlencode($USER_ORG_UUID) . "/";
-        }
-        // Fallback to password change if org info not available
-        return getBaseUrl() . "password/change/";
-    } else {
-      // Regular user, redirect to password change
-        return getBaseUrl() . "password/change/";
-    }
+    return getBaseUrl() . getRoleDefaultRedirectPath();
 }
 
 ######################################################
@@ -2142,6 +2153,23 @@ function validateCsrfToken()
 }
 
 /**
+ * Return URLs that must not override role defaults after login (password reset, login page).
+ */
+function isNonRestorableRedirectPath(string $path): bool
+{
+    $pathOnly = (string) parse_url($path, PHP_URL_PATH);
+    $pathOnly = rtrim($pathOnly, '/') ?: '/';
+
+    foreach (['/password/reset', '/password/set', '/login'] as $prefix) {
+        if ($pathOnly === $prefix || strpos($pathOnly, $prefix . '/') === 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
  * Secure redirect validation to prevent HTTP response splitting attacks
  * @param string $redirect_url The base64 encoded redirect URL
  * @param string $base_path The base server path
@@ -2185,6 +2213,10 @@ function validateRedirectUrl($redirect_url, $base_path = '/')
             return false;
         }
 
+        if (isNonRestorableRedirectPath($decoded)) {
+            return false;
+        }
+
         return $decoded;
     }
 
@@ -2203,6 +2235,10 @@ function validateRedirectUrl($redirect_url, $base_path = '/')
         }
 
         if (strlen($decoded) > 200) {
+            return false;
+        }
+
+        if (isNonRestorableRedirectPath($decoded)) {
             return false;
         }
 

@@ -207,22 +207,13 @@ if (isset($_POST["user_id"]) && isset($_POST["password"])) {
         }
     }
 
-    if ($is_admin) {
-        $default_module = "manage/users/index.php";
-    } elseif ($is_maintainer) {
-        $default_module = "manage/organizations/index.php";
-    } elseif ($is_org_admin && $user_org_name && $org_uuid) {
-      // Use UUID-based URL for better security
-        $default_module = "manage/organizations/" . urlencode($org_uuid) . "/";
-    } elseif ($is_org_admin && $user_org_name) {
+    $default_path = getRoleDefaultRedirectPath();
+    if ($is_org_admin && $user_org_name && !$org_uuid) {
         error_log("Login: WARNING - UUID not available for org '$user_org_name', using name-based fallback");
-        $default_module = "manage/organizations/show/index.php?org=" . urlencode($user_org_name);
-    } else {
-        $default_module = "password/change/";
     }
 
     if ($LDAP_DEBUG) {
-        error_log("Login: Redirecting to: $default_module");
+        error_log("Login: Redirecting to: $default_path");
         error_log("Login: User roles - Admin: " . ($is_admin ? 'YES' : 'NO') . ", Maintainer: " . ($is_maintainer ? 'YES' : 'NO') . ", Org Admin: " . ($is_org_admin ? 'YES' : 'NO'));
         error_log("Login: Organization info - Name: " . ($user_org_name ?: 'NULL') . ", UUID: " . ($org_uuid ?: 'NULL'));
         error_log("Login: SERVER_PATH: '$SERVER_PATH'");
@@ -230,13 +221,13 @@ if (isset($_POST["user_id"]) && isset($_POST["password"])) {
     }
 
   // Reconstruct URL using base URL (ensures valid redirect with slash between host and path)
-    if (strpos($default_module, '?') !== false) {
-        $redirect_url = getBaseUrl() . $default_module . "&logged_in";
+    if (strpos($default_path, '?') !== false) {
+        $redirect_url = getBaseUrl() . $default_path . "&logged_in";
         if ($LDAP_DEBUG) {
             error_log("Login: Using & separator for logged_in (module has existing query params)");
         }
     } else {
-        $redirect_url = getBaseUrl() . $default_module . "?logged_in";
+        $redirect_url = getBaseUrl() . $default_path . "?logged_in";
         if ($LDAP_DEBUG) {
             error_log("Login: Using ? separator for logged_in (module has no query params)");
         }
