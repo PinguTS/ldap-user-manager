@@ -62,7 +62,7 @@ Organizations use the standard `postalAddress` attribute in the format:
 ```
 postalAddress: Street$ZIP$City$State$Country
 ```
-The **Country** segment stores an ISO 3166-1 alpha-2 code (e.g. `DE`, `TW`), not a localized country name. The web UI country dropdown labels are localized via PHP `intl`; optional deployer restriction uses `LDAP_ORG_ALLOWED_COUNTRIES`.
+The **Country** segment stores an ISO 3166-1 alpha-2 code (e.g. `DE`, `TW`), not a localized country name. The web UI country dropdown labels are localized via PHP `intl` (ICU/CLDR must be enabled; English catalog fallback otherwise); optional deployer restriction uses `LDAP_ORG_ALLOWED_COUNTRIES`.
 
 ### 2.3 Role Group Structure
 Role groups use the `groupOfNames` object class and contain:
