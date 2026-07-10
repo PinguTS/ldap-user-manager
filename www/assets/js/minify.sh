@@ -60,6 +60,7 @@ files_to_minify=(
     "generate_passphrase.js"
     "zxcvbn-bootstrap-strength-meter.js"
     "website-field.js"
+    "country-picker.js"
 )
 
 # Minify each file

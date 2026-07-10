@@ -1237,7 +1237,11 @@ if ($orgExists) {
             if ($field_name === 'org_country') {
                 $country_options = getLocalizedCountryOptions();
                 $selected_value = strtoupper((string) $current_value);
-                echo '<select class="form-select" id="' . $field_name . '" name="' . $field_name . '"' . $required_attr . '>';
+                $country_picker_attrs = ' data-country-picker'
+                    . ' data-placeholder="' . htmlspecialchars(t('manage.orgs.form.country_placeholder'), ENT_QUOTES, 'UTF-8') . '"'
+                    . ' data-no-results="' . htmlspecialchars(t('manage.orgs.form.country_no_results'), ENT_QUOTES, 'UTF-8') . '"'
+                    . ' data-assistive-hint="' . htmlspecialchars(t('manage.orgs.form.country_assistive_hint'), ENT_QUOTES, 'UTF-8') . '"';
+                echo '<select class="form-select" id="' . $field_name . '" name="' . $field_name . '"' . $required_attr . $country_picker_attrs . '>';
                 echo '<option value=""></option>';
                 if ($selected_value !== '' && !isset($country_options[$selected_value])) {
                     $grandfather_label = getLocalizedCountryName($selected_value);
@@ -1381,6 +1385,9 @@ renderConfirmModal(
 );
 ?>
 
+<link rel="stylesheet" href="<?php print getAssetBase(); ?>css/accessible-autocomplete.min.css">
+<script src="<?php print getAssetBase(); ?>js/accessible-autocomplete.min.js"></script>
+<script src="<?php print getAssetBase(); ?>js/country-picker.min.js"></script>
 <script src="<?php print getAssetBase(); ?>js/modals.js"></script>
 <script src="<?php print getAssetBase(); ?>js/website-field.min.js"></script>
 <script>

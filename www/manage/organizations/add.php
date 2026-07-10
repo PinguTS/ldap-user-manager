@@ -209,7 +209,11 @@ render_submenu();
                             $required_attr = $field_config['required'] ? ' required' : '';
                             if ($field_name === 'org_country') {
                                 $country_options = getLocalizedCountryOptions();
-                                echo "<select class='form-select' id='{$field_name}' name='{$field_name}'{$required_attr}>";
+                                $country_picker_attrs = ' data-country-picker'
+                                    . ' data-placeholder="' . htmlspecialchars(t('manage.orgs.form.country_placeholder'), ENT_QUOTES, 'UTF-8') . '"'
+                                    . ' data-no-results="' . htmlspecialchars(t('manage.orgs.form.country_no_results'), ENT_QUOTES, 'UTF-8') . '"'
+                                    . ' data-assistive-hint="' . htmlspecialchars(t('manage.orgs.form.country_assistive_hint'), ENT_QUOTES, 'UTF-8') . '"';
+                                echo "<select class='form-select' id='{$field_name}' name='{$field_name}'{$required_attr}{$country_picker_attrs}>";
                                 echo "<option value=''></option>";
                                 foreach ($country_options as $country_code => $country_name) {
                                     echo "<option value='" . htmlspecialchars($country_code, ENT_QUOTES, 'UTF-8') . "'>" .
@@ -235,6 +239,9 @@ render_submenu();
     </div>
 </div>
 
+<link rel="stylesheet" href="<?php echo htmlspecialchars(getAssetBase(), ENT_QUOTES, 'UTF-8'); ?>css/accessible-autocomplete.min.css">
+<script src="<?php echo htmlspecialchars(getAssetBase(), ENT_QUOTES, 'UTF-8'); ?>js/accessible-autocomplete.min.js"></script>
+<script src="<?php echo htmlspecialchars(getAssetBase(), ENT_QUOTES, 'UTF-8'); ?>js/country-picker.min.js"></script>
 <script src="<?php echo htmlspecialchars(getAssetBase(), ENT_QUOTES, 'UTF-8'); ?>js/website-field.min.js"></script>
 <?php
 renderFooter();
