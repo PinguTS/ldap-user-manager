@@ -103,6 +103,40 @@ final class I18nTest extends TestCase
         }
     }
 
+    public function testLocalePlaceholdersMatchEnglish(): void
+    {
+        $dir = __DIR__ . '/../www/locales';
+        $en = json_decode((string) file_get_contents($dir . '/en.json'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($en);
+
+        $pattern = '/:([a-zA-Z_][a-zA-Z0-9_]*)/';
+        $extract = static function (string $value) use ($pattern): array {
+            preg_match_all($pattern, $value, $matches);
+            $names = $matches[1];
+            sort($names);
+
+            return $names;
+        };
+
+        foreach (glob($dir . '/*.json') ?: [] as $path) {
+            if (str_ends_with($path, '/en.json')) {
+                continue;
+            }
+            $locale = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+            self::assertIsArray($locale);
+            $code = basename($path, '.json');
+
+            foreach ($en as $key => $enValue) {
+                self::assertArrayHasKey($key, $locale, $code . ' missing key ' . $key);
+                self::assertSame(
+                    $extract((string) $enValue),
+                    $extract((string) $locale[$key]),
+                    $code . ' placeholder mismatch for ' . $key
+                );
+            }
+        }
+    }
+
     public function testResolveLocalePrefersExplicitOverride(): void
     {
         $available = ['en', 'de', 'fr'];
