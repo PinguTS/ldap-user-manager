@@ -1386,6 +1386,7 @@ renderConfirmModal(
 ?>
 
 <link rel="stylesheet" href="<?php print getAssetBase(); ?>css/accessible-autocomplete.min.css">
+<link rel="stylesheet" href="<?php print getAssetBase(); ?>css/country-picker.min.css">
 <script src="<?php print getAssetBase(); ?>js/accessible-autocomplete.min.js"></script>
 <script src="<?php print getAssetBase(); ?>js/country-picker.min.js"></script>
 <script src="<?php print getAssetBase(); ?>js/modals.js"></script>

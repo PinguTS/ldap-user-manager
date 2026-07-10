@@ -240,6 +240,7 @@ render_submenu();
 </div>
 
 <link rel="stylesheet" href="<?php echo htmlspecialchars(getAssetBase(), ENT_QUOTES, 'UTF-8'); ?>css/accessible-autocomplete.min.css">
+<link rel="stylesheet" href="<?php echo htmlspecialchars(getAssetBase(), ENT_QUOTES, 'UTF-8'); ?>css/country-picker.min.css">
 <script src="<?php echo htmlspecialchars(getAssetBase(), ENT_QUOTES, 'UTF-8'); ?>js/accessible-autocomplete.min.js"></script>
 <script src="<?php echo htmlspecialchars(getAssetBase(), ENT_QUOTES, 'UTF-8'); ?>js/country-picker.min.js"></script>
 <script src="<?php echo htmlspecialchars(getAssetBase(), ENT_QUOTES, 'UTF-8'); ?>js/website-field.min.js"></script>
