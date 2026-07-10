@@ -310,11 +310,11 @@ foreach ($page_messages as $page_message) {
                             </div>
                             <div class="col-md-4">
                                 <div class="form-group <?php echo $invalid_cn ? 'is-invalid' : ''; ?>">
-                                    <label for="cn">Display Name * <small class="text-muted">(auto-filled from name)</small></label>
+                                    <label for="cn"><?php echo htmlspecialchars(t('manage.common.display_name'), ENT_QUOTES, 'UTF-8'); ?> * <small class="text-muted"><?php echo htmlspecialchars(t('manage.common.display_name_hint'), ENT_QUOTES, 'UTF-8'); ?></small></label>
                                     <input type="text" class="form-control" id="cn" name="cn" 
                                            value="<?php echo htmlspecialchars($new_account_r['cn'] ?? ''); ?>" required>
                                     <?php if ($invalid_cn) : ?>
-                                        <span class="help-block">Display name is required.</span>
+                                        <span class="help-block"><?php echo htmlspecialchars(t('manage.users.new.error.display_name_required'), ENT_QUOTES, 'UTF-8'); ?></span>
                                     <?php endif; ?>
                                 </div>
                             </div>

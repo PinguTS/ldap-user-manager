@@ -96,7 +96,7 @@ if (isset($LDAP['account_additional_attributes'])) {
 }
 
 if (!array_key_exists($LDAP['account_attribute'], $attribute_map)) {
-    $attribute_map = array_merge($attribute_map, array($LDAP['account_attribute'] => array("label" => "Account UID")));
+    $attribute_map = array_merge($attribute_map, array($LDAP['account_attribute'] => array("label" => t('manage.common.account_id'))));
 }
 
 // Normalize common LDAP attribute aliases used by forms/config.

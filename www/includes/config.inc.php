@@ -71,19 +71,6 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
      'website' => 'labeledURI'
  ];
 
- # Field labels for the UI (human-readable names)
- $LDAP['user_field_labels'] = [
-     'first_name' => 'First Name',
-     'last_name' => 'Last Name',
-     'email' => 'Email',
-     'common_name' => 'Common Name',
-     'uid' => 'Account ID',
-     'organization' => 'Organization',
-     'user_role' => 'User Role',
-     'phone' => 'Phone Number',
-     'website' => 'Website'
- ];
-
  # Field types for form rendering
  $LDAP['user_field_types'] = [
      'first_name' => 'text',

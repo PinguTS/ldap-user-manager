@@ -1085,7 +1085,7 @@ if ($orgExists) {
         <?php
         $can_rename_org_form = currentUserIsGlobalAdmin() || currentUserIsMaintainer();
         $org_display_name = (string) ($organization['o'] ?? $organization['name'] ?? $org_name);
-        $org_name_field_label = $LDAP['org_field_labels']['org_name'] ?? 'Organization Name';
+        $org_name_field_label = $LDAP['org_field_labels']['org_name'] ?? t('manage.fields.org_name');
         ?>
      <div class="row">
       <div class="col-sm-6">
@@ -1276,15 +1276,15 @@ if ($orgExists) {
        <h5 class="mb-2"><?php echo htmlspecialchars(t('manage.orgs.show.admin_settings_heading'), ENT_QUOTES, 'UTF-8'); ?></h5>
        <div class="row mt-2">
         <div class="col-sm-6 mb-2">
-          <label for="org_member_number" class="form-label"><?php echo htmlspecialchars($LDAP['org_field_labels']['org_member_number'] ?? 'Member number', ENT_QUOTES, 'UTF-8'); ?></label>
+          <label for="org_member_number" class="form-label"><?php echo htmlspecialchars($LDAP['org_field_labels']['org_member_number'] ?? t('manage.fields.member_number'), ENT_QUOTES, 'UTF-8'); ?></label>
           <input type="text" class="form-control" id="org_member_number" name="org_member_number" value="<?php echo htmlspecialchars((string) ($organization['memberNumber'] ?? '')); ?>">
         </div>
         <div class="col-sm-3 mb-2">
-          <label for="org_member_since" class="form-label"><?php echo htmlspecialchars($LDAP['org_field_labels']['org_member_since'] ?? 'Member since', ENT_QUOTES, 'UTF-8'); ?></label>
+          <label for="org_member_since" class="form-label"><?php echo htmlspecialchars($LDAP['org_field_labels']['org_member_since'] ?? t('manage.fields.member_since'), ENT_QUOTES, 'UTF-8'); ?></label>
           <input type="date" class="form-control" id="org_member_since" name="org_member_since" value="<?php echo htmlspecialchars((string) ($organization['memberSince'] ?? '')); ?>">
         </div>
         <div class="col-sm-3 mb-2">
-          <label for="org_member_until" class="form-label"><?php echo htmlspecialchars($LDAP['org_field_labels']['org_member_until'] ?? 'Member until', ENT_QUOTES, 'UTF-8'); ?></label>
+          <label for="org_member_until" class="form-label"><?php echo htmlspecialchars($LDAP['org_field_labels']['org_member_until'] ?? t('manage.fields.member_until'), ENT_QUOTES, 'UTF-8'); ?></label>
           <input type="date" class="form-control" id="org_member_until" name="org_member_until" value="<?php echo htmlspecialchars((string) ($organization['memberUntil'] ?? '')); ?>">
         </div>
         <div class="col-sm-6 mb-2">

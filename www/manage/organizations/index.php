@@ -426,7 +426,7 @@ function format_org_list_count_label(int $shown, int $total): string
                         <?php else : ?>
                             <?php foreach ($org_data_list as $org) : ?>
                                 <?php
-                                $org_name        = $org['name'] ?? 'Unknown Organization';
+                                $org_name        = $org['name'] ?? t('manage.common.unknown_organization');
                                 $org_name_safe   = htmlspecialchars($org_name, ENT_QUOTES, 'UTF-8');
                                 $is_member       = (bool) $org['is_member'];
                                 $org_disabled    = (bool) $org['org_disabled'];

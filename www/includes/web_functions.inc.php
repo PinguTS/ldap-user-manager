@@ -112,6 +112,7 @@ function lumI18nInitFromRequest(): void
         $validRequested ? $requested : null,
         $validCookieLocale
     );
+    lum_apply_i18n_field_labels();
 
     if ($requestedRaw !== null && $validRequested) {
         $cookiePath = (rtrim((string) ($SERVER_PATH ?? '/'), '/') === '') ? '/' : rtrim((string) $SERVER_PATH, '/');
@@ -1936,9 +1937,9 @@ function renderAttributeFields($attribute, $label, $values_r, $resource_identifi
                 print "</script>";
             }
        } elseif ($inputtype == "binary") {
-           $button_text = "Browse";
+           $button_text = t('manage.fields.file_browse');
            $file_button_action = "disabled";
-           $description = "Select a file to upload";
+           $description = t('manage.fields.file_upload_hint');
            $mimetype = "";
 
            if (isset($values_r[0])) {
@@ -1948,7 +1949,7 @@ function renderAttributeFields($attribute, $label, $values_r, $resource_identifi
                    $mimetype = substr($mimetype, 0, 19) . "...";
                }
                  $description = "Download $mimetype file (" . humanReadableFilesize(strlen($values_r[0])) . ")";
-                 $button_text = "Replace file";
+                 $button_text = t('manage.fields.file_replace');
                if ($resource_identifier != "") {
                    $this_url = "//{$_SERVER['HTTP_HOST']}{$THIS_MODULE_PATH}/download.php?resource_identifier={$resource_identifier}&attribute={$attribute}";
                    $file_button_action = "onclick=\"window.open('$this_url','_blank');\"";
@@ -2006,7 +2007,7 @@ function renderAlertBanner($message, $alert_class = "success", $timeout = 4000)
     <script>window.setTimeout(function() {$(".alert").fadeTo(500, 0).slideUp(500, function(){ $(this).remove(); }); }, <?php print (int) $timeout; ?>);</script>
     <div class="alert alert-<?php print $safe_class; ?> alert-dismissible fade show" role="alert">
      <p class="text-center mb-0"><?php print $safe_message; ?></p>
-     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="<?php echo htmlspecialchars(t('alert.close'), ENT_QUOTES, 'UTF-8'); ?>"></button>
     </div>
     <?php
 }

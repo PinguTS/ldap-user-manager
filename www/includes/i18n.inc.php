@@ -370,3 +370,148 @@ function lum_i18n_t_for_locale(string $locale, string $key, array $replacements 
 
     return lum_i18n_translate_from_messages($cache[$code], $key, $replacements);
 }
+
+/**
+ * True when an env var is set to a non-empty string (admin override).
+ */
+function lum_i18n_env_is_set(string $name): bool
+{
+    $value = getenv($name);
+    return $value !== false && trim((string) $value) !== '';
+}
+
+/**
+ * Apply translated labels to $LDAP field maps after i18n bootstrap.
+ * Env display/error overrides remain literal when set.
+ */
+function lum_apply_i18n_field_labels(): void
+{
+    global $LDAP;
+
+    if (!isset($LDAP) || !is_array($LDAP)) {
+        return;
+    }
+
+    $orgFieldKeys = [
+        'org_name' => 'manage.fields.org_name',
+        'org_phone' => 'manage.fields.phone_number',
+        'org_fax' => 'manage.fields.fax_number',
+        'org_website' => 'manage.fields.website',
+        'org_email' => 'manage.common.email',
+        'org_description' => 'manage.fields.description',
+        'org_category' => 'manage.fields.business_category',
+        'org_member_number' => 'manage.fields.member_number',
+        'org_member_since' => 'manage.fields.member_since',
+        'org_member_until' => 'manage.fields.member_until',
+    ];
+    if (isset($LDAP['org_field_labels']) && is_array($LDAP['org_field_labels'])) {
+        foreach ($orgFieldKeys as $field => $i18nKey) {
+            if (array_key_exists($field, $LDAP['org_field_labels'])) {
+                $LDAP['org_field_labels'][$field] = t($i18nKey);
+            }
+        }
+    }
+
+    $addressFieldKeys = [
+        'org_address' => 'manage.fields.street_address',
+        'org_zip' => 'manage.fields.postal_code',
+        'org_city' => 'manage.fields.city',
+        'org_state' => 'manage.fields.state_province',
+        'org_country' => 'manage.fields.country',
+    ];
+    if (isset($LDAP['org_address_fields']) && is_array($LDAP['org_address_fields'])) {
+        foreach ($addressFieldKeys as $field => $i18nKey) {
+            if (isset($LDAP['org_address_fields'][$field]) && is_array($LDAP['org_address_fields'][$field])) {
+                $LDAP['org_address_fields'][$field]['label'] = t($i18nKey);
+            }
+        }
+    }
+
+    $attributeKeys = [
+        'givenname' => 'manage.common.first_name',
+        'sn' => 'manage.common.last_name',
+        'mail' => 'manage.common.email',
+        'cn' => 'manage.common.display_name',
+        'organization' => 'manage.fields.organization',
+        'description' => 'manage.users.new.user_role_label',
+        'userpassword' => 'login.password_label',
+        'uidnumber' => 'manage.fields.uid',
+        'gidnumber' => 'manage.fields.gid',
+        'homedirectory' => 'manage.fields.home_directory',
+        'loginshell' => 'manage.fields.shell',
+        'telephonenumber' => 'manage.users.phone_number',
+    ];
+    if (isset($LDAP['default_attribute_map']) && is_array($LDAP['default_attribute_map'])) {
+        foreach ($LDAP['default_attribute_map'] as $attr => $config) {
+            if (!is_array($config)) {
+                continue;
+            }
+            $normalized = strtolower((string) $attr);
+            if (isset($attributeKeys[$normalized])) {
+                $LDAP['default_attribute_map'][$attr]['label'] = t($attributeKeys[$normalized]);
+            }
+        }
+        $accountAttr = strtolower((string) ($LDAP['account_attribute'] ?? 'mail'));
+        if (!isset($LDAP['default_attribute_map'][$accountAttr])) {
+            $LDAP['default_attribute_map'][$accountAttr] = ['label' => t('manage.common.account_id')];
+        }
+        if (!isset($LDAP['default_attribute_map']['telephonenumber'])) {
+            $LDAP['default_attribute_map']['telephonenumber'] = ['label' => t('manage.users.phone_number')];
+        }
+    }
+
+    if (
+        isset($LDAP['default_group_attribute_map']['description'])
+        && is_array($LDAP['default_group_attribute_map']['description'])
+    ) {
+        $LDAP['default_group_attribute_map']['description']['label'] = t('manage.fields.description');
+    }
+    if (
+        isset($LDAP['default_group_attribute_map']['gidnumber'])
+        && is_array($LDAP['default_group_attribute_map']['gidnumber'])
+    ) {
+        $LDAP['default_group_attribute_map']['gidnumber']['label'] = t('manage.fields.group_id_number');
+    }
+
+    if (isset($LDAP['role_display_labels']) && is_array($LDAP['role_display_labels'])) {
+        $roleEnvMap = [
+            'admin_role' => ['env' => 'LDAP_ADMIN_DISPLAY_LABEL', 'key' => 'manage.roles.label.admin'],
+            'maintainer_role' => ['env' => 'LDAP_MAINTAINER_DISPLAY_LABEL', 'key' => 'manage.roles.label.maintainer'],
+            'org_admin_role' => ['env' => 'LDAP_ORG_ADMIN_DISPLAY_LABEL', 'key' => 'manage.roles.label.org_admin'],
+            'user_role' => ['env' => 'LDAP_USER_DISPLAY_LABEL', 'key' => 'manage.roles.label.user'],
+        ];
+        foreach ($roleEnvMap as $roleKey => $meta) {
+            if (!array_key_exists($roleKey, $LDAP['role_display_labels'])) {
+                continue;
+            }
+            if (!lum_i18n_env_is_set($meta['env'])) {
+                $LDAP['role_display_labels'][$roleKey] = t($meta['key']);
+            }
+        }
+    }
+
+    if (isset($LDAP['error_messages']) && is_array($LDAP['error_messages'])) {
+        $errorEnvMap = [
+            'maintainer_cannot_delete_admin' => [
+                'env' => 'LDAP_ERROR_MAINTAINER_CANNOT_DELETE_ADMIN',
+                'key' => 'manage.users.msg.maintainer_cannot_delete_admin',
+            ],
+            'maintainer_cannot_create_admin' => [
+                'env' => 'LDAP_ERROR_MAINTAINER_CANNOT_CREATE_ADMIN',
+                'key' => 'manage.users.msg.maintainer_cannot_create_admin',
+            ],
+            'cannot_delete_self' => [
+                'env' => 'LDAP_ERROR_CANNOT_DELETE_SELF',
+                'key' => 'manage.users.msg.cannot_delete_self',
+            ],
+        ];
+        foreach ($errorEnvMap as $msgKey => $meta) {
+            if (!array_key_exists($msgKey, $LDAP['error_messages'])) {
+                continue;
+            }
+            if (!lum_i18n_env_is_set($meta['env'])) {
+                $LDAP['error_messages'][$msgKey] = t($meta['key']);
+            }
+        }
+    }
+}

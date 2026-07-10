@@ -142,4 +142,56 @@ final class I18nTest extends TestCase
         self::assertSame('Deutsch', $options[1]['native']);
         self::assertSame('de.svg', $options[1]['flag']);
     }
+
+    public function testApplyI18nFieldLabelsTranslatesOrgAndAttributeMaps(): void
+    {
+        global $LDAP;
+
+        $dir = sys_get_temp_dir() . '/lum_i18n_test_' . bin2hex(random_bytes(8));
+        self::assertTrue(mkdir($dir, 0700, true));
+        try {
+            file_put_contents(
+                $dir . '/en.json',
+                (string) json_encode([
+                    'manage.fields.org_name' => 'Org Name EN',
+                    'manage.fields.fax_number' => 'Fax EN',
+                    'manage.common.first_name' => 'First EN',
+                    'manage.common.display_name' => 'Display EN',
+                    'manage.roles.label.admin' => 'Admin EN',
+                    'manage.users.msg.cannot_delete_self' => 'Self delete EN',
+                ], JSON_THROW_ON_ERROR)
+            );
+            lum_i18n_bootstrap('', $dir);
+
+            $LDAP = [
+                'account_attribute' => 'mail',
+                'org_field_labels' => [
+                    'org_name' => 'Organization Name',
+                    'org_fax' => 'Fax number',
+                ],
+                'default_attribute_map' => [
+                    'givenname' => ['label' => 'First name'],
+                    'cn' => ['label' => 'Common name'],
+                ],
+                'role_display_labels' => [
+                    'admin_role' => 'System Administrator',
+                ],
+                'error_messages' => [
+                    'cannot_delete_self' => 'You cannot delete your own account',
+                ],
+            ];
+
+            lum_apply_i18n_field_labels();
+
+            self::assertSame('Org Name EN', $LDAP['org_field_labels']['org_name']);
+            self::assertSame('Fax EN', $LDAP['org_field_labels']['org_fax']);
+            self::assertSame('First EN', $LDAP['default_attribute_map']['givenname']['label']);
+            self::assertSame('Display EN', $LDAP['default_attribute_map']['cn']['label']);
+            self::assertSame('Admin EN', $LDAP['role_display_labels']['admin_role']);
+            self::assertSame('Self delete EN', $LDAP['error_messages']['cannot_delete_self']);
+        } finally {
+            @unlink($dir . '/en.json');
+            @rmdir($dir);
+        }
+    }
 }
