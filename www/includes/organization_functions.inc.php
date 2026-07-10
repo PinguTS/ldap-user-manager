@@ -626,15 +626,21 @@ function addUserToOrgAdmin($orgName, $userDn)
     // Add user to existing group
     $modifications = ['member' => $userDn];
     $result = ldap_mod_add($ldap, $groupDN, $modifications);
-    lum_close_ldap_if_not_manage($ldap);
-
-    if ($result) {
-        return [true, "User added to organization admin group"];
-    } else {
+    if (!$result) {
+        $errno = ldap_errno($ldap);
+        // ponytail: duplicate member is success; upgrade path is ldap_compare before mod_add
+        if ($errno === 20 || $errno === 68) {
+            lum_close_ldap_if_not_manage($ldap);
+            return [true, 'User already in organization admin group'];
+        }
         $err = ldap_error($ldap);
         error_log("addUserToOrgAdmin: Failed to add user to group: $err");
+        lum_close_ldap_if_not_manage($ldap);
         return [false, "Failed to add user to organization admin group: $err"];
     }
+    lum_close_ldap_if_not_manage($ldap);
+
+    return [true, 'User added to organization admin group'];
 }
 
 /**
