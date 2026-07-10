@@ -60,8 +60,9 @@ dc=example,dc=com
 ### 2.2 Organization Attributes
 Organizations use the standard `postalAddress` attribute in the format:
 ```
-postalAddress: Street$City$State$ZIP$Country
+postalAddress: Street$ZIP$City$State$Country
 ```
+The **Country** segment stores an ISO 3166-1 alpha-2 code (e.g. `DE`, `TW`), not a localized country name. The web UI country dropdown labels are localized via PHP `intl` (ICU/CLDR must be enabled; English catalog fallback otherwise); optional deployer restriction uses `LDAP_ORG_ALLOWED_COUNTRIES`.
 
 ### 2.3 Role Group Structure
 Role groups use the `groupOfNames` object class and contain:
@@ -604,7 +605,7 @@ The system maps organization form fields to LDAP attributes. Address entry is co
 | `org_zip` | `postalAddress` (composite) | Postal code (part of composite) |
 | `org_city` | `postalAddress` (composite) | City (part of composite) |
 | `org_state` | `postalAddress` (composite) | State/Province (part of composite) |
-| `org_country` | `postalAddress` (composite) | Country (part of composite) |
+| `org_country` | `postalAddress` (composite) | Country ISO 3166-1 alpha-2 code (part of composite, e.g. `DE`, `TW`) |
 | `org_phone` | `telephoneNumber` | Phone number |
 | `org_website` | `labeledURI` | Website URL |
 | `org_email` | `mail` | Email address |

@@ -96,7 +96,7 @@ if (isset($LDAP['account_additional_attributes'])) {
 }
 
 if (!array_key_exists($LDAP['account_attribute'], $attribute_map)) {
-    $attribute_map = array_merge($attribute_map, array($LDAP['account_attribute'] => array("label" => "Account UID")));
+    $attribute_map = array_merge($attribute_map, array($LDAP['account_attribute'] => array("label" => t('manage.common.account_id'))));
 }
 
 // Normalize common LDAP attribute aliases used by forms/config.
@@ -285,10 +285,27 @@ if (isset($_POST['create_org_user'])) {
             }
             $new_account_r['password'] = [$password];
 
-            // Create the user account
-            $new_account = ldap_new_account($ldap_connection, $new_account_r);
+            // LDAP create and email notification are independent outcomes.
+            $orgRdn = ldap_escape($org_name, '', LDAP_ESCAPE_DN);
+            $userEntryDn = $LDAP['account_attribute'] . '=' . ldap_escape($account_identifier, '', LDAP_ESCAPE_DN)
+                . ',ou=people,o=' . $orgRdn . ',' . $LDAP['org_dn'];
 
-            if ($new_account) {
+            $ldapCreated = ldap_new_account($ldap_connection, $new_account_r);
+            if (!$ldapCreated) {
+                // ponytail: single ldap_read recovery when create reported failure but entry exists
+                // (e.g. prior request created the account but did not finish the redirect/email step).
+                $existingEntry = @ldap_read($ldap_connection, $userEntryDn, '(objectClass=*)', ['dn']);
+                if ($existingEntry) {
+                    error_log("add_org_user: ldap_new_account reported failure but account already exists at {$userEntryDn}; treating LDAP create as success");
+                    $ldapCreated = true;
+                } else {
+                    error_log("add_org_user: ldap_new_account failed for {$account_identifier} in {$org_name}: " . ldap_error($ldap_connection));
+                }
+            }
+
+            lum_close_ldap_if_not_manage($ldap_connection);
+
+            if ($ldapCreated) {
                 $creation_message = t(
                     'manage.org_users.add.msg.created_ok',
                     [
@@ -296,64 +313,73 @@ if (isset($_POST['create_org_user'])) {
                         'org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8'),
                     ]
                 );
-
+                
                 // Add user to organization admin role if selected
                 if ($user_role === $LDAP['org_admin_role']) {
-                    $org_admin_add = addUserToOrgAdmin($org_name, $new_account);
-                    if (!$org_admin_add) {
+                    $orgAdminAdd = addUserToOrgAdmin($org_name, $userEntryDn);
+                    if (!$orgAdminAdd[0]) {
+                        error_log("add_org_user: failed to add {$account_identifier} to org admin group in {$org_name}: " . ($orgAdminAdd[1] ?? ''));
                         $creation_message .= ' ' . t('manage.org_users.add.msg.warn_org_admin_failed');
                     }
                 }
 
-                // Notify user by email when SMTP is enabled (invite link or welcome)
-                if ($EMAIL_SENDING_ENABLED === true && isset($this_mail) && isValidEmail((string) $this_mail)) {
-                    $emailLocale = lum_resolve_transactional_email_locale_for_new_org_user((string) $org_name, (string) $user_role);
-                    $sent_email = lum_with_transactional_email_locale($emailLocale, function () use (
-                        $send_password_set_link,
-                        $account_identifier,
-                        $this_givenName,
-                        $this_sn,
-                        $this_mail
-                    ): bool {
-                        if ($send_password_set_link) {
-                            $payload = build_password_action_payload((string) $account_identifier, 'set');
-                            $token = create_password_action_token($payload);
-                            $setUrl = build_password_action_url($token);
+                // Notify user by email when SMTP is enabled (invite link or welcome).
+                // Failures here must not be reported as LDAP create failures.
+                $emailAttempted = ($EMAIL_SENDING_ENABLED === true && $this_mail !== '' && isValidEmail((string) $this_mail));
+                if ($emailAttempted) {
+                    try {
+                        $emailLocale = lum_resolve_transactional_email_locale_for_new_org_user((string) $org_name, (string) $user_role);
+                        $sentEmail = lum_with_transactional_email_locale($emailLocale, function () use (
+                            $send_password_set_link,
+                            $account_identifier,
+                            $this_givenName,
+                            $this_sn,
+                            $this_mail
+                        ): bool {
+                            if ($send_password_set_link) {
+                                $payload = build_password_action_payload((string) $account_identifier, 'set');
+                                $token = create_password_action_token($payload);
+                                $setUrl = build_password_action_url($token);
 
-                            $vars = array_merge(lum_password_action_token_expiry_mail_vars(), [
+                                $vars = array_merge(lum_password_action_token_expiry_mail_vars(), [
+                                    'login' => (string) $account_identifier,
+                                    'first_name' => (string) $this_givenName,
+                                    'last_name' => (string) $this_sn,
+                                    'password_set_url' => $setUrl,
+                                ]);
+
+                                $parsedAccount = lum_load_parsed_combined_transactional_template('new_account.html');
+                                $mail_body = parse_mail_template((string) $parsedAccount['body'], $vars);
+                                $mail_subject = parse_mail_template((string) $parsedAccount['subject'], $vars);
+
+                                $preheader = lum_email_preheader('email.preheader.new_account', 'Set your password to activate your account.');
+
+                                return send_email($this_mail, "$this_givenName $this_sn", $mail_subject, $mail_body, $preheader);
+                            }
+
+                            $welcomeVars = [
                                 'login' => (string) $account_identifier,
                                 'first_name' => (string) $this_givenName,
                                 'last_name' => (string) $this_sn,
-                                'password_set_url' => $setUrl,
-                            ]);
+                            ];
 
-                            $parsedAccount = lum_load_parsed_combined_transactional_template('new_account.html');
-                            $mail_body = parse_mail_template((string) $parsedAccount['body'], $vars);
-                            $mail_subject = parse_mail_template((string) $parsedAccount['subject'], $vars);
-
-                            $preheader = lum_email_preheader('email.preheader.new_account', 'Set your password to activate your account.');
-
-                            return send_email($this_mail, "$this_givenName $this_sn", $mail_subject, $mail_body, $preheader);
+                            return lum_send_account_welcome_email(
+                                (string) $this_mail,
+                                trim((string) $this_givenName . ' ' . (string) $this_sn),
+                                $welcomeVars
+                            );
+                        });
+                        if ($sentEmail) {
+                            $creation_message .= ' ' . t(
+                                'manage.org_users.add.msg.email_sent_ok',
+                                ['email' => htmlspecialchars((string) $this_mail, ENT_QUOTES, 'UTF-8')]
+                            );
+                        } else {
+                            error_log("add_org_user: account {$account_identifier} created in {$org_name} but email to {$this_mail} failed (check SMTP relay/auth settings; search logs for \"SMTP: Unable to send email\")");
+                            $creation_message .= ' ' . t('manage.org_users.add.msg.email_send_failed');
                         }
-
-                        $welcomeVars = [
-                            'login' => (string) $account_identifier,
-                            'first_name' => (string) $this_givenName,
-                            'last_name' => (string) $this_sn,
-                        ];
-
-                        return lum_send_account_welcome_email(
-                            (string) $this_mail,
-                            trim((string) $this_givenName . ' ' . (string) $this_sn),
-                            $welcomeVars
-                        );
-                    });
-                    if ($sent_email) {
-                        $creation_message .= ' ' . t(
-                            'manage.org_users.add.msg.email_sent_ok',
-                            ['email' => htmlspecialchars((string) $this_mail, ENT_QUOTES, 'UTF-8')]
-                        );
-                    } else {
+                    } catch (Throwable $emailException) {
+                        error_log("add_org_user: account {$account_identifier} created in {$org_name} but email step failed: " . $emailException->getMessage());
                         $creation_message .= ' ' . t('manage.org_users.add.msg.email_send_failed');
                     }
                 }
@@ -365,11 +391,9 @@ if (isset($_POST['create_org_user'])) {
                     header('Location: ' . getBaseUrl() . 'manage/organizations/');
                 }
                 exit(0);
-            } else {
-                renderAlertBanner(t('manage.org_users.add.msg.create_failed'), "danger");
             }
 
-            lum_close_ldap_if_not_manage($ldap_connection);
+            renderAlertBanner(t('manage.org_users.add.msg.create_failed'), 'danger');
         }
     }
 }

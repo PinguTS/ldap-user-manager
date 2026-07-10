@@ -74,12 +74,13 @@ if (isset($_POST['telephoneNumber']) && !empty(trim($_POST['telephoneNumber'])))
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
-    validateCsrfToken();
+    if (!validateCsrfToken()) {
+        $page_messages[] = ['type' => 'danger', 'message' => t('manage.common.msg.security_validation_failed')];
+    } else {
+        // Validate required fields
+        $errors = [];
 
-  // Validate required fields
-    $errors = [];
-
-    if (empty($new_account_r['mail'])) {
+        if (empty($new_account_r['mail'])) {
         $invalid_email = true;
         $errors[] = t('manage.users.new.error.email_required');
     }
@@ -152,7 +153,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
 
         $result = createUserAccount($new_account_r);
         if ($result[0]) {
-            $flashMessage = t('manage.users.new.msg.created_ok');
+            $flashMessage = t('manage.users.new.msg.created_ok', ['user' => $new_account_r['cn'] ?? '']);
 
             global $EMAIL_SENDING_ENABLED;
             $login = (string) ($new_account_r['mail'] ?? '');
@@ -211,6 +212,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
         }
     } else {
         $page_messages[] = ['message' => t('manage.users.new.msg.validation_failed', ['errors' => implode(', ', $errors)]), 'type' => 'danger', 'timeout' => 10000];
+    }
     }
 }
 
@@ -308,11 +310,11 @@ foreach ($page_messages as $page_message) {
                             </div>
                             <div class="col-md-4">
                                 <div class="form-group <?php echo $invalid_cn ? 'is-invalid' : ''; ?>">
-                                    <label for="cn">Display Name * <small class="text-muted">(auto-filled from name)</small></label>
+                                    <label for="cn"><?php echo htmlspecialchars(t('manage.common.display_name'), ENT_QUOTES, 'UTF-8'); ?> * <small class="text-muted"><?php echo htmlspecialchars(t('manage.common.display_name_hint'), ENT_QUOTES, 'UTF-8'); ?></small></label>
                                     <input type="text" class="form-control" id="cn" name="cn" 
                                            value="<?php echo htmlspecialchars($new_account_r['cn'] ?? ''); ?>" required>
                                     <?php if ($invalid_cn) : ?>
-                                        <span class="help-block">Display name is required.</span>
+                                        <span class="help-block"><?php echo htmlspecialchars(t('manage.users.new.error.display_name_required'), ENT_QUOTES, 'UTF-8'); ?></span>
                                     <?php endif; ?>
                                 </div>
                             </div>

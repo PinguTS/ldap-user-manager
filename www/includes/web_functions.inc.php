@@ -112,6 +112,7 @@ function lumI18nInitFromRequest(): void
         $validRequested ? $requested : null,
         $validCookieLocale
     );
+    lum_apply_i18n_field_labels();
 
     if ($requestedRaw !== null && $validRequested) {
         $cookiePath = (rtrim((string) ($SERVER_PATH ?? '/'), '/') === '') ? '/' : rtrim((string) $SERVER_PATH, '/');
@@ -495,7 +496,9 @@ function createOneTimeAuthToken($user_id, $is_admin, $is_maintainer, $is_org_adm
         $enc_display
     ]);
     $path = $SESSION_SAVE_PATH . '/auth_tok_' . $token;
-    @file_put_contents($path, $line);
+    if (@file_put_contents($path, $line) !== false) {
+        @chmod($path, 0600);
+    }
     return $token;
 }
 
@@ -658,7 +661,7 @@ function setPasskeyCookie($user_id, $is_admin, $is_maintainer = false, $is_org_a
     }
     setcookie('orf_cookie', $orfValue, $cookie_opts);
     $sessto_cookie_opts = $cookie_opts;
-    $sessto_cookie_opts['expires'] = $this_time + 7200;
+    $sessto_cookie_opts['expires'] = $this_time + (60 * (int) ($SESSION_TIMEOUT ?? 60));
     setcookie('sessto_cookie', (string)($this_time + (60 * $SESSION_TIMEOUT)), $sessto_cookie_opts);
 
     if ($SESSION_DEBUG == true) {
@@ -808,7 +811,7 @@ function validatePasskeyCookie()
             }
 
           // Validate passkey
-            if (!empty($c_passkey) and $f_passkey == $c_passkey) {
+            if (!empty($c_passkey) && hash_equals((string) $f_passkey, (string) $c_passkey)) {
                 if ($f_is_admin == 1) {
                     $IS_ADMIN = true;
                 }
@@ -876,7 +879,7 @@ function validatePasskeyCookie()
                     if ($c_passkey != $f_passkey) {
                         $this_error .= " the session file passkey didn't match the cookie passkey;";
                     }
-                    $this_error .= " Cookie: {$_COOKIE['orf_cookie']} - Session file contents: $session_file";
+                    $this_error .= ' (passkey mismatch; cookie and session file contents redacted)';
                     error_log($this_error, 0);
                 }
             }
@@ -950,7 +953,7 @@ function validateSetupCookie()
             } else {
                 list($f_passkey, $f_time) = $session_parts;
                 $this_time = time();
-                if (!empty($c_passkey) and $f_passkey == $c_passkey and $this_time < $f_time + (60 * $SESSION_TIMEOUT)) {
+                if (!empty($c_passkey) && hash_equals((string) $f_passkey, (string) $c_passkey) && $this_time < $f_time + (60 * $SESSION_TIMEOUT)) {
                     $IS_SETUP_ADMIN = true;
                     if ($SESSION_DEBUG == true) {
                         error_log("$log_prefix Setup session: Cookie and session file values match - VALIDATED ", 0);
@@ -964,7 +967,7 @@ function validateSetupCookie()
                     if ($c_passkey != $f_passkey) {
                         $this_error .= " the session file passkey didn't match the cookie passkey;";
                     }
-                    $this_error .= " Cookie: {$_COOKIE['setup_cookie']} - Session file contents: $session_file";
+                    $this_error .= ' (passkey mismatch; cookie and session file contents redacted)';
                     error_log($this_error, 0);
                 }
             }
@@ -1032,7 +1035,6 @@ function logOut(string $method = 'normal'): void
         );
         session_unset();
         session_destroy();
-        session_regenerate_id(true);
     }
 
     $options = ($method === 'auto') ? '?logged_out' : '';
@@ -1638,11 +1640,41 @@ function getAssetBase(): string
 }
 
 /**
+ * Relative app path for the authenticated user's role default (no host/base prefix).
+ */
+function getRoleDefaultRedirectPath(): string
+{
+    global $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $IS_SETUP_ADMIN, $USER_ORG_NAME, $USER_ORG_UUID;
+
+    if ($IS_SETUP_ADMIN) {
+        return 'setup/';
+    }
+    if ($IS_ADMIN) {
+        return 'manage/';
+    }
+    if ($IS_MAINTAINER) {
+        return 'manage/organizations/';
+    }
+    if ($IS_ORG_ADMIN) {
+        if (!empty($USER_ORG_UUID)) {
+            return 'manage/organizations/' . urlencode((string) $USER_ORG_UUID) . '/';
+        }
+        if (!empty($USER_ORG_NAME)) {
+            return 'manage/organizations/show/index.php?org=' . urlencode((string) $USER_ORG_NAME);
+        }
+
+        return 'password/change/';
+    }
+
+    return 'password/change/';
+}
+
+/**
  * Get the appropriate default redirect URL based on user's access level
  */
 function getDefaultRedirectForUser()
 {
-    global $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $IS_SETUP_ADMIN, $VALIDATED, $LDAP_DEBUG, $SESSION_TIMED_OUT;
+    global $VALIDATED, $SESSION_TIMED_OUT;
 
  // If user is not validated, redirect to login
     if (!$VALIDATED) {
@@ -1650,26 +1682,7 @@ function getDefaultRedirectForUser()
         return getBaseUrl() . "login/?$reason&redirect_to=" . getLoginRedirectToQueryValue();
     }
 
- // Determine default redirect based on user's highest access level
-    if ($IS_SETUP_ADMIN) {
-        return getBaseUrl() . "setup/";
-    } elseif ($IS_ADMIN) {
-        return getBaseUrl() . "manage/users/";
-    } elseif ($IS_MAINTAINER) {
-        return getBaseUrl() . "manage/organizations/";
-    } elseif ($IS_ORG_ADMIN) {
-      // Get organization info for org admin redirect
-        global $USER_ORG_NAME, $USER_ORG_UUID;
-
-        if (isset($USER_ORG_UUID) && $USER_ORG_UUID) {
-            return getBaseUrl() . "manage/organizations/" . urlencode($USER_ORG_UUID) . "/";
-        }
-        // Fallback to password change if org info not available
-        return getBaseUrl() . "password/change/";
-    } else {
-      // Regular user, redirect to password change
-        return getBaseUrl() . "password/change/";
-    }
+    return getBaseUrl() . getRoleDefaultRedirectPath();
 }
 
 ######################################################
@@ -1935,9 +1948,9 @@ function renderAttributeFields($attribute, $label, $values_r, $resource_identifi
                 print "</script>";
             }
        } elseif ($inputtype == "binary") {
-           $button_text = "Browse";
+           $button_text = t('manage.fields.file_browse');
            $file_button_action = "disabled";
-           $description = "Select a file to upload";
+           $description = t('manage.fields.file_upload_hint');
            $mimetype = "";
 
            if (isset($values_r[0])) {
@@ -1947,7 +1960,7 @@ function renderAttributeFields($attribute, $label, $values_r, $resource_identifi
                    $mimetype = substr($mimetype, 0, 19) . "...";
                }
                  $description = "Download $mimetype file (" . humanReadableFilesize(strlen($values_r[0])) . ")";
-                 $button_text = "Replace file";
+                 $button_text = t('manage.fields.file_replace');
                if ($resource_identifier != "") {
                    $this_url = "//{$_SERVER['HTTP_HOST']}{$THIS_MODULE_PATH}/download.php?resource_identifier={$resource_identifier}&attribute={$attribute}";
                    $file_button_action = "onclick=\"window.open('$this_url','_blank');\"";
@@ -1998,12 +2011,14 @@ function humanReadableFilesize($bytes)
 
 function renderAlertBanner($message, $alert_class = "success", $timeout = 4000)
 {
+    $safe_class = preg_replace('/[^a-z0-9_-]/i', '', (string) $alert_class) ?: 'success';
+    $safe_message = htmlspecialchars((string) $message, ENT_QUOTES, 'UTF-8');
 
     ?>
     <script>window.setTimeout(function() {$(".alert").fadeTo(500, 0).slideUp(500, function(){ $(this).remove(); }); }, <?php print (int) $timeout; ?>);</script>
-    <div class="alert alert-<?php print $alert_class; ?> alert-dismissible fade show" role="alert">
-     <p class="text-center mb-0"><?php print $message; ?></p>
-     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    <div class="alert alert-<?php print $safe_class; ?> alert-dismissible fade show" role="alert">
+     <p class="text-center mb-0"><?php print $safe_message; ?></p>
+     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="<?php echo htmlspecialchars(t('alert.close'), ENT_QUOTES, 'UTF-8'); ?>"></button>
     </div>
     <?php
 }
@@ -2138,6 +2153,23 @@ function validateCsrfToken()
 }
 
 /**
+ * Return URLs that must not override role defaults after login (password reset, login page).
+ */
+function isNonRestorableRedirectPath(string $path): bool
+{
+    $pathOnly = (string) parse_url($path, PHP_URL_PATH);
+    $pathOnly = rtrim($pathOnly, '/') ?: '/';
+
+    foreach (['/password/reset', '/password/set', '/login'] as $prefix) {
+        if ($pathOnly === $prefix || strpos($pathOnly, $prefix . '/') === 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
  * Secure redirect validation to prevent HTTP response splitting attacks
  * @param string $redirect_url The base64 encoded redirect URL
  * @param string $base_path The base server path
@@ -2181,6 +2213,10 @@ function validateRedirectUrl($redirect_url, $base_path = '/')
             return false;
         }
 
+        if (isNonRestorableRedirectPath($decoded)) {
+            return false;
+        }
+
         return $decoded;
     }
 
@@ -2199,6 +2235,10 @@ function validateRedirectUrl($redirect_url, $base_path = '/')
         }
 
         if (strlen($decoded) > 200) {
+            return false;
+        }
+
+        if (isNonRestorableRedirectPath($decoded)) {
             return false;
         }
 
@@ -2385,4 +2425,166 @@ function getPasswordStrengthConfigJs()
     ];
 
     return json_encode($config, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
+}
+
+/**
+ * Normalize a user-entered website URL for LDAP labeledURI storage.
+ *
+ * @return string|null Normalized URL, null when input is empty, false when invalid
+ */
+function normalizeWebsiteUrl(string $input, string $defaultScheme = 'https'): string|false|null
+{
+    $input = trim($input);
+    if ($input === '') {
+        return null;
+    }
+
+    if (preg_match('/\s/u', $input)) {
+        return false;
+    }
+
+    if (preg_match('#^[a-z][a-z0-9+\-.]*://#i', $input)) {
+        $scheme = strtolower((string) parse_url($input, PHP_URL_SCHEME));
+        if (!in_array($scheme, ['http', 'https'], true)) {
+            return false;
+        }
+    } else {
+        $input = rtrim($defaultScheme, ':/') . '://' . ltrim($input, '/');
+    }
+
+    if (!filter_var($input, FILTER_VALIDATE_URL)) {
+        return false;
+    }
+
+    $host = parse_url($input, PHP_URL_HOST);
+    if (!is_string($host) || $host === '') {
+        return false;
+    }
+
+    return $input;
+}
+
+/**
+ * @param string|null $url Already-normalized or raw URL; empty/null is invalid
+ */
+function isValidWebsiteUrl(?string $url): bool
+{
+    if ($url === null || trim($url) === '') {
+        return false;
+    }
+
+    $normalized = normalizeWebsiteUrl($url);
+
+    return is_string($normalized);
+}
+
+/**
+ * Split a stored website URL into scheme and host/path for the input-group widget.
+ *
+ * @return array{scheme: string, hostPath: string}
+ */
+function splitWebsiteUrl(string $url): array
+{
+    $url = trim($url);
+    if ($url === '') {
+        return ['scheme' => 'https', 'hostPath' => ''];
+    }
+
+    $normalized = normalizeWebsiteUrl($url);
+    if (!is_string($normalized)) {
+        return ['scheme' => 'https', 'hostPath' => $url];
+    }
+
+    $parsed = parse_url($normalized);
+    $scheme = strtolower((string) ($parsed['scheme'] ?? 'https'));
+    if (!in_array($scheme, ['http', 'https'], true)) {
+        $scheme = 'https';
+    }
+
+    $hostPath = (string) ($parsed['host'] ?? '');
+    if (isset($parsed['port'])) {
+        $hostPath .= ':' . $parsed['port'];
+    }
+    if (isset($parsed['path']) && $parsed['path'] !== '') {
+        $hostPath .= $parsed['path'];
+    }
+    if (isset($parsed['query'])) {
+        $hostPath .= '?' . $parsed['query'];
+    }
+    if (isset($parsed['fragment'])) {
+        $hostPath .= '#' . $parsed['fragment'];
+    }
+
+    return ['scheme' => $scheme, 'hostPath' => $hostPath];
+}
+
+/**
+ * Normalize labeledURI website value during org create/update.
+ *
+ * @return string|null Error message when invalid, null on success
+ */
+function applyWebsiteUrlNormalization(array &$orgData, string $ldapAttr = 'labeledURI'): ?string
+{
+    if (!array_key_exists($ldapAttr, $orgData)) {
+        return null;
+    }
+
+    $raw = trim((string) $orgData[$ldapAttr]);
+    if ($raw === '') {
+        $orgData[$ldapAttr] = '';
+
+        return null;
+    }
+
+    $normalized = normalizeWebsiteUrl($raw);
+    if ($normalized === false) {
+        return t('manage.orgs.website_invalid');
+    }
+
+    $orgData[$ldapAttr] = $normalized;
+
+    return null;
+}
+
+/**
+ * Render the organization website URL input group (scheme prefix + host/path).
+ */
+function renderWebsiteUrlField(string $fieldName, string $label, string $value = '', bool $required = false, string $labelClass = '', bool $includeLabel = true): void
+{
+    $parts = splitWebsiteUrl($value);
+    $schemeId = $fieldName . '_scheme';
+    $hostId = $fieldName . '_host';
+    $requiredAttr = $required ? ' required' : '';
+    $labelClassAttr = $labelClass !== '' ? ' class="' . htmlspecialchars($labelClass, ENT_QUOTES, 'UTF-8') . '"' : '';
+    $requiredLabel = $required ? ' <sup>*</sup>' : '';
+    $invalidMsg = t('manage.orgs.website_invalid');
+    $previewTemplate = t('manage.orgs.website_preview');
+    $hint = t('manage.orgs.website_hint');
+    $placeholder = t('manage.orgs.website_placeholder');
+    $schemeLabel = t('manage.orgs.website_scheme_aria');
+
+    echo '<div class="website-url-field" data-website-field'
+        . ' data-invalid-msg="' . htmlspecialchars($invalidMsg, ENT_QUOTES, 'UTF-8') . '"'
+        . ' data-preview-template="' . htmlspecialchars($previewTemplate, ENT_QUOTES, 'UTF-8') . '">';
+    if ($includeLabel) {
+        echo '<label for="' . htmlspecialchars($hostId, ENT_QUOTES, 'UTF-8') . '"' . $labelClassAttr . '>'
+            . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . $requiredLabel . '</label>';
+    }
+    echo '<input type="hidden" name="' . htmlspecialchars($fieldName, ENT_QUOTES, 'UTF-8') . '"'
+        . ' id="' . htmlspecialchars($fieldName, ENT_QUOTES, 'UTF-8') . '"'
+        . ' value="' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '">';
+    echo '<div class="input-group">';
+    echo '<select class="form-select website-url-scheme" id="' . htmlspecialchars($schemeId, ENT_QUOTES, 'UTF-8') . '"'
+        . ' aria-label="' . htmlspecialchars($schemeLabel, ENT_QUOTES, 'UTF-8') . '" style="max-width: 7.5rem;">';
+    echo '<option value="https"' . ($parts['scheme'] === 'https' ? ' selected' : '') . '>https://</option>';
+    echo '<option value="http"' . ($parts['scheme'] === 'http' ? ' selected' : '') . '>http://</option>';
+    echo '</select>';
+    echo '<input type="text" class="form-control website-url-host" id="' . htmlspecialchars($hostId, ENT_QUOTES, 'UTF-8') . '"'
+        . ' inputmode="url" autocomplete="url"'
+        . ' placeholder="' . htmlspecialchars($placeholder, ENT_QUOTES, 'UTF-8') . '"'
+        . ' value="' . htmlspecialchars($parts['hostPath'], ENT_QUOTES, 'UTF-8') . '"' . $requiredAttr . '>';
+    echo '</div>';
+    echo '<small class="form-text text-muted website-url-preview" aria-live="polite"></small>';
+    echo '<small class="form-text text-muted website-url-hint">' . htmlspecialchars($hint, ENT_QUOTES, 'UTF-8') . '</small>';
+    echo '</div>';
 }

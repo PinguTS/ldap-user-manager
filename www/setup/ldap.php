@@ -39,10 +39,15 @@ if (isset($_POST['fix_problems'])) {
     if ($SETUP_DEBUG == true) {
         error_log("$log_prefix SETUP_DEBUG: Received POST data for LDAP setup", 0);
         foreach ($_POST as $key => $value) {
+            $keyStr = (string) $key;
+            if (preg_match('/password|secret|token|pwd/i', $keyStr)) {
+                error_log("$log_prefix SETUP_DEBUG: POST[$keyStr] = [redacted]", 0);
+                continue;
+            }
             if (is_array($value)) {
-                error_log("$log_prefix SETUP_DEBUG: POST[$key] = [array]", 0);
+                error_log("$log_prefix SETUP_DEBUG: POST[$keyStr] = [array]", 0);
             } else {
-                error_log("$log_prefix SETUP_DEBUG: POST[$key] = $value", 0);
+                error_log("$log_prefix SETUP_DEBUG: POST[$keyStr] = $value", 0);
             }
         }
         error_log("$log_prefix SETUP_DEBUG: LDAP URI = {$LDAP['uri']}, Base DN = {$LDAP['base_dn']}, Admin DN = {$LDAP['admin_bind_dn']}", 0);
@@ -115,8 +120,12 @@ if (isset($_POST['setup_admin_user'])) {
     if ($SETUP_DEBUG == true) {
         error_log("$log_prefix SETUP_DEBUG: Creating admin user", 0);
     }
-    $admin_email = (!empty($_POST['admin_email'])) ? $_POST['admin_email'] : 'admin@example.com';
-    $admin_password = (!empty($_POST['admin_password'])) ? $_POST['admin_password'] : 'admin123';
+    if (empty(trim((string) ($_POST['admin_email'] ?? ''))) || empty((string) ($_POST['admin_password'] ?? ''))) {
+        print "$li_fail Admin email and password are required (defaults are not permitted).</li>\n";
+        $no_errors = false;
+    } else {
+    $admin_email = trim((string) $_POST['admin_email']);
+    $admin_password = (string) $_POST['admin_password'];
 
     if ($SETUP_DEBUG == true) {
         error_log("$log_prefix SETUP_DEBUG: Admin email = $admin_email, Target DN = uid={$admin_email},ou=people,{$LDAP['base_dn']}", 0);
@@ -142,14 +151,8 @@ if (isset($_POST['setup_admin_user'])) {
             error_log("$log_prefix SETUP_DEBUG: SUCCESS - Admin user created", 0);
         }
         print "$li_good Created system administrator user <strong>uid={$admin_email},ou=people,{$LDAP['base_dn']}</strong></li>\n";
-        if ($admin_password == 'admin123') {
-            print "$li_warn <strong>Default password is 'admin123' - please change this immediately!</strong></li>\n";
-        } else {
-            print "$li_good <strong>Custom password set successfully!</strong></li>\n";
-        }
-        if ($admin_email != 'admin@example.com') {
-            print "$li_good <strong>Custom email address set: {$admin_email}</strong></li>\n";
-        }
+        print "$li_good <strong>Custom password set successfully!</strong></li>\n";
+        print "$li_good <strong>Custom email address set: {$admin_email}</strong></li>\n";
 
       # Note: Admin user will be added to administrators role group during verification
         print "$li_info Note: Admin user will be added to administrators role group during verification</li>\n";
@@ -162,14 +165,19 @@ if (isset($_POST['setup_admin_user'])) {
         print "$li_fail Couldn't create system administrator user: <pre>$error</pre></li>\n";
         $no_errors = false;
     }
+    }
 }
 
 if (isset($_POST['setup_maintainer_user'])) {
     if ($SETUP_DEBUG == true) {
         error_log("$log_prefix SETUP_DEBUG: Creating maintainer user", 0);
     }
-    $maintainer_email = (!empty($_POST['maintainer_email'])) ? $_POST['maintainer_email'] : 'maintainer@example.com';
-    $maintainer_password = (!empty($_POST['maintainer_password'])) ? $_POST['maintainer_password'] : 'maintainer123';
+    if (empty(trim((string) ($_POST['maintainer_email'] ?? ''))) || empty((string) ($_POST['maintainer_password'] ?? ''))) {
+        print "$li_fail Maintainer email and password are required (defaults are not permitted).</li>\n";
+        $no_errors = false;
+    } else {
+    $maintainer_email = trim((string) $_POST['maintainer_email']);
+    $maintainer_password = (string) $_POST['maintainer_password'];
 
     if ($SETUP_DEBUG == true) {
         error_log("$log_prefix SETUP_DEBUG: Maintainer email = $maintainer_email, Target DN = uid={$maintainer_email},ou=people,{$LDAP['base_dn']}", 0);
@@ -195,14 +203,8 @@ if (isset($_POST['setup_maintainer_user'])) {
             error_log("$log_prefix SETUP_DEBUG: SUCCESS - Maintainer user created", 0);
         }
         print "$li_good Created system maintainer user <strong>uid={$maintainer_email},ou=people,{$LDAP['base_dn']}</strong></li>\n";
-        if ($maintainer_password == 'maintainer123') {
-            print "$li_warn <strong>Default password is 'maintainer123' - please change this immediately!</strong></li>\n";
-        } else {
-            print "$li_good <strong>Custom password set successfully!</strong></li>\n";
-        }
-        if ($maintainer_email != 'maintainer@example.com') {
-            print "$li_good <strong>Custom email address set: {$maintainer_email}</strong></li>\n";
-        }
+        print "$li_good <strong>Custom password set successfully!</strong></li>\n";
+        print "$li_good <strong>Custom email address set: {$maintainer_email}</strong></li>\n";
 
       # Note: Maintainer user will be added to maintainers role group during verification
         print "$li_info Note: Maintainer user will be added to maintainers role group during verification</li>\n";
@@ -214,6 +216,7 @@ if (isset($_POST['setup_maintainer_user'])) {
         }
         print "$li_fail Couldn't create system maintainer user: <pre>$error</pre></li>\n";
         $no_errors = false;
+    }
     }
 }
 

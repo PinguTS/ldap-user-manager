@@ -40,19 +40,16 @@ if ($SMTP['host'] != "") {
     $can_send_email = false;
 }
 
-$LDAP['default_attribute_map']["mail"]  = array("label" => t('manage.common.email'), "onkeyup" => "check_if_we_should_enable_sending_email();");
+if (isset($LDAP['default_attribute_map']['mail'])) {
+    $LDAP['default_attribute_map']['mail']['onkeyup'] = 'check_if_we_should_enable_sending_email();';
+}
 
 $attribute_map = $LDAP['default_attribute_map'];
 if (isset($LDAP['account_additional_attributes'])) {
     $attribute_map = ldap_complete_attribute_map($attribute_map, $LDAP['account_additional_attributes']);
 }
 if (! array_key_exists($LDAP['account_attribute'], $attribute_map)) {
-    $attribute_r = array_merge($attribute_map, array($LDAP['account_attribute'] => array("label" => t('manage.common.account_id'))));
-}
-
-// Ensure common attributes used in the profile form are included in updates
-if (!array_key_exists('telephonenumber', $attribute_map)) {
-    $attribute_map['telephonenumber'] = ['label' => t('manage.users.phone_number')];
+    $attribute_map = array_merge($attribute_map, array($LDAP['account_attribute'] => array("label" => t('manage.common.account_id'))));
 }
 
 // Check if user parameter is provided (support both UUID and legacy account_identifier)

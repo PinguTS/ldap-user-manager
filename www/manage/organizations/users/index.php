@@ -225,9 +225,12 @@ if (isset($_POST['toggle_manager']) && isset($_POST['uid'])) {
     after_toggle_manager:
 }
 
-// Handle user disable/enable
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['disable_user']) && currentUserCanDisableUser($_POST['disable_user'])) {
+// Handle user disable/enable/delete (POST only; CSRF validated)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['disable_user']) || isset($_POST['enable_user']) || isset($_POST['delete_user']))) {
+    if (!validateCsrfToken()) {
+        $message = t('manage.common.msg.security_validation_failed');
+        $message_type = 'danger';
+    } elseif (isset($_POST['disable_user']) && currentUserCanDisableUser($_POST['disable_user'])) {
         $user_identifier = trim($_POST['disable_user']);
         $resolved = org_resolve_user_entry($orgName, $user_identifier);
         if ($resolved === null) {
@@ -289,16 +292,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($resolved === null) {
             $message = t('manage.users.msg.user_not_found');
             $message_type = 'danger';
-            goto after_delete_user;
-        }
+        } else {
         $user_dn = is_string($resolved['dn'] ?? null) ? $resolved['dn'] : '';
         $user_display = get_ldap_attribute($resolved, 'uid') !== '' ? get_ldap_attribute($resolved, 'uid') : $user_identifier;
         $ldap_connection = lum_ldap_data_connection();
         if ($ldap_connection === false) {
             $message = t('manage.orgs.msg.ldap_fail');
             $message_type = 'danger';
-            goto after_delete_user;
-        }
+        } else {
         assert($ldap_connection !== false);
 
         $group_cleanup_success = ldap_remove_user_from_all_groups($ldap_connection, $user_dn);
@@ -314,6 +315,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message_type = 'danger';
         }
         lum_close_ldap_if_not_manage($ldap_connection);
+        }
+        }
     }
 }
 
@@ -338,9 +341,7 @@ if (isset($_GET['reset_link_sent']) && (string) $_GET['reset_link_sent'] === '1'
 
 // Handle add user form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
-    try {
-        validateCsrfToken();
-    } catch (Exception $e) {
+    if (!validateCsrfToken()) {
         $message = t('manage.common.msg.security_validation_failed');
         $message_type = 'danger';
         goto after_add_user;
@@ -504,50 +505,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
 }
 after_add_user:
 
-// Handle delete user
-if (isset($_GET['delete_user'])) {
-    $deleteUserParam = $_GET['delete_user'];
-    if (!currentUserCanDisableUser($deleteUserParam)) {
-        $message = t('manage.users.msg.permission_denied_invalid_user');
-        $message_type = 'danger';
-        goto after_delete_user;
-    }
-
-    $resolvedDelete = org_resolve_user_entry($orgName, (string) $deleteUserParam);
-    if ($resolvedDelete === null) {
-        $message = t('manage.users.msg.user_not_found');
-        $message_type = 'danger';
-        goto after_delete_user;
-    }
-    $userDn = is_string($resolvedDelete['dn'] ?? null) ? $resolvedDelete['dn'] : '';
-    $deleteUserDisplay = get_ldap_attribute($resolvedDelete, 'uid') !== '' ? get_ldap_attribute($resolvedDelete, 'uid') : (string) $deleteUserParam;
-
-    $ldap = lum_ldap_data_connection();
-    if ($ldap === false) {
-        $message = t('manage.orgs.msg.ldap_fail');
-        $message_type = 'danger';
-        goto after_delete_user;
-    }
-    assert($ldap !== false);
-
-    $group_cleanup_success = ldap_remove_user_from_all_groups($ldap, $userDn);
-    if (!$group_cleanup_success) {
-        error_log("Warning: Failed to remove user from some groups before deletion");
-    }
-
-    try {
-        ldap_delete($ldap, $userDn);
-        $message = t('manage.users.msg.delete_ok', ['user' => $deleteUserDisplay]);
-        $message_type = 'warning';
-    } catch (Exception $e) {
-        error_log("delete_user (admin): exception deleting $userDn: " . $e->getMessage());
-        $message = t('manage.org_users.msg.delete_fail_exception');
-        $message_type = 'danger';
-    }
-    lum_close_ldap_if_not_manage($ldap);
-}
-after_delete_user:
-
 // Handle edit user
 $editUser = null;
 if (isset($_GET['edit_user'])) {
@@ -555,8 +512,10 @@ if (isset($_GET['edit_user'])) {
     $editUser = org_resolve_user_entry($orgName, (string) $editUserParam);
 }
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        validateCsrfToken();
+    if (!validateCsrfToken()) {
+        $message = t('manage.common.msg.security_validation_failed');
+        $message_type = 'danger';
+        goto after_edit_user;
     }
     $uid = trim($_POST['edit_uid']);
     $givenName = trim($_POST['edit_givenname']);
@@ -611,7 +570,14 @@ after_edit_user:
 
 // Handle reset password (PRG: always redirect; success via query string, failure/warning via session flash)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
-    validateCsrfToken();
+    if (!validateCsrfToken()) {
+        $_SESSION['manage_org_users_reset_flash'] = [
+            'type' => 'danger',
+            'message' => t('manage.common.msg.security_validation_failed'),
+        ];
+        header('Location: ?' . lum_org_users_query_param((string) $org_uuid, (string) $orgName));
+        exit;
+    }
     $baseParam = lum_org_users_query_param((string) $org_uuid, (string) $orgName);
 
     $resetUserParam = $_POST['reset_uid'] ?? '';
@@ -745,7 +711,7 @@ renderFlash();
         </div>
     </div>
     <?php if ($message) : ?>
-        <div class="alert alert-<?= $message_type ?>" id="msgbox"> <?= $message ?> </div>
+        <div class="alert alert-<?= htmlspecialchars((string) $message_type, ENT_QUOTES, 'UTF-8') ?>" id="msgbox"> <?= htmlspecialchars((string) $message, ENT_QUOTES, 'UTF-8') ?> </div>
     <?php endif; ?>
     <?php
     $is_disabled_org = false;

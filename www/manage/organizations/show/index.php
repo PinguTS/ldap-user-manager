@@ -355,6 +355,14 @@ if (isset($_POST['update_organization'])) {
             $skip_org_save = true;
         }
 
+        if (!$skip_org_save && array_key_exists('labeledURI', $org_data)) {
+            $websiteError = applyWebsiteUrlNormalization($org_data);
+            if ($websiteError !== null) {
+                renderAlertBanner($websiteError, 'danger');
+                $skip_org_save = true;
+            }
+        }
+
         unset($org_data['o']);
 
         if (!$skip_org_save) {
@@ -646,9 +654,9 @@ if ($orgExists) {
                         <?php
                         $country_raw = trim((string) $address_parts[4]);
                         $country_code = strtoupper($country_raw);
-                        $country_options = getLocalizedCountryOptions();
-                        if (isset($country_options[$country_code])) {
-                            print htmlspecialchars($country_options[$country_code] . ' (' . $country_code . ')');
+                        $country_name = getLocalizedCountryName($country_code);
+                        if ($country_name !== '' && strcasecmp($country_name, $country_code) !== 0) {
+                            print htmlspecialchars($country_name . ' (' . $country_code . ')');
                         } else {
                             print htmlspecialchars($country_raw);
                         }
@@ -1077,7 +1085,7 @@ if ($orgExists) {
         <?php
         $can_rename_org_form = currentUserIsGlobalAdmin() || currentUserIsMaintainer();
         $org_display_name = (string) ($organization['o'] ?? $organization['name'] ?? $org_name);
-        $org_name_field_label = $LDAP['org_field_labels']['org_name'] ?? 'Organization Name';
+        $org_name_field_label = $LDAP['org_field_labels']['org_name'] ?? t('manage.fields.org_name');
         ?>
      <div class="row">
       <div class="col-sm-6">
@@ -1140,7 +1148,10 @@ if ($orgExists) {
                     $label .= ' <sup>*</sup>';
                 }
 
-                echo '<label for="' . $form_field . '" class="' . $label_class . '">' . $label . '</label>';
+                $widget = $LDAP['org_field_widgets'][$form_field] ?? null;
+                $label_for = ($widget === 'website') ? $form_field . '_host' : $form_field;
+
+                echo '<label for="' . $label_for . '" class="' . $label_class . '">' . $label . '</label>';
                 echo '<div class="' . $input_wrapper_class . '">';
 
                 // Get current value from organization data
@@ -1157,7 +1168,9 @@ if ($orgExists) {
                 // Add required attribute if field is required
                 $required_attr = $is_required ? ' required' : '';
 
-                if ($field_type === 'textarea') {
+                if ($widget === 'website') {
+                    renderWebsiteUrlField($form_field, $label, (string) $current_value, $is_required, '', false);
+                } elseif ($field_type === 'textarea') {
                     echo '<textarea class="form-control" id="' . $form_field . '" name="' . $form_field . '" rows="2"' . $required_attr . '>' . htmlspecialchars($current_value) . '</textarea>';
                 } else {
                     echo '<input type="' . $field_type . '" class="form-control" id="' . $form_field . '" name="' . $form_field . '" value="' . htmlspecialchars($current_value) . '"' . $required_attr . '>';
@@ -1224,11 +1237,17 @@ if ($orgExists) {
             if ($field_name === 'org_country') {
                 $country_options = getLocalizedCountryOptions();
                 $selected_value = strtoupper((string) $current_value);
-                if ($selected_value !== '' && !isset($country_options[$selected_value])) {
-                    $selected_value = '';
-                }
-                echo '<select class="form-select" id="' . $field_name . '" name="' . $field_name . '"' . $required_attr . '>';
+                $country_picker_attrs = ' data-country-picker'
+                    . ' data-placeholder="' . htmlspecialchars(t('manage.orgs.form.country_placeholder'), ENT_QUOTES, 'UTF-8') . '"'
+                    . ' data-no-results="' . htmlspecialchars(t('manage.orgs.form.country_no_results'), ENT_QUOTES, 'UTF-8') . '"'
+                    . ' data-assistive-hint="' . htmlspecialchars(t('manage.orgs.form.country_assistive_hint'), ENT_QUOTES, 'UTF-8') . '"';
+                echo '<select class="form-select" id="' . $field_name . '" name="' . $field_name . '"' . $required_attr . $country_picker_attrs . '>';
                 echo '<option value=""></option>';
+                if ($selected_value !== '' && !isset($country_options[$selected_value])) {
+                    $grandfather_label = getLocalizedCountryName($selected_value);
+                    echo '<option value="' . htmlspecialchars($selected_value, ENT_QUOTES, 'UTF-8') . '" selected>' .
+                        htmlspecialchars($grandfather_label . ' (' . $selected_value . ')', ENT_QUOTES, 'UTF-8') . '</option>';
+                }
                 foreach ($country_options as $country_code => $country_name) {
                     $selected = ($selected_value === $country_code) ? ' selected' : '';
                     echo '<option value="' . htmlspecialchars($country_code, ENT_QUOTES, 'UTF-8') . '"' . $selected . '>' .
@@ -1257,15 +1276,15 @@ if ($orgExists) {
        <h5 class="mb-2"><?php echo htmlspecialchars(t('manage.orgs.show.admin_settings_heading'), ENT_QUOTES, 'UTF-8'); ?></h5>
        <div class="row mt-2">
         <div class="col-sm-6 mb-2">
-          <label for="org_member_number" class="form-label"><?php echo htmlspecialchars($LDAP['org_field_labels']['org_member_number'] ?? 'Member number', ENT_QUOTES, 'UTF-8'); ?></label>
+          <label for="org_member_number" class="form-label"><?php echo htmlspecialchars($LDAP['org_field_labels']['org_member_number'] ?? t('manage.fields.member_number'), ENT_QUOTES, 'UTF-8'); ?></label>
           <input type="text" class="form-control" id="org_member_number" name="org_member_number" value="<?php echo htmlspecialchars((string) ($organization['memberNumber'] ?? '')); ?>">
         </div>
         <div class="col-sm-3 mb-2">
-          <label for="org_member_since" class="form-label"><?php echo htmlspecialchars($LDAP['org_field_labels']['org_member_since'] ?? 'Member since', ENT_QUOTES, 'UTF-8'); ?></label>
+          <label for="org_member_since" class="form-label"><?php echo htmlspecialchars($LDAP['org_field_labels']['org_member_since'] ?? t('manage.fields.member_since'), ENT_QUOTES, 'UTF-8'); ?></label>
           <input type="date" class="form-control" id="org_member_since" name="org_member_since" value="<?php echo htmlspecialchars((string) ($organization['memberSince'] ?? '')); ?>">
         </div>
         <div class="col-sm-3 mb-2">
-          <label for="org_member_until" class="form-label"><?php echo htmlspecialchars($LDAP['org_field_labels']['org_member_until'] ?? 'Member until', ENT_QUOTES, 'UTF-8'); ?></label>
+          <label for="org_member_until" class="form-label"><?php echo htmlspecialchars($LDAP['org_field_labels']['org_member_until'] ?? t('manage.fields.member_until'), ENT_QUOTES, 'UTF-8'); ?></label>
           <input type="date" class="form-control" id="org_member_until" name="org_member_until" value="<?php echo htmlspecialchars((string) ($organization['memberUntil'] ?? '')); ?>">
         </div>
         <div class="col-sm-6 mb-2">
@@ -1366,7 +1385,12 @@ renderConfirmModal(
 );
 ?>
 
+<link rel="stylesheet" href="<?php print getAssetBase(); ?>css/accessible-autocomplete.min.css">
+<link rel="stylesheet" href="<?php print getAssetBase(); ?>css/country-picker.min.css">
+<script src="<?php print getAssetBase(); ?>js/accessible-autocomplete.min.js"></script>
+<script src="<?php print getAssetBase(); ?>js/country-picker.min.js"></script>
 <script src="<?php print getAssetBase(); ?>js/modals.js"></script>
+<script src="<?php print getAssetBase(); ?>js/website-field.min.js"></script>
 <script>
 function confirmDisableOrganization(orgName) {
     confirmAction('disableModal', { disableOrgName: orgName, disableOrgNameInput: orgName });

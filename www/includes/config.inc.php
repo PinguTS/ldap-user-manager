@@ -71,19 +71,6 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
      'website' => 'labeledURI'
  ];
 
- # Field labels for the UI (human-readable names)
- $LDAP['user_field_labels'] = [
-     'first_name' => 'First Name',
-     'last_name' => 'Last Name',
-     'email' => 'Email',
-     'common_name' => 'Common Name',
-     'uid' => 'Account ID',
-     'organization' => 'Organization',
-     'user_role' => 'User Role',
-     'phone' => 'Phone Number',
-     'website' => 'Website'
- ];
-
  # Field types for form rendering
  $LDAP['user_field_types'] = [
      'first_name' => 'text',
@@ -307,6 +294,23 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
     'org_country' => ['label' => 'Country', 'type' => 'text', 'required' => false]
  ];
 
+ # Optional ISO 3166-1 alpha-2 allowlist for organization country picker (comma-separated).
+ # Unset or empty = full built-in catalog. Unknown codes are ignored.
+ $LDAP['org_allowed_countries'] = null;
+ $org_allowed_countries_raw = getenv('LDAP_ORG_ALLOWED_COUNTRIES');
+ if ($org_allowed_countries_raw !== false && trim($org_allowed_countries_raw) !== '') {
+    $org_allowed_parsed = [];
+    foreach (explode(',', $org_allowed_countries_raw) as $org_country_code) {
+        $org_country_code = strtoupper(trim($org_country_code));
+        if ($org_country_code !== '') {
+            $org_allowed_parsed[] = $org_country_code;
+        }
+    }
+    if ($org_allowed_parsed !== []) {
+        $LDAP['org_allowed_countries'] = array_values(array_unique($org_allowed_parsed));
+    }
+ }
+
  # Field labels for the UI (human-readable names)
  $LDAP['org_field_labels'] = [
     'org_name' => 'Organization Name',
@@ -326,13 +330,17 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
     'org_name' => 'text',
     'org_phone' => 'tel',
     'org_fax' => 'tel',
-    'org_website' => 'url',
+    'org_website' => 'text',
     'org_email' => 'email',
     'org_description' => 'textarea',
     'org_category' => 'text',
     'org_member_number' => 'text',
    'org_member_since' => 'date',
    'org_member_until' => 'date'
+ ];
+
+ $LDAP['org_field_widgets'] = [
+    'org_website' => 'website',
  ];
 
  $LDAP['group_ou'] = (getenv('LDAP_GROUP_OU') ? getenv('LDAP_GROUP_OU') : 'groups');

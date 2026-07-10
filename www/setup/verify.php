@@ -87,7 +87,7 @@ if ($result['admin_group'] !== null && isset($result['admin_group']['member'])) 
     print "<li class='list-group-item list-group-item-success'>✓ Administrators group has {$member_count} member(s)</li>\n";
     for ($i = 0; $i < $member_count; $i++) {
         $member_dn = $result['admin_group']['member'][$i];
-        print "<li class='list-group-item list-group-item-info'>  - {$member_dn}</li>\n";
+        print "<li class='list-group-item list-group-item-info'>  - " . htmlspecialchars((string) $member_dn, ENT_QUOTES, 'UTF-8') . "</li>\n";
     }
 } else {
     print $result['admin_group'] !== null ? "<li class='list-group-item list-group-item-warning'>⚠ Administrators group has no members</li>\n" : "<li class='list-group-item list-group-item-danger'>✗ Cannot find administrators group</li>\n";
@@ -97,7 +97,7 @@ if ($result['maintainer_group'] !== null && isset($result['maintainer_group']['m
     print "<li class='list-group-item list-group-item-success'>✓ Maintainers group has {$member_count} member(s)</li>\n";
     for ($i = 0; $i < $member_count; $i++) {
         $member_dn = $result['maintainer_group']['member'][$i];
-        print "<li class='list-group-item list-group-item-info'>  - {$member_dn}</li>\n";
+        print "<li class='list-group-item list-group-item-info'>  - " . htmlspecialchars((string) $member_dn, ENT_QUOTES, 'UTF-8') . "</li>\n";
     }
 } else {
     print $result['maintainer_group'] !== null ? "<li class='list-group-item list-group-item-warning'>⚠ Maintainers group has no members</li>\n" : "<li class='list-group-item list-group-item-danger'>✗ Cannot find maintainers group</li>\n";

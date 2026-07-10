@@ -11,6 +11,7 @@ RUN set -eux; \
     apt-get install -y --no-install-recommends \
         libldap2-dev libldap-common libldb-dev \
         libfreetype6-dev libjpeg-dev libpng-dev \
+        libicu-dev \
         pkg-config; \
     rm -rf /var/lib/apt/lists/*
 
@@ -24,6 +25,10 @@ RUN set -eux; \
     arch="$(dpkg-architecture -q DEB_HOST_MULTIARCH)"; \
     docker-php-ext-configure ldap --with-libdir="lib/${arch}"; \
     docker-php-ext-install -j"$(nproc)" ldap
+
+# intl bauen (localized country names via ICU/CLDR)
+RUN set -eux; \
+    docker-php-ext-install -j"$(nproc)" intl
 
 # Enable Apache modules for security, performance, and URL rewriting
 RUN a2enmod rewrite ssl headers expires deflate && a2dissite 000-default default-ssl

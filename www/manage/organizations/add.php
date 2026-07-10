@@ -42,8 +42,16 @@ if (isset($_POST['action']) && $_POST['action'] == 'create_organization') {
                 }
             }
 
+            if (isset($org_data['labeledURI'])) {
+                $websiteError = applyWebsiteUrlNormalization($org_data);
+                if ($websiteError !== null) {
+                    $message = $websiteError;
+                    $message_type = 'danger';
+                }
+            }
+
             // Ensure required field 'o' (organization name) is present
-            if (!isset($org_data['o']) || empty($org_data['o'])) {
+            if ($message_type !== 'danger' && (!isset($org_data['o']) || empty($org_data['o']))) {
                 $message = t('manage.orgs.add.msg.required_org_name_missing');
                 $message_type = 'danger';
             }
@@ -64,23 +72,25 @@ if (isset($_POST['action']) && $_POST['action'] == 'create_organization') {
             }
 
             // Create organization using the createOrganization function
-            $result = createOrganization($org_data);
-            if ($result[0]) {
-                setFlash(t('manage.orgs.add.msg.created_ok'), 'success');
-                $org_name = (string) ($org_data['o'] ?? '');
-                $entryUuid = isset($result[2]) ? (string) $result[2] : '';
-                if ($entryUuid !== '') {
-                    header('Location: ' . getBaseUrl() . 'manage/organizations/' . urlencode($entryUuid) . '/');
-                } elseif ($org_name !== '') {
-                    header('Location: ' . getBaseUrl() . 'manage/organizations/show/index.php?org=' . urlencode($org_name));
+            if ($message_type !== 'danger') {
+                $result = createOrganization($org_data);
+                if ($result[0]) {
+                    setFlash(t('manage.orgs.add.msg.created_ok'), 'success');
+                    $org_name = (string) ($org_data['o'] ?? '');
+                    $entryUuid = isset($result[2]) ? (string) $result[2] : '';
+                    if ($entryUuid !== '') {
+                        header('Location: ' . getBaseUrl() . 'manage/organizations/' . urlencode($entryUuid) . '/');
+                    } elseif ($org_name !== '') {
+                        header('Location: ' . getBaseUrl() . 'manage/organizations/show/index.php?org=' . urlencode($org_name));
+                    } else {
+                        header('Location: ' . getBaseUrl() . 'manage/organizations/');
+                    }
+                    exit;
                 } else {
-                    header('Location: ' . getBaseUrl() . 'manage/organizations/');
+                    error_log("createOrganization failed: " . (string) $result[1]);
+                    $message = t('manage.orgs.add.msg.create_fail');
+                    $message_type = 'danger';
                 }
-                exit;
-            } else {
-                error_log("createOrganization failed: " . (string) $result[1]);
-                $message = t('manage.orgs.add.msg.create_fail');
-                $message_type = 'danger';
             }
         }
     }
@@ -130,12 +140,18 @@ render_submenu();
                                 $required = 'required';
 
                                 echo "<div class='form-group'>";
-                                echo "<label for='{$form_field}'>{$label} *</label>";
 
-                                if ($field_type === 'textarea') {
-                                    echo "<textarea class='form-control' id='{$form_field}' name='{$form_field}' {$required} rows='3'></textarea>";
+                                $widget = $LDAP['org_field_widgets'][$form_field] ?? null;
+                                if ($widget === 'website') {
+                                    renderWebsiteUrlField($form_field, $label, '', true);
                                 } else {
-                                    echo "<input type='{$field_type}' class='form-control' id='{$form_field}' name='{$form_field}' {$required}>";
+                                    echo "<label for='{$form_field}'>{$label} *</label>";
+
+                                    if ($field_type === 'textarea') {
+                                        echo "<textarea class='form-control' id='{$form_field}' name='{$form_field}' {$required} rows='3'></textarea>";
+                                    } else {
+                                        echo "<input type='{$field_type}' class='form-control' id='{$form_field}' name='{$form_field}' {$required}>";
+                                    }
                                 }
                                 echo "</div>";
                             }
@@ -157,12 +173,18 @@ render_submenu();
                                 $field_type = $LDAP['org_field_types'][$form_field] ?? 'text';
 
                                 echo "<div class='form-group'>";
-                                echo "<label for='{$form_field}'>{$label}</label>";
 
-                                if ($field_type === 'textarea') {
-                                    echo "<textarea class='form-control' id='{$form_field}' name='{$form_field}' rows='3'></textarea>";
+                                $widget = $LDAP['org_field_widgets'][$form_field] ?? null;
+                                if ($widget === 'website') {
+                                    renderWebsiteUrlField($form_field, $label);
                                 } else {
-                                    echo "<input type='{$field_type}' class='form-control' id='{$form_field}' name='{$form_field}'>";
+                                    echo "<label for='{$form_field}'>{$label}</label>";
+
+                                    if ($field_type === 'textarea') {
+                                        echo "<textarea class='form-control' id='{$form_field}' name='{$form_field}' rows='3'></textarea>";
+                                    } else {
+                                        echo "<input type='{$field_type}' class='form-control' id='{$form_field}' name='{$form_field}'>";
+                                    }
                                 }
                                 echo "</div>";
                             }
@@ -187,7 +209,11 @@ render_submenu();
                             $required_attr = $field_config['required'] ? ' required' : '';
                             if ($field_name === 'org_country') {
                                 $country_options = getLocalizedCountryOptions();
-                                echo "<select class='form-select' id='{$field_name}' name='{$field_name}'{$required_attr}>";
+                                $country_picker_attrs = ' data-country-picker'
+                                    . ' data-placeholder="' . htmlspecialchars(t('manage.orgs.form.country_placeholder'), ENT_QUOTES, 'UTF-8') . '"'
+                                    . ' data-no-results="' . htmlspecialchars(t('manage.orgs.form.country_no_results'), ENT_QUOTES, 'UTF-8') . '"'
+                                    . ' data-assistive-hint="' . htmlspecialchars(t('manage.orgs.form.country_assistive_hint'), ENT_QUOTES, 'UTF-8') . '"';
+                                echo "<select class='form-select' id='{$field_name}' name='{$field_name}'{$required_attr}{$country_picker_attrs}>";
                                 echo "<option value=''></option>";
                                 foreach ($country_options as $country_code => $country_name) {
                                     echo "<option value='" . htmlspecialchars($country_code, ENT_QUOTES, 'UTF-8') . "'>" .
@@ -213,6 +239,11 @@ render_submenu();
     </div>
 </div>
 
+<link rel="stylesheet" href="<?php echo htmlspecialchars(getAssetBase(), ENT_QUOTES, 'UTF-8'); ?>css/accessible-autocomplete.min.css">
+<link rel="stylesheet" href="<?php echo htmlspecialchars(getAssetBase(), ENT_QUOTES, 'UTF-8'); ?>css/country-picker.min.css">
+<script src="<?php echo htmlspecialchars(getAssetBase(), ENT_QUOTES, 'UTF-8'); ?>js/accessible-autocomplete.min.js"></script>
+<script src="<?php echo htmlspecialchars(getAssetBase(), ENT_QUOTES, 'UTF-8'); ?>js/country-picker.min.js"></script>
+<script src="<?php echo htmlspecialchars(getAssetBase(), ENT_QUOTES, 'UTF-8'); ?>js/website-field.min.js"></script>
 <?php
 renderFooter();
 ?>

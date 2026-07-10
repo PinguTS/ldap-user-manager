@@ -44,11 +44,11 @@ Content-Type: application/json
       "mail": "info@example.org",
       "telephoneNumber": "+49 123 456789",
       "facsimileTelephoneNumber": "",
-      "postalAddress": "Main Street$12345$Berlin$$Germany",
+      "postalAddress": "Main Street$12345$Berlin$$DE",
       "postalAddress_street": "Main Street",
       "postalAddress_zip": "12345",
       "postalAddress_city": "Berlin",
-      "postalAddress_country": "Germany",
+      "postalAddress_country": "DE",
       "labeledURI": "https://example.org",
       "description": "A member organization",
       "businessCategory": "Association",
@@ -61,7 +61,7 @@ Content-Type: application/json
 }
 ```
 
-The `postalAddress` field holds the raw composite LDAP value (`$`-separated). The `postalAddress_*` fields are parsed components for convenience.
+The `postalAddress` field holds the raw composite LDAP value (`$`-separated). The `postalAddress_*` fields are parsed components for convenience. The country segment and `postalAddress_country` / `country` use **ISO 3166-1 alpha-2** codes (e.g. `DE`), not localized names.
 
 ### json_typo3
 
@@ -88,7 +88,7 @@ Content-Type: application/json
       "address": "Main Street",
       "zip": "12345",
       "city": "Berlin",
-      "country": "Germany",
+      "country": "DE",
       "www": "https://example.org",
       "description": "A member organization",
       "tx_orgtype": "Association",

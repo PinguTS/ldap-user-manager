@@ -16,54 +16,21 @@ if (function_exists('checkRuntimeRoleConflicts') && checkRuntimeRoleConflicts())
 // The main index should be accessible to all authenticated users
 setPageAccess("user");
 
-// After access control, check if user should be redirected to their default view
-// This ensures users don't stay on the empty main index page
-if (isset($VALIDATED) && $VALIDATED) {
-    // User is authenticated, check if they should be redirected
+// After access control, redirect privileged roles to their default view
+if (isset($VALIDATED) && $VALIDATED && (
+    (isset($IS_ADMIN) && $IS_ADMIN)
+    || (isset($IS_MAINTAINER) && $IS_MAINTAINER)
+    || (isset($IS_ORG_ADMIN) && $IS_ORG_ADMIN)
+)) {
     if (isset($LDAP_DEBUG) && $LDAP_DEBUG) {
-        error_log("Main Index: User is validated, checking role for redirect");
-        error_log("Main Index: User roles - Admin: " . (isset($IS_ADMIN) && $IS_ADMIN ? 'YES' : 'NO') . ", Maintainer: " . (isset($IS_MAINTAINER) && $IS_MAINTAINER ? 'YES' : 'NO') . ", Org Admin: " . (isset($IS_ORG_ADMIN) && $IS_ORG_ADMIN ? 'YES' : 'NO'));
+        error_log('Main Index: Redirecting privileged user to role default');
     }
+    header('Location: ' . getDefaultRedirectForUser());
+    exit;
+}
 
-    if (isset($IS_ADMIN) && $IS_ADMIN) {
-        // Global admin, redirect to account manager
-        if (isset($LDAP_DEBUG) && $LDAP_DEBUG) {
-            error_log("Main Index: Redirecting global admin to manage/users/");
-        }
-        header("Location: manage/users/");
-        exit;
-    } elseif (isset($IS_MAINTAINER) && $IS_MAINTAINER) {
-        // Maintainer, redirect to organizations page
-        if (isset($LDAP_DEBUG) && $LDAP_DEBUG) {
-            error_log("Main Index: Redirecting maintainer to manage/organizations/");
-        }
-        header("Location: manage/organizations/");
-        exit;
-    } elseif (isset($IS_ORG_ADMIN) && $IS_ORG_ADMIN) {
-        // Organization admin, redirect to their organization page
-        $org_name = currentUserGetOrgName();
-        $org_uuid = currentUserGetOrgUuid();
-
-        if (isset($LDAP_DEBUG) && $LDAP_DEBUG) {
-            error_log("Main Index: Redirecting org admin '$org_name' to organization page");
-        }
-
-        if ($org_uuid) {
-            header("Location: manage/organizations/" . urlencode($org_uuid) . "/");
-        } elseif ($org_name) {
-            // Organization name redirects are not supported for canonical routing.
-            // Fall back to password change if UUID is unavailable.
-            header("Location: password/change/");
-        } else {
-            header("Location: password/change/");
-        }
-        exit;
-    }
-
-    if (isset($LDAP_DEBUG) && $LDAP_DEBUG) {
-        error_log("Main Index: User is regular user, allowing access to main index");
-    }
-    // Regular users can stay on the main index
+if (isset($VALIDATED) && $VALIDATED && isset($LDAP_DEBUG) && $LDAP_DEBUG) {
+    error_log('Main Index: User is regular user, allowing access to main index');
 }
 
 renderHeader();

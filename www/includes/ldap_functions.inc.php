@@ -272,7 +272,7 @@ function open_ldap_connection($ldap_bind = true)
         if ($bind_result !== true) {
             $this_error = "Failed to bind to {$LDAP['uri']} as {$LDAP['admin_bind_dn']}";
             if ($LDAP_DEBUG === true) {
-                $this_error .= " with password {$LDAP['admin_bind_pwd']}";
+                $this_error .= ' (bind credentials rejected)';
             }
             $this_error .= ": " . ldap_error($ldap_connection);
             print "Problem: Failed to bind as {$LDAP['admin_bind_dn']}";
@@ -434,7 +434,7 @@ function ldap_setup_auth($ldap_connection, $password)
     } else {
         $this_error = "Initial setup: Unable to authenticate as {$LDAP['admin_bind_dn']}";
         if ($LDAP_DEBUG === true) {
-            $this_error .= " with password $password";
+            $this_error .= ' (submitted password rejected)';
         }
         $this_error .= ". The password used to authenticate for /setup should be the same as set by LDAP_ADMIN_BIND_PWD. ";
         $this_error .= ldap_error($ldap_connection);
@@ -1885,7 +1885,7 @@ function ldap_get_entry_by_uuid($ldap_connection, $uuid, $base_dn, $attributes =
     }
 
     $uuid_attr = $LDAP['uuid_attribute'];
-    $filter = "($uuid_attr=$uuid)";
+    $filter = '(' . $uuid_attr . '=' . lum_filter_value((string) $uuid) . ')';
 
     $search = @ldap_search($ldap_connection, $base_dn, $filter, $attributes);
     if (!$search) {

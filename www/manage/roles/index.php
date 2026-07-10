@@ -284,7 +284,7 @@ if ($ldap_connection === false) {
           <div class="card-header">
             <h4 class="card-title">
               <?php echo htmlspecialchars(t('manage.roles.role_heading', ['role' => ucfirst($role)]), ENT_QUOTES, 'UTF-8'); ?>
-              <span class="badge bg-primary">Global</span>
+              <span class="badge bg-primary"><?php echo htmlspecialchars(t('manage.roles.badge_global'), ENT_QUOTES, 'UTF-8'); ?></span>
             </h4>
           </div>
           <div class="card-body">
@@ -302,7 +302,7 @@ if ($ldap_connection === false) {
                     if (preg_match('/uid=([^,]+)/', $member_dn, $matches)) {
                         $member_username = $matches[1];
                         if ($member_username === ($_SESSION['username'] ?? '')) {
-                            print ' <span class="badge bg-info float-end">You</span>';
+                            print ' <span class="badge bg-info float-end">' . htmlspecialchars(t('manage.roles.badge_you'), ENT_QUOTES, 'UTF-8') . '</span>';
                         }
                     }
                     ?>
@@ -310,7 +310,7 @@ if ($ldap_connection === false) {
                 <?php endforeach; ?>
               </ul>
             <?php else : ?>
-              <p class="text-muted">No members in this role.</p>
+              <p class="text-muted"><?php echo htmlspecialchars(t('manage.roles.no_members'), ENT_QUOTES, 'UTF-8'); ?></p>
             <?php endif; ?>
           </div>
         </div>
