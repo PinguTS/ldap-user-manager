@@ -9,12 +9,14 @@ This directory contains JavaScript files for the LDAP User Manager web applicati
 - `table-search.js` - Shared client-side filter for user tables (`initializeTableSearch`)
 - `generate_passphrase.js` - Password generation using word lists
 - `zxcvbn-bootstrap-strength-meter.js` - Password strength meter plugin
+- `website-field.js` - Organization website URL input (scheme prefix, preview, validation)
 - `wordlist.js` - Dictionary of words for password generation
 
 ### Minified Files (Production)
 - `user_management.min.js` - Minified version of user management utilities
 - `generate_passphrase.min.js` - Minified version of password generation
 - `zxcvbn-bootstrap-strength-meter.min.js` - Minified version of strength meter
+- `website-field.min.js` - Minified version of website URL field widget
 - `jquery-3.6.0.min.js` - jQuery library (already minified)
 - `zxcvbn.min.js` - Password strength library (already minified)
 
