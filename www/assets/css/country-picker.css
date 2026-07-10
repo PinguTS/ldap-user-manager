@@ -7,6 +7,7 @@
   line-height: 1.5;
   color: var(--bs-body-color);
   background-color: var(--bs-body-bg);
+  text-align: left;
 }
 .autocomplete__input--show-all-values {
   padding-right: 2.25rem;
@@ -27,6 +28,8 @@
   display: none;
 }
 .autocomplete__menu {
+  left: 0;
+  right: auto;
   border: 1px solid var(--bs-border-color);
   border-top: 0;
   border-radius: 0 0 var(--bs-border-radius) var(--bs-border-radius);
@@ -34,12 +37,14 @@
   color: var(--bs-body-color);
   background-color: var(--bs-body-bg);
   box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  text-align: left;
 }
 .autocomplete__option {
   padding: 0.375rem 0.75rem;
   font-size: 1rem;
   line-height: 1.5;
   border-bottom-color: var(--bs-border-color-translucent);
+  text-align: left;
 }
 .autocomplete__option--odd {
   background-color: var(--bs-tertiary-bg);
@@ -56,6 +61,8 @@
 }
 .autocomplete__hint {
   color: var(--bs-secondary-color);
+  text-align: left;
+  left: 0.75rem;
 }
 @media (min-width: 641px) {
   .autocomplete__hint,
