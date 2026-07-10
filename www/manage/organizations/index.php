@@ -253,6 +253,9 @@ switch ($sort_param) {
         break;
 }
 
+$total_org_count    = count($display_organizations);
+$filtered_org_count = count($org_data_list);
+
 // Build base URL without filter/sort params for reset link
 $base_list_url = htmlspecialchars(getBaseUrl() . 'manage/organizations/', ENT_QUOTES, 'UTF-8');
 
@@ -279,6 +282,23 @@ function build_filter_url(array $overrides): string
         ENT_QUOTES,
         'UTF-8'
     );
+}
+
+/**
+ * Format the organization list count label for display.
+ */
+function format_org_list_count_label(int $shown, int $total): string
+{
+    if ($shown === $total) {
+        return $total === 1
+            ? t('manage.orgs.index.org_count_one')
+            : t('manage.orgs.index.org_count_many', ['count' => (string) $total]);
+    }
+
+    return t('manage.orgs.index.showing_orgs_summary', [
+        'shown' => (string) $shown,
+        'total' => (string) $total,
+    ]);
 }
 
 ?>
@@ -379,15 +399,30 @@ function build_filter_url(array $overrides): string
                         </div>
 
                         <?php if ($has_active_filters) : ?>
-                        <a href="<?php echo $base_list_url; ?>" class="btn btn-sm btn-outline-warning">
+                        <a href="<?php echo $base_list_url; ?>" id="org_reset_filters" class="btn btn-sm btn-outline-warning">
                             <i class="bi bi-x-circle"></i> <?php echo htmlspecialchars(t('manage.orgs.index.reset_filters'), ENT_QUOTES, 'UTF-8'); ?>
                         </a>
                         <?php endif; ?>
+
+                        <div id="org_list_count"
+                             class="ms-auto text-body-secondary small"
+                             role="status"
+                             aria-live="polite"
+                             data-total="<?php echo (int) $total_org_count; ?>"
+                             data-shown="<?php echo (int) $filtered_org_count; ?>">
+                            <?php echo htmlspecialchars(format_org_list_count_label($filtered_org_count, $total_org_count), ENT_QUOTES, 'UTF-8'); ?>
+                        </div>
                     </div>
 
                     <div class="list-group" id="org_list">
                         <?php if (empty($org_data_list)) : ?>
-                            <p class="text-muted"><?php echo htmlspecialchars(t('manage.orgs.no_access_list'), ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p class="text-muted"><?php echo htmlspecialchars(
+                                $total_org_count > 0
+                                    ? t('manage.orgs.index.no_filter_match')
+                                    : t('manage.orgs.no_access_list'),
+                                ENT_QUOTES,
+                                'UTF-8'
+                            ); ?></p>
                         <?php else : ?>
                             <?php foreach ($org_data_list as $org) : ?>
                                 <?php
@@ -584,9 +619,51 @@ renderConfirmModal(
 
 <script src="<?php print getAssetBase(); ?>js/modals.js"></script>
 <script>
+    window.orgListCountI18n = {
+        one: <?php echo json_encode(t('manage.orgs.index.org_count_one'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
+        many: <?php echo json_encode(t('manage.orgs.index.org_count_many'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
+        summary: <?php echo json_encode(t('manage.orgs.index.showing_orgs_summary'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>
+    };
+
+    function updateOrgListCount() {
+        const countEl = document.getElementById('org_list_count');
+        const searchInput = document.getElementById('org_search_input');
+        const orgList = document.getElementById('org_list');
+        const i18n = window.orgListCountI18n;
+
+        if (!countEl || !orgList || !i18n) {
+            return;
+        }
+
+        const total = parseInt(countEl.dataset.total, 10) || 0;
+        const serverShown = parseInt(countEl.dataset.shown, 10) || 0;
+        const searchTerm = searchInput ? searchInput.value.trim() : '';
+        let shown = serverShown;
+
+        if (searchTerm) {
+            shown = 0;
+            orgList.querySelectorAll('.list-group-item').forEach(function(item) {
+                if (item.style.display !== 'none') {
+                    shown++;
+                }
+            });
+        }
+
+        if (shown === total && !searchTerm) {
+            countEl.textContent = total === 1
+                ? i18n.one
+                : i18n.many.replace(':count', String(total));
+        } else {
+            countEl.textContent = i18n.summary
+                .replace(':shown', String(shown))
+                .replace(':total', String(total));
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         const searchInput = document.getElementById('org_search_input');
         const orgList = document.getElementById('org_list');
+        const resetLink = document.getElementById('org_reset_filters');
 
         if (searchInput && orgList) {
             searchInput.addEventListener('input', function() {
@@ -595,8 +672,17 @@ renderConfirmModal(
                     const text = (item.dataset.orgName || item.textContent).toLowerCase();
                     item.style.display = text.includes(term) ? '' : 'none';
                 });
+                updateOrgListCount();
             });
         }
+
+        if (resetLink && searchInput) {
+            resetLink.addEventListener('click', function() {
+                searchInput.value = '';
+            });
+        }
+
+        updateOrgListCount();
 
         const messageBox = document.getElementById('msgbox');
         if (messageBox) {
