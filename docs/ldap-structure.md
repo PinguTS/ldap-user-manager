@@ -12,7 +12,7 @@ objectClass: organization
 objectClass: labeledURIObject
 objectClass: extensibleObject
 o: OrgA
-postalAddress: 123 Main St$12345$City$Country
+postalAddress: 123 Main St$12345$City$State$DE
 telephoneNumber: +1 555 1234
 labeledURI: http://www.orga.com
 mail: info@orga.com
@@ -138,7 +138,7 @@ dc=example,dc=com
 - **Extended Object Classes**: `labeledURIObject`, `extensibleObject`
 - **Required Attributes**: `o` (organization name)
 - **Supported Additional Attributes**:
-  - `postalAddress`: Full address in format "Street$ZIP$City$Country"
+  - `postalAddress`: Full address in format "Street$ZIP$City$State$Country" (Country = ISO 3166-1 alpha-2 code)
   - `telephoneNumber`: Phone number
   - `labeledURI`: Website URL
   - `mail`: Email address
@@ -238,7 +238,7 @@ objectClass: organization
 objectClass: labeledURIObject
 objectClass: extensibleObject
 o: OrgA
-postalAddress: 123 Main St$12345$City$Country
+postalAddress: 123 Main St$12345$City$State$DE
 telephoneNumber: +1 555 1234
 labeledURI: http://www.orga.com
 mail: info@orga.com

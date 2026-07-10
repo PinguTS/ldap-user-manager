@@ -135,6 +135,7 @@ These settings define the organization of your LDAP directory:
 - `LDAP_GROUP_OU` - Groups/roles organizational unit (default in code: 'groups'). **This project's canonical DIT uses `ou=roles`**; set `LDAP_GROUP_OU=roles` to match.
 - `LDAP_USER_OU` - Users organizational unit (default: 'people')
 - `LDAP_ORG_OU` - Organizations organizational unit (default: 'organizations')
+- `LDAP_ORG_ALLOWED_COUNTRIES` - Optional comma-separated ISO 3166-1 alpha-2 codes that restrict the organization **country** dropdown (e.g. `DE,AT,CH,TW`). Unset or empty = full built-in catalog (sovereign states and common territories). Unknown codes are ignored. Existing organizations with a stored country outside the allowlist remain visible and editable (grandfathered); only new selections are limited. Stored values are always ISO codes in `postalAddress`, not localized names. See also `EMAIL_COUNTRY_LOCALE_MAP` for email locale mapping from the same country segment.
 - `LDAP_ACCOUNT_ATTRIBUTE` - Primary account identifier attribute (default: 'mail')
 - `LDAP_GROUP_ATTRIBUTE` - Group identifier attribute (default: 'cn')
 - `LDAP_FORCE_RFC2307BIS` - When `TRUE`, skip RFC2307bis autodetection and assume the extended `posixGroup` schema (optional; default is autodetect)
@@ -311,6 +312,10 @@ services:
       - APP_ORGANIZATION_NAME=Example Corp
       - APP_SITE_NAME=Example Corp User Manager
       - SESSION_TIMEOUT=120
+
+      # Optional: restrict organization country picker (ISO alpha-2 codes)
+      # - LDAP_ORG_ALLOWED_COUNTRIES=DE,AT,CH,TW
+      # - EMAIL_COUNTRY_LOCALE_MAP={"DE":"de","AT":"de","CH":"de","TW":"zh"}
 ```
 
 ### Environment File (.env)
@@ -340,6 +345,10 @@ LDAP_USER_ROLE=member
 APP_ORGANIZATION_NAME=Example Corp
 APP_SITE_NAME=Example Corp User Manager
 SESSION_TIMEOUT=120
+
+# Optional: restrict organization country picker to ISO alpha-2 codes (unset = full catalog)
+# LDAP_ORG_ALLOWED_COUNTRIES=DE,AT,CH,TW
+# EMAIL_COUNTRY_LOCALE_MAP={"DE":"de","AT":"de","CH":"de","TW":"zh"}
 ```
 
 ## Best Practices

@@ -654,9 +654,9 @@ if ($orgExists) {
                         <?php
                         $country_raw = trim((string) $address_parts[4]);
                         $country_code = strtoupper($country_raw);
-                        $country_options = getLocalizedCountryOptions();
-                        if (isset($country_options[$country_code])) {
-                            print htmlspecialchars($country_options[$country_code] . ' (' . $country_code . ')');
+                        $country_name = getLocalizedCountryName($country_code);
+                        if ($country_name !== '' && strcasecmp($country_name, $country_code) !== 0) {
+                            print htmlspecialchars($country_name . ' (' . $country_code . ')');
                         } else {
                             print htmlspecialchars($country_raw);
                         }
@@ -1237,11 +1237,13 @@ if ($orgExists) {
             if ($field_name === 'org_country') {
                 $country_options = getLocalizedCountryOptions();
                 $selected_value = strtoupper((string) $current_value);
-                if ($selected_value !== '' && !isset($country_options[$selected_value])) {
-                    $selected_value = '';
-                }
                 echo '<select class="form-select" id="' . $field_name . '" name="' . $field_name . '"' . $required_attr . '>';
                 echo '<option value=""></option>';
+                if ($selected_value !== '' && !isset($country_options[$selected_value])) {
+                    $grandfather_label = getLocalizedCountryName($selected_value);
+                    echo '<option value="' . htmlspecialchars($selected_value, ENT_QUOTES, 'UTF-8') . '" selected>' .
+                        htmlspecialchars($grandfather_label . ' (' . $selected_value . ')', ENT_QUOTES, 'UTF-8') . '</option>';
+                }
                 foreach ($country_options as $country_code => $country_name) {
                     $selected = ($selected_value === $country_code) ? ' selected' : '';
                     echo '<option value="' . htmlspecialchars($country_code, ENT_QUOTES, 'UTF-8') . '"' . $selected . '>' .

@@ -60,12 +60,7 @@ dc=example,dc=com
 - **Description**: Additional notes about the organization
 
 ### Step 3: Address Format
-Enter the address in the format:
-```
-Street Address
-City, State ZIP
-Country
-```
+Enter street, city, state/province, postal code, and **country** in the form fields. The country field is a dropdown: the UI shows localized country names, but LDAP stores the **ISO 3166-1 alpha-2 code** (e.g. `DE`, `TW`). Street and city remain free text (any language). Deployers may optionally restrict selectable countries via `LDAP_ORG_ALLOWED_COUNTRIES` (see environment configuration).
 
 ### Step 4: Save Organization
 - **Click** "Save" or "Create Organization"
