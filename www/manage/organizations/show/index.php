@@ -355,6 +355,14 @@ if (isset($_POST['update_organization'])) {
             $skip_org_save = true;
         }
 
+        if (!$skip_org_save && array_key_exists('labeledURI', $org_data)) {
+            $websiteError = applyWebsiteUrlNormalization($org_data);
+            if ($websiteError !== null) {
+                renderAlertBanner($websiteError, 'danger');
+                $skip_org_save = true;
+            }
+        }
+
         unset($org_data['o']);
 
         if (!$skip_org_save) {
@@ -1140,7 +1148,10 @@ if ($orgExists) {
                     $label .= ' <sup>*</sup>';
                 }
 
-                echo '<label for="' . $form_field . '" class="' . $label_class . '">' . $label . '</label>';
+                $widget = $LDAP['org_field_widgets'][$form_field] ?? null;
+                $label_for = ($widget === 'website') ? $form_field . '_host' : $form_field;
+
+                echo '<label for="' . $label_for . '" class="' . $label_class . '">' . $label . '</label>';
                 echo '<div class="' . $input_wrapper_class . '">';
 
                 // Get current value from organization data
@@ -1157,7 +1168,9 @@ if ($orgExists) {
                 // Add required attribute if field is required
                 $required_attr = $is_required ? ' required' : '';
 
-                if ($field_type === 'textarea') {
+                if ($widget === 'website') {
+                    renderWebsiteUrlField($form_field, $label, (string) $current_value, $is_required, '', false);
+                } elseif ($field_type === 'textarea') {
                     echo '<textarea class="form-control" id="' . $form_field . '" name="' . $form_field . '" rows="2"' . $required_attr . '>' . htmlspecialchars($current_value) . '</textarea>';
                 } else {
                     echo '<input type="' . $field_type . '" class="form-control" id="' . $form_field . '" name="' . $form_field . '" value="' . htmlspecialchars($current_value) . '"' . $required_attr . '>';
@@ -1367,6 +1380,7 @@ renderConfirmModal(
 ?>
 
 <script src="<?php print getAssetBase(); ?>js/modals.js"></script>
+<script src="<?php print getAssetBase(); ?>js/website-field.min.js"></script>
 <script>
 function confirmDisableOrganization(orgName) {
     confirmAction('disableModal', { disableOrgName: orgName, disableOrgNameInput: orgName });

@@ -326,13 +326,17 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
     'org_name' => 'text',
     'org_phone' => 'tel',
     'org_fax' => 'tel',
-    'org_website' => 'url',
+    'org_website' => 'text',
     'org_email' => 'email',
     'org_description' => 'textarea',
     'org_category' => 'text',
     'org_member_number' => 'text',
    'org_member_since' => 'date',
    'org_member_until' => 'date'
+ ];
+
+ $LDAP['org_field_widgets'] = [
+    'org_website' => 'website',
  ];
 
  $LDAP['group_ou'] = (getenv('LDAP_GROUP_OU') ? getenv('LDAP_GROUP_OU') : 'groups');

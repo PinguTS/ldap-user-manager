@@ -2389,3 +2389,165 @@ function getPasswordStrengthConfigJs()
 
     return json_encode($config, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
 }
+
+/**
+ * Normalize a user-entered website URL for LDAP labeledURI storage.
+ *
+ * @return string|null Normalized URL, null when input is empty, false when invalid
+ */
+function normalizeWebsiteUrl(string $input, string $defaultScheme = 'https'): string|false|null
+{
+    $input = trim($input);
+    if ($input === '') {
+        return null;
+    }
+
+    if (preg_match('/\s/u', $input)) {
+        return false;
+    }
+
+    if (preg_match('#^[a-z][a-z0-9+\-.]*://#i', $input)) {
+        $scheme = strtolower((string) parse_url($input, PHP_URL_SCHEME));
+        if (!in_array($scheme, ['http', 'https'], true)) {
+            return false;
+        }
+    } else {
+        $input = rtrim($defaultScheme, ':/') . '://' . ltrim($input, '/');
+    }
+
+    if (!filter_var($input, FILTER_VALIDATE_URL)) {
+        return false;
+    }
+
+    $host = parse_url($input, PHP_URL_HOST);
+    if (!is_string($host) || $host === '') {
+        return false;
+    }
+
+    return $input;
+}
+
+/**
+ * @param string|null $url Already-normalized or raw URL; empty/null is invalid
+ */
+function isValidWebsiteUrl(?string $url): bool
+{
+    if ($url === null || trim($url) === '') {
+        return false;
+    }
+
+    $normalized = normalizeWebsiteUrl($url);
+
+    return is_string($normalized);
+}
+
+/**
+ * Split a stored website URL into scheme and host/path for the input-group widget.
+ *
+ * @return array{scheme: string, hostPath: string}
+ */
+function splitWebsiteUrl(string $url): array
+{
+    $url = trim($url);
+    if ($url === '') {
+        return ['scheme' => 'https', 'hostPath' => ''];
+    }
+
+    $normalized = normalizeWebsiteUrl($url);
+    if (!is_string($normalized)) {
+        return ['scheme' => 'https', 'hostPath' => $url];
+    }
+
+    $parsed = parse_url($normalized);
+    $scheme = strtolower((string) ($parsed['scheme'] ?? 'https'));
+    if (!in_array($scheme, ['http', 'https'], true)) {
+        $scheme = 'https';
+    }
+
+    $hostPath = (string) ($parsed['host'] ?? '');
+    if (isset($parsed['port'])) {
+        $hostPath .= ':' . $parsed['port'];
+    }
+    if (isset($parsed['path']) && $parsed['path'] !== '') {
+        $hostPath .= $parsed['path'];
+    }
+    if (isset($parsed['query'])) {
+        $hostPath .= '?' . $parsed['query'];
+    }
+    if (isset($parsed['fragment'])) {
+        $hostPath .= '#' . $parsed['fragment'];
+    }
+
+    return ['scheme' => $scheme, 'hostPath' => $hostPath];
+}
+
+/**
+ * Normalize labeledURI website value during org create/update.
+ *
+ * @return string|null Error message when invalid, null on success
+ */
+function applyWebsiteUrlNormalization(array &$orgData, string $ldapAttr = 'labeledURI'): ?string
+{
+    if (!array_key_exists($ldapAttr, $orgData)) {
+        return null;
+    }
+
+    $raw = trim((string) $orgData[$ldapAttr]);
+    if ($raw === '') {
+        $orgData[$ldapAttr] = '';
+
+        return null;
+    }
+
+    $normalized = normalizeWebsiteUrl($raw);
+    if ($normalized === false) {
+        return t('manage.orgs.website_invalid');
+    }
+
+    $orgData[$ldapAttr] = $normalized;
+
+    return null;
+}
+
+/**
+ * Render the organization website URL input group (scheme prefix + host/path).
+ */
+function renderWebsiteUrlField(string $fieldName, string $label, string $value = '', bool $required = false, string $labelClass = '', bool $includeLabel = true): void
+{
+    $parts = splitWebsiteUrl($value);
+    $schemeId = $fieldName . '_scheme';
+    $hostId = $fieldName . '_host';
+    $requiredAttr = $required ? ' required' : '';
+    $labelClassAttr = $labelClass !== '' ? ' class="' . htmlspecialchars($labelClass, ENT_QUOTES, 'UTF-8') . '"' : '';
+    $requiredLabel = $required ? ' <sup>*</sup>' : '';
+    $invalidMsg = t('manage.orgs.website_invalid');
+    $previewTemplate = t('manage.orgs.website_preview');
+    $hint = t('manage.orgs.website_hint');
+    $placeholder = t('manage.orgs.website_placeholder');
+    $schemeLabel = t('manage.orgs.website_scheme_aria');
+
+    echo '<div class="website-url-field" data-website-field'
+        . ' data-invalid-msg="' . htmlspecialchars($invalidMsg, ENT_QUOTES, 'UTF-8') . '"'
+        . ' data-preview-template="' . htmlspecialchars($previewTemplate, ENT_QUOTES, 'UTF-8') . '">';
+    if ($includeLabel) {
+        echo '<label for="' . htmlspecialchars($hostId, ENT_QUOTES, 'UTF-8') . '"' . $labelClassAttr . '>'
+            . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . $requiredLabel . '</label>';
+    }
+    echo '<input type="hidden" name="' . htmlspecialchars($fieldName, ENT_QUOTES, 'UTF-8') . '"'
+        . ' id="' . htmlspecialchars($fieldName, ENT_QUOTES, 'UTF-8') . '"'
+        . ' value="' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '">';
+    echo '<div class="input-group">';
+    echo '<select class="form-select website-url-scheme" id="' . htmlspecialchars($schemeId, ENT_QUOTES, 'UTF-8') . '"'
+        . ' aria-label="' . htmlspecialchars($schemeLabel, ENT_QUOTES, 'UTF-8') . '" style="max-width: 7.5rem;">';
+    echo '<option value="https"' . ($parts['scheme'] === 'https' ? ' selected' : '') . '>https://</option>';
+    echo '<option value="http"' . ($parts['scheme'] === 'http' ? ' selected' : '') . '>http://</option>';
+    echo '</select>';
+    echo '<input type="text" class="form-control website-url-host" id="' . htmlspecialchars($hostId, ENT_QUOTES, 'UTF-8') . '"'
+        . ' inputmode="url" autocomplete="url"'
+        . ' placeholder="' . htmlspecialchars($placeholder, ENT_QUOTES, 'UTF-8') . '"'
+        . ' value="' . htmlspecialchars($parts['hostPath'], ENT_QUOTES, 'UTF-8') . '"' . $requiredAttr . '>';
+    echo '</div>';
+    echo '<small class="form-text text-muted website-url-preview" aria-live="polite"></small>';
+    echo '<small class="form-text text-muted website-url-hint">' . htmlspecialchars($hint, ENT_QUOTES, 'UTF-8') . '</small>';
+    echo '</div>';
+}
