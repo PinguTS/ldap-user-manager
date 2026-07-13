@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.1] - 2026-07-13
+
+### Fixed
+
+- Organization website URLs no longer fail to save: the old `minify.sh` sed step corrupted minified JavaScript (e.g. stripping `://` inside strings)
+- Firefox source-map console errors from bundled `org.min.js`
+
+### Changed
+
+- Replaced `minify.sh` with an UglifyJS build pipeline (`npm run build:js`) producing `org.min.js`, `password.min.js`, `sync.min.js`, `lists.min.js`, and `modals.min.js`
+- Removed legacy unused JavaScript (`user_management`, `generate_passphrase`, `wordlist`, `zxcvbn-bootstrap-strength-meter`)
+- Re-enabled zxcvbn-based password strength scoring in `password.min.js`
+
 ## [1.1.0] - 2026-07-11
 
 ### Added
