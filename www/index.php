@@ -17,11 +17,13 @@ if (function_exists('checkRuntimeRoleConflicts') && checkRuntimeRoleConflicts())
 setPageAccess("user");
 
 // After access control, redirect privileged roles to their default view
-if (isset($VALIDATED) && $VALIDATED && (
+if (
+    isset($VALIDATED) && $VALIDATED && (
     (isset($IS_ADMIN) && $IS_ADMIN)
     || (isset($IS_MAINTAINER) && $IS_MAINTAINER)
     || (isset($IS_ORG_ADMIN) && $IS_ORG_ADMIN)
-)) {
+    )
+) {
     if (isset($LDAP_DEBUG) && $LDAP_DEBUG) {
         error_log('Main Index: Redirecting privileged user to role default');
     }

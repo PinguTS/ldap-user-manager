@@ -81,138 +81,138 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_account'])) {
         $errors = [];
 
         if (empty($new_account_r['mail'])) {
-        $invalid_email = true;
-        $errors[] = t('manage.users.new.error.email_required');
-    }
+            $invalid_email = true;
+            $errors[] = t('manage.users.new.error.email_required');
+        }
 
-    if (empty($new_account_r['cn'])) {
-        $invalid_cn = true;
-        $errors[] = t('manage.users.new.error.common_name_required');
-    }
+        if (empty($new_account_r['cn'])) {
+            $invalid_cn = true;
+            $errors[] = t('manage.users.new.error.common_name_required');
+        }
 
-    if (empty($new_account_r['givenName'])) {
-        $invalid_givenname = true;
-        $errors[] = t('manage.users.new.error.first_name_required');
-    }
+        if (empty($new_account_r['givenName'])) {
+            $invalid_givenname = true;
+            $errors[] = t('manage.users.new.error.first_name_required');
+        }
 
-    if (empty($new_account_r['sn'])) {
-        $invalid_sn = true;
-        $errors[] = t('manage.users.new.error.last_name_required');
-    }
+        if (empty($new_account_r['sn'])) {
+            $invalid_sn = true;
+            $errors[] = t('manage.users.new.error.last_name_required');
+        }
 
-    $send_password_set_link = isset($_POST['send_password_set_link']) && $_POST['send_password_set_link'] === 'on';
-    if ($send_password_set_link) {
-        global $EMAIL_SENDING_ENABLED;
-        if ($EMAIL_SENDING_ENABLED !== true || !is_password_reset_link_enabled()) {
-            $errors[] = !is_password_reset_link_enabled()
+        $send_password_set_link = isset($_POST['send_password_set_link']) && $_POST['send_password_set_link'] === 'on';
+        if ($send_password_set_link) {
+            global $EMAIL_SENDING_ENABLED;
+            if ($EMAIL_SENDING_ENABLED !== true || !is_password_reset_link_enabled()) {
+                $errors[] = !is_password_reset_link_enabled()
                 ? t('manage.users.new.error.password_set_link_disabled_secret_missing')
                 : t('manage.users.new.error.email_sending_not_configured');
-        }
-    } else {
-        if (empty($new_account_r['userPassword'])) {
-            $invalid_password = true;
-            $errors[] = t('manage.users.new.error.password_required');
-        }
+            }
+        } else {
+            if (empty($new_account_r['userPassword'])) {
+                $invalid_password = true;
+                $errors[] = t('manage.users.new.error.password_required');
+            }
 
-        if (isset($new_account_r['userPassword']) && isset($_POST['confirm_password']) && $new_account_r['userPassword'] !== $_POST['confirm_password']) {
-            $mismatched_passwords = true;
-            $errors[] = t('manage.users.new.error.passwords_do_not_match');
+            if (isset($new_account_r['userPassword']) && isset($_POST['confirm_password']) && $new_account_r['userPassword'] !== $_POST['confirm_password']) {
+                $mismatched_passwords = true;
+                $errors[] = t('manage.users.new.error.passwords_do_not_match');
+            }
         }
-    }
 
   // Organization is not required for system users
 
-    if (empty($new_account_r['userRole'])) {
-        $invalid_user_role = true;
-        $errors[] = t('manage.users.new.error.role_required');
-    }
+        if (empty($new_account_r['userRole'])) {
+            $invalid_user_role = true;
+            $errors[] = t('manage.users.new.error.role_required');
+        }
 
   // Validate role permissions
-    if (!empty($new_account_r['userRole'])) {
-      // Validate that maintainers cannot create administrator roles
-        if (currentUserIsMaintainer() && $new_account_r['userRole'] === $LDAP['admin_role']) {
-            $invalid_user_role = true;
-            $errors[] = $LDAP['error_messages']['maintainer_cannot_create_admin'];
-        }
+        if (!empty($new_account_r['userRole'])) {
+          // Validate that maintainers cannot create administrator roles
+            if (currentUserIsMaintainer() && $new_account_r['userRole'] === $LDAP['admin_role']) {
+                $invalid_user_role = true;
+                $errors[] = $LDAP['error_messages']['maintainer_cannot_create_admin'];
+            }
 
-        if (!in_array($new_account_r['userRole'], $available_user_roles)) {
-            $invalid_user_role = true;
-            $errors[] = t('manage.users.new.error.role_not_permitted');
+            if (!in_array($new_account_r['userRole'], $available_user_roles)) {
+                $invalid_user_role = true;
+                $errors[] = t('manage.users.new.error.role_not_permitted');
+            }
         }
-    }
 
   // If no errors, create the account
-    if (empty($errors)) {
-        $plainPassword = (string) ($new_account_r['userPassword'] ?? '');
-        if ($send_password_set_link) {
-            $plainPassword = bin2hex(random_bytes(16));
-        }
+        if (empty($errors)) {
+            $plainPassword = (string) ($new_account_r['userPassword'] ?? '');
+            if ($send_password_set_link) {
+                $plainPassword = bin2hex(random_bytes(16));
+            }
 
-        // Hash the password before passing it to createUserAccount for security
-        $new_account_r['userPassword'] = ldap_hashed_password($plainPassword);
+            // Hash the password before passing it to createUserAccount for security
+            $new_account_r['userPassword'] = ldap_hashed_password($plainPassword);
 
-        $result = createUserAccount($new_account_r);
-        if ($result[0]) {
-            $flashMessage = t('manage.users.new.msg.created_ok', ['user' => $new_account_r['cn'] ?? '']);
+            $result = createUserAccount($new_account_r);
+            if ($result[0]) {
+                $flashMessage = t('manage.users.new.msg.created_ok', ['user' => $new_account_r['cn'] ?? '']);
 
-            global $EMAIL_SENDING_ENABLED;
-            $login = (string) ($new_account_r['mail'] ?? '');
-            $first = (string) ($new_account_r['givenName'] ?? '');
-            $last = (string) ($new_account_r['sn'] ?? '');
-            if (($EMAIL_SENDING_ENABLED ?? false) === true && $login !== '' && isValidEmail($login)) {
-                $emailLocale = lum_resolve_transactional_email_locale_for_system_user_invite((string) ($new_account_r['userRole'] ?? ''));
-                $sentOk = lum_with_transactional_email_locale($emailLocale, function () use (
-                    $send_password_set_link,
-                    $login,
-                    $first,
-                    $last
-                ): bool {
-                    if ($send_password_set_link) {
-                        $payload = build_password_action_payload($login, 'set');
-                        $token = create_password_action_token($payload);
-                        $setUrl = build_password_action_url($token);
+                global $EMAIL_SENDING_ENABLED;
+                $login = (string) ($new_account_r['mail'] ?? '');
+                $first = (string) ($new_account_r['givenName'] ?? '');
+                $last = (string) ($new_account_r['sn'] ?? '');
+                if (($EMAIL_SENDING_ENABLED ?? false) === true && $login !== '' && isValidEmail($login)) {
+                    $emailLocale = lum_resolve_transactional_email_locale_for_system_user_invite((string) ($new_account_r['userRole'] ?? ''));
+                    $sentOk = lum_with_transactional_email_locale($emailLocale, function () use (
+                        $send_password_set_link,
+                        $login,
+                        $first,
+                        $last
+                    ): bool {
+                        if ($send_password_set_link) {
+                            $payload = build_password_action_payload($login, 'set');
+                            $token = create_password_action_token($payload);
+                            $setUrl = build_password_action_url($token);
 
-                        $vars = array_merge(lum_password_action_token_expiry_mail_vars(), [
+                            $vars = array_merge(lum_password_action_token_expiry_mail_vars(), [
                             'login' => $login,
                             'first_name' => $first,
                             'last_name' => $last,
                             'password_set_url' => $setUrl,
-                        ]);
+                            ]);
 
-                        $parsedAccount = lum_load_parsed_combined_transactional_template('new_account.html');
-                        $subject = parse_mail_template((string) $parsedAccount['subject'], $vars);
-                        $body = parse_mail_template((string) $parsedAccount['body'], $vars);
+                            $parsedAccount = lum_load_parsed_combined_transactional_template('new_account.html');
+                            $subject = parse_mail_template((string) $parsedAccount['subject'], $vars);
+                            $body = parse_mail_template((string) $parsedAccount['body'], $vars);
 
-                        $preheader = lum_email_preheader('email.preheader.new_account', 'Set your password to activate your account.');
+                            $preheader = lum_email_preheader('email.preheader.new_account', 'Set your password to activate your account.');
 
-                        return send_email($login, trim($first . ' ' . $last), $subject, $body, $preheader);
-                    }
+                            return send_email($login, trim($first . ' ' . $last), $subject, $body, $preheader);
+                        }
 
-                    return lum_send_account_welcome_email(
-                        $login,
-                        trim($first . ' ' . $last),
-                        [
+                        return lum_send_account_welcome_email(
+                            $login,
+                            trim($first . ' ' . $last),
+                            [
                             'login' => $login,
                             'first_name' => $first,
                             'last_name' => $last,
-                        ]
-                    );
-                });
-                if (!$sentOk) {
-                    $flashMessage .= ' ' . t('manage.users.new.msg.email_send_failed');
+                            ]
+                        );
+                    });
+                    if (!$sentOk) {
+                        $flashMessage .= ' ' . t('manage.users.new.msg.email_send_failed');
+                    }
                 }
-            }
 
-            setFlash($flashMessage, 'success', 10000);
-            header('Location: ' . getBaseUrl() . 'manage/users/');
-            exit;
+                setFlash($flashMessage, 'success', 10000);
+                header('Location: ' . getBaseUrl() . 'manage/users/');
+                exit;
+            } else {
+                error_log("new user: ldap_new_account failed: " . $result[1]);
+                $page_messages[] = ['message' => t('manage.users.new.msg.created_fail'), 'type' => 'danger', 'timeout' => 10000];
+            }
         } else {
-            error_log("new user: ldap_new_account failed: " . $result[1]);
-            $page_messages[] = ['message' => t('manage.users.new.msg.created_fail'), 'type' => 'danger', 'timeout' => 10000];
+            $page_messages[] = ['message' => t('manage.users.new.msg.validation_failed', ['errors' => implode(', ', $errors)]), 'type' => 'danger', 'timeout' => 10000];
         }
-    } else {
-        $page_messages[] = ['message' => t('manage.users.new.msg.validation_failed', ['errors' => implode(', ', $errors)]), 'type' => 'danger', 'timeout' => 10000];
-    }
     }
 }
 

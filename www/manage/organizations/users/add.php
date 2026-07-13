@@ -313,7 +313,7 @@ if (isset($_POST['create_org_user'])) {
                         'org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8'),
                     ]
                 );
-                
+
                 // Add user to organization admin role if selected
                 if ($user_role === $LDAP['org_admin_role']) {
                     $orgAdminAdd = addUserToOrgAdmin($org_name, $userEntryDn);

@@ -15,110 +15,110 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $message = t('manage.common.msg.security_validation_failed');
         $message_type = 'danger';
     } else {
-    $ldap_connection = lum_ldap_data_connection();
-    if ($ldap_connection === false) {
-        $message = t('manage.orgs.msg.ldap_fail');
-        $message_type = 'danger';
-    } else {
-        switch ($_POST['action']) {
-            case 'member_organization':
-                if (isset($_POST['org_name']) && (currentUserIsGlobalAdmin() || currentUserIsMaintainer())) {
-                    $org_name = trim($_POST['org_name']);
-                    $org_dn = "o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
-                    $member_group_cn_post = getenv('LDAP_GROUP_MEMBER_ORGS') ?: 'memberOrganizations';
-                    $base_dn = $LDAP['base_dn'] ?? '';
-                    if ($base_dn !== '' && function_exists('add_to_status_group') && add_to_status_group($ldap_connection, $org_dn, $member_group_cn_post, $base_dn)) {
-                        $message = t('manage.orgs.msg.member_ok', ['org' => $org_name]);
-                        $message_type = 'success';
-                    } else {
-                        $message = t('manage.orgs.msg.member_fail', ['org' => $org_name]);
-                        $message_type = 'danger';
-                    }
-                } else {
-                    $message = t('manage.orgs.msg.perm_denied');
-                    $message_type = 'danger';
-                }
-                break;
-
-            case 'unmember_organization':
-                if (isset($_POST['org_name']) && (currentUserIsGlobalAdmin() || currentUserIsMaintainer())) {
-                    $org_name = trim($_POST['org_name']);
-                    $org_dn = "o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
-                    $member_group_cn_post = getenv('LDAP_GROUP_MEMBER_ORGS') ?: 'memberOrganizations';
-                    $base_dn = $LDAP['base_dn'] ?? '';
-                    if ($base_dn !== '' && function_exists('remove_from_status_group') && remove_from_status_group($ldap_connection, $org_dn, $member_group_cn_post, $base_dn)) {
-                        $message = t('manage.orgs.msg.unmember_ok', ['org' => $org_name]);
-                        $message_type = 'success';
-                    } else {
-                        $message = t('manage.orgs.msg.unmember_fail', ['org' => $org_name]);
-                        $message_type = 'danger';
-                    }
-                } else {
-                    $message = t('manage.orgs.msg.perm_denied');
-                    $message_type = 'danger';
-                }
-                break;
-
-            case 'disable_organization':
-                if (isset($_POST['org_name']) && currentUserCanDisableOrganization($_POST['org_name'])) {
-                    $org_name = trim($_POST['org_name']);
-                    if (ldap_disable_organization($ldap_connection, $org_name)) {
-                        $message = t('manage.orgs.msg.deactivate_ok', ['org' => $org_name]);
-                        $message_type = 'success';
-                    } else {
-                        $message = t('manage.orgs.msg.deactivate_fail', ['org' => $org_name]);
-                        $message_type = 'danger';
-                    }
-                } else {
-                    $message = t('manage.orgs.msg.perm_denied');
-                    $message_type = 'danger';
-                }
-                break;
-
-            case 'enable_organization':
-                if (isset($_POST['org_name']) && currentUserCanEnableOrganization($_POST['org_name'])) {
-                    $org_name = trim($_POST['org_name']);
-                    $enable_result = ldap_enable_organization($ldap_connection, $org_name);
-                    if ($enable_result !== false && $enable_result['ok']) {
-                        $message = t('manage.orgs.show.msg.activate_ok', ['org' => $org_name]);
-                        if ($enable_result['still_disabled'] > 0) {
-                            $message .= ' ' . t('manage.orgs.show.msg.activate_summary', [
-                                'activated' => $enable_result['enabled'],
-                                'still_inactive' => $enable_result['still_disabled'],
-                            ]);
+        $ldap_connection = lum_ldap_data_connection();
+        if ($ldap_connection === false) {
+            $message = t('manage.orgs.msg.ldap_fail');
+            $message_type = 'danger';
+        } else {
+            switch ($_POST['action']) {
+                case 'member_organization':
+                    if (isset($_POST['org_name']) && (currentUserIsGlobalAdmin() || currentUserIsMaintainer())) {
+                        $org_name = trim($_POST['org_name']);
+                        $org_dn = "o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
+                        $member_group_cn_post = getenv('LDAP_GROUP_MEMBER_ORGS') ?: 'memberOrganizations';
+                        $base_dn = $LDAP['base_dn'] ?? '';
+                        if ($base_dn !== '' && function_exists('add_to_status_group') && add_to_status_group($ldap_connection, $org_dn, $member_group_cn_post, $base_dn)) {
+                            $message = t('manage.orgs.msg.member_ok', ['org' => $org_name]);
+                            $message_type = 'success';
+                        } else {
+                            $message = t('manage.orgs.msg.member_fail', ['org' => $org_name]);
+                            $message_type = 'danger';
                         }
-                        $message_type = 'success';
                     } else {
-                        $message = t('manage.orgs.msg.activate_fail', ['org' => $org_name]);
+                        $message = t('manage.orgs.msg.perm_denied');
                         $message_type = 'danger';
                     }
-                } else {
-                    $message = t('manage.orgs.msg.perm_denied');
-                    $message_type = 'danger';
-                }
-                break;
+                    break;
 
-            case 'delete_organization':
-                if (isset($_POST['org_name']) && currentUserCanDeleteOrganization($_POST['org_name'])) {
-                    $org_name = trim($_POST['org_name']);
-                    $org_uuid = isset($_POST['org_uuid']) ? trim($_POST['org_uuid']) : '';
-
-                    if (ldap_delete_organization($ldap_connection, $org_name, $org_uuid)) {
-                        $message = t('manage.orgs.msg.delete_ok', ['org' => $org_name]);
-                        $message_type = 'success';
+                case 'unmember_organization':
+                    if (isset($_POST['org_name']) && (currentUserIsGlobalAdmin() || currentUserIsMaintainer())) {
+                        $org_name = trim($_POST['org_name']);
+                        $org_dn = "o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
+                        $member_group_cn_post = getenv('LDAP_GROUP_MEMBER_ORGS') ?: 'memberOrganizations';
+                        $base_dn = $LDAP['base_dn'] ?? '';
+                        if ($base_dn !== '' && function_exists('remove_from_status_group') && remove_from_status_group($ldap_connection, $org_dn, $member_group_cn_post, $base_dn)) {
+                            $message = t('manage.orgs.msg.unmember_ok', ['org' => $org_name]);
+                            $message_type = 'success';
+                        } else {
+                            $message = t('manage.orgs.msg.unmember_fail', ['org' => $org_name]);
+                            $message_type = 'danger';
+                        }
                     } else {
-                        $message = t('manage.orgs.msg.delete_fail', ['org' => $org_name]);
+                        $message = t('manage.orgs.msg.perm_denied');
                         $message_type = 'danger';
                     }
-                } else {
-                    $message = t('manage.orgs.msg.perm_denied');
-                    $message_type = 'danger';
-                }
-                break;
+                    break;
+
+                case 'disable_organization':
+                    if (isset($_POST['org_name']) && currentUserCanDisableOrganization($_POST['org_name'])) {
+                        $org_name = trim($_POST['org_name']);
+                        if (ldap_disable_organization($ldap_connection, $org_name)) {
+                            $message = t('manage.orgs.msg.deactivate_ok', ['org' => $org_name]);
+                            $message_type = 'success';
+                        } else {
+                            $message = t('manage.orgs.msg.deactivate_fail', ['org' => $org_name]);
+                            $message_type = 'danger';
+                        }
+                    } else {
+                        $message = t('manage.orgs.msg.perm_denied');
+                        $message_type = 'danger';
+                    }
+                    break;
+
+                case 'enable_organization':
+                    if (isset($_POST['org_name']) && currentUserCanEnableOrganization($_POST['org_name'])) {
+                        $org_name = trim($_POST['org_name']);
+                        $enable_result = ldap_enable_organization($ldap_connection, $org_name);
+                        if ($enable_result !== false && $enable_result['ok']) {
+                            $message = t('manage.orgs.show.msg.activate_ok', ['org' => $org_name]);
+                            if ($enable_result['still_disabled'] > 0) {
+                                $message .= ' ' . t('manage.orgs.show.msg.activate_summary', [
+                                    'activated' => $enable_result['enabled'],
+                                    'still_inactive' => $enable_result['still_disabled'],
+                                ]);
+                            }
+                            $message_type = 'success';
+                        } else {
+                            $message = t('manage.orgs.msg.activate_fail', ['org' => $org_name]);
+                            $message_type = 'danger';
+                        }
+                    } else {
+                        $message = t('manage.orgs.msg.perm_denied');
+                        $message_type = 'danger';
+                    }
+                    break;
+
+                case 'delete_organization':
+                    if (isset($_POST['org_name']) && currentUserCanDeleteOrganization($_POST['org_name'])) {
+                        $org_name = trim($_POST['org_name']);
+                        $org_uuid = isset($_POST['org_uuid']) ? trim($_POST['org_uuid']) : '';
+
+                        if (ldap_delete_organization($ldap_connection, $org_name, $org_uuid)) {
+                            $message = t('manage.orgs.msg.delete_ok', ['org' => $org_name]);
+                            $message_type = 'success';
+                        } else {
+                            $message = t('manage.orgs.msg.delete_fail', ['org' => $org_name]);
+                            $message_type = 'danger';
+                        }
+                    } else {
+                        $message = t('manage.orgs.msg.perm_denied');
+                        $message_type = 'danger';
+                    }
+                    break;
+            } // phpcs:ignore Generic.WhiteSpace.ScopeIndent.IncorrectExact,Squiz.WhiteSpace.ScopeClosingBrace.Indent -- switch at 8 spaces
+
+            lum_close_ldap_if_not_manage($ldap_connection);
         }
-
-        lum_close_ldap_if_not_manage($ldap_connection);
-    }
     }
 }
 
@@ -416,13 +416,16 @@ function format_org_list_count_label(int $shown, int $total): string
 
                     <div class="list-group" id="org_list">
                         <?php if (empty($org_data_list)) : ?>
-                            <p class="text-muted"><?php echo htmlspecialchars(
+                            <?php
+                            $empty_list_message = htmlspecialchars(
                                 $total_org_count > 0
                                     ? t('manage.orgs.index.no_filter_match')
                                     : t('manage.orgs.no_access_list'),
                                 ENT_QUOTES,
                                 'UTF-8'
-                            ); ?></p>
+                            );
+                            ?>
+                            <p class="text-muted"><?php echo $empty_list_message; ?></p>
                         <?php else : ?>
                             <?php foreach ($org_data_list as $org) : ?>
                                 <?php

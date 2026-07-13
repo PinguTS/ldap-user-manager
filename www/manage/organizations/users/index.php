@@ -293,29 +293,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['disable_user']) || i
             $message = t('manage.users.msg.user_not_found');
             $message_type = 'danger';
         } else {
-        $user_dn = is_string($resolved['dn'] ?? null) ? $resolved['dn'] : '';
-        $user_display = get_ldap_attribute($resolved, 'uid') !== '' ? get_ldap_attribute($resolved, 'uid') : $user_identifier;
-        $ldap_connection = lum_ldap_data_connection();
-        if ($ldap_connection === false) {
-            $message = t('manage.orgs.msg.ldap_fail');
-            $message_type = 'danger';
-        } else {
-        assert($ldap_connection !== false);
+            $user_dn = is_string($resolved['dn'] ?? null) ? $resolved['dn'] : '';
+            $user_display = get_ldap_attribute($resolved, 'uid') !== '' ? get_ldap_attribute($resolved, 'uid') : $user_identifier;
+            $ldap_connection = lum_ldap_data_connection();
+            if ($ldap_connection === false) {
+                $message = t('manage.orgs.msg.ldap_fail');
+                $message_type = 'danger';
+            } else {
+                assert($ldap_connection !== false);
 
-        $group_cleanup_success = ldap_remove_user_from_all_groups($ldap_connection, $user_dn);
-        if (!$group_cleanup_success) {
-            error_log('Warning: Failed to remove user from some groups before deletion (POST)');
-        }
-        if (ldap_delete($ldap_connection, $user_dn)) {
-            $message = t('manage.users.msg.delete_ok', ['user' => $user_display]);
-            $message_type = 'success';
-        } else {
-            error_log("delete_user: ldap_delete failed for $user_dn: " . ldap_error($ldap_connection));
-            $message = t('manage.org_users.msg.delete_fail_ldap');
-            $message_type = 'danger';
-        }
-        lum_close_ldap_if_not_manage($ldap_connection);
-        }
+                $group_cleanup_success = ldap_remove_user_from_all_groups($ldap_connection, $user_dn);
+                if (!$group_cleanup_success) {
+                    error_log('Warning: Failed to remove user from some groups before deletion (POST)');
+                }
+                if (ldap_delete($ldap_connection, $user_dn)) {
+                    $message = t('manage.users.msg.delete_ok', ['user' => $user_display]);
+                    $message_type = 'success';
+                } else {
+                    error_log("delete_user: ldap_delete failed for $user_dn: " . ldap_error($ldap_connection));
+                    $message = t('manage.org_users.msg.delete_fail_ldap');
+                    $message_type = 'danger';
+                }
+                lum_close_ldap_if_not_manage($ldap_connection);
+            }
         }
     }
 }

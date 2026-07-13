@@ -1169,7 +1169,7 @@ if ($orgExists) {
                 $required_attr = $is_required ? ' required' : '';
 
                 if ($widget === 'website') {
-                    renderWebsiteUrlField($form_field, $label, (string) $current_value, $is_required, '', false);
+                    renderWebsiteUrlField((string) $form_field, $label, (string) $current_value, $is_required, '', false);
                 } elseif ($field_type === 'textarea') {
                     echo '<textarea class="form-control" id="' . $form_field . '" name="' . $form_field . '" rows="2"' . $required_attr . '>' . htmlspecialchars($current_value) . '</textarea>';
                 } else {

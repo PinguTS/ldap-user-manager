@@ -2194,7 +2194,11 @@ function validateRedirectUrl($redirect_url, $base_path = '/')
     }
 
     // Remove any null bytes or control characters
-    $decoded = preg_replace('/[\x00-\x1F\x7F]/', '', $decoded);
+    $cleaned = preg_replace('/[\x00-\x1F\x7F]/', '', $decoded);
+    if (!is_string($cleaned)) {
+        return false;
+    }
+    $decoded = $cleaned;
 
     // Check if it's a relative path (starts with /)
     if (strpos($decoded, '/') === 0) {

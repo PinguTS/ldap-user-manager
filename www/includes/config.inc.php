@@ -299,16 +299,16 @@ if (!in_array('uid', $LDAP['user_required_fields'])) {
  $LDAP['org_allowed_countries'] = null;
  $org_allowed_countries_raw = getenv('LDAP_ORG_ALLOWED_COUNTRIES');
  if ($org_allowed_countries_raw !== false && trim($org_allowed_countries_raw) !== '') {
-    $org_allowed_parsed = [];
-    foreach (explode(',', $org_allowed_countries_raw) as $org_country_code) {
-        $org_country_code = strtoupper(trim($org_country_code));
-        if ($org_country_code !== '') {
-            $org_allowed_parsed[] = $org_country_code;
-        }
-    }
-    if ($org_allowed_parsed !== []) {
-        $LDAP['org_allowed_countries'] = array_values(array_unique($org_allowed_parsed));
-    }
+     $org_allowed_parsed = [];
+     foreach (explode(',', $org_allowed_countries_raw) as $org_country_code) {
+         $org_country_code = strtoupper(trim($org_country_code));
+         if ($org_country_code !== '') {
+             $org_allowed_parsed[] = $org_country_code;
+         }
+     }
+     if ($org_allowed_parsed !== []) {
+         $LDAP['org_allowed_countries'] = array_values(array_unique($org_allowed_parsed));
+     }
  }
 
  # Field labels for the UI (human-readable names)

@@ -124,47 +124,47 @@ if (isset($_POST['setup_admin_user'])) {
         print "$li_fail Admin email and password are required (defaults are not permitted).</li>\n";
         $no_errors = false;
     } else {
-    $admin_email = trim((string) $_POST['admin_email']);
-    $admin_password = (string) $_POST['admin_password'];
+        $admin_email = trim((string) $_POST['admin_email']);
+        $admin_password = (string) $_POST['admin_password'];
 
-    if ($SETUP_DEBUG == true) {
-        error_log("$log_prefix SETUP_DEBUG: Admin email = $admin_email, Target DN = uid={$admin_email},ou=people,{$LDAP['base_dn']}", 0);
-    }
-
-    $admin_user = array(
-      'objectClass' => array('top', 'inetOrgPerson'),
-      'uid' => $admin_email,
-      'cn' => 'System Administrator',
-      'sn' => 'Administrator',
-      'givenName' => 'System',
-      'mail' => $admin_email,
-      'userPassword' => ldap_hashed_password($admin_password)
-    );
-
-    if ($SETUP_DEBUG == true) {
-        error_log("$log_prefix SETUP_DEBUG: Admin user data prepared, attempting LDAP add", 0);
-    }
-
-    $user_add = @ldap_add($ldap_connection, "uid={$admin_email},ou=people,{$LDAP['base_dn']}", $admin_user);
-    if ($user_add == true) {
         if ($SETUP_DEBUG == true) {
-            error_log("$log_prefix SETUP_DEBUG: SUCCESS - Admin user created", 0);
+            error_log("$log_prefix SETUP_DEBUG: Admin email = $admin_email, Target DN = uid={$admin_email},ou=people,{$LDAP['base_dn']}", 0);
         }
-        print "$li_good Created system administrator user <strong>uid={$admin_email},ou=people,{$LDAP['base_dn']}</strong></li>\n";
-        print "$li_good <strong>Custom password set successfully!</strong></li>\n";
-        print "$li_good <strong>Custom email address set: {$admin_email}</strong></li>\n";
 
-      # Note: Admin user will be added to administrators role group during verification
-        print "$li_info Note: Admin user will be added to administrators role group during verification</li>\n";
-    } else {
-        $error = ldap_error($ldap_connection);
-        $errno = ldap_errno($ldap_connection);
+        $admin_user = array(
+        'objectClass' => array('top', 'inetOrgPerson'),
+        'uid' => $admin_email,
+        'cn' => 'System Administrator',
+        'sn' => 'Administrator',
+        'givenName' => 'System',
+        'mail' => $admin_email,
+        'userPassword' => ldap_hashed_password($admin_password)
+        );
+
         if ($SETUP_DEBUG == true) {
-            error_log("$log_prefix SETUP_DEBUG: FAILED to create admin user - LDAP Error: $error (Code: $errno)", 0);
+            error_log("$log_prefix SETUP_DEBUG: Admin user data prepared, attempting LDAP add", 0);
         }
-        print "$li_fail Couldn't create system administrator user: <pre>$error</pre></li>\n";
-        $no_errors = false;
-    }
+
+        $user_add = @ldap_add($ldap_connection, "uid={$admin_email},ou=people,{$LDAP['base_dn']}", $admin_user);
+        if ($user_add == true) {
+            if ($SETUP_DEBUG == true) {
+                error_log("$log_prefix SETUP_DEBUG: SUCCESS - Admin user created", 0);
+            }
+            print "$li_good Created system administrator user <strong>uid={$admin_email},ou=people,{$LDAP['base_dn']}</strong></li>\n";
+            print "$li_good <strong>Custom password set successfully!</strong></li>\n";
+            print "$li_good <strong>Custom email address set: {$admin_email}</strong></li>\n";
+
+          # Note: Admin user will be added to administrators role group during verification
+            print "$li_info Note: Admin user will be added to administrators role group during verification</li>\n";
+        } else {
+            $error = ldap_error($ldap_connection);
+            $errno = ldap_errno($ldap_connection);
+            if ($SETUP_DEBUG == true) {
+                error_log("$log_prefix SETUP_DEBUG: FAILED to create admin user - LDAP Error: $error (Code: $errno)", 0);
+            }
+            print "$li_fail Couldn't create system administrator user: <pre>$error</pre></li>\n";
+            $no_errors = false;
+        }
     }
 }
 
@@ -176,47 +176,47 @@ if (isset($_POST['setup_maintainer_user'])) {
         print "$li_fail Maintainer email and password are required (defaults are not permitted).</li>\n";
         $no_errors = false;
     } else {
-    $maintainer_email = trim((string) $_POST['maintainer_email']);
-    $maintainer_password = (string) $_POST['maintainer_password'];
+        $maintainer_email = trim((string) $_POST['maintainer_email']);
+        $maintainer_password = (string) $_POST['maintainer_password'];
 
-    if ($SETUP_DEBUG == true) {
-        error_log("$log_prefix SETUP_DEBUG: Maintainer email = $maintainer_email, Target DN = uid={$maintainer_email},ou=people,{$LDAP['base_dn']}", 0);
-    }
-
-    $maintainer_user = array(
-      'objectClass' => array('top', 'inetOrgPerson'),
-      'uid' => $maintainer_email,
-      'cn' => 'System Maintainer',
-      'sn' => 'Maintainer',
-      'givenName' => 'System',
-      'mail' => $maintainer_email,
-      'userPassword' => ldap_hashed_password($maintainer_password)
-    );
-
-    if ($SETUP_DEBUG == true) {
-        error_log("$log_prefix SETUP_DEBUG: Maintainer user data prepared, attempting LDAP add", 0);
-    }
-
-    $user_add = @ldap_add($ldap_connection, "uid={$maintainer_email},ou=people,{$LDAP['base_dn']}", $maintainer_user);
-    if ($user_add == true) {
         if ($SETUP_DEBUG == true) {
-            error_log("$log_prefix SETUP_DEBUG: SUCCESS - Maintainer user created", 0);
+            error_log("$log_prefix SETUP_DEBUG: Maintainer email = $maintainer_email, Target DN = uid={$maintainer_email},ou=people,{$LDAP['base_dn']}", 0);
         }
-        print "$li_good Created system maintainer user <strong>uid={$maintainer_email},ou=people,{$LDAP['base_dn']}</strong></li>\n";
-        print "$li_good <strong>Custom password set successfully!</strong></li>\n";
-        print "$li_good <strong>Custom email address set: {$maintainer_email}</strong></li>\n";
 
-      # Note: Maintainer user will be added to maintainers role group during verification
-        print "$li_info Note: Maintainer user will be added to maintainers role group during verification</li>\n";
-    } else {
-        $error = ldap_error($ldap_connection);
-        $errno = ldap_errno($ldap_connection);
+        $maintainer_user = array(
+        'objectClass' => array('top', 'inetOrgPerson'),
+        'uid' => $maintainer_email,
+        'cn' => 'System Maintainer',
+        'sn' => 'Maintainer',
+        'givenName' => 'System',
+        'mail' => $maintainer_email,
+        'userPassword' => ldap_hashed_password($maintainer_password)
+        );
+
         if ($SETUP_DEBUG == true) {
-            error_log("$log_prefix SETUP_DEBUG: FAILED to create maintainer user - LDAP Error: $error (Code: $errno)", 0);
+            error_log("$log_prefix SETUP_DEBUG: Maintainer user data prepared, attempting LDAP add", 0);
         }
-        print "$li_fail Couldn't create system maintainer user: <pre>$error</pre></li>\n";
-        $no_errors = false;
-    }
+
+        $user_add = @ldap_add($ldap_connection, "uid={$maintainer_email},ou=people,{$LDAP['base_dn']}", $maintainer_user);
+        if ($user_add == true) {
+            if ($SETUP_DEBUG == true) {
+                error_log("$log_prefix SETUP_DEBUG: SUCCESS - Maintainer user created", 0);
+            }
+            print "$li_good Created system maintainer user <strong>uid={$maintainer_email},ou=people,{$LDAP['base_dn']}</strong></li>\n";
+            print "$li_good <strong>Custom password set successfully!</strong></li>\n";
+            print "$li_good <strong>Custom email address set: {$maintainer_email}</strong></li>\n";
+
+          # Note: Maintainer user will be added to maintainers role group during verification
+            print "$li_info Note: Maintainer user will be added to maintainers role group during verification</li>\n";
+        } else {
+            $error = ldap_error($ldap_connection);
+            $errno = ldap_errno($ldap_connection);
+            if ($SETUP_DEBUG == true) {
+                error_log("$log_prefix SETUP_DEBUG: FAILED to create maintainer user - LDAP Error: $error (Code: $errno)", 0);
+            }
+            print "$li_fail Couldn't create system maintainer user: <pre>$error</pre></li>\n";
+            $no_errors = false;
+        }
     }
 }
 
