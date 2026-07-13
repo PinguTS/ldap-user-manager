@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# Block commits that contain likely secrets in staged files.
+set -euo pipefail
+
+files=($(git diff --cached --name-only --diff-filter=ACMR))
+
+if [[ ${#files[@]} -eq 0 ]]; then
+  exit 0
+fi
+
+patterns=(
+  'AKIA[0-9A-Z]{16}'
+  'aws_secret_access_key|AWS_SECRET_ACCESS_KEY'
+  'xox[baprs]-[0-9A-Za-z-]{10,}'
+  'ghp_[0-9A-Za-z]{36,255}'
+  'github_pat_[0-9A-Za-z_]{20,}'
+  'AIza[0-9A-Za-z\-_]{35}'
+  'sk-[A-Za-z0-9]{20,}'
+  'eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}'
+  '-----BEGIN (RSA|DSA|EC|OPENSSH) PRIVATE KEY-----'
+  '(password|passwd|pwd|secret|apikey|api_key)\s*[:=]\s*[^ \t\n]+'
+  '(postgres|mysql|mongodb|redis)(:\/\/)[^\s]+'
+)
+
+found_any=0
+report=""
+
+for f in "${files[@]}"; do
+  case "$f" in
+    www/assets/js/*|www/assets/bootstrap/*|www/assets/fonts/*)
+      continue
+      ;;
+  esac
+
+  if ! content=$(git show ":$f"); then
+    continue
+  fi
+
+  if printf "%s" "$content" | LC_ALL=C grep -qU $'\x00'; then
+    continue
+  fi
+
+  line_no=0
+  while IFS= read -r line; do
+    line_no=$((line_no + 1))
+    for rx in "${patterns[@]}"; do
+      if [[ "$line" =~ $rx ]]; then
+        found_any=1
+        report+=$'\n'"$f:$line_no: ${BASH_REMATCH[0]}"
+        break
+      fi
+    done
+  done <<< "$content"
+done
+
+if [[ $found_any -eq 1 ]]; then
+  echo "Commit aborted: suspected secrets in staged files:"
+  echo "$report"
+  echo
+  echo "Remove secrets from the files or store them outside the repo (e.g. .env in .gitignore)."
+  exit 1
+fi
+
+exit 0

@@ -64,11 +64,35 @@ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 ### 4. Install Dependencies
 ```bash
 # Install PHP dependencies
-composer install
+make install
 
-# Install JavaScript dependencies (if any)
+# Install JavaScript dependencies (for asset builds)
 npm install
+
+# Install git hooks (quality check before push; matches CI)
+make install-hooks
 ```
+
+### Git hooks
+
+Hooks live in `scripts/git-hooks/` and are **not** active until you install them:
+
+```bash
+make install-hooks
+```
+
+This sets `core.hooksPath` for your clone only (not committed to git config globally).
+
+| Hook | When | What |
+|------|------|------|
+| **pre-commit** | `git commit` | Scans staged files for likely secrets |
+| **pre-push** | `git push` | Runs `make quality` (PHPCS, PHPStan, naming — same as GitHub Actions). On branch `dev`, also runs `make dev` (private registry image) |
+
+A failed `make quality` blocks the push locally, so you see the same errors as CI before they reach GitHub.
+
+Bypass only when necessary: `git push --no-verify`.
+
+See [`scripts/git-hooks/README.md`](../../scripts/git-hooks/README.md) for details.
 
 ### PHP and Composer only via Docker
 
@@ -276,17 +300,17 @@ git checkout -b feature/your-feature-name
 
 ### 3. Make Changes
 ```bash
-# Make your changes
-# Follow coding standards
-./vendor/bin/php-cs-fixer fix
+# Make your changes (follow coding standards)
 
-# Run tests
-./vendor/bin/phpunit
+# Fix style issues if needed
+make fix-all
 
-# Commit changes
+# Commit (pre-commit hook scans for secrets if hooks are installed)
 git add .
 git commit -m "Add feature: description of changes"
 ```
+
+`make quality` runs automatically on `git push` when hooks are installed (`make install-hooks`). You can also run it manually before committing.
 
 ### 4. Submit Pull Request
 ```bash

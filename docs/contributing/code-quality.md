@@ -115,20 +115,27 @@ make quality
 
 ## Best Practices
 
-### 1. Before Committing
+### 1. Install git hooks (once per clone)
+```bash
+make install-hooks
+```
+
+The **pre-push** hook runs `make quality` before every push — the same checks as GitHub Actions. No separate `make push-check` target is needed.
+
+### 2. Before committing (optional manual check)
 ```bash
 make quality
 make fix-all
 make quality  # Verify fixes
 ```
 
-### 2. Regular Maintenance
+### 3. Regular Maintenance
 ```bash
 make stan     # Check for type issues
 make rector   # Check for modernization opportunities
 ```
 
-### 3. Continuous Integration
+### 4. Continuous Integration
 - Run `make quality` in CI/CD pipelines
 - Fail builds on coding standard violations
 - Use `make stan` for static analysis

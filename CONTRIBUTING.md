@@ -12,7 +12,7 @@ Thank you for your interest in contributing.
 
 1. Fork the repository and create a branch from `main`.
 2. Make your changes, following the coding standards described in the docs above.
-3. Run the code quality tools (`make cs`, `make stan`) and ensure all checks pass.
+3. Install hooks (`make install-hooks`) and ensure `make quality` passes (enforced on push; same as CI).
 4. Open a pull request with a clear description of what changed and why.
 
 ## Reporting Bugs

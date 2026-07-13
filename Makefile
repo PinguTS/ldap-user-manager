@@ -159,7 +159,7 @@ DOCKER_PHP = docker run --rm -v "$$(pwd)":/app -w /app $(PHP_IMAGE)
 # PHPStan memory limit (default 128M in php.ini is often too low for large codebases)
 PHPSTAN_MEMORY_LIMIT ?= 512M
 
-.PHONY: help install test cs cs-fix stan fix rector clean docker-build docker-run docker-stop
+.PHONY: help install install-hooks test cs cs-fix stan fix rector clean docker-build docker-run docker-stop
 
 help: ## Show this help message
 	@echo "LDAP User Manager - Available Commands:"
@@ -184,6 +184,13 @@ install: ## Install Composer dependencies (uses Docker if composer not in PATH)
 		echo "Composer not in PATH; running via Docker..."; \
 		$(DOCKER_COMPOSER) install; \
 	fi
+
+install-hooks: ## Use repo git hooks (secret scan on commit, make quality before push)
+	@chmod +x scripts/git-hooks/pre-commit scripts/git-hooks/pre-push
+	git config core.hooksPath scripts/git-hooks
+	@echo "Git hooks installed from scripts/git-hooks/"
+	@echo "  pre-commit: secret scan"
+	@echo "  pre-push:   make quality (+ make dev on branch dev)"
 
 update: ## Update composer.lock from composer.json (run after adding/removing deps)
 	@if command -v composer >/dev/null 2>&1; then \
@@ -300,8 +307,9 @@ docker-logs: ## Show Docker logs
 setup-dev: ## Set up development environment
 	@echo "Setting up development environment..."
 	@make install
+	@make install-hooks
 	@echo "Development environment ready!"
-	@echo "Run 'make quality' to check code quality"
+	@echo "pre-push runs 'make quality' automatically before every push"
 	@echo "Run 'make fix-all' to fix code style issues"
 
 # Quick quality check

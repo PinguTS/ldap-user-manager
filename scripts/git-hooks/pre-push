@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Run the same quality gate as GitHub Actions before any push.
+# On dev, also build and push the image to the private registry (make dev).
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+echo "pre-push: running make quality..."
+make quality
+
+branch="$(git rev-parse --abbrev-ref HEAD)"
+if [ "$branch" = "dev" ]; then
+  echo "Dev branch: building and pushing to private registry (make dev)..."
+  make dev
+else
+  echo "Not on dev branch; skipping private registry push."
+fi
