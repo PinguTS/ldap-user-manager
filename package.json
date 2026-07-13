@@ -1,0 +1,10 @@
+{
+  "name": "ldap-user-manager",
+  "private": true,
+  "scripts": {
+    "build:js": "node www/assets/js/build.mjs"
+  },
+  "devDependencies": {
+    "uglify-js": "^3.19.3"
+  }
+}

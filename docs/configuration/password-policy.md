@@ -147,11 +147,12 @@ Use these example passwords to test your configuration:
 
 | Password | Expected Score | Will Pass (minScore=2) |
 |----------|----------------|---------------------------|
-| `password` | 0-1 | ❌ No (too weak) |
-| `Password123` | 2 | ✅ Yes (meets requirements) |
-| `SecurePass123!` | 3-4 | ✅ Yes (exceeds requirements) |
+| `password` | 0 | ❌ No (common word) |
+| `Password1` | 0–1 | ❌ No (common pattern) |
+| `Password123` | 1–2 | ⚠️ May pass length/rules; often weak |
+| `SecurePass123!` | 2–3 | ✅ Usually yes |
+| `correct horse battery staple` | 3–4 | ✅ Yes (strong passphrase) |
 | `a` | 0 | ❌ No (too short) |
-| `abc123` | 1 | ❌ No (score too low) |
 
 ### Check Your Current Settings
 
@@ -184,13 +185,14 @@ You can verify your configuration by looking at the password forms in the web in
 
 ### How the System Measures Strength
 
-The password strength system considers several factors:
+Scoring uses the [zxcvbn](https://github.com/dropbox/zxcvbn) library (bundled in `password.min.js`), which estimates real-world crack resistance:
 
-1. **Length**: Longer passwords are generally stronger
-2. **Character Variety**: Mixing different types of characters increases strength
-3. **Pattern Recognition**: Common patterns reduce strength
-4. **Dictionary Checking**: Common words reduce strength
-5. **Entropy Calculation**: True randomness assessment
+1. **Dictionary and breach lists** — common passwords score low
+2. **Pattern recognition** — keyboard walks, repeats, dates
+3. **Length and entropy** — longer unpredictable strings score higher
+4. **User context** — optional related inputs can lower scores
+
+Character requirements (`PASSWORD_STRENGTH_REQUIRE_*`) are enforced separately in the browser. A password must satisfy both the minimum score and any configured character rules.
 
 ### What Makes a Strong Password
 

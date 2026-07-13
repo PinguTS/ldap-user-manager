@@ -381,8 +381,7 @@ renderConfirmModal(
 );
 ?>
 
-    <script src="<?php print getAssetBase(); ?>js/table-search.js"></script>
-    <script src="<?php print getAssetBase(); ?>js/modals.js"></script>
+    <script src="<?php print getAssetBase(); ?>js/lists.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             if (typeof initializeTableSearch === 'function') {

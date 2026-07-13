@@ -110,7 +110,7 @@ renderHeader(t('password.set.page_title'));
     </div>
 </div>
 
-<script src="<?php print getAssetBase(); ?>js/password_utils.js"></script>
+<script src="<?php print getAssetBase(); ?>js/password.min.js"></script>
 <script type="text/javascript">
 document.addEventListener('DOMContentLoaded', function(){
     const passwordConfig = <?php echo getPasswordStrengthConfigJs(); ?>;

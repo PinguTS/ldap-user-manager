@@ -617,7 +617,7 @@ renderConfirmModal(
 );
 ?>
 
-<script src="<?php print getAssetBase(); ?>js/modals.js"></script>
+<script src="<?php print getAssetBase(); ?>js/modals.min.js"></script>
 <script>
     window.orgListCountI18n = {
         one: <?php echo json_encode(t('manage.orgs.index.org_count_one'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,

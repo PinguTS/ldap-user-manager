@@ -26,6 +26,9 @@ caddy_config/
 # PHPUnit
 .phpunit.cache/
 
+# Node (JS build)
+node_modules/
+
 # Local pip target (optional locale generation)
 .pip_target/
 

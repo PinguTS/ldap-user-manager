@@ -595,8 +595,8 @@ if ($errors != "") { ?>
     </div>
 </div>
 
-<script src="<?php print getAssetBase(); ?>js/password_utils.js"></script>
-<script src="<?php print getAssetBase(); ?>js/form-sync.js"></script>
+<script src="<?php print getAssetBase(); ?>js/password.min.js"></script>
+<script src="<?php print getAssetBase(); ?>js/sync.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         var passwordConfig = <?php echo getPasswordStrengthConfigJs(); ?>;

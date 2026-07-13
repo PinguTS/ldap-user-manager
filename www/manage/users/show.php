@@ -528,8 +528,8 @@ lum_close_ldap_if_not_manage($ldap_connection);
     </div>
 </div>
 
-<script src="<?php print getAssetBase(); ?>js/password_utils.js"></script>
-<script src="<?php print getAssetBase(); ?>js/form-sync.js"></script>
+<script src="<?php print getAssetBase(); ?>js/password.min.js"></script>
+<script src="<?php print getAssetBase(); ?>js/sync.min.js"></script>
 <script type="text/javascript">
 document.addEventListener('DOMContentLoaded', function(){
     // Form sync: display name from givenName+sn (editable; stops overwriting once user edits cn)

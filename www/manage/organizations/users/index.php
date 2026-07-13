@@ -849,7 +849,7 @@ renderFlash();
         <span id="add_user_spinner" style="display:none;"><span class="spinner-border spinner-border-sm"></span> <?php echo htmlspecialchars(t('manage.common.adding'), ENT_QUOTES, 'UTF-8'); ?></span>
     </form>
 
-    <script src="<?php print getAssetBase(); ?>js/password_utils.js"></script>
+    <script src="<?php print getAssetBase(); ?>js/password.min.js"></script>
     <script type="text/javascript">
     document.addEventListener('DOMContentLoaded', function(){
         const passwordConfig = <?php echo getPasswordStrengthConfigJs(); ?>;
@@ -1050,10 +1050,8 @@ renderFlash();
     </div>
     <?php endif; ?>
 </div>
-<script src="<?php print getAssetBase(); ?>js/table-search.js"></script>
-<script src="<?php print getAssetBase(); ?>js/modals.js"></script>
-<script src="<?php print getAssetBase(); ?>js/form-sync.js"></script>
-<script src="<?php print getAssetBase(); ?>js/password_utils.js"></script>
+<script src="<?php print getAssetBase(); ?>js/lists.min.js"></script>
+<script src="<?php print getAssetBase(); ?>js/sync.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         if (typeof initializeTableSearch === 'function') {

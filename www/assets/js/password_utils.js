@@ -176,7 +176,7 @@ function updatePasswordStrength(passwordField, strengthMeter, scoreDisplay, conf
 
         // Update score display
         if (scoreDisplay) {
-            updateScoreDisplay(scoreDisplay, result.score, result.feedback);
+            updateScoreDisplay(scoreDisplay, result.score, normalizePasswordFeedback(result.feedback, result.score));
         }
 
         // Update hidden field
@@ -192,6 +192,22 @@ function updatePasswordStrength(passwordField, strengthMeter, scoreDisplay, conf
         resetStrengthDisplay(strengthMeter, scoreDisplay);
         updateHiddenField(0, config);
     }
+}
+
+/**
+ * Normalize strength feedback from zxcvbn (object) or basic scorer (string).
+ * @param {string|{ warning?: string, suggestions?: string[] }|undefined} feedback
+ * @param {number} score
+ * @returns {string}
+ */
+function normalizePasswordFeedback(feedback, score) {
+    if (typeof feedback === 'string' && feedback !== '') {
+        return feedback;
+    }
+    if (feedback && typeof feedback === 'object' && feedback.warning) {
+        return feedback.warning;
+    }
+    return PASSWORD_STRENGTH_LEVELS[score]?.name || '';
 }
 
 /**

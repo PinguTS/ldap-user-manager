@@ -404,8 +404,8 @@ foreach ($page_messages as $page_message) {
     </div>
 </div>
 
-<script src="<?php print getAssetBase(); ?>js/password_utils.js"></script>
-<script src="<?php print getAssetBase(); ?>js/form-sync.js"></script>
+<script src="<?php print getAssetBase(); ?>js/password.min.js"></script>
+<script src="<?php print getAssetBase(); ?>js/sync.min.js"></script>
 <script type="text/javascript">
 document.addEventListener('DOMContentLoaded', function(){
     // Get password strength configuration from server
