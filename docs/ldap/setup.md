@@ -20,9 +20,9 @@ These are typically included by default in most OpenLDAP installations.
 
 ### 1.1 Current Implementation
 
-**Approach**: Use existing LDAP attributes that are available in all standard LDAP schemas.
+**Approach**: Use existing LDAP attributes and standard group objects that are available in all standard LDAP schemas.
 
-**Implementation**: The application stores role information in the `description` attribute.
+**Implementation**: Roles are expressed through membership in `groupOfNames` entries under `ou=roles` (global roles) and under each organization's `ou=roles` (organization administrators). User accounts do not store role information in the `description` attribute.
 
 **Features**:
 - Works with any LDAP server
@@ -94,9 +94,9 @@ System users have simplified attributes for administrators and maintainers:
 
 #### Organization Users (ou=people,o=OrgName)
 Organization users have additional organizational context:
-- **Required**: `givenname`, `sn`, `mail`, `uid`, `organization`, `description`
+- **Required**: `givenname`, `sn`, `mail`, `uid`, `organization`
 - **Auto-generated**: `cn` (constructed from `givenname` + `sn`)
-- **Optional**: `telephoneNumber`, `labeledURI`
+- **Optional**: `telephoneNumber`, `labeledURI`, `description` (free text, no longer used for role storage)
 - **No address fields** - Address information is stored at organization level
 
 #### Common Attributes
@@ -352,7 +352,7 @@ Ensure your `LDAP_BASE_DN` matches the structure in the LDIF files.
 - `ldif/example-org.ldif` - Example organization with users (optional)
 
 ### 8.2 Additional Schemas
-- No custom schema files are needed. The system uses existing LDAP attributes like `description` for role information.
+- No custom schema files are needed. The system uses standard `groupOfNames` entries to represent role membership and existing LDAP attributes for user and organization data.
 
 ---
 

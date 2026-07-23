@@ -6,7 +6,9 @@
  * Precedence: user LDAP locale attr → org LDAP locale attr → country map →
  * EMAIL_DEFAULT_LOCALE → (visitor session locale only if visitor is recipient) → en.
  *
- * System/service accounts (see EMAIL_SYSTEM_ACCOUNT_ROLES): EMAIL_DEFAULT_LOCALE → en only.
+ * System/service accounts (directory DN not under the organizations tree, i.e. not under
+ * LDAP_ORG_DN): EMAIL_DEFAULT_LOCALE → en only. For invite-time helpers the role is taken
+ * from the creation form, so EMAIL_SYSTEM_ACCOUNT_ROLES still applies there.
  */
 
 declare(strict_types=1);
@@ -216,14 +218,6 @@ function lum_ldap_row_attr_first(array $row, string $attr): string
 /**
  * @param array<string, mixed> $row ldap_get_entries single row
  */
-function lum_ldap_user_description_role(array $row): string
-{
-    return lum_ldap_row_attr_first($row, 'description');
-}
-
-/**
- * @param array<string, mixed> $row ldap_get_entries single row
- */
 function lum_ldap_row_first_org_name(array $row): string
 {
     foreach (['organization', 'o'] as $attr) {
@@ -280,8 +274,14 @@ function lum_ldap_fetch_org_email_hints($ldap, string $orgName): array
  */
 function lum_resolve_transactional_email_locale_from_ldap_user_row(array $userRow, bool $visitorIsRecipient): string
 {
-    $role = lum_ldap_user_description_role($userRow);
-    if (lum_email_is_system_account_role($role)) {
+    global $LDAP;
+
+    $userDn = isset($userRow['dn']) && is_string($userRow['dn']) ? $userRow['dn'] : '';
+    if (
+        $userDn !== '' &&
+        isset($LDAP['org_dn']) && is_string($LDAP['org_dn']) && $LDAP['org_dn'] !== '' &&
+        strpos($userDn, $LDAP['org_dn']) === false
+    ) {
         return lum_installation_email_locale();
     }
 

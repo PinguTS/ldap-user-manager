@@ -1529,11 +1529,6 @@ function ldap_new_account($ldap_connection, $account_r)
                 }
             }
 
-        # Set default description (role) if not specified
-            if (!isset($account_attributes['description'][0])) {
-                   $account_attributes['description'][0] = $LDAP['user_role'];
-            }
-
         # Ensure uid is set to email for email-based login
             if ($LDAP['account_attribute'] === 'mail') {
                 $account_attributes['uid'] = $account_identifier;
@@ -1552,19 +1547,6 @@ function ldap_new_account($ldap_connection, $account_r)
 
             if ($add_account) {
                 error_log("$log_prefix Created new account: $account_identifier in organization: $organization", 0);
-
-                # Add user to organization admin role ONLY if they are organization users (not system users)
-                # System administrators/maintainers already have full access to all organizations
-                # Check: 1) User has org_admin role, 2) Organization is specified, 3) User DN is under org_dn (not people_dn)
-                # IMPORTANT: Check organization admin role independently, regardless of role value conflicts
-                if (
-                    isset($account_attributes['description'][0]) &&
-                    $account_attributes['description'][0] === $LDAP['org_admin_role'] &&
-                    !empty($organization) &&
-                    strpos($user_dn, $LDAP['org_dn']) !== false
-                ) {
-                    addUserToOrgAdmin($organization, "{$LDAP['account_attribute']}=$account_identifier,{$user_dn}");
-                }
 
                 return true;
             } else {

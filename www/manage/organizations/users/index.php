@@ -142,85 +142,26 @@ if (isset($_POST['toggle_manager']) && isset($_POST['uid'])) {
     $toggleUserDisplay = get_ldap_attribute($userEntry, 'uid') !== '' ? get_ldap_attribute($userEntry, 'uid') : (string) $toggleUserParam;
 
     $orgManagerDns = org_get_manager_dns($orgName);
-    $ldap = lum_ldap_data_connection();
-    if ($ldap === false) {
-        $message = t('manage.orgs.msg.ldap_fail');
-        $message_type = 'danger';
-        goto after_toggle_manager;
-    }
-    $orgRDN = ldap_escape($orgName, '', LDAP_ESCAPE_DN);
-    $orgAdminsDn = "cn={$LDAP['org_admin_role']},ou=roles,o={$orgRDN}," . $LDAP['org_dn'];
-
-    // First, ensure the roles directory exists
-    $rolesDN = "ou=roles,o={$orgRDN}," . $LDAP['org_dn'];
-    $rolesDirExists = @ldap_read($ldap, $rolesDN, '(objectClass=*)', ['dn']);
-    if (!$rolesDirExists) {
-        // Create the ou=roles directory under the organization
-        $rolesDirEntry = [
-            'objectClass' => ['top', 'organizationalUnit'],
-            'ou' => 'roles',
-            'description' => 'Roles for organization ' . $orgName
-        ];
-
-        $createRolesDir = @ldap_add($ldap, $rolesDN, $rolesDirEntry);
-        if (!$createRolesDir) {
-            $ldap_err = ldap_error($ldap);
-            error_log("Failed to create roles directory at DN: $rolesDN -- LDAP error: $ldap_err");
-            $message = t('manage.org_users.msg.roles_directory_create_fail');
-            $message_type = 'danger';
-            lum_close_ldap_if_not_manage($ldap);
-            goto after_toggle_manager;
-        }
-    }
-
-    // Ensure OrgAdmins group exists
-    $orgAdmins_search = @ldap_read($ldap, $orgAdminsDn, '(objectClass=groupOfNames)', ['cn']);
-    $orgAdmins_exists = false;
-    if ($orgAdmins_search) {
-        $orgAdmins_entries = ldap_get_entries($ldap, $orgAdmins_search);
-        if ($orgAdmins_entries && $orgAdmins_entries['count'] > 0) {
-            $orgAdmins_exists = true;
-        }
-    }
-    if (!$orgAdmins_exists) {
-        global $USER_DN;
-        $orgAdminsGroup = [
-            'objectClass' => ['top', 'groupOfNames'],
-            'cn' => $LDAP['org_admin_role'],
-            'member' => [$USER_DN]
-        ];
-        $orgAdmins_create = @ldap_add($ldap, $orgAdminsDn, $orgAdminsGroup);
-        if (!$orgAdmins_create) {
-            $ldap_err = ldap_error($ldap);
-            error_log("Failed to create OrgAdmins group at DN: $orgAdminsDn -- LDAP error: $ldap_err");
-            $message = t('manage.org_users.msg.org_admin_group_create_fail');
-            $message_type = 'danger';
-            lum_close_ldap_if_not_manage($ldap);
-            goto after_toggle_manager;
-        }
-        // Refresh orgManagerDns after creation
-        $orgManagerDns = org_get_manager_dns($orgName);
-    }
-    try {
-        if (org_dn_in_list($userDn, $orgManagerDns)) {
-            $result = removeUserFromOrgAdmin($orgName, $userDn);
-            if ($result[0]) {
-                $message = t('manage.org_users.msg.removed_org_manager', ['user' => $toggleUserDisplay]);
-                $message_type = 'warning';
-            } else {
-                error_log("toggle_manager: removeUserFromOrgAdmin failed for user $userDn: " . $result[1]);
-                $message = t('manage.org_users.msg.update_org_manager_fail');
-                $message_type = 'danger';
-            }
+    if (org_dn_in_list($userDn, $orgManagerDns)) {
+        $result = removeUserFromOrgAdmin($orgName, $userDn);
+        if ($result[0]) {
+            $message = t('manage.org_users.msg.removed_org_manager', ['user' => $toggleUserDisplay]);
+            $message_type = 'warning';
         } else {
-            addUserToOrgAdmin($orgName, $userDn);
+            error_log("toggle_manager: removeUserFromOrgAdmin failed for user $userDn: " . $result[1]);
+            $message = t('manage.org_users.msg.update_org_manager_fail');
+            $message_type = 'danger';
+        }
+    } else {
+        $result = addUserToOrgAdmin($orgName, $userDn);
+        if ($result[0]) {
             $message = t('manage.org_users.msg.assigned_org_manager', ['user' => $toggleUserDisplay]);
             $message_type = 'success';
+        } else {
+            error_log("toggle_manager: addUserToOrgAdmin failed for user $userDn: " . $result[1]);
+            $message = t('manage.org_users.msg.update_org_manager_fail');
+            $message_type = 'danger';
         }
-    } catch (Exception $e) {
-        error_log("toggle_manager: exception for user $userDn: " . $e->getMessage());
-        $message = t('manage.org_users.msg.update_org_manager_fail');
-        $message_type = 'danger';
     }
     after_toggle_manager:
 }
@@ -435,7 +376,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
         $accountAttribute => [$accountIdentifier],
         'password' => [$password],
         'organization' => [$orgName],
-        'description' => [(string) ($LDAP['user_role'] ?? 'user')],
     ];
 
     if (ldap_new_account($ldap, $newAccount)) {

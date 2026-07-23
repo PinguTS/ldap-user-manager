@@ -332,7 +332,7 @@ Organization users have additional organizational context:
 - `sn`: Last name
 - `mail`: Email address
 - `organization`: Organization name
-- `description`: User role within organization
+- `description`: Optional free-text description (no longer used for role storage)
 
 **Auto-generated Fields:**
 - `cn`: Common name (constructed from `givenname` + `sn`)

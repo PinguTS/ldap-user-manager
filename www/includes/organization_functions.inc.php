@@ -677,7 +677,7 @@ function addUserToOrgAdmin($orgName, $userDn)
 
     // Add user to existing group
     $modifications = ['member' => $userDn];
-    $result = ldap_mod_add($ldap, $groupDN, $modifications);
+    $result = @ldap_mod_add($ldap, $groupDN, $modifications);
     if (!$result) {
         $errno = ldap_errno($ldap);
         // ponytail: duplicate member is success; upgrade path is ldap_compare before mod_add
@@ -1292,8 +1292,7 @@ function createSystemUser($ldap, $userData)
         'cn' => $userData['cn'],
         'givenName' => $userData['givenName'],
         'sn' => $userData['sn'],
-        'userPassword' => $userData['userPassword'], // Password is already hashed
-        'description' => $userData['userRole'] // Role is stored in description
+        'userPassword' => $userData['userPassword'] // Password is already hashed
     ];
 
     // Add optional fields
@@ -1391,8 +1390,7 @@ function createOrganizationUser($ldap, $userData)
         'givenName' => $userData['givenName'],
         'sn' => $userData['sn'],
         'userPassword' => ldap_hashed_password($userData['userPassword']),
-        'o' => $org_name,
-        'description' => $userData['userRole'] // Role is stored in description
+        'o' => $org_name
     ];
 
     // Add optional fields
@@ -1408,26 +1406,12 @@ function createOrganizationUser($ldap, $userData)
     }
 
     // If user is an organization admin, add them to the org_admin role
-    // IMPORTANT: Check organization admin role independently, regardless of role value conflicts
     if ($userData['userRole'] === $LDAP['org_admin_role']) {
-        // Add user to organization admin role
-        $org_roles_dn = "ou=roles,o=" . ldap_escape($org_name, '', LDAP_ESCAPE_DN) . "," . $LDAP['org_dn'];
-        $org_admin_group_dn = "cn={$LDAP['org_admin_role']},$org_roles_dn";
-
-        // Ensure the org_admin group exists
-        $groupExists = @ldap_read($ldap, $org_admin_group_dn, '(objectClass=*)', ['dn']);
-        if (!$groupExists) {
-            // Create the org_admin group if it doesn't exist
-            $groupEntry = [
-                'objectClass' => ['top', 'groupOfNames'],
-                'cn' => $LDAP['org_admin_role'],
-                'description' => "Organization {$LDAP['role_display_labels']['org_admin_role']}s for $org_name",
-                'member' => [$user_dn]
-            ];
-            @ldap_add($ldap, $org_admin_group_dn, $groupEntry);
-        } else {
-            // Add user to existing org_admin group
-            @ldap_mod_add($ldap, $org_admin_group_dn, ['member' => $user_dn]);
+        $adminResult = addUserToOrgAdmin($org_name, $user_dn);
+        if (!$adminResult[0]) {
+            $ldap_err = $adminResult[1] ?? 'unknown error';
+            error_log("createOrganizationUser: failed to assign org_admin role to {$user_dn}: {$ldap_err}");
+            return [false, "User account was created, but assigning the org_admin role failed: {$ldap_err}. The account exists without the role; add it to the org_admin group manually."];
         }
     }
 

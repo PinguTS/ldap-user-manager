@@ -278,7 +278,6 @@ if (isset($_POST['create_org_user'])) {
         ) {
             // Add organization and role to the account data
             $new_account_r['organization'] = [$org_name];
-            $new_account_r['description'] = [$user_role];
             if ($send_password_set_link) {
                 // Set a random temporary password; user will set their own via email link.
                 $password = bin2hex(random_bytes(16));
