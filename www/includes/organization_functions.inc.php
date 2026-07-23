@@ -661,7 +661,7 @@ function addUserToOrgAdmin($orgName, $userDn)
         $groupData = [
             'objectClass' => ['top', 'groupOfNames'],
             'cn' => $LDAP['org_admin_role'],
-            'description' => "Organization {$LDAP['role_display_labels']['org_admin_role']}s for {$orgName}",
+            'description' => "Organization administrators for {$orgName}",
             'member' => [$userDn]
         ];
         $result = @ldap_add($ldap, $groupDN, $groupData);

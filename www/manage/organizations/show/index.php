@@ -568,13 +568,28 @@ if ($orgExists) {
         if ($roles_search) {
             $roles_entries = ldap_get_entries($ldap_connection, $roles_search);
             if ($roles_entries && isset($roles_entries['count'])) {
+                $role_display_map = [
+                    $LDAP['org_admin_role'] => [
+                        'label' => t('manage.roles.label.org_admin'),
+                        'description' => t('manage.orgs.show.role_desc.org_admin', ['org' => $org_name]),
+                    ],
+                    (getenv('LDAP_GROUP_DISABLED_ACCOUNTS') ?: 'disabledAccounts') => [
+                        'label' => t('manage.roles.label.disabled_accounts'),
+                        'description' => t('manage.orgs.show.role_desc.disabled_accounts'),
+                    ],
+                ];
+
                 for ($i = 0; $i < $roles_entries['count']; $i++) {
                     $role_name = $roles_entries[$i]['cn'][0];
                     $member_count = isset($roles_entries[$i]['member']) ? $roles_entries[$i]['member']['count'] : 0;
+                    $display = $role_display_map[$role_name] ?? [
+                        'label' => $role_name,
+                        'description' => isset($roles_entries[$i]['description']) ? $roles_entries[$i]['description'][0] : '',
+                    ];
                     $org_roles[] = [
-                        'name' => $role_name,
+                        'name' => $display['label'],
                         'member_count' => $member_count,
-                        'description' => isset($roles_entries[$i]['description']) ? $roles_entries[$i]['description'][0] : ''
+                        'description' => $display['description'],
                     ];
                 }
             }
