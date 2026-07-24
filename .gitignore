@@ -38,3 +38,6 @@ Thumbs.db
 
 # Cursor
 .cursorrules.md
+
+# Generated intro-video voiceovers (docs/videos/make-voiceover.sh)
+docs/videos/
