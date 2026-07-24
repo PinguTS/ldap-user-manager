@@ -212,6 +212,42 @@ if (isset($_POST['action']) && $_POST['action'] === 'toggle_recent_user_active')
     }
 }
 
+// Handle recent users delete
+if (isset($_POST['delete_user'])) {
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        renderAlertBanner(t('manage.orgs.show.msg.session_expired'), "danger");
+    } elseif (!validateCsrfToken()) {
+        renderAlertBanner(t('manage.common.msg.security_validation_failed'), "danger");
+    } elseif (!currentUserCanDisableUser((string) $_POST['delete_user'])) {
+        renderAlertBanner(t('manage.users.msg.permission_denied_invalid_user'), "danger");
+    } else {
+        $userIdentifier = trim((string) $_POST['delete_user']);
+        $resolved = org_resolve_user_entry($org_name, $userIdentifier);
+        if ($resolved === null) {
+            renderAlertBanner(t('manage.users.msg.user_not_found'), "danger");
+        } else {
+            $userDn = is_string($resolved['dn'] ?? null) ? $resolved['dn'] : '';
+            $userDisplay = get_ldap_attribute($resolved, 'uid') !== '' ? get_ldap_attribute($resolved, 'uid') : $userIdentifier;
+            $ldapConnection = lum_ldap_data_connection();
+            if ($ldapConnection === false) {
+                renderAlertBanner(t('manage.orgs.msg.ldap_fail'), "danger");
+            } else {
+                $groupCleanupSuccess = ldap_remove_user_from_all_groups($ldapConnection, $userDn);
+                if (!$groupCleanupSuccess) {
+                    error_log('Warning: Failed to remove user from some groups before deletion (org show POST)');
+                }
+                if (ldap_delete($ldapConnection, $userDn)) {
+                    renderAlertBanner(t('manage.users.msg.delete_ok', ['user' => $userDisplay]), "success");
+                } else {
+                    error_log("show/org delete_user: ldap_delete failed for $userDn: " . ldap_error($ldapConnection));
+                    renderAlertBanner(t('manage.org_users.msg.delete_fail_ldap'), "danger");
+                }
+                lum_close_ldap_if_not_manage($ldapConnection);
+            }
+        }
+    }
+}
+
 // Handle org membership actions (member/unmember org)
 if (isset($_POST['action']) && ($_POST['action'] === 'member_organization' || $_POST['action'] === 'unmember_organization')) {
     if (session_status() !== PHP_SESSION_ACTIVE) {
@@ -1398,6 +1434,15 @@ renderConfirmModal(
     t('manage.orgs.show.modal.delete_submit'),
     'btn-danger'
 );
+
+renderConfirmModal(
+    'deleteUserModal',
+    t('manage.org_users.modal.delete_title'),
+    t('manage.org_users.modal.delete_body'),
+    [['name' => 'delete_user', 'id' => 'deleteUserIdentifier']],
+    t('manage.org_users.modal.delete_submit'),
+    'btn-danger'
+);
 ?>
 
 <link rel="stylesheet" href="<?php print getAssetBase(); ?>css/accessible-autocomplete.min.css">
@@ -1419,6 +1464,9 @@ function confirmUnmemberOrganization(orgName) {
 }
 function confirmDeleteOrganization(orgName, orgUuid) {
     confirmAction('deleteModal', { deleteOrgName: orgName, deleteOrgNameInput: orgName, deleteOrgUuidInput: orgUuid || '' });
+}
+function confirmDeleteUser(userIdentifier, userName) {
+    confirmAction('deleteUserModal', { deleteUserName: userName, deleteUserIdentifier: userIdentifier });
 }
 </script>
 

@@ -12,6 +12,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const RESERVED = [
     'initializePasswordStrength',
+    'generateSecurePassword',
     'initFormSync',
     'initializeTableSearch',
     'showModal',
