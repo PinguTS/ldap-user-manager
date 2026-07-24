@@ -721,7 +721,7 @@ renderFlash();
     
     <h4><?php echo htmlspecialchars(t('manage.common.quick_add_user'), ENT_QUOTES, 'UTF-8'); ?></h4>
     <p class="text-muted"><?php echo htmlspecialchars(t('manage.common.quick_add_lead'), ENT_QUOTES, 'UTF-8'); ?></p>
-    <form method="post" class="mb-4" id="add_user_form" onsubmit="return validateAddUserForm();">
+    <form method="post" class="mb-4" id="add_user_form">
         <?= csrfTokenField() ?>
         <div class="row">
             <div class="col-md-6">
@@ -767,8 +767,8 @@ renderFlash();
             </div>
         <?php endif; ?>
         
-        <div class="row">
-            <div class="col-md-6">        
+        <div class="row" id="password_fields">
+            <div class="col-md-6">
                 <div class="form-group">
                     <label for="password"><?php echo htmlspecialchars(t('manage.common.new_password_label'), ENT_QUOTES, 'UTF-8'); ?></label>
                     <input type="password" class="form-control" name="password" id="password" required>
@@ -807,6 +807,10 @@ renderFlash();
         function togglePw() {
             if (!checkbox || !pw || !pw2) return;
             const useLink = checkbox.checked;
+            const passwordFields = document.getElementById('password_fields');
+            if (passwordFields) {
+                passwordFields.style.display = useLink ? 'none' : '';
+            }
             pw.required = !useLink;
             pw2.required = !useLink;
             pw.disabled = useLink;
@@ -953,13 +957,15 @@ renderFlash();
             </div>
             <div class="modal-body">
               <input type="hidden" name="reset_uid" value="<?= htmlspecialchars($resetUserParam) ?>">
-              <div class="form-group">
-                <label for="reset_password"><?php echo htmlspecialchars(t('manage.org_users.reset_new_pw'), ENT_QUOTES, 'UTF-8'); ?></label>
-                <input type="password" class="form-control" name="reset_password" id="reset_password" required>
-              </div>
-              <div class="form-group mt-2">
-                <label for="reset_password_match"><?php echo htmlspecialchars(t('manage.org_users.reset_confirm_pw'), ENT_QUOTES, 'UTF-8'); ?></label>
-                <input type="password" class="form-control" name="reset_password_match" id="reset_password_match" required>
+              <div id="reset_password_fields">
+                <div class="form-group">
+                  <label for="reset_password"><?php echo htmlspecialchars(t('manage.org_users.reset_new_pw'), ENT_QUOTES, 'UTF-8'); ?></label>
+                  <input type="password" class="form-control" name="reset_password" id="reset_password" required>
+                </div>
+                <div class="form-group mt-2">
+                  <label for="reset_password_match"><?php echo htmlspecialchars(t('manage.org_users.reset_confirm_pw'), ENT_QUOTES, 'UTF-8'); ?></label>
+                  <input type="password" class="form-control" name="reset_password_match" id="reset_password_match" required>
+                </div>
               </div>
               <input type="hidden" id="reset_pass_score" value="0" name="pass_score">
 
@@ -1044,6 +1050,10 @@ renderFlash();
         function toggleResetPw() {
             if (!resetCheckbox || !resetPw || !resetPw2) return;
             var useLink = resetCheckbox.checked;
+            var resetFields = document.getElementById('reset_password_fields');
+            if (resetFields) {
+                resetFields.style.display = useLink ? 'none' : '';
+            }
             resetPw.required = !useLink;
             resetPw2.required = !useLink;
             resetPw.disabled = useLink;

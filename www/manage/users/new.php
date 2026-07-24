@@ -352,7 +352,7 @@ foreach ($page_messages as $page_message) {
                             <p class="text-muted small mt-2 mb-0"><?php echo htmlspecialchars(t('manage.org_users.email_after_create_note'), ENT_QUOTES, 'UTF-8'); ?></p>
                         <?php endif; ?>
                         
-                        <div class="row">
+                        <div class="row" id="password_fields">
                             <div class="col-md-6">
                                 <div class="form-group <?php echo $invalid_password ? 'is-invalid' : ''; ?>">
                                     <label for="userPassword"><?php echo htmlspecialchars(t('login.password_label'), ENT_QUOTES, 'UTF-8'); ?> *</label>
@@ -426,6 +426,10 @@ document.addEventListener('DOMContentLoaded', function(){
         const useLink = checkbox.checked;
         if (useLink && checkbox.disabled) {
             return;
+        }
+        const passwordFields = document.getElementById('password_fields');
+        if (passwordFields) {
+            passwordFields.style.display = useLink ? 'none' : '';
         }
         pw.required = !useLink;
         pw2.required = !useLink;
