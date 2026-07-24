@@ -3,6 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-ready-blue.svg)](DOCKER-SETUP.md)
 [![PHP](https://img.shields.io/badge/PHP-8.2%2B-purple.svg)](https://www.php.net/)
+[![Release](https://img.shields.io/github/v/tag/PinguTS/ldap-user-manager?label=release)](CHANGELOG.md)
 
 A PHP web interface for managing LDAP users, organizations, and role-based access control. Built for small to medium organizations that need centralized user management, with Docker as the primary deployment method.
 

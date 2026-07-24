@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.1.2] - 2026-07-24
+
+### Added
+
+- Manual password-setting hint on user forms when the password set-link option is enabled
+- Localized organization role display names and descriptions in the organization management UI
+- Contact-admin note in account welcome, new account, and admin password-reset email templates across locales
+
+### Changed
+
+- LDAP user roles resolved from group membership instead of the `description` attribute
+- Password fields on user create/add and reset-password flows toggle based on how the password is set
+- Clarified email locale resolution for system/service accounts (`EMAIL_SYSTEM_ACCOUNT_ROLES`)
+
+### Fixed
+
+- Localization corrections across supported languages (notably Norwegian account-request and login strings)
+
 ## [1.1.1] - 2026-07-13
 
 ### Fixed
