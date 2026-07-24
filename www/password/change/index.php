@@ -118,7 +118,7 @@ document.addEventListener('DOMContentLoaded', function(){
         generateButton.onclick = () => generateSecurePassword({
             type: 'word',
             words: 4,
-            separator: ' ',
+            separator: '-',
             passwordFieldId: 'password',
             confirmFieldId: 'confirm'
         });
