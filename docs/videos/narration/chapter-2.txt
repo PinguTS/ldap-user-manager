@@ -1,0 +1,13 @@
+If you forgot your password, start at the login page.
+
+Click Forgot your password.
+
+Enter the email address for your account, then click Send reset link.
+
+For privacy, the site always shows the same message — if that address is in the directory, a reset email is on the way.
+
+Open the email and click the link. You land on Reset your password.
+
+Choose a new password, confirm it, and submit.
+
+Click Go to login when you are done. Your organization administrator can also send you a reset link from the user list, using New password — that is covered in the org admin videos.
