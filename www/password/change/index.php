@@ -160,7 +160,7 @@ document.addEventListener('DOMContentLoaded', function(){
       <div class="col-md-6" id="password_div">
        <label for="password" class="form-label"><?php echo htmlspecialchars(t('password.change.new_label'), ENT_QUOTES, 'UTF-8'); ?></label>
        <input type="password" class="form-control" id="password" name="password">
-       <button type="button" class="btn btn-outline-secondary mt-2" id="generate_password"><?php echo htmlspecialchars(t('password.change.generate'), ENT_QUOTES, 'UTF-8'); ?></button>
+       <button type="button" class="btn btn-outline-secondary mt-2" id="generate_password" tabindex="-1"><?php echo htmlspecialchars(t('password.change.generate'), ENT_QUOTES, 'UTF-8'); ?></button>
       </div>
       <div class="col-md-6" id="confirm_div">
        <label for="confirm" class="form-label"><?php echo htmlspecialchars(t('password.change.confirm_field'), ENT_QUOTES, 'UTF-8'); ?></label>
