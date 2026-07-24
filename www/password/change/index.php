@@ -171,12 +171,6 @@ document.addEventListener('DOMContentLoaded', function(){
      <div class="mt-3">
        <button type="submit" class="btn btn-secondary"><?php echo htmlspecialchars(t('password.change.submit'), ENT_QUOTES, 'UTF-8'); ?></button>
      </div>
-
-     <div class="mt-2">
-       <small class="text-muted">
-         <?php echo htmlspecialchars(t('password.change.debug_score'), ENT_QUOTES, 'UTF-8'); ?> <span id="debug_score">0</span>
-       </small>
-     </div>
     </form>
 
    </div>
