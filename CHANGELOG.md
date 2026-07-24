@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.1.3] - 2026-07-24
+
+### Added
+
+- Delete user action on the organization detail page (CSRF-protected confirm modal and alert feedback)
+
+### Fixed
+
+- Password change form layout and generation UX (removed debug strength score, improved generate control accessibility)
+
+### Changed
+
+- Added `www/assets/js/package-lock.json` for the JS build toolchain
+- Ignore local `docs/videos/` content in `.gitignore`
+
 ## [1.1.2] - 2026-07-24
 
 ### Added
