@@ -139,6 +139,10 @@ function renderOrgUsersPageManagerToggle(
 function renderOrgShowRecentUserActions(string $orgUuid, array $user, bool $isManager): void
 {
     $deleteUserId = get_user_identifier_for_url($user, (string) ($user['mail'] ?? $user['cn'] ?? ''));
+    $deleteUserName = get_ldap_attribute($user, 'uid');
+    if ($deleteUserName === '') {
+        $deleteUserName = $deleteUserId;
+    }
     ?>
                                 <div class="d-inline-flex align-items-center flex-wrap gap-1">
                                     <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.common.user_actions_aria'), ENT_QUOTES, 'UTF-8'); ?>">
@@ -151,7 +155,7 @@ function renderOrgShowRecentUserActions(string $orgUuid, array $user, bool $isMa
                                         <?php if ($isManager) : ?>
                                             <button type="button" class="btn btn-danger btn-sm" disabled title="<?php echo htmlspecialchars(t('manage.org_users.msg.cannot_delete_org_manager'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
                                         <?php else : ?>
-                                            <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteUser('<?php echo htmlspecialchars($deleteUserId, ENT_QUOTES, 'UTF-8'); ?>')"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
+                                            <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteUser('<?php echo htmlspecialchars($deleteUserId, ENT_QUOTES, 'UTF-8'); ?>', '<?php echo htmlspecialchars($deleteUserName, ENT_QUOTES, 'UTF-8'); ?>')"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
                                         <?php endif; ?>
                                     </div>
                                 </div>

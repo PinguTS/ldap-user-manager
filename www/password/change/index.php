@@ -98,39 +98,31 @@ if (isset($mismatched)) {  ?>
 <script src="<?php print getAssetBase(); ?>js/password.min.js"></script>
 <script type="text/javascript">
 document.addEventListener('DOMContentLoaded', function(){
-    // Get password strength configuration from server
     const passwordConfig = <?php echo getPasswordStrengthConfigJs(); ?>;
-    
-    // Initialize unified password strength checking with dynamic config
+
     initializePasswordStrength({
         passwordFieldId: 'password',
         confirmFieldId: 'confirm',
         config: passwordConfig
     });
-    
-    // Add password generation button
-    const passwordField = document.getElementById('password');
-    if (passwordField) {
-        const generateButton = document.createElement('button');
-        generateButton.type = 'button';
-        generateButton.className = 'btn btn-info btn-sm ml-2';
-        generateButton.textContent = <?php echo json_encode(t('password.change.generate')); ?>;
-        generateButton.onclick = () => generateSecurePassword({
-            type: 'word',
-            words: 4,
-            separator: ' ',
-            passwordFieldId: 'password',
-            confirmFieldId: 'confirm'
+
+    const generateButton = document.getElementById('generate_password');
+    if (generateButton) {
+        generateButton.addEventListener('click', function() {
+            generateSecurePassword({
+                type: 'word',
+                words: 4,
+                separator: '-',
+                passwordFieldId: 'password',
+                confirmFieldId: 'confirm'
+            });
         });
-        
-        // Insert after password field
-        passwordField.parentNode.insertBefore(generateButton, passwordField.nextSibling);
     }
 });
 </script>
 
 <div class="container">
- <div class="col-sm-6 offset-sm-3">
+ <div class="col-md-8 offset-md-2">
 
   <div class="card">
    <div class="card-header text-center"><?php echo htmlspecialchars(t('password.change.card_header'), ENT_QUOTES, 'UTF-8'); ?></div>
@@ -145,50 +137,39 @@ document.addEventListener('DOMContentLoaded', function(){
    </ul>
 
    <div class="card-body text-center">
-   
-    <form class="form-horizontal" action='' method='post'>
+
+    <form action="" method="post">
      <?php echo csrfTokenField(); ?>
 
-     <input type='hidden' id="change_password" name="change_password">
-     <input type='hidden' id="pass_score" value="0" name="pass_score">
-     
-     <div class="form-group" id="password_div">
-      <label for="password" class="col-sm-4 form-label"><?php echo htmlspecialchars(t('password.change.new_label'), ENT_QUOTES, 'UTF-8'); ?></label>
-      <div class="col-sm-6">
-       <input type="password" class="form-control" id="password" name="password">
-      </div>
-     </div>
+     <input type="hidden" id="change_password" name="change_password">
+     <input type="hidden" id="pass_score" value="0" name="pass_score">
 
      <script>
       function check_passwords_match() {
-
-        if (document.getElementById('password').value != document.getElementById('confirm').value ) {
+        if (document.getElementById('password').value != document.getElementById('confirm').value) {
             document.getElementById('password_div').classList.add("is-invalid");
             document.getElementById('confirm_div').classList.add("is-invalid");
-        }
-        else {
+        } else {
          document.getElementById('password_div').classList.remove("is-invalid");
          document.getElementById('confirm_div').classList.remove("is-invalid");
         }
        }
      </script>
 
-     <div class="form-group" id="confirm_div">
-      <label for="password" class="col-sm-4 form-label"><?php echo htmlspecialchars(t('password.change.confirm_field'), ENT_QUOTES, 'UTF-8'); ?></label>
-      <div class="col-sm-6">
+     <div class="row g-3 text-start">
+      <div class="col-md-6" id="password_div">
+       <label for="password" class="form-label"><?php echo htmlspecialchars(t('password.change.new_label'), ENT_QUOTES, 'UTF-8'); ?></label>
+       <input type="password" class="form-control" id="password" name="password">
+       <button type="button" class="btn btn-outline-secondary mt-2" id="generate_password" tabindex="-1"><?php echo htmlspecialchars(t('password.change.generate'), ENT_QUOTES, 'UTF-8'); ?></button>
+      </div>
+      <div class="col-md-6" id="confirm_div">
+       <label for="confirm" class="form-label"><?php echo htmlspecialchars(t('password.change.confirm_field'), ENT_QUOTES, 'UTF-8'); ?></label>
        <input type="password" class="form-control" id="confirm" name="password_match" onkeyup="check_passwords_match()">
       </div>
      </div>
 
-     <div class="form-group">
+     <div class="mt-3">
        <button type="submit" class="btn btn-secondary"><?php echo htmlspecialchars(t('password.change.submit'), ENT_QUOTES, 'UTF-8'); ?></button>
-     </div>
-     
-     <!-- Debug: Show current password strength score -->
-     <div class="form-group">
-       <small class="text-muted">
-         <?php echo htmlspecialchars(t('password.change.debug_score'), ENT_QUOTES, 'UTF-8'); ?> <span id="debug_score">0</span>
-       </small>
      </div>
     </form>
 

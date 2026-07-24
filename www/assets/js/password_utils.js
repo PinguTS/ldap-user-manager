@@ -436,7 +436,9 @@ function generateSecurePassword(options = {}) {
     const passwordField = document.getElementById(config.passwordFieldId);
     if (passwordField) {
         passwordField.value = password;
+        passwordField.type = 'text';
         passwordField.dispatchEvent(new Event('input'));
+        passwordField.select();
     }
     
     // Update confirm field if provided
@@ -444,6 +446,7 @@ function generateSecurePassword(options = {}) {
         const confirmField = document.getElementById(config.confirmFieldId);
         if (confirmField) {
             confirmField.value = password;
+            confirmField.type = 'text';
             confirmField.dispatchEvent(new Event('input'));
         }
     }
