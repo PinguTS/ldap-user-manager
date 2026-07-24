@@ -202,6 +202,7 @@
   "manage.org_users.email_after_create_note": "Wenn der E-Mail-Versand konfiguriert ist, erhält der Benutzer nach der Kontoerstellung immer eine Benachrichtigung: Eine Willkommens-E-Mail, wenn Sie unten das Passwort angeben, oder eine E-Mail mit einem Link zum Festlegen des Passworts, wenn das obige Kontrollkästchen aktiviert ist.",
   "manage.org_users.email_invite_link_checkbox": "Einen Link per E-Mail senden, damit der Benutzer sein Passwort selbst wählen kann (Passwortfelder unten sind then nicht erforderlich)",
   "manage.org_users.email_reset_checkbox": "Link zum Zurücksetzen per E-Mail senden (Benutzer legt Passwort selbst fest)",
+  "manage.org_users.password_manual_hint": "Passwort lieber selbst festlegen? Dieses Kontrollkästchen deaktivieren.",
   "manage.org_users.modal.delete_body": "<p>Sind Sie sicher, dass Sie den Benutzer „<span id=\"deleteUserName\"></span>“ löschen möchten?</p><p class=\"text-danger\"><strong>Warnung:</strong> Diese Aktion kann nicht rückgängig gemacht werden und entfernt alle Daten.</p><p class=\"text-warning\"><strong>Hinweis:</strong> Das Konto wird dauerhaft aus dieser Organisation gelöscht.</p>",
   "manage.org_users.modal.delete_submit": "Konto löschen",
   "manage.org_users.modal.delete_title": "Benutzerkonto löschen",

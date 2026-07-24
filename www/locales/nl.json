@@ -202,6 +202,7 @@
   "manage.org_users.email_after_create_note": "Als e-mailverzending is geconfigureerd, ontvangt de gebruiker na aanmaak een notificatie. Als je hieronder een wachtwoord invoert, wordt er een welkomst-e-mail verzonden. Als je het selectievakje hierboven inschakelt, wordt er in plaats daarvan een activatielink verzonden.",
   "manage.org_users.email_invite_link_checkbox": "Stuur een link voor het instellen van het wachtwoord naar de gebruiker via e-post (je hoeft het wachtwoordveld hieronder dan niet in te vullen).",
   "manage.org_users.email_reset_checkbox": "Stuur een herstellink via e-mail (gebruiker stelt zelf een wachtwoord in).",
+  "manage.org_users.password_manual_hint": "Wil je het wachtwoord liever zelf instellen? Vink dit vakje uit.",
   "manage.org_users.modal.delete_body": "<p>Weet je zeker dat je de gebruiker ' <span id=\"deleteUserName\"></span> ' wilt verwijderen?</p><p class=\"text-danger\"><strong>Waarschuwing:</strong> Deze actie kan niet ongedaan worden gemaakt en alle gekoppelde gegevens worden permanent verwijderd.</p><p class=\"text-warning\"><strong>Let op:</strong> Het account wordt volledig verwijderd uit deze organisatie.</p>",
   "manage.org_users.modal.delete_submit": "Account verwijderen",
   "manage.org_users.modal.delete_title": "Gebruikersaccount verwijderen",

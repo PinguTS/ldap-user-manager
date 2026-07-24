@@ -202,6 +202,7 @@
   "manage.org_users.email_after_create_note": "メール送信が設定されている場合、ユーザーにはアカウント作成後に必ず通知が届きます。下にパスワードを入力した場合はウェルカムメールが、上のチェックボックスをオンにした場合はアクティベーションリンク付きのメールが送信されます。",
   "manage.org_users.email_invite_link_checkbox": "ユーザーにパスワード設定用のリンクをメールで送信する（下のパスワードフィールドは入力不要になります）",
   "manage.org_users.email_reset_checkbox": "再設定用のリンクをメールで送信する（ユーザー自身でパスワードを設定します）",
+  "manage.org_users.password_manual_hint": "パスワードを自分で設定する場合は、このチェックを外してください。",
   "manage.org_users.modal.delete_body": "<p>本当にユーザー「 <span id=\"deleteUserName\"></span> 」を削除しますか？</p><p class=\"text-danger\"><strong>警告:</strong> この操作は取り消しできず、関連するすべてのデータが完全に削除されます。</p><p class=\"text-warning\"><strong>注意:</strong> アカウントはこの組織から完全に削除されます。</p>",
   "manage.org_users.modal.delete_submit": "アカウントを削除",
   "manage.org_users.modal.delete_title": "ユーザーアカウントの削除",

@@ -202,6 +202,7 @@
   "manage.org_users.email_after_create_note": "Om e-postutskick är konfigurerat kommer användaren att få ett meddelande efter att kontot har skapats. Om du anger ett lösenord nedan skickas ett välkomstmeddelande. Om du markerar kryssrutan ovan skickas istället en aktiveringslänk.",
   "manage.org_users.email_invite_link_checkbox": "Skicka en länk för att ange lösenord till användaren via e-post (du behöver då inte fylla i lösenordsfältet nedan).",
   "manage.org_users.email_reset_checkbox": "Skicka en länk för återställning via e-post (användaren anger då lösenordet själv).",
+  "manage.org_users.password_manual_hint": "Föredrar du att ange lösenordet själv? Avmarkera den här rutan.",
   "manage.org_users.modal.delete_body": "<p>Är du säker på att du vill ta bort användaren \"<span id=\"deleteUserName\"></span>\"?</p><p class=\"text-danger\"><strong>Varning:</strong> Denna åtgärd kan inte ångras och alla associerade data kommer att raderas permanent.</p><p class=\"text-warning\"><strong>Obs:</strong> Kontot kommer att tas bort helt från denna organisation.</p>",
   "manage.org_users.modal.delete_submit": "Ta bort konto",
   "manage.org_users.modal.delete_title": "Ta bort användarkonto",

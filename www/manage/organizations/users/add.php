@@ -538,19 +538,29 @@ if ($errors != "") { ?>
                             </div>
                         </div>
 
+                        <?php
+                        $addUserLinkChecked = isset($_POST['create_org_user'])
+                            ? (isset($_POST['send_password_set_link']) && $_POST['send_password_set_link'] === 'on')
+                            : is_password_reset_link_enabled();
+                        ?>
                         <!-- Send password set link option -->
                         <?php if ($EMAIL_SENDING_ENABLED === true) : ?>
                         <div class="form-group">
                             <label class="form-label"></label>
                             <div class="checkbox">
                                 <label>
-                                    <input type="checkbox" id="send_password_set_link" name="send_password_set_link" <?php echo (isset($_POST['send_password_set_link']) && $_POST['send_password_set_link'] === 'on') ? 'checked' : ''; ?> <?php echo !is_password_reset_link_enabled() ? 'disabled' : ''; ?>>
+                                    <input type="checkbox" id="send_password_set_link" name="send_password_set_link"
+                                        <?php echo ($addUserLinkChecked && is_password_reset_link_enabled()) ? 'checked' : ''; ?>
+                                        <?php echo !is_password_reset_link_enabled() ? 'disabled' : ''; ?>>
                                     <?php echo htmlspecialchars(t('manage.org_users.email_invite_link_checkbox'), ENT_QUOTES, 'UTF-8'); ?>
                                 </label>
                                 <?php if (!is_password_reset_link_enabled()) : ?>
                                     <div class="alert alert-warning mt-2 mb-0 py-2">
                                         <?php echo htmlspecialchars(t('manage.users.new.error.password_set_link_disabled_secret_missing'), ENT_QUOTES, 'UTF-8'); ?>
                                     </div>
+                                <?php endif; ?>
+                                <?php if (is_password_reset_link_enabled()) : ?>
+                                    <p class="text-muted small mt-1 mb-0"><?php echo htmlspecialchars(t('manage.org_users.password_manual_hint'), ENT_QUOTES, 'UTF-8'); ?></p>
                                 <?php endif; ?>
                                 <p class="text-muted small mt-2 mb-0"><?php echo htmlspecialchars(t('manage.org_users.email_after_create_note'), ENT_QUOTES, 'UTF-8'); ?></p>
                             </div>

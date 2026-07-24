@@ -202,6 +202,7 @@
   "manage.org_users.email_after_create_note": "Si coché, un e-mail avec un lien pour définir le mot de passe sera envoyé à l'utilisateur.",
   "manage.org_users.email_invite_link_checkbox": "Envoyer un e-mail d'invitation avec un lien pour définir le mot de passe",
   "manage.org_users.email_reset_checkbox": "Envoyer un lien de réinitialisation par e-mail (l'utilisateur définit son propre mot de passe)",
+  "manage.org_users.password_manual_hint": "Vous préférez définir le mot de passe vous-même ? Décochez cette case.",
   "manage.org_users.modal.delete_body": "<p>Êtes-vous sûr de vouloir supprimer l'utilisateur « <span id=\"deleteUserName\"></span> » ?</p><p class=\"text-danger\"><strong>Avertissement :</strong> Cette action est irréversible et supprimera toutes les données associées.</p><p class=\"text-warning\"><strong>Note :</strong> Le compte sera définitivement supprimé de cette organisation.</p>",
   "manage.org_users.modal.delete_submit": "Supprimer le compte",
   "manage.org_users.modal.delete_title": "Supprimer le compte de l'utilisateur",

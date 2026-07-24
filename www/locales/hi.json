@@ -202,6 +202,7 @@
   "manage.org_users.email_after_create_note": "यदि ईमेल भेजना कॉन्फ़िगर किया गया है, तो खाता निर्माण के बाद उपयोगकर्ता को हमेशा एक सूचना प्राप्त होगी: यदि आप नीचे पासवर्ड दर्ज करते हैं तो एक स्वागत ईमेल, या यदि ऊपर दिए गए चेकबॉक्स को चुना गया है तो एक सेट-अप लिंक वाला ईमेल।",
   "manage.org_users.email_invite_link_checkbox": "उपयोगकर्ता को अपना पासवर्ड स्वयं चुनने के लिए ईमेल द्वारा एक लिंक भेजें (नीचे पासवर्ड फ़ील्ड की आवश्यकता नहीं होगी)",
   "manage.org_users.email_reset_checkbox": "ईमेल द्वारा रीसेट लिंक भेजें (उपयोगकर्ता अपना पासवर्ड स्वयं सेट करेगा)",
+  "manage.org_users.password_manual_hint": "क्या आप पासवर्ड स्वयं सेट करना चाहते हैं? इस बॉक्स को अनचेक करें।",
   "manage.org_users.modal.delete_body": "<p>क्या आप निश्चित रूप से उपयोगकर्ता « <span id=\"deleteUserName\"></span> » को हटाना चाहते हैं?</p><p class=\"text-danger\"><strong>चेतावनी:</strong> यह क्रिया अपरिवर्तनीय है और सभी संबद्ध डेटा हटा देगी।</p><p class=\"text-warning\"><strong>नोट:</strong> खाता इस संगठन से स्थायी रूप से हटा दिया जाएगा।</p>",
   "manage.org_users.modal.delete_submit": "खाता हटाएं",
   "manage.org_users.modal.delete_title": "उपयोगकर्ता खाता हटाएं",

@@ -202,6 +202,7 @@
   "manage.org_users.email_after_create_note": "Se l'invio delle email è configurato, l'utente riceverà sempre una notifica dopo la creazione dell'account: un'email di benvenuto se inserisci una password qui sotto, oppure un'email con un link di attivazione se la casella di controllo sopra è selezionata.",
   "manage.org_users.email_invite_link_checkbox": "Invia un link via email all'utente per scegliere la propria password (il campo password sottostante non sarà richiesto)",
   "manage.org_users.email_reset_checkbox": "Invia link di reimpostazione via email (l'utente imposterà la propria password autonomamente)",
+  "manage.org_users.password_manual_hint": "Preferisci impostare la password tu stesso? Deseleziona questa casella.",
   "manage.org_users.modal.delete_body": "<p>Sei sicuro di voler eliminare l'utente « <span id=\"deleteUserName\"></span> »?</p><p class=\"text-danger\"><strong>Avviso:</strong> questa azione è irreversibile e cancellerà tutti os dati associati.</p><p class=\"text-warning\"><strong>Nota:</strong> l'account verrà rimosso permanentemente da questa organizzazione.</p>",
   "manage.org_users.modal.delete_submit": "Elimina account",
   "manage.org_users.modal.delete_title": "Elimina account utente",

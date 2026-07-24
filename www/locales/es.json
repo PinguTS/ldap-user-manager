@@ -202,6 +202,7 @@
   "manage.org_users.email_after_create_note": "Si el envío de correos está configurado, el usuario siempre recibirá una notificación después de la creación de la cuenta: un correo de bienvenida si introduce la contraseña a continuación, o un correo con un enlace para establecer la contraseña si la casilla de verificación superior está activada.",
   "manage.org_users.email_invite_link_checkbox": "Enviar un enlace por correo electrónico para que el usuario elija su propia contraseña (no se requerirán los campos de contraseña de abajo)",
   "manage.org_users.email_reset_checkbox": "Enviar un enlace de restablecimiento por correo electrónico (el usuario define su propia contraseña)",
+  "manage.org_users.password_manual_hint": "¿Prefiere establecer la contraseña usted mismo? Desmarque esta casilla.",
   "manage.org_users.modal.delete_body": "<p>¿Está seguro de que desea eliminar al usuario «<span id=\"deleteUserName\"></span>»?</p><p class=\"text-danger\"><strong>Advertencia:</strong> Esta acción no se puede deshacer y eliminará todos los datos asociados.</p><p class=\"text-warning\"><strong>Nota:</strong> La cuenta se eliminará permanentemente de esta organización.</p>",
   "manage.org_users.modal.delete_submit": "Eliminar cuenta",
   "manage.org_users.modal.delete_title": "Eliminar cuenta de usuario",

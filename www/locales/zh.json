@@ -202,6 +202,7 @@
   "manage.org_users.email_after_create_note": "如果配置了邮件发送功能，用户将在账户创建后收到通知。如果您在下方输入了密码，系统将发送一封欢迎邮件。如果您勾选了上方的复选框，系统将发送一个激活链接。",
   "manage.org_users.email_invite_link_checkbox": "通过电子邮件向用户发送密码设置链接（无需填写下方的密码字段）。",
   "manage.org_users.email_reset_checkbox": "通过电子邮件发送密码重置链接（由用户自行设置密码）。",
+  "manage.org_users.password_manual_hint": "想自己设置密码？请取消勾选此项。",
   "manage.org_users.modal.delete_body": "<p>您确定要删除用户“ <span id=\"deleteUserName\"></span> ”吗？</p><p class=\"text-danger\"><strong>警告：</strong> 此操作无法撤销，所有相关数据将被永久删除。</p><p class=\"text-warning\"><strong>注意：</strong> 该账户将从此组织中彻底移除。</p>",
   "manage.org_users.modal.delete_submit": "删除账户",
   "manage.org_users.modal.delete_title": "删除用户账户",

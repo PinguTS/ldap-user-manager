@@ -202,6 +202,7 @@
   "manage.org_users.email_after_create_note": "Hvis e-postutsending er konfigurert, vil brukeren motta et varsel etter opprettelse. Hvis du skriver inn et passord nedenfor, sendes det en velkomst-e-post. Hvis du merker av i avkrysningsboksen ovenfor, sendes det en aktiveringslenke i stedet.",
   "manage.org_users.email_invite_link_checkbox": "Send en lenke for passordoppsett til brukeren via e-post (du trenger ikke å fylle ut passordfeltet nedenfor).",
   "manage.org_users.email_reset_checkbox": "Send en tilbakestillingslenke via e-post (brukeren setter sitt eget passord).",
+  "manage.org_users.password_manual_hint": "Foretrekker du å angi passordet selv? Fjern avhukingen i denne boksen.",
   "manage.org_users.modal.delete_body": "<p>Er du sikker på at du vil slette brukeren ' <span id=\"deleteUserName\"></span> '?</p><p class=\"text-danger\"><strong>Advarsel:</strong> Denne handlingen kan ikke angres, og alle tilknyttede data vil bli permanent slettet.</p><p class=\"text-warning\"><strong>Merk:</strong> Kontoen vil bli fullstendig fjernet fra denne organisasjonen.</p>",
   "manage.org_users.modal.delete_submit": "Slett konto",
   "manage.org_users.modal.delete_title": "Slett brukerkonto",

@@ -202,6 +202,7 @@
   "manage.org_users.email_after_create_note": "Når e-mail-levering er konfigureret, modtager brugeren altid en besked, efter kontoen er oprettet: en velkomstmail, hvis du angiver adgangskoden nedenfor, eller en e-mail med et link til at indstille adgangskoden, hvis ovenstående felt er markeret.",
   "manage.org_users.email_invite_link_checkbox": "Send et link via e-mail, så brugeren selv kan vælge sin adgangskode (adgangskodefelter nedenfor er ikke påkrævet)",
   "manage.org_users.email_reset_checkbox": "Send nulstillingslink via e-mail (brugeren sætter selv adgangskoden)",
+  "manage.org_users.password_manual_hint": "Foretrækker du selv at angive adgangskoden? Fjern markeringen i dette felt.",
   "manage.org_users.modal.delete_body": "<p>Er du sikker på, at du vil slette brugeren „<span id=\"deleteUserName\"></span>“?</p><p class=\"text-danger\"><strong>Advarsel:</strong> Dette kan ikke fortrydes og fjerner alle data.</p><p class=\"text-warning\"><strong>Bemærk:</strong> Kontoen vil blive slettet permanent fra denne organisation.</p>",
   "manage.org_users.modal.delete_submit": "Slet konto",
   "manage.org_users.modal.delete_title": "Slet brugerkonto",

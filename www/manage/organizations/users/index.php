@@ -751,10 +751,17 @@ renderFlash();
         <!-- Hidden fields for auto-generated values -->
         <input type="hidden" name="<?php echo $LDAP['account_attribute']; ?>" id="<?php echo $LDAP['account_attribute']; ?>" value="">
 
-        <?php global $EMAIL_SENDING_ENABLED; ?>
+        <?php
+        global $EMAIL_SENDING_ENABLED;
+        $quickAddLinkChecked = ($_SERVER['REQUEST_METHOD'] === 'POST')
+            ? (isset($_POST['send_password_set_link']) && $_POST['send_password_set_link'] === 'on')
+            : is_password_reset_link_enabled();
+        ?>
         <?php if ($EMAIL_SENDING_ENABLED === true) : ?>
             <div class="form-check mt-2">
-                <input class="form-check-input" type="checkbox" id="send_password_set_link" name="send_password_set_link" <?php echo !is_password_reset_link_enabled() ? 'disabled' : ''; ?>>
+                <input class="form-check-input" type="checkbox" id="send_password_set_link" name="send_password_set_link"
+                    <?php echo ($quickAddLinkChecked && is_password_reset_link_enabled()) ? 'checked' : ''; ?>
+                    <?php echo !is_password_reset_link_enabled() ? 'disabled' : ''; ?>>
                 <label class="form-check-label" for="send_password_set_link">
                     <?php echo htmlspecialchars(t('manage.org_users.email_invite_link_checkbox'), ENT_QUOTES, 'UTF-8'); ?>
                 </label>
@@ -762,6 +769,9 @@ renderFlash();
                     <div class="alert alert-warning mt-2 mb-0 py-2">
                         <?php echo htmlspecialchars(t('manage.users.new.error.password_set_link_disabled_secret_missing'), ENT_QUOTES, 'UTF-8'); ?>
                     </div>
+                <?php endif; ?>
+                <?php if (is_password_reset_link_enabled()) : ?>
+                    <p class="text-muted small mt-1 mb-0"><?php echo htmlspecialchars(t('manage.org_users.password_manual_hint'), ENT_QUOTES, 'UTF-8'); ?></p>
                 <?php endif; ?>
                 <p class="text-muted small mt-2 mb-0"><?php echo htmlspecialchars(t('manage.org_users.email_after_create_note'), ENT_QUOTES, 'UTF-8'); ?></p>
             </div>
@@ -972,7 +982,8 @@ renderFlash();
               <?php global $EMAIL_SENDING_ENABLED; ?>
               <?php if ($EMAIL_SENDING_ENABLED === true) : ?>
                 <div class="form-check mt-3">
-                  <input class="form-check-input" type="checkbox" id="send_password_reset_link" name="send_password_reset_link" <?php echo !is_password_reset_link_enabled() ? 'disabled' : ''; ?>>
+                  <input class="form-check-input" type="checkbox" id="send_password_reset_link" name="send_password_reset_link"
+                      <?php echo is_password_reset_link_enabled() ? 'checked' : 'disabled'; ?>>
                   <label class="form-check-label" for="send_password_reset_link">
                     <?php echo htmlspecialchars(t('manage.org_users.email_reset_checkbox'), ENT_QUOTES, 'UTF-8'); ?>
                   </label>
@@ -980,6 +991,9 @@ renderFlash();
                         <div class="alert alert-warning mt-2 mb-0 py-2">
                             <?php echo htmlspecialchars(t('manage.users.new.error.password_set_link_disabled_secret_missing'), ENT_QUOTES, 'UTF-8'); ?>
                         </div>
+                    <?php endif; ?>
+                    <?php if (is_password_reset_link_enabled()) : ?>
+                        <p class="text-muted small mt-1 mb-0"><?php echo htmlspecialchars(t('manage.org_users.password_manual_hint'), ENT_QUOTES, 'UTF-8'); ?></p>
                     <?php endif; ?>
                 </div>
               <?php endif; ?>

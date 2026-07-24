@@ -202,6 +202,7 @@
   "manage.org_users.email_after_create_note": "When email delivery is configured, the user always receives a message after the account is created: a welcome email if you set the password below, or an email with a set-password link if the option above is checked.",
   "manage.org_users.email_invite_link_checkbox": "Email a link so the user sets their own password (password fields below are not required)",
   "manage.org_users.email_reset_checkbox": "Email password reset link (user sets a new password)",
+  "manage.org_users.password_manual_hint": "Prefer to set the password yourself? Uncheck this box.",
   "manage.org_users.modal.delete_body": "<p>Are you sure you want to delete the user \"<span id=\"deleteUserName\"></span>\"?</p><p class=\"text-danger\"><strong>Warning:</strong> This action cannot be undone and will remove all associated data.</p><p class=\"text-warning\"><strong>Note:</strong> This will permanently delete the user account from this organization.</p>",
   "manage.org_users.modal.delete_submit": "Delete Account",
   "manage.org_users.modal.delete_title": "Delete User Account",
