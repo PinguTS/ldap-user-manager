@@ -1635,30 +1635,8 @@ function ldap_change_password($ldap_connection, $username, $new_password)
 
     global $log_prefix, $LDAP, $LDAP_DEBUG;
 
- # Find DN of user across all organizations and system users
-    $ldap_search_query = "{$LDAP['account_attribute']}=" . ldap_escape(($username === null ? '' : $username), "", LDAP_ESCAPE_FILTER);
-    $user_dn = null;
-
- # Search in organizations first
-    $ldap_search = @ ldap_search($ldap_connection, $LDAP['org_dn'], $ldap_search_query);
-    if ($ldap_search) {
-        $result = @ ldap_get_entries($ldap_connection, $ldap_search);
-        if ($result["count"] == 1) {
-            $user_dn = $result[0]['dn'];
-        }
-    }
-
- # If not found in organizations, search in system users
-    if (!$user_dn) {
-        $ldap_search = @ ldap_search($ldap_connection, $LDAP['people_dn'], $ldap_search_query);
-        if ($ldap_search) {
-            $result = @ ldap_get_entries($ldap_connection, $ldap_search);
-            if ($result["count"] == 1) {
-                  $user_dn = $result[0]['dn'];
-            }
-        }
-    }
-
+    // Resolve by entryUUID or account attribute (login stores UUID as USER_ID)
+    $user_dn = get_user_dn_from_identifier($ldap_connection, (string) ($username ?? ''));
     if (!$user_dn) {
         error_log("$log_prefix Couldn't find the DN for user $username");
         return false;
