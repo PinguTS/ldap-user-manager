@@ -674,8 +674,14 @@ function setPasskeyCookie($user_id, $is_admin, $is_maintainer = false, $is_org_a
         session_regenerate_id(true);
     }
 
-    // Store auth in PHP session so next request can restore if orf_cookie is not sent (e.g. after 302)
-    setLumSessionAuth($user_id, $is_admin, $is_maintainer, $is_org_admin, $org_name, $org_uuid, null);
+    // Store auth in PHP session so next request can restore if orf_cookie is not sent (e.g. after 302).
+    // Preserve an already-known display name (password change / cookie refresh must not wipe it to null,
+    // or the navbar falls back to $USER_ID which is now the entryUUID).
+    $display_name = $_SESSION['lum_display_name'] ?? $GLOBALS['USER_DISPLAY_NAME'] ?? null;
+    if (!is_string($display_name) || $display_name === '') {
+        $display_name = null;
+    }
+    setLumSessionAuth($user_id, $is_admin, $is_maintainer, $is_org_admin, $org_name, $org_uuid, $display_name);
 
     // Store user info in session for additional security
     $_SESSION['user_id'] = $user_id;
@@ -715,6 +721,32 @@ function validatePasskeyCookie()
         $USER_ORG_NAME = $_SESSION['lum_org_name'] ?? null;
         $USER_ORG_UUID = $_SESSION['lum_org_uuid'] ?? null;
         $USER_DISPLAY_NAME = $_SESSION['lum_display_name'] ?? null;
+        // Self-heal sessions wiped by older setPasskeyCookie() (password change / OIDC) that
+        // stored a null display name — otherwise the navbar falls back to the entryUUID.
+        if (($USER_DISPLAY_NAME === null || $USER_DISPLAY_NAME === '') && function_exists('open_ldap_connection') && function_exists('get_user_dn_from_identifier')) {
+            $ldap_connection = @open_ldap_connection();
+            if ($ldap_connection) {
+                $user_dn = get_user_dn_from_identifier($ldap_connection, $USER_ID);
+                if ($user_dn) {
+                    $read = @ldap_read($ldap_connection, $user_dn, '(objectClass=*)', ['mail', 'cn']);
+                    if ($read) {
+                        $entries = @ldap_get_entries($ldap_connection, $read);
+                        if (!empty($entries[0])) {
+                            $e = $entries[0];
+                            if (!empty($e['cn'][0])) {
+                                $USER_DISPLAY_NAME = $e['cn'][0];
+                            } elseif (!empty($e['mail'][0])) {
+                                $USER_DISPLAY_NAME = $e['mail'][0];
+                            }
+                        }
+                    }
+                }
+                @ldap_close($ldap_connection);
+                if ($USER_DISPLAY_NAME !== null && $USER_DISPLAY_NAME !== '') {
+                    setLumSessionAuth($USER_ID, $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $USER_ORG_NAME, $USER_ORG_UUID, $USER_DISPLAY_NAME);
+                }
+            }
+        }
         if ($SESSION_DEBUG) {
             error_log("$log_prefix Session: restored from PHP session for user {$USER_ID}");
         }
