@@ -59,7 +59,7 @@ if (isset($_POST['change_password'])) {
       <div class="card border-success">
         <div class="card-header bg-success text-white"><?php echo htmlspecialchars(t('password.change.success_heading'), ENT_QUOTES, 'UTF-8'); ?></div>
         <div class="card-body">
-          <?php echo htmlspecialchars(t('password.change.success_body'), ENT_QUOTES, 'UTF-8'); ?>
+            <?php echo htmlspecialchars(t('password.change.success_body'), ENT_QUOTES, 'UTF-8'); ?>
         </div>
       </div>
     </div>
