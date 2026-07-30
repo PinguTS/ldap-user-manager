@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.1.4] - 2026-07-30
+
+### Fixed
+
+- Password change form: clearer failure alerts, visibility toggles, and strength meter guidance
+- Organization user edit DN resolution when the account attribute is not UUID/uid
+- User add form account-identifier handling and input sanitization
+- Password-management and role/status localization strings across locales
+
 ## [1.1.3] - 2026-07-24
 
 ### Added

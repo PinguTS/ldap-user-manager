@@ -287,10 +287,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
         $message_type = 'danger';
         goto after_add_user;
     }
-    $givenName = trim($_POST['givenName']);
-    $sn = trim($_POST['sn']);
-    $mail = trim($_POST['mail']);
-    $cn = trim($_POST['cn']);
+    $givenName = trim((string) ($_POST['givenName'] ?? ''));
+    $sn = trim((string) ($_POST['sn'] ?? ''));
+    $mail = trim((string) ($_POST['mail'] ?? ''));
+    $cn = trim((string) ($_POST['cn'] ?? ''));
     $password = (string) ($_POST['password'] ?? '');
     $passwordMatch = (string) ($_POST['password_match'] ?? '');
     $sendPasswordSetLink = isset($_POST['send_password_set_link']) && $_POST['send_password_set_link'] === 'on';
@@ -457,7 +457,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
         $message_type = 'danger';
         goto after_edit_user;
     }
-    $uid = trim($_POST['edit_uid']);
+    $editUserId = trim((string) ($_POST['edit_uid'] ?? ''));
     $givenName = trim($_POST['edit_givenname']);
     $sn = trim($_POST['edit_sn']);
     $cn = trim($_POST['edit_cn'] ?? '');
@@ -466,7 +466,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
     $passwordMatch = (string) ($_POST['edit_password_match'] ?? '');
     $passScore = isset($_POST['edit_pass_score']) && is_numeric($_POST['edit_pass_score']) ? (int) $_POST['edit_pass_score'] : null;
 
-    $userDn = org_resolve_user_dn($orgName, $uid);
+    $userDn = org_resolve_user_dn($orgName, $editUserId);
     if ($userDn === null || $userDn === '') {
         $message = t('manage.users.msg.user_not_found');
         $message_type = 'danger';
@@ -495,15 +495,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
         }
         $entry['userPassword'] = ldap_hashed_password($password);
     }
-    try {
-        ldap_modify($ldap, (string) $userDn, $entry);
+    if (@ldap_modify($ldap, (string) $userDn, $entry)) {
+        lum_close_ldap_if_not_manage($ldap);
         $baseParam = lum_org_users_query_param((string) $org_uuid, (string) $orgName);
         header('Location: ?' . $baseParam . '&updated=1');
         exit;
-    } catch (Exception $e) {
-        $message = t('manage.users.msg.profile_update_fail') . ' ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8');
-        $message_type = 'danger';
     }
+    $message = t('manage.users.msg.profile_update_fail') . ' ' . htmlspecialchars(ldap_error($ldap), ENT_QUOTES, 'UTF-8');
+    $message_type = 'danger';
     lum_close_ldap_if_not_manage($ldap);
 }
 after_edit_user:
@@ -748,8 +747,10 @@ renderFlash();
             <small class="text-muted"><?php echo htmlspecialchars(t('manage.common.email_username_hint'), ENT_QUOTES, 'UTF-8'); ?></small>
         </div>
         
+        <?php if ($LDAP['account_attribute'] !== 'mail') : ?>
         <!-- Hidden fields for auto-generated values -->
         <input type="hidden" name="<?php echo $LDAP['account_attribute']; ?>" id="<?php echo $LDAP['account_attribute']; ?>" value="">
+        <?php endif; ?>
 
         <?php
         global $EMAIL_SENDING_ENABLED;
@@ -852,7 +853,7 @@ renderFlash();
               <a href="?<?= lum_org_users_query_param((string) $org_uuid, (string) $orgName) ?>" class="btn-close" aria-label="<?php echo htmlspecialchars(t('modal.close_aria'), ENT_QUOTES, 'UTF-8'); ?>"></a>
             </div>
             <div class="modal-body">
-              <input type="hidden" name="edit_uid" id="edit_uid_input" value="<?= htmlspecialchars(get_ldap_attribute($editUser, 'uid')) ?>">
+              <input type="hidden" name="edit_uid" id="edit_uid_input" value="<?= htmlspecialchars(get_user_identifier_for_url($editUser, (string) ($editUserParam ?? ''))) ?>">
               <div class="form-group">
                 <label for="edit_givenname"><?php echo htmlspecialchars(t('manage.common.first_name'), ENT_QUOTES, 'UTF-8'); ?></label>
                 <input type="text" class="form-control" name="edit_givenname" id="edit_givenname" value="<?= htmlspecialchars(get_ldap_attribute($editUser, 'givenName')) ?>" required>

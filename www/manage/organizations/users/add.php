@@ -477,19 +477,6 @@ if ($errors != "") { ?>
                             </div>
                         </div>
 
-                        <!-- Account Identifier (Auto-generated from Email) -->
-                        <div class="form-group" style="display: none;">
-                            <label for="<?php echo $account_attribute; ?>" class="col-sm-6 form-label">
-                                <strong><?php echo htmlspecialchars($attribute_map[$account_attribute]['label']); ?></strong>
-                            </label>
-                            <div class="col-sm-6">
-                                <input type="hidden" name="<?php echo $account_attribute; ?>" 
-                                       id="<?php echo $account_attribute; ?>" 
-                                       value="<?php echo htmlspecialchars($_POST[$account_attribute] ?? ''); ?>">
-                                <small class="text-muted"><?php echo htmlspecialchars(t('manage.org_users.add.auto_generated_email_address'), ENT_QUOTES, 'UTF-8'); ?></small>
-                            </div>
-                        </div>
-
                         <div class="row">
                             <div class="col-md-6">
                                 <!-- First Name -->
@@ -537,6 +524,21 @@ if ($errors != "") { ?>
                                 <small class="text-muted"><?php echo htmlspecialchars(t('manage.common.email_username_hint'), ENT_QUOTES, 'UTF-8'); ?></small>
                             </div>
                         </div>
+
+                        <?php if ($account_attribute !== 'mail') : ?>
+                        <!-- Account Identifier (Auto-generated from Email) -->
+                        <div class="form-group" style="display: none;">
+                            <label for="<?php echo $account_attribute; ?>" class="col-sm-6 form-label">
+                                <strong><?php echo htmlspecialchars($attribute_map[$account_attribute]['label']); ?></strong>
+                            </label>
+                            <div class="col-sm-6">
+                                <input type="hidden" name="<?php echo $account_attribute; ?>" 
+                                       id="<?php echo $account_attribute; ?>" 
+                                       value="<?php echo htmlspecialchars($_POST[$account_attribute] ?? ''); ?>">
+                                <small class="text-muted"><?php echo htmlspecialchars(t('manage.org_users.add.auto_generated_email_address'), ENT_QUOTES, 'UTF-8'); ?></small>
+                            </div>
+                        </div>
+                        <?php endif; ?>
 
                         <?php
                         $addUserLinkChecked = isset($_POST['create_org_user'])

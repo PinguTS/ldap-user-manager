@@ -35,23 +35,25 @@ if (isset($_POST['change_password'])) {
         global $IS_ADMIN, $IS_MAINTAINER, $IS_ORG_ADMIN, $USER_ORG_NAME, $USER_ORG_UUID;
 
         $ldap_connection = open_ldap_connection();
-        ldap_change_password($ldap_connection, $USER_ID, $_POST['password']) or die("change_ldap_password() failed.");
-        $user_dn = get_user_dn_from_identifier($ldap_connection, (string) $USER_ID);
-        if ($user_dn) {
-            $bindKeyHex = captureUserLdapCredentials($user_dn, (string) $_POST['password']);
-            setPasskeyCookie(
-                (string) $USER_ID,
-                (bool) $IS_ADMIN,
-                (bool) $IS_MAINTAINER,
-                (bool) $IS_ORG_ADMIN,
-                $USER_ORG_NAME,
-                $USER_ORG_UUID,
-                $bindKeyHex
-            );
-        }
+        if (!ldap_change_password($ldap_connection, $USER_ID, $_POST['password'])) {
+            $change_failed = 1;
+        } else {
+            $user_dn = get_user_dn_from_identifier($ldap_connection, (string) $USER_ID);
+            if ($user_dn) {
+                $bindKeyHex = captureUserLdapCredentials($user_dn, (string) $_POST['password']);
+                setPasskeyCookie(
+                    (string) $USER_ID,
+                    (bool) $IS_ADMIN,
+                    (bool) $IS_MAINTAINER,
+                    (bool) $IS_ORG_ADMIN,
+                    $USER_ORG_NAME,
+                    $USER_ORG_UUID,
+                    $bindKeyHex
+                );
+            }
 
-        renderHeader(t('password.change.success_title', ['org' => $ORGANISATION_NAME]));
-        ?>
+            renderHeader(t('password.change.success_title', ['org' => $ORGANISATION_NAME]));
+            ?>
   <div class="container">
     <div class="col-sm-6 offset-sm-3">
       <div class="card border-success">
@@ -62,13 +64,20 @@ if (isset($_POST['change_password'])) {
       </div>
     </div>
   </div>
-        <?php
-        renderFooter();
-        exit(0);
+            <?php
+            renderFooter();
+            exit(0);
+        }
     }
 }
 
 renderHeader(t('password.change.page_title', ['org' => $ORGANISATION_NAME]));
+
+if (isset($change_failed)) {  ?>
+<div class="alert alert-danger">
+ <p class="text-center"><?php echo htmlspecialchars(t('password.change.fail'), ENT_QUOTES, 'UTF-8'); ?></p>
+</div>
+<?php }
 
 if (isset($not_strong_enough)) {  ?>
 <div class="alert alert-warning">
@@ -103,8 +112,37 @@ document.addEventListener('DOMContentLoaded', function(){
     initializePasswordStrength({
         passwordFieldId: 'password',
         confirmFieldId: 'confirm',
+        strengthMeterId: 'password_strength_meter',
+        scoreDisplayId: 'password_score_display',
         config: passwordConfig
     });
+
+    function syncEyeIcon(input, button) {
+        const icon = button.querySelector('i');
+        if (!icon) return;
+        const visible = input.type === 'text';
+        icon.className = visible ? 'bi bi-eye-slash' : 'bi bi-eye';
+        button.setAttribute('aria-pressed', visible ? 'true' : 'false');
+    }
+
+    function bindEyeToggle(inputId, buttonId) {
+        const input = document.getElementById(inputId);
+        const button = document.getElementById(buttonId);
+        if (!input || !button) return;
+
+        button.addEventListener('click', function() {
+            input.type = input.type === 'password' ? 'text' : 'password';
+            syncEyeIcon(input, button);
+        });
+
+        // Keep icon in sync when Generate reveals the field (type=text + input event)
+        input.addEventListener('input', function() {
+            syncEyeIcon(input, button);
+        });
+    }
+
+    bindEyeToggle('password', 'toggle_password');
+    bindEyeToggle('confirm', 'toggle_confirm');
 
     const generateButton = document.getElementById('generate_password');
     if (generateButton) {
@@ -159,12 +197,31 @@ document.addEventListener('DOMContentLoaded', function(){
      <div class="row g-3 text-start">
       <div class="col-md-6" id="password_div">
        <label for="password" class="form-label"><?php echo htmlspecialchars(t('password.change.new_label'), ENT_QUOTES, 'UTF-8'); ?></label>
-       <input type="password" class="form-control" id="password" name="password">
+       <div class="input-group">
+        <input type="password" class="form-control" id="password" name="password">
+        <button type="button" class="btn btn-outline-secondary" id="toggle_password" tabindex="-1" aria-pressed="false" aria-label="<?php echo htmlspecialchars(t('password.change.toggle_visibility'), ENT_QUOTES, 'UTF-8'); ?>">
+         <i class="bi bi-eye" aria-hidden="true"></i>
+        </button>
+       </div>
+       <div class="progress mt-2">
+        <div class="progress-bar" id="password_strength_meter" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+       </div>
+       <div class="mt-1" id="password_score_display">
+        <small class="text-muted">
+         <span class="strength-text">Very Weak</span>
+         <span class="strength-score">(0/4)</span>
+        </small>
+       </div>
        <button type="button" class="btn btn-outline-secondary mt-2" id="generate_password" tabindex="-1"><?php echo htmlspecialchars(t('password.change.generate'), ENT_QUOTES, 'UTF-8'); ?></button>
       </div>
       <div class="col-md-6" id="confirm_div">
        <label for="confirm" class="form-label"><?php echo htmlspecialchars(t('password.change.confirm_field'), ENT_QUOTES, 'UTF-8'); ?></label>
-       <input type="password" class="form-control" id="confirm" name="password_match" onkeyup="check_passwords_match()">
+       <div class="input-group">
+        <input type="password" class="form-control" id="confirm" name="password_match" onkeyup="check_passwords_match()">
+        <button type="button" class="btn btn-outline-secondary" id="toggle_confirm" tabindex="-1" aria-pressed="false" aria-label="<?php echo htmlspecialchars(t('password.change.toggle_visibility'), ENT_QUOTES, 'UTF-8'); ?>">
+         <i class="bi bi-eye" aria-hidden="true"></i>
+        </button>
+       </div>
       </div>
      </div>
 
@@ -181,4 +238,3 @@ document.addEventListener('DOMContentLoaded', function(){
 <?php
 
 renderFooter();
-
