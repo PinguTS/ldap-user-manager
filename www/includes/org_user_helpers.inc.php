@@ -90,7 +90,7 @@ function org_get_scoped_manager_count(string $orgName, array $orgManagerDns): in
 }
 
 /**
- * Resolve a user identifier (UUID or uid) to a DN within the org’s people OU.
+ * Resolve a user identifier (UUID, account attribute, or uid) to a DN within the org’s people OU.
  */
 function org_resolve_user_dn(string $orgName, string $userIdentifier): ?string
 {
@@ -100,12 +100,13 @@ function org_resolve_user_dn(string $orgName, string $userIdentifier): ?string
         return null;
     }
 
+    $usersDn = org_get_people_base_dn($orgName);
+
     if (org_user_identifier_is_uuid($userIdentifier)) {
         $ldapConnection = open_ldap_connection();
         if ($ldapConnection === false) {
             return null;
         }
-        $usersDn = org_get_people_base_dn($orgName);
         $userByUuid = ldap_get_entry_by_uuid($ldapConnection, $userIdentifier, $usersDn);
         @ldap_close($ldapConnection);
         if (!$userByUuid || !isset($userByUuid['dn'])) {
@@ -115,9 +116,28 @@ function org_resolve_user_dn(string $orgName, string $userIdentifier): ?string
         return (string) $userByUuid['dn'];
     }
 
-    $usersDn = org_get_people_base_dn($orgName);
+    $ldapConnection = open_ldap_connection();
+    if ($ldapConnection === false) {
+        return null;
+    }
+    $escaped = lum_filter_value($userIdentifier);
+    $accountAttr = (string) $LDAP['account_attribute'];
+    $filter = $accountAttr === 'uid'
+        ? "(uid={$escaped})"
+        : "(|({$accountAttr}={$escaped})(uid={$escaped}))";
+    $search = @ldap_search($ldapConnection, $usersDn, $filter, ['dn']);
+    if (!$search) {
+        @ldap_close($ldapConnection);
 
-    return 'uid=' . ldap_escape($userIdentifier, '', LDAP_ESCAPE_DN) . ',' . $usersDn;
+        return null;
+    }
+    $entries = ldap_get_entries($ldapConnection, $search);
+    @ldap_close($ldapConnection);
+    if (!is_array($entries) || ($entries['count'] ?? 0) < 1 || !isset($entries[0]['dn'])) {
+        return null;
+    }
+
+    return (string) $entries[0]['dn'];
 }
 
 /**
