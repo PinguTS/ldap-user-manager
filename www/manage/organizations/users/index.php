@@ -287,10 +287,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
         $message_type = 'danger';
         goto after_add_user;
     }
-    $givenName = trim($_POST['givenName']);
-    $sn = trim($_POST['sn']);
-    $mail = trim($_POST['mail']);
-    $cn = trim($_POST['cn']);
+    $givenName = trim((string) ($_POST['givenName'] ?? ''));
+    $sn = trim((string) ($_POST['sn'] ?? ''));
+    $mail = trim((string) ($_POST['mail'] ?? ''));
+    $cn = trim((string) ($_POST['cn'] ?? ''));
     $password = (string) ($_POST['password'] ?? '');
     $passwordMatch = (string) ($_POST['password_match'] ?? '');
     $sendPasswordSetLink = isset($_POST['send_password_set_link']) && $_POST['send_password_set_link'] === 'on';
@@ -748,8 +748,10 @@ renderFlash();
             <small class="text-muted"><?php echo htmlspecialchars(t('manage.common.email_username_hint'), ENT_QUOTES, 'UTF-8'); ?></small>
         </div>
         
+        <?php if ($LDAP['account_attribute'] !== 'mail') : ?>
         <!-- Hidden fields for auto-generated values -->
         <input type="hidden" name="<?php echo $LDAP['account_attribute']; ?>" id="<?php echo $LDAP['account_attribute']; ?>" value="">
+        <?php endif; ?>
 
         <?php
         global $EMAIL_SENDING_ENABLED;
