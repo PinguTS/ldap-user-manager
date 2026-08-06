@@ -148,12 +148,16 @@ if (isset($_POST['action']) && $_POST['action'] === 'toggle_recent_user_manager'
             $userDisplay = org_get_user_display($userDn, $userIdentifier);
             $orgManagerDns = org_get_manager_dns($org_name);
             if (org_dn_in_list($userDn, $orgManagerDns)) {
-                $result = removeUserFromOrgAdmin($org_name, $userDn);
-                if ($result[0]) {
-                    renderAlertBanner(t('manage.org_users.msg.removed_org_manager', ['user' => $userDisplay]), "warning");
+                if (org_manager_toggle_is_self($userDn)) {
+                    renderAlertBanner(t('manage.org_users.msg.cannot_remove_self_manager'), "warning");
                 } else {
-                    error_log("show/org toggle_manager: removeUserFromOrgAdmin failed: " . $result[1]);
-                    renderAlertBanner(t('manage.org_users.msg.update_org_manager_fail'), "danger");
+                    $result = removeUserFromOrgAdmin($org_name, $userDn);
+                    if ($result[0]) {
+                        renderAlertBanner(t('manage.org_users.msg.removed_org_manager', ['user' => $userDisplay]), "warning");
+                    } else {
+                        error_log("show/org toggle_manager: removeUserFromOrgAdmin failed: " . $result[1]);
+                        renderAlertBanner(t('manage.org_users.msg.update_org_manager_fail'), "danger");
+                    }
                 }
             } else {
                 $result = addUserToOrgAdmin($org_name, $userDn);
@@ -905,6 +909,7 @@ if ($orgExists) {
                             $userIdentifier = (string) ($user['entryUUID'] ?? $user['uid'] ?? '');
                             $isManager = isset($user['dn']) && org_dn_in_list((string) $user['dn'], $orgManagerDns);
                             $isLastManager = $isManager && $orgManagerCount <= 1;
+                            $isSelf = isset($user['dn']) && org_manager_toggle_is_self((string) $user['dn']);
                             ?>
                         <tr>
                          <td><?php print safeDisplayName($user, 'cn', 'givenName', 'sn'); ?></td>
@@ -919,7 +924,7 @@ if ($orgExists) {
                             ?>
                          </td>
                          <td class="text-center">
-                            <?php renderOrgShowRecentManagerToggle($userIdentifier, $isManager, $isLastManager); ?>
+                            <?php renderOrgShowRecentManagerToggle($userIdentifier, $isManager, $isLastManager, $isSelf); ?>
                          </td>
                          <td>
                             <?php renderOrgShowRecentUserActions($org_uuid, $user, $isManager); ?>
