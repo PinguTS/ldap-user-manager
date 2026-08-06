@@ -1750,79 +1750,123 @@ function ldap_find_user_entry_by_account_identifier($ldap_connection, string $ac
 
 ##################################
 
-function ldap_update_user_attributes($ldap_connection, $username, $attributes)
+
+##################################
+
+/**
+ * Detect whether a set of pending attribute modifications would change the
+ * RDN/naming attribute of the given DN. If so, return the new RDN, the
+ * parent DN, and the new attribute value. Returns null when the RDN is
+ * unchanged or the RDN attribute is not among the modifications.
+ *
+ * @param string $user_dn Existing DN (e.g. mail=a@b.com,ou=people,dc=example,dc=com)
+ * @param array<string, string> $modifications Attributes to be written
+ * @return array<string, string>|null
+ */
+function lum_pending_rdn_change(string $user_dn, array $modifications): ?array
 {
-
-    global $log_prefix, $LDAP, $LDAP_DEBUG;
-
-    if (empty($attributes) || !is_array($attributes)) {
-        error_log("$log_prefix Update user attributes; no attributes provided or invalid format", 0);
-        return false;
+    if (empty($modifications)) {
+        return null;
     }
 
-    // Mass-assignment prevention: only allowlisted profile attributes may be written.
-    $allowlist  = array_map('strtolower', LUM_USER_PROFILE_WRITABLE_ATTRS);
-    $attributes_filtered = [];
-    foreach ($attributes as $attr => $value) {
-        $attr_lc = strtolower($attr);
-        if (in_array($attr_lc, $allowlist, true)) {
-            $attributes_filtered[$attr] = $value;
-        } else {
-            error_log("$log_prefix ldap_update_user_attributes: Dropping non-allowlisted attribute '$attr'");
+    $exploded = @ldap_explode_dn($user_dn, 0);
+    if (!is_array($exploded) || ($exploded['count'] ?? 0) < 1) {
+        return null;
+    }
+    unset($exploded['count']);
+    $rdn = array_shift($exploded);
+
+    $parent_dn = $exploded ? implode(',', $exploded) : '';
+
+    $rdn_parts = @ldap_explode_dn($rdn, 0);
+    if (!is_array($rdn_parts) || ($rdn_parts['count'] ?? 0) < 1) {
+        return null;
+    }
+
+    foreach ($rdn_parts as $key => $part) {
+        if ($key === 'count') {
+            continue;
         }
-    }
-    $attributes = $attributes_filtered;
-
-    if (empty($attributes)) {
-        error_log("$log_prefix Update user attributes; all provided attributes were rejected by allowlist", 0);
-        return false;
-    }
-
- # Find the user across all organizations and system users
-    $ldap_search_query = "{$LDAP['account_attribute']}=" . ldap_escape(($username === null ? '' : $username), "", LDAP_ESCAPE_FILTER);
-    $user_dn = null;
-
- # Search in organizations first
-    $ldap_search = @ ldap_search($ldap_connection, $LDAP['org_dn'], $ldap_search_query);
-    if ($ldap_search) {
-        $result = @ ldap_get_entries($ldap_connection, $ldap_search);
-        if ($result['count'] > 0) {
-            $user_dn = $result[0]['dn'];
+        $part = (string) $part;
+        $equalPos = strpos($part, '=');
+        if ($equalPos === false) {
+            continue;
         }
-    }
+        $rdn_attr = strtolower(substr($part, 0, $equalPos));
+        $rdn_value = substr($part, $equalPos + 1);
 
- # If not found in organizations, search in system users
-    if (!$user_dn) {
-        $ldap_search = @ ldap_search($ldap_connection, $LDAP['people_dn'], $ldap_search_query);
-        if ($ldap_search) {
-            $result = @ ldap_get_entries($ldap_connection, $ldap_search);
-            if ($result['count'] > 0) {
-                  $user_dn = $result[0]['dn'];
+        foreach ($modifications as $attr => $new_value) {
+            if (strtolower((string) $attr) === $rdn_attr) {
+                $new_value = (string) $new_value;
+                if ($new_value === '') {
+                    return null;
+                }
+                // Compare case-sensitively; LDAP is strict for RDN value.
+                if ($new_value === $rdn_value) {
+                    return null;
+                }
+
+                $new_rdn = $rdn_attr . '=' . ldap_escape($new_value, '', LDAP_ESCAPE_DN);
+                return [
+                    'attr' => $rdn_attr,
+                    'new_value' => $new_value,
+                    'new_rdn' => $new_rdn,
+                    'parent_dn' => $parent_dn,
+                ];
             }
         }
     }
 
-    if (!$user_dn) {
-        error_log("$log_prefix Update user attributes; User {$username} not found", 0);
-        return false;
-    }
-
- # Handle password hashing if password is being updated
-    if (isset($attributes['userPassword'])) {
-        $attributes['userPassword'] = ldap_hashed_password($attributes['userPassword']);
-    }
-
-    $update = @ ldap_mod_replace($ldap_connection, $user_dn, $attributes);
-
-    if ($update) {
-        error_log("$log_prefix Updated attributes for user {$username}", 0);
-        return true;
-    } else {
-        error_log("$log_prefix Couldn't update attributes for user {$username}: " . ldap_error($ldap_connection), 0);
-        return false;
-    }
+    return null;
 }
 
+/**
+ * Atomically update a member DN reference in a set of groupOfNames entries.
+ * For each group, add the new DN and remove the old DN in one batch so the
+ * group never becomes empty. Returns false if any group failed, but still
+ * attempts the remaining groups.
+ *
+ * @param resource|\LDAP\Connection $ldap_connection
+ * @param array<int, string> $group_dns
+ * @param string $old_dn
+ * @param string $new_dn
+ * @return bool
+ */
+function ldap_update_member_dn_in_groups($ldap_connection, array $group_dns, string $old_dn, string $new_dn): bool
+{
+    global $log_prefix;
+
+    if (empty($group_dns)) {
+        return true;
+    }
+
+    $success = true;
+    foreach ($group_dns as $group_dn) {
+        $batch = [
+            [
+                'attrib' => 'member',
+                'modtype' => LDAP_MODIFY_BATCH_ADD,
+                'values' => [$new_dn],
+            ],
+            [
+                'attrib' => 'member',
+                'modtype' => LDAP_MODIFY_BATCH_REMOVE,
+                'values' => [$old_dn],
+            ],
+        ];
+
+        $ok = @ldap_modify_batch($ldap_connection, $group_dn, $batch);
+        if (!$ok) {
+            $error = ldap_error($ldap_connection);
+            error_log("$log_prefix ldap_update_member_dn_in_groups: Failed to update $group_dn: $error");
+            $success = false;
+        } else {
+            error_log("$log_prefix ldap_update_member_dn_in_groups: Updated member DN in $group_dn");
+        }
+    }
+
+    return $success;
+}
 
 ##################################
 

@@ -1129,11 +1129,13 @@ function isUserOrgManager($orgName, $userDn)
  * Update user attributes
  * @param string $userIdentifier User UUID or DN
  * @param array $userData User data to update
- * @return bool Success status
+ * @param string|null &$error Optional error code (e.g. 'identifier_in_use')
+ * @return string|false The resulting user DN on success, false on failure
  */
-function updateUser($userIdentifier, $userData)
+function updateUser($userIdentifier, $userData, ?string &$error = null)
 {
     global $LDAP;
+    $error = null;
     $ldap = lum_ldap_data_connection();
     if ($ldap === false) {
         return false;
@@ -1168,22 +1170,60 @@ function updateUser($userIdentifier, $userData)
 
     if (empty($modifications)) {
         lum_close_ldap_if_not_manage($ldap);
-        return true; // Nothing to update
+        return $user_dn; // Nothing to update, DN unchanged
     }
 
-    // Perform the update
-    $result = @ldap_modify($ldap, $user_dn, $modifications);
+    // Handle renaming when the RDN attribute itself is being changed (e.g. mail).
+    $rdn_change = lum_pending_rdn_change($user_dn, $modifications);
+    if ($rdn_change !== null) {
+        // Make sure the new identifier is not already in use by another entry.
+        $existing = ldap_find_user_entry_by_account_identifier($ldap, $rdn_change['new_value']);
+        if ($existing !== null) {
+            $error = 'identifier_in_use';
+            lum_close_ldap_if_not_manage($ldap);
+            error_log("updateUser: Refusing rename; identifier already in use: " . $rdn_change['new_value']);
+            return false;
+        }
 
-    if ($result) {
-        lum_close_ldap_if_not_manage($ldap);
-        return true;
-    } else {
-        // Get error message before closing the connection
-        $error_msg = ldap_error($ldap);
-        lum_close_ldap_if_not_manage($ldap);
-        error_log("updateUser: Failed to update user $userIdentifier: " . $error_msg);
-        return false;
+        // Resolve groups before rename; once the DN changes, searches by old DN fail.
+        $group_dns = ldap_get_user_groups($ldap, $user_dn);
+
+        $renamed = @ldap_rename($ldap, $user_dn, $rdn_change['new_rdn'], $rdn_change['parent_dn'], true);
+        if (!$renamed) {
+            $error_msg = ldap_error($ldap);
+            error_log("updateUser: ldap_rename failed for $user_dn to " . $rdn_change['new_rdn'] . ": " . $error_msg);
+            lum_close_ldap_if_not_manage($ldap);
+            return false;
+        }
+
+        $new_user_dn = $rdn_change['attr'] . '=' . ldap_escape($rdn_change['new_value'], '', LDAP_ESCAPE_DN) . ($rdn_change['parent_dn'] !== '' ? ',' . $rdn_change['parent_dn'] : '');
+        error_log("updateUser: Renamed $user_dn to $new_user_dn");
+
+        // Update all role groups that reference this user by the old DN.
+        if (!empty($group_dns)) {
+            ldap_update_member_dn_in_groups($ldap, $group_dns, $user_dn, $new_user_dn);
+        }
+
+        // The RDN attribute is already set by the rename; drop it from the
+        // remaining modifications so the subsequent modify does not fail.
+        unset($modifications[$rdn_change['attr']]);
+
+        $user_dn = $new_user_dn;
     }
+
+    // Perform any remaining attribute updates against the (possibly new) DN.
+    if (!empty($modifications)) {
+        $result = @ldap_modify($ldap, $user_dn, $modifications);
+        if (!$result) {
+            $error_msg = ldap_error($ldap);
+            lum_close_ldap_if_not_manage($ldap);
+            error_log("updateUser: Failed to update user $userIdentifier at $user_dn: " . $error_msg);
+            return false;
+        }
+    }
+
+    lum_close_ldap_if_not_manage($ldap);
+    return $user_dn;
 }
 
 /**

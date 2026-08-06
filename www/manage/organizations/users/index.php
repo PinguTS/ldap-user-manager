@@ -143,14 +143,19 @@ if (isset($_POST['toggle_manager']) && isset($_POST['uid'])) {
 
     $orgManagerDns = org_get_manager_dns($orgName);
     if (org_dn_in_list($userDn, $orgManagerDns)) {
-        $result = removeUserFromOrgAdmin($orgName, $userDn);
-        if ($result[0]) {
-            $message = t('manage.org_users.msg.removed_org_manager', ['user' => $toggleUserDisplay]);
+        if (org_manager_toggle_is_self($userDn)) {
+            $message = t('manage.org_users.msg.cannot_remove_self_manager');
             $message_type = 'warning';
         } else {
-            error_log("toggle_manager: removeUserFromOrgAdmin failed for user $userDn: " . $result[1]);
-            $message = t('manage.org_users.msg.update_org_manager_fail');
-            $message_type = 'danger';
+            $result = removeUserFromOrgAdmin($orgName, $userDn);
+            if ($result[0]) {
+                $message = t('manage.org_users.msg.removed_org_manager', ['user' => $toggleUserDisplay]);
+                $message_type = 'warning';
+            } else {
+                error_log("toggle_manager: removeUserFromOrgAdmin failed for user $userDn: " . $result[1]);
+                $message = t('manage.org_users.msg.update_org_manager_fail');
+                $message_type = 'danger';
+            }
         }
     } else {
         $result = addUserToOrgAdmin($orgName, $userDn);
@@ -473,12 +478,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
         goto after_edit_user;
     }
 
-    $ldap = lum_ldap_data_connection();
-    if ($ldap === false) {
-        $message = t('manage.orgs.msg.ldap_fail');
-        $message_type = 'danger';
-        goto after_edit_user;
-    }
     $entry = [
         'givenname' => $givenName,
         'sn' => $sn,
@@ -490,20 +489,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_user'])) {
         if (!$validation['ok']) {
             $message = implode(' ', $validation['errors']);
             $message_type = 'danger';
-            lum_close_ldap_if_not_manage($ldap);
             goto after_edit_user;
         }
         $entry['userPassword'] = ldap_hashed_password($password);
     }
-    if (@ldap_modify($ldap, (string) $userDn, $entry)) {
-        lum_close_ldap_if_not_manage($ldap);
+
+    $update_error = null;
+    $result = updateUser((string) $userDn, $entry, $update_error);
+    if ($result) {
         $baseParam = lum_org_users_query_param((string) $org_uuid, (string) $orgName);
         header('Location: ?' . $baseParam . '&updated=1');
         exit;
     }
-    $message = t('manage.users.msg.profile_update_fail') . ' ' . htmlspecialchars(ldap_error($ldap), ENT_QUOTES, 'UTF-8');
+
+    if ($update_error === 'identifier_in_use') {
+        $message = t('manage.users.msg.email_in_use');
+    } else {
+        $message = t('manage.users.msg.profile_update_fail');
+    }
     $message_type = 'danger';
-    lum_close_ldap_if_not_manage($ldap);
 }
 after_edit_user:
 
@@ -686,6 +690,7 @@ renderFlash();
                 $user_dn = $user['dn'] ?? org_resolve_user_dn($orgName, get_ldap_attribute($user, 'uid')) ?? '';
                 $isManager = $user_dn !== '' && org_dn_in_list($user_dn, $orgManagerDns);
                 $isLastManager = $isManager && $orgManagerCount <= 1;
+                $isSelf = $user_dn !== '' && org_manager_toggle_is_self($user_dn);
                 ?>
                 <tr<?= $isManager ? ' class="table-success"' : '' ?>>
                     <td><?= htmlspecialchars(get_ldap_attribute($user, 'uid')) ?></td>
@@ -702,7 +707,7 @@ renderFlash();
                         ?>
                     </td>
                     <td class="text-center">
-                        <?php renderOrgUsersPageManagerToggle($user_identifier, $isManager, $isLastManager, $org_uuid, $orgName); ?>
+                        <?php renderOrgUsersPageManagerToggle($user_identifier, $isManager, $isLastManager, $isSelf, $org_uuid, $orgName); ?>
                     </td>
                     <td>
                         <?php renderOrgUsersPageActionCell($user_identifier, $user, $isManager, $org_uuid, $orgName); ?>

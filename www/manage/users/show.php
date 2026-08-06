@@ -271,10 +271,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile']) && 
 
     // If no errors, update the user
     if (empty($errors)) {
-        $result = updateUser($user_data['dn'], $update_data);
+        $update_error = null;
+        $result = updateUser($user_data['dn'], $update_data, $update_error);
         if ($result) {
             renderAlertBanner(t('manage.users.msg.profile_update_ok'), 'success', 10000);
-            // Refresh user data
+
+            // updateUser() may have renamed the entry (e.g. mail changed while
+            // mail is the RDN). Use the returned DN for refresh and keep the
+            // local data in sync so the rest of the page displays correctly.
+            $new_user_dn = (string) $result;
+            if ($new_user_dn !== $user_data['dn']) {
+                $user_data['dn'] = $new_user_dn;
+
+                // Keep the local identifier in sync with the new RDN so the
+                // hidden form field and any subsequent self-edit use the new value.
+                $account_identifier = $update_data[$LDAP['account_attribute']] ?? $account_identifier;
+
+                // Self-edit in legacy account-identifier mode: the session ID
+                // is the old email, so update it to stay logged in. UUID mode
+                // is unaffected because entryUUID survives a modrdn.
+                if (!$LDAP['use_uuid_identification'] && $VALIDATED && $USER_ID === $account_identifier) {
+                    $USER_ID = $account_identifier;
+                    $_SESSION['user_id'] = $USER_ID;
+                    $_SESSION['lum_user_id'] = $USER_ID;
+                }
+            }
+
+            // Refresh user data from the (possibly new) DN
             $ldap_search = ldap_read($ldap_connection, $user_data['dn'], '(objectClass=*)');
             if ($ldap_search) {
                 $updated_user = ldap_get_entries($ldap_connection, $ldap_search);
@@ -286,7 +309,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile']) && 
                 }
             }
         } else {
-            renderAlertBanner(t('manage.users.msg.profile_update_fail'), 'danger', 10000);
+            if ($update_error === 'identifier_in_use') {
+                renderAlertBanner(t('manage.users.msg.email_in_use'), 'danger', 10000);
+            } else {
+                renderAlertBanner(t('manage.users.msg.profile_update_fail'), 'danger', 10000);
+            }
         }
     } else {
         renderAlertBanner(
