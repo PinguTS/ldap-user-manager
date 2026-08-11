@@ -519,7 +519,7 @@ function format_org_list_count_label(int $shown, int $total): string
                                         <div class="d-flex align-items-center justify-content-end flex-wrap gap-2" style="min-width: 260px;">
                                             <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.orgs.index.aria.view_users'), ENT_QUOTES, 'UTF-8'); ?>">
                                                 <?php if ($use_uuid) : ?>
-                                                    <a href="<?php echo $org_view_href; ?>" class="btn btn-info"><?php echo htmlspecialchars(t('manage.common.view'), ENT_QUOTES, 'UTF-8'); ?><?php echo htmlspecialchars(t('manage.common.view'), ENT_QUOTES, 'UTF-8'); ?></a>
+                                                    <a href="<?php echo $org_view_href; ?>" class="btn btn-info"><?php echo htmlspecialchars(t('manage.common.view'), ENT_QUOTES, 'UTF-8'); ?></a>
                                                     <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/organizations/' . urlencode($org_uuid_val) . '/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary"><?php echo htmlspecialchars(t('manage.common.users'), ENT_QUOTES, 'UTF-8'); ?></a>
                                                 <?php endif; ?>
                                             </div>
