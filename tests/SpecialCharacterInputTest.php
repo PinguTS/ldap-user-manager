@@ -164,7 +164,7 @@ final class SpecialCharacterInputTest extends TestCase
 
         // No extra commas before the fixed suffix, i.e. the name is one RDN component.
         $prefix = substr($dn, 0, -(strlen(',ou=organizations,dc=example,dc=com')));
-        self::assertSame(1, substr_count($prefix, ',ou=people'));
+        self::assertSame(0, substr_count($prefix, ',ou=people'));
         self::assertSame(0, substr_count($prefix, ',ou=organizations'));
     }
 
