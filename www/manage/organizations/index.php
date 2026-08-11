@@ -435,11 +435,23 @@ function format_org_list_count_label(int $shown, int $total): string
                                 $org_disabled    = (bool) $org['org_disabled'];
                                 $is_disabled_grp = (bool) $org['is_disabled'];
                                 $last_change     = $org['last_change'];
+                                $use_uuid        = ($LDAP['use_uuid_identification'] && isset($org['entryUUID']));
+                                $org_uuid_val    = $use_uuid ? (string) $org['entryUUID'] : '';
+                                $org_dn          = $org['dn'] ?? '';
+                                $org_view_href   = $use_uuid
+                                    ? htmlspecialchars(getBaseUrl() . 'manage/organizations/' . urlencode($org_uuid_val) . '/', ENT_QUOTES, 'UTF-8')
+                                    : '';
                                 ?>
                                 <div class="list-group-item" data-org-name="<?php echo $org_name_safe; ?>">
                                     <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
                                         <div class="flex-grow-1" style="min-width: 260px;">
-                                            <h5 class="mb-1"><?php echo $org_name_safe; ?></h5>
+                                            <h5 class="mb-1">
+                                                <?php if ($org_view_href !== '') : ?>
+                                                    <a href="<?php echo $org_view_href; ?>"><?php echo $org_name_safe; ?></a>
+                                                <?php else : ?>
+                                                    <?php echo $org_name_safe; ?>
+                                                <?php endif; ?>
+                                            </h5>
                                             <p class="mb-0">
                                                 <?php if (!empty($org['mail'])) : ?>
                                                     <strong><?php echo htmlspecialchars(t('manage.orgs.email_label'), ENT_QUOTES, 'UTF-8'); ?></strong> <?php echo htmlspecialchars($org['mail']); ?><br>
@@ -499,9 +511,6 @@ function format_org_list_count_label(int $shown, int $total): string
                                         </div>
 
                                         <?php
-                                        $use_uuid        = ($LDAP['use_uuid_identification'] && isset($org['entryUUID']));
-                                        $org_uuid_val    = $use_uuid ? (string) $org['entryUUID'] : '';
-                                        $org_dn          = $org['dn'] ?? '';
                                         $can_membership  = (currentUserIsGlobalAdmin() || currentUserIsMaintainer()) && $ldap_connection && $base_dn !== '' && $org_dn !== '' && function_exists('is_in_status_group');
                                         $can_disable     = currentUserCanDisableOrganization($org_name);
                                         $can_delete      = currentUserCanDeleteOrganization($org_name);
@@ -510,7 +519,7 @@ function format_org_list_count_label(int $shown, int $total): string
                                         <div class="d-flex align-items-center justify-content-end flex-wrap gap-2" style="min-width: 260px;">
                                             <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.orgs.index.aria.view_users'), ENT_QUOTES, 'UTF-8'); ?>">
                                                 <?php if ($use_uuid) : ?>
-                                                    <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/organizations/' . urlencode($org_uuid_val) . '/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info"><?php echo htmlspecialchars(t('manage.common.view'), ENT_QUOTES, 'UTF-8'); ?></a>
+                                                    <a href="<?php echo $org_view_href; ?>" class="btn btn-info"><?php echo htmlspecialchars(t('manage.common.view'), ENT_QUOTES, 'UTF-8'); ?><?php echo htmlspecialchars(t('manage.common.view'), ENT_QUOTES, 'UTF-8'); ?></a>
                                                     <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/organizations/' . urlencode($org_uuid_val) . '/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary"><?php echo htmlspecialchars(t('manage.common.users'), ENT_QUOTES, 'UTF-8'); ?></a>
                                                 <?php endif; ?>
                                             </div>
