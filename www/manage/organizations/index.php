@@ -447,7 +447,7 @@ function format_org_list_count_label(int $shown, int $total): string
                                         <div class="flex-grow-1" style="min-width: 260px;">
                                             <h5 class="mb-1">
                                                 <?php if ($org_view_href !== '') : ?>
-                                                    <a href="<?php echo $org_view_href; ?>"><?php echo $org_name_safe; ?></a>
+                                                    <a class="link-body-emphasis link-underline link-underline-opacity-0 link-underline-opacity-75-hover" href="<?php echo $org_view_href; ?>"><?php echo $org_name_safe; ?></a>
                                                 <?php else : ?>
                                                     <?php echo $org_name_safe; ?>
                                                 <?php endif; ?>
