@@ -117,12 +117,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     if ($can_delete) {
                         $del_user = ldap_delete_account($ldap_connection, $this_user);
                         if ($del_user) {
-                            renderAlertBanner(t('manage.users.msg.delete_ok', ['user' => $this_user]));
+                            renderAlertBanner(t('manage.users.msg.delete_ok', ['user' => (string) $this_user]));
                         } else {
                             renderAlertBanner(t('manage.users.msg.delete_fail'), 'danger', 15000);
                         }
                     } else {
-                        renderAlertBanner(t('manage.users.msg.permission_denied_reason', ['reason' => $delete_reason]), 'danger');
+                        renderAlertBanner(t('manage.users.msg.permission_denied_reason', ['reason' => (string) $delete_reason]), 'danger');
                     }
                     break;
             } // phpcs:ignore Generic.WhiteSpace.ScopeIndent.IncorrectExact,Squiz.WhiteSpace.ScopeClosingBrace.Indent -- switch at 8 spaces

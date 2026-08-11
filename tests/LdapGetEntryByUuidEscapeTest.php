@@ -10,6 +10,13 @@ require_once __DIR__ . '/../www/includes/ldap_functions.inc.php';
 
 final class LdapGetEntryByUuidEscapeTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        if (!extension_loaded('ldap')) {
+            self::markTestSkipped('PHP LDAP extension is not loaded');
+        }
+    }
+
     public function testLumFilterValueEscapesFilterMetacharacters(): void
     {
         self::assertSame(

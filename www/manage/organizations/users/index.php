@@ -45,26 +45,18 @@ if (!is_array($orgs)) {
     $orgs = [];
 }
 
-// Validate orgName
+// Validate orgName. listOrganizations() returns the raw organization name in the 'name' key,
+// so we compare that directly rather than parsing the DN, which would mishandle DN-escaped
+// characters such as + , ; " \ # < > = and leading/trailing spaces.
 $orgExists = false;
 $orgDisplay = '';
 foreach ($orgs as $org) {
-    // Extract organization name from DN or use 'o' attribute
-    $current_org_name = '';
-    if (isset($org['o']) && !empty($org['o'])) {
-        // If 'o' is a DN, extract just the organization name
-        if (strpos($org['o'], ',') !== false) {
-            // Extract the organization name from DN like "o=OrgName,ou=organizations,dc=example,dc=com"
-            $current_org_name = preg_replace('/^o=([^,]+).*$/', '$1', $org['o']);
-        } else {
-            $current_org_name = $org['o'];
-        }
-    } elseif (isset($org['dn']) && !empty($org['dn'])) {
-        // Extract from DN attribute
-        $current_org_name = preg_replace('/^o=([^,]+).*$/', '$1', $org['dn']);
+    $current_org_name = $org['name'] ?? '';
+    if ($current_org_name === '') {
+        continue;
     }
 
-    if (strtolower($current_org_name) === strtolower($orgName)) {
+    if (strcasecmp($current_org_name, $orgName) === 0) {
         $orgExists = true;
         $orgDisplay = $current_org_name;
         break;
@@ -77,32 +69,14 @@ if (!$orgName || !$orgExists) {
     echo "<div class='alert alert-warning'>" . htmlspecialchars(t('manage.common.valid_org_prompt'), ENT_QUOTES, 'UTF-8') . "</div>";
     echo '<ul>';
     foreach ($orgs as $org) {
-        // Extract organization name from DN or use 'o' attribute
-        $orgNameVal = '';
-        if (isset($org['o']) && !empty($org['o'])) {
-            // If 'o' is a DN, extract just the organization name
-            if (strpos($org['o'], ',') !== false) {
-                // Extract the organization name from DN like "o=OrgName,ou=organizations,dc=example,dc=com"
-                $orgNameVal = preg_replace('/^o=([^,]+).*$/', '$1', $org['o']);
-            } else {
-                $orgNameVal = $org['o'];
-            }
-        } elseif (isset($org['dn']) && !empty($org['dn'])) {
-            // Extract from DN attribute
-            $orgNameVal = preg_replace('/^o=([^,]+).*$/', '$1', $org['dn']);
-        }
-
+        $orgNameVal = $org['name'] ?? '';
         if ($orgNameVal === '') {
             continue;
         }
-        // Get UUID for this organization if available
-        $org_uuid_val = '';
-        if (isset($org['entryUUID']) && !empty($org['entryUUID'])) {
-            $org_uuid_val = $org['entryUUID'];
-        }
 
+        $org_uuid_val = $org['entryUUID'] ?? '';
         $link_param = lum_org_users_query_param($org_uuid_val, $orgNameVal);
-        echo '<li><a href="org_users.php?' . $link_param . '">' . htmlspecialchars($orgNameVal) . '</a></li>';
+        echo '<li><a href="?' . htmlspecialchars($link_param, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($orgNameVal) . '</a></li>';
     }
     echo '</ul>';
     renderFooter();
@@ -252,8 +226,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['disable_user']) || i
                 if (!$group_cleanup_success) {
                     error_log('Warning: Failed to remove user from some groups before deletion (POST)');
                 }
-                if (ldap_delete($ldap_connection, $user_dn)) {
-                    $message = t('manage.users.msg.delete_ok', ['user' => $user_display]);
+                if (@ldap_delete($ldap_connection, $user_dn)) {
+                    $message = t('manage.users.msg.delete_ok', ['user' => (string) $user_display]);
                     $message_type = 'success';
                 } else {
                     error_log("delete_user: ldap_delete failed for $user_dn: " . ldap_error($ldap_connection));
@@ -426,7 +400,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
                 );
             });
             if ($sentOk) {
-                $flashMessage .= ' ' . t('manage.org_users.add.msg.email_sent_ok', ['email' => htmlspecialchars($mail, ENT_QUOTES, 'UTF-8')]);
+                $flashMessage .= ' ' . t('manage.org_users.add.msg.email_sent_ok', ['email' => (string) $mail]);
             } else {
                 $flashMessage .= ' ' . t('manage.org_users.add.msg.email_send_failed');
             }
@@ -599,7 +573,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_creds'])) {
     }
     $entry = ['userPassword' => ldap_hashed_password($new_password)];
     try {
-        ldap_modify($ldap, $resetDn, $entry);
+        @ldap_modify($ldap, $resetDn, $entry);
+        $modifyErr = ldap_error($ldap);
+        if ($modifyErr !== 'Success') {
+            throw new Exception($modifyErr);
+        }
         lum_close_ldap_if_not_manage($ldap);
         header('Location: ?' . $baseParam . '&credentials_reset=1');
         exit;
@@ -646,7 +624,7 @@ renderFlash();
     </nav>
     
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2><?= htmlspecialchars(t('manage.common.users_in_org', ['org' => $orgDisplay]), ENT_QUOTES, 'UTF-8') ?></h2>
+        <h2><?= htmlspecialchars(t('manage.common.users_in_org', ['org' => (string) $orgDisplay]), ENT_QUOTES, 'UTF-8') ?></h2>
         <div>
             <?php if ($org_uuid) : ?>
                 <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/organizations/' . urlencode($org_uuid) . '/', ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary mb-3">&larr; <?php echo htmlspecialchars(t('manage.common.back_to_org'), ENT_QUOTES, 'UTF-8'); ?></a>
@@ -966,7 +944,7 @@ renderFlash();
           <form method="post">
             <?= csrfTokenField() ?>
             <div class="modal-header bg-warning text-dark">
-              <h5 class="modal-title"><?= htmlspecialchars(t('manage.org_users.reset_title', ['user' => $resetUserDisplay]), ENT_QUOTES, 'UTF-8') ?></h5>
+              <h5 class="modal-title"><?= htmlspecialchars(t('manage.org_users.reset_title', ['user' => (string) $resetUserDisplay]), ENT_QUOTES, 'UTF-8') ?></h5>
               <?php if ($org_uuid) : ?>
                   <a href="<?php echo htmlspecialchars(getBaseUrl() . 'manage/organizations/' . urlencode($org_uuid) . '/users/', ENT_QUOTES, 'UTF-8'); ?>" class="btn-close text-dark" aria-label="<?php echo htmlspecialchars(t('modal.close_aria'), ENT_QUOTES, 'UTF-8'); ?>"></a>
               <?php endif; ?>

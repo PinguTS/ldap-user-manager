@@ -1672,6 +1672,24 @@ function getAssetBase(): string
 }
 
 /**
+ * Encode a string for use as a JavaScript string literal inside an HTML attribute.
+ * Returns JSON (with its own quotes) then HTML-entity-encoded for the attribute.
+ * Use this for names/values placed in inline handlers like onclick="foo(…)".
+ *
+ * @param mixed $value
+ */
+function lum_js_string_arg($value): string
+{
+    $json = json_encode((string) $value, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_SLASHES);
+    if ($json === false) {
+        // json_encode fails only on invalid UTF-8; fall back to an empty string literal.
+        $json = '""';
+    }
+
+    return htmlspecialchars($json, ENT_QUOTES, 'UTF-8');
+}
+
+/**
  * Relative app path for the authenticated user's role default (no host/base prefix).
  */
 function getRoleDefaultRedirectPath(): string
@@ -1967,7 +1985,7 @@ function renderAttributeFields($attribute, $label, $values_r, $resource_identifi
                   <input type="text" class="form-control" id="<?php print $attribute; ?>" name="<?php print $attribute; ?>[]" value="<?php if (isset($values_r[0])) {
                         print $values_r[0];
                                                               } ?>">
-                  <button type="button" class="btn btn-secondary" onclick="addFieldTo('<?php print $attribute; ?>')">+</button>
+                  <button type="button" class="btn btn-secondary" onclick="addFieldTo(<?php print lum_js_string_arg($attribute); ?>)">+</button>
               </div>
             <?php
             if (isset($values_r['count']) and $values_r['count'] > 0) {

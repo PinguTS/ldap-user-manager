@@ -14,6 +14,13 @@ require_once __DIR__ . '/../www/includes/ldap_functions.inc.php';
  */
 final class UserRdnChangeTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        if (!extension_loaded('ldap')) {
+            self::markTestSkipped('PHP LDAP extension is not loaded');
+        }
+    }
+
     public function testDetectsRdnChange(): void
     {
         $dn = 'mail=old@example.com,ou=people,dc=example,dc=com';

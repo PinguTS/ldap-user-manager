@@ -334,7 +334,7 @@ lum_close_ldap_if_not_manage($ldap_connection);
             <?php
             $profileName = (string) (get_ldap_attribute($user_data, 'cn') ?: get_ldap_attribute($user_data, $LDAP['account_attribute']) ?: t('user.no_name_available'));
             ?>
-            <h2><?php echo htmlspecialchars(t('manage.users.profile.heading', ['name' => $profileName]), ENT_QUOTES, 'UTF-8'); ?></h2>
+            <h2><?php echo htmlspecialchars(t('manage.users.profile.heading', ['name' => (string) $profileName]), ENT_QUOTES, 'UTF-8'); ?></h2>
             
             <?php
             // Reopen LDAP connection for role lookup in display
@@ -542,7 +542,7 @@ lum_close_ldap_if_not_manage($ldap_connection);
                                 <dd><?php echo htmlspecialchars(get_ldap_attribute($user_data, 'telephoneNumber')); ?></dd>
                                 
                                 <dt><?php echo htmlspecialchars(t('manage.users.location'), ENT_QUOTES, 'UTF-8'); ?>:</dt>
-                                <dd><?php echo htmlspecialchars(t('manage.users.location_user', ['location' => ucfirst($user_location)]), ENT_QUOTES, 'UTF-8'); ?></dd>
+                                <dd><?php echo htmlspecialchars(t('manage.users.location_user', ['location' => ucfirst((string) $user_location)]), ENT_QUOTES, 'UTF-8'); ?></dd>
                                 
                                 <dt><?php echo htmlspecialchars(t('manage.users.dn'), ENT_QUOTES, 'UTF-8'); ?>:</dt>
                                 <dd><code><?php echo htmlspecialchars($user_data['dn']); ?></code></dd>

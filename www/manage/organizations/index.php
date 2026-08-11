@@ -519,9 +519,9 @@ function format_org_list_count_label(int $shown, int $total): string
                                                 <div class="vr"></div>
                                                 <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.orgs.show.organization_membership_aria'), ENT_QUOTES, 'UTF-8'); ?>">
                                                     <?php if ($is_member) : ?>
-                                                        <button type="button" class="btn btn-secondary" onclick="confirmUnmemberOrganization('<?php echo $org_name_safe; ?>', '<?php echo htmlspecialchars($org_uuid_val, ENT_QUOTES, 'UTF-8'); ?>')"><?php echo htmlspecialchars(t('manage.orgs.show.unmember'), ENT_QUOTES, 'UTF-8'); ?></button>
+                                                        <button type="button" class="btn btn-secondary" onclick="confirmUnmemberOrganization(<?php echo lum_js_string_arg($org_name); ?>, <?php echo lum_js_string_arg($org_uuid_val); ?>)"><?php echo htmlspecialchars(t('manage.orgs.show.unmember'), ENT_QUOTES, 'UTF-8'); ?></button>
                                                     <?php else : ?>
-                                                        <button type="button" class="btn btn-secondary" onclick="confirmMemberOrganization('<?php echo $org_name_safe; ?>', '<?php echo htmlspecialchars($org_uuid_val, ENT_QUOTES, 'UTF-8'); ?>')"><?php echo htmlspecialchars(t('manage.orgs.show.member'), ENT_QUOTES, 'UTF-8'); ?></button>
+                                                        <button type="button" class="btn btn-secondary" onclick="confirmMemberOrganization(<?php echo lum_js_string_arg($org_name); ?>, <?php echo lum_js_string_arg($org_uuid_val); ?>)"><?php echo htmlspecialchars(t('manage.orgs.show.member'), ENT_QUOTES, 'UTF-8'); ?></button>
                                                     <?php endif; ?>
                                                 </div>
                                             <?php endif; ?>
@@ -530,9 +530,9 @@ function format_org_list_count_label(int $shown, int $total): string
                                                 <div class="vr"></div>
                                                 <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.orgs.show.organization_status_aria'), ENT_QUOTES, 'UTF-8'); ?>">
                                                     <?php if ($org_disabled) : ?>
-                                                        <button type="button" class="btn btn-success" onclick="confirmEnableOrganization('<?php echo $org_name_safe; ?>', '<?php echo htmlspecialchars($org_uuid_val, ENT_QUOTES, 'UTF-8'); ?>')"><?php echo htmlspecialchars(t('manage.orgs.show.activate'), ENT_QUOTES, 'UTF-8'); ?></button>
+                                                        <button type="button" class="btn btn-success" onclick="confirmEnableOrganization(<?php echo lum_js_string_arg($org_name); ?>, <?php echo lum_js_string_arg($org_uuid_val); ?>)"><?php echo htmlspecialchars(t('manage.orgs.show.activate'), ENT_QUOTES, 'UTF-8'); ?></button>
                                                     <?php else : ?>
-                                                        <button type="button" class="btn btn-warning" onclick="confirmDisableOrganization('<?php echo $org_name_safe; ?>', '<?php echo htmlspecialchars($org_uuid_val, ENT_QUOTES, 'UTF-8'); ?>')"><?php echo htmlspecialchars(t('manage.orgs.show.deactivate'), ENT_QUOTES, 'UTF-8'); ?></button>
+                                                        <button type="button" class="btn btn-warning" onclick="confirmDisableOrganization(<?php echo lum_js_string_arg($org_name); ?>, <?php echo lum_js_string_arg($org_uuid_val); ?>)"><?php echo htmlspecialchars(t('manage.orgs.show.deactivate'), ENT_QUOTES, 'UTF-8'); ?></button>
                                                     <?php endif; ?>
                                                 </div>
                                             <?php endif; ?>
@@ -540,7 +540,7 @@ function format_org_list_count_label(int $shown, int $total): string
                                             <?php if ($can_delete) : ?>
                                                 <div class="vr"></div>
                                                 <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.orgs.show.organization_delete_aria'), ENT_QUOTES, 'UTF-8'); ?>">
-                                                    <button type="button" class="btn btn-danger" onclick="confirmDelete('<?php echo $org_name_safe; ?>', '<?php echo htmlspecialchars($org_uuid_val, ENT_QUOTES, 'UTF-8'); ?>')"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
+                                                    <button type="button" class="btn btn-danger" onclick="confirmDelete(<?php echo lum_js_string_arg($org_name); ?>, <?php echo lum_js_string_arg($org_uuid_val); ?>)"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
                                                 </div>
                                             <?php endif; ?>
                                         </div>

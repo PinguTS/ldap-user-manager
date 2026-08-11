@@ -166,7 +166,7 @@ document.addEventListener('DOMContentLoaded', function(){
    <div class="card-header text-center"><?php echo htmlspecialchars(t('password.change.card_header'), ENT_QUOTES, 'UTF-8'); ?></div>
 
    <ul class="list-group list-group-flush">
-    <li class="list-group-item"><?php echo htmlspecialchars(t('password.change.bullet1', ['org' => $ORGANISATION_NAME]), ENT_QUOTES, 'UTF-8'); ?></li>
+    <li class="list-group-item"><?php echo htmlspecialchars(t('password.change.bullet1', ['org' => (string) $ORGANISATION_NAME]), ENT_QUOTES, 'UTF-8'); ?></li>
     <li class="list-group-item"><?php
     $lvl = (int) $PASSWORD_STRENGTH_MIN_SCORE;
     $lvl = max(0, min(4, $lvl));

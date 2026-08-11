@@ -184,6 +184,35 @@ function getLocalizedCountryOptions(): array
 }
 
 /**
+ * Validate an organization name at the trust boundary.
+ *
+ * Returns an empty string when valid, or a translated error message otherwise.
+ * Keeps all characters that are legal in a company name (including & + , " # ; < > = \ /)
+ * while rejecting content that would cause DN or UX problems (NUL, control chars, CRLF,
+ * leading/trailing whitespace, excessive length).
+ */
+function lum_validate_organization_name(string $name): string
+{
+    if ($name === '') {
+        return t('manage.orgs.add.msg.required_org_name_missing');
+    }
+
+    if (preg_match('/[\x00\x0d\x0a\x0c\x08\x7f]/', $name) || preg_match('/[\x00-\x1f]/', $name)) {
+        return t('manage.orgs.add.msg.invalid_org_name_control_chars');
+    }
+
+    if (trim($name) !== $name) {
+        return t('manage.orgs.add.msg.invalid_org_name_whitespace');
+    }
+
+    if (mb_strlen($name, 'UTF-8') > 128) {
+        return t('manage.orgs.add.msg.invalid_org_name_too_long');
+    }
+
+    return '';
+}
+
+/**
  * Decode membership metadata stored in LDAP's `documentIdentifier` attribute.
  *
  * Expected (app-encoded) values:
@@ -415,6 +444,12 @@ function createOrganization($orgData)
         return [false, "Missing required field: organization name"];
     }
 
+    $orgNameValidation = lum_validate_organization_name((string) $orgData['o']);
+    if ($orgNameValidation !== '') {
+        error_log("createOrganization: rejected organization name '{$orgData['o']}': $orgNameValidation");
+        return [false, $orgNameValidation];
+    }
+
     $orgRDN = ldap_escape($orgData['o'], '', LDAP_ESCAPE_DN);
     $orgDN = "o={$orgRDN}," . $LDAP['org_dn'];
 
@@ -480,7 +515,7 @@ function createOrganization($orgData)
     // Debug logging
     error_log("createOrganization: Building entry for org '{$orgData['o']}' with fields: " . implode(', ', array_keys($orgEntry)));
 
-    $result = ldap_add($ldap, $orgDN, $orgEntry);
+    $result = @ldap_add($ldap, $orgDN, $orgEntry);
     if (!$result) {
         $err = ldap_error($ldap);
         error_log("createOrganization: Failed to add org entry: $err");
@@ -493,7 +528,7 @@ function createOrganization($orgData)
         'ou' => 'users'
     ];
 
-    $resultUsers = ldap_add($ldap, "ou=users,{$orgDN}", $usersOU);
+    $resultUsers = @ldap_add($ldap, "ou=users,{$orgDN}", $usersOU);
     if (!$resultUsers) {
         $err = ldap_error($ldap);
         error_log("createOrganization: Failed to add Users OU: $err");
@@ -506,7 +541,7 @@ function createOrganization($orgData)
         'ou' => 'roles'
     ];
 
-    $resultRoles = ldap_add($ldap, "ou=roles,{$orgDN}", $rolesOU);
+    $resultRoles = @ldap_add($ldap, "ou=roles,{$orgDN}", $rolesOU);
     if (!$resultRoles) {
         $err = ldap_error($ldap);
         error_log("createOrganization: Failed to add Roles OU: $err");
@@ -614,7 +649,7 @@ function listOrganizations()
 function ldap_delete_recursive($ldap, $dn)
 {
     // Search for all children
-    $search = ldap_list($ldap, $dn, '(objectClass=*)', ['dn']);
+    $search = @ldap_list($ldap, $dn, '(objectClass=*)', ['dn']);
     if ($search) {
         $entries = ldap_get_entries($ldap, $search);
         for ($i = 0; $i < $entries['count']; $i++) {
@@ -622,8 +657,9 @@ function ldap_delete_recursive($ldap, $dn)
         }
     }
 
-    // Delete the entry itself
-    return ldap_delete($ldap, $dn);
+    // Delete the entry itself; suppress the PHP warning because callers log
+    // ldap_error() themselves and we do not want to leak internal DNs to users.
+    return @ldap_delete($ldap, $dn);
 }
 
 function addUserToOrgAdmin($orgName, $userDn)

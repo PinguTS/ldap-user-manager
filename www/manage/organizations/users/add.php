@@ -83,7 +83,7 @@ if (!$organization) {
     if (!$organization) {
         renderAlertBanner(t(
             'manage.org_users.add.msg.org_not_found',
-            ['org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8')]
+            ['org' => (string) $org_name]
         ), "danger");
         renderFooter();
         exit(0);
@@ -308,8 +308,8 @@ if (isset($_POST['create_org_user'])) {
                 $creation_message = t(
                     'manage.org_users.add.msg.created_ok',
                     [
-                        'account' => htmlspecialchars((string) $account_identifier, ENT_QUOTES, 'UTF-8'),
-                        'org' => htmlspecialchars((string) $org_name, ENT_QUOTES, 'UTF-8'),
+                        'account' => (string) $account_identifier,
+                        'org' => (string) $org_name,
                     ]
                 );
 
@@ -371,7 +371,7 @@ if (isset($_POST['create_org_user'])) {
                         if ($sentEmail) {
                             $creation_message .= ' ' . t(
                                 'manage.org_users.add.msg.email_sent_ok',
-                                ['email' => htmlspecialchars((string) $this_mail, ENT_QUOTES, 'UTF-8')]
+                                ['email' => (string) $this_mail]
                             );
                         } else {
                             error_log("add_org_user: account {$account_identifier} created in {$org_name} but email to {$this_mail} failed (check SMTP relay/auth settings; search logs for \"SMTP: Unable to send email\")");
@@ -384,8 +384,11 @@ if (isset($_POST['create_org_user'])) {
                 }
 
                 setFlash($creation_message, 'success');
-                if ($org_uuid) {
-                    header('Location: ' . getBaseUrl() . 'manage/organizations/' . urlencode((string) $org_uuid) . '/users/');
+                $org_uuid_str = (string) $org_uuid;
+                if ($org_uuid_str !== '') {
+                    header('Location: ' . getBaseUrl() . 'manage/organizations/' . urlencode($org_uuid_str) . '/users/');
+                } elseif ((string) $org_name !== '') {
+                    header('Location: ' . getBaseUrl() . 'manage/organizations/users/?' . lum_org_users_query_param('', (string) $org_name));
                 } else {
                     header('Location: ' . getBaseUrl() . 'manage/organizations/');
                 }
@@ -397,7 +400,7 @@ if (isset($_POST['create_org_user'])) {
     }
 }
 
-renderHeader(t('manage.org_users.add.page_title', ['org' => $org_name]));
+renderHeader(t_raw('manage.org_users.add.page_title', ['org' => (string) $org_name]));
 render_submenu();
 
 // Display any validation errors
@@ -447,7 +450,7 @@ if ($errors != "") { ?>
         <div class="col-md-8 offset-md-2">
             <div class="card">
                 <div class="card-header">
-                    <h3><?php echo htmlspecialchars(t('manage.org_users.add.card_title', ['org' => $org_name]), ENT_QUOTES, 'UTF-8'); ?></h3>
+                    <h3><?php echo htmlspecialchars(t('manage.org_users.add.card_title', ['org' => (string) $org_name]), ENT_QUOTES, 'UTF-8'); ?></h3>
                 </div>
                 <div class="card-body">
                     <div class="alert alert-info">

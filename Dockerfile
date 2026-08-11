@@ -39,6 +39,15 @@ RUN echo "ServerName localhost" > /etc/apache2/conf-available/servername.conf &&
 # Set PHP date.timezone to avoid "Invalid date.timezone value ''" startup warning
 RUN echo "date.timezone = UTC" > /usr/local/etc/php/conf.d/99-timezone.ini
 
+# Production error handling: never display PHP warnings/errors to users; log them instead.
+# Individual call sites still log details via error_log(... ldap_error(...)) / application logging.
+RUN { \
+    echo 'display_errors = Off'; \
+    echo 'display_startup_errors = Off'; \
+    echo 'log_errors = On'; \
+    echo 'error_log = /dev/stderr'; \
+} > /usr/local/etc/php/conf.d/99-production-errors.ini
+
 # Copy Apache configuration
 COPY apache/ /etc/apache2/conf-available/
 

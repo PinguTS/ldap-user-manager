@@ -126,7 +126,7 @@ if ($_POST) {
 
   <div class="card">
     <div class="card-body">
-    <?php echo htmlspecialchars(t('account.request.form_intro', ['org' => $ORGANISATION_NAME]), ENT_QUOTES, 'UTF-8'); ?>
+    <?php echo htmlspecialchars(t('account.request.form_intro', ['org' => (string) $ORGANISATION_NAME]), ENT_QUOTES, 'UTF-8'); ?>
     <br>
     <?php echo htmlspecialchars(t('account.request.form_approval_note'), ENT_QUOTES, 'UTF-8'); ?>
     </div>
