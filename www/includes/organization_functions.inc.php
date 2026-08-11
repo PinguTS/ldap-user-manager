@@ -184,6 +184,35 @@ function getLocalizedCountryOptions(): array
 }
 
 /**
+ * Validate an organization name at the trust boundary.
+ *
+ * Returns an empty string when valid, or a translated error message otherwise.
+ * Keeps all characters that are legal in a company name (including & + , " # ; < > = \ /)
+ * while rejecting content that would cause DN or UX problems (NUL, control chars, CRLF,
+ * leading/trailing whitespace, excessive length).
+ */
+function lum_validate_organization_name(string $name): string
+{
+    if ($name === '') {
+        return t('manage.orgs.add.msg.required_org_name_missing');
+    }
+
+    if (preg_match('/[\x00\x0d\x0a\x0c\x08\x7f]/', $name) || preg_match('/[\x00-\x1f]/', $name)) {
+        return t('manage.orgs.add.msg.invalid_org_name_control_chars');
+    }
+
+    if (trim($name) !== $name) {
+        return t('manage.orgs.add.msg.invalid_org_name_whitespace');
+    }
+
+    if (mb_strlen($name, 'UTF-8') > 128) {
+        return t('manage.orgs.add.msg.invalid_org_name_too_long');
+    }
+
+    return '';
+}
+
+/**
  * Decode membership metadata stored in LDAP's `documentIdentifier` attribute.
  *
  * Expected (app-encoded) values:
@@ -415,6 +444,12 @@ function createOrganization($orgData)
         return [false, "Missing required field: organization name"];
     }
 
+    $orgNameValidation = lum_validate_organization_name((string) $orgData['o']);
+    if ($orgNameValidation !== '') {
+        error_log("createOrganization: rejected organization name '{$orgData['o']}': $orgNameValidation");
+        return [false, $orgNameValidation];
+    }
+
     $orgRDN = ldap_escape($orgData['o'], '', LDAP_ESCAPE_DN);
     $orgDN = "o={$orgRDN}," . $LDAP['org_dn'];
 
@@ -480,7 +515,7 @@ function createOrganization($orgData)
     // Debug logging
     error_log("createOrganization: Building entry for org '{$orgData['o']}' with fields: " . implode(', ', array_keys($orgEntry)));
 
-    $result = ldap_add($ldap, $orgDN, $orgEntry);
+    $result = @ldap_add($ldap, $orgDN, $orgEntry);
     if (!$result) {
         $err = ldap_error($ldap);
         error_log("createOrganization: Failed to add org entry: $err");
@@ -493,7 +528,7 @@ function createOrganization($orgData)
         'ou' => 'users'
     ];
 
-    $resultUsers = ldap_add($ldap, "ou=users,{$orgDN}", $usersOU);
+    $resultUsers = @ldap_add($ldap, "ou=users,{$orgDN}", $usersOU);
     if (!$resultUsers) {
         $err = ldap_error($ldap);
         error_log("createOrganization: Failed to add Users OU: $err");
@@ -506,7 +541,7 @@ function createOrganization($orgData)
         'ou' => 'roles'
     ];
 
-    $resultRoles = ldap_add($ldap, "ou=roles,{$orgDN}", $rolesOU);
+    $resultRoles = @ldap_add($ldap, "ou=roles,{$orgDN}", $rolesOU);
     if (!$resultRoles) {
         $err = ldap_error($ldap);
         error_log("createOrganization: Failed to add Roles OU: $err");
@@ -614,7 +649,7 @@ function listOrganizations()
 function ldap_delete_recursive($ldap, $dn)
 {
     // Search for all children
-    $search = ldap_list($ldap, $dn, '(objectClass=*)', ['dn']);
+    $search = @ldap_list($ldap, $dn, '(objectClass=*)', ['dn']);
     if ($search) {
         $entries = ldap_get_entries($ldap, $search);
         for ($i = 0; $i < $entries['count']; $i++) {
@@ -622,8 +657,9 @@ function ldap_delete_recursive($ldap, $dn)
         }
     }
 
-    // Delete the entry itself
-    return ldap_delete($ldap, $dn);
+    // Delete the entry itself; suppress the PHP warning because callers log
+    // ldap_error() themselves and we do not want to leak internal DNs to users.
+    return @ldap_delete($ldap, $dn);
 }
 
 function addUserToOrgAdmin($orgName, $userDn)
@@ -1129,11 +1165,13 @@ function isUserOrgManager($orgName, $userDn)
  * Update user attributes
  * @param string $userIdentifier User UUID or DN
  * @param array $userData User data to update
- * @return bool Success status
+ * @param string|null &$error Optional error code (e.g. 'identifier_in_use')
+ * @return string|false The resulting user DN on success, false on failure
  */
-function updateUser($userIdentifier, $userData)
+function updateUser($userIdentifier, $userData, ?string &$error = null)
 {
     global $LDAP;
+    $error = null;
     $ldap = lum_ldap_data_connection();
     if ($ldap === false) {
         return false;
@@ -1168,22 +1206,60 @@ function updateUser($userIdentifier, $userData)
 
     if (empty($modifications)) {
         lum_close_ldap_if_not_manage($ldap);
-        return true; // Nothing to update
+        return $user_dn; // Nothing to update, DN unchanged
     }
 
-    // Perform the update
-    $result = @ldap_modify($ldap, $user_dn, $modifications);
+    // Handle renaming when the RDN attribute itself is being changed (e.g. mail).
+    $rdn_change = lum_pending_rdn_change($user_dn, $modifications);
+    if ($rdn_change !== null) {
+        // Make sure the new identifier is not already in use by another entry.
+        $existing = ldap_find_user_entry_by_account_identifier($ldap, $rdn_change['new_value']);
+        if ($existing !== null) {
+            $error = 'identifier_in_use';
+            lum_close_ldap_if_not_manage($ldap);
+            error_log("updateUser: Refusing rename; identifier already in use: " . $rdn_change['new_value']);
+            return false;
+        }
 
-    if ($result) {
-        lum_close_ldap_if_not_manage($ldap);
-        return true;
-    } else {
-        // Get error message before closing the connection
-        $error_msg = ldap_error($ldap);
-        lum_close_ldap_if_not_manage($ldap);
-        error_log("updateUser: Failed to update user $userIdentifier: " . $error_msg);
-        return false;
+        // Resolve groups before rename; once the DN changes, searches by old DN fail.
+        $group_dns = ldap_get_user_groups($ldap, $user_dn);
+
+        $renamed = @ldap_rename($ldap, $user_dn, $rdn_change['new_rdn'], $rdn_change['parent_dn'], true);
+        if (!$renamed) {
+            $error_msg = ldap_error($ldap);
+            error_log("updateUser: ldap_rename failed for $user_dn to " . $rdn_change['new_rdn'] . ": " . $error_msg);
+            lum_close_ldap_if_not_manage($ldap);
+            return false;
+        }
+
+        $new_user_dn = $rdn_change['attr'] . '=' . ldap_escape($rdn_change['new_value'], '', LDAP_ESCAPE_DN) . ($rdn_change['parent_dn'] !== '' ? ',' . $rdn_change['parent_dn'] : '');
+        error_log("updateUser: Renamed $user_dn to $new_user_dn");
+
+        // Update all role groups that reference this user by the old DN.
+        if (!empty($group_dns)) {
+            ldap_update_member_dn_in_groups($ldap, $group_dns, $user_dn, $new_user_dn);
+        }
+
+        // The RDN attribute is already set by the rename; drop it from the
+        // remaining modifications so the subsequent modify does not fail.
+        unset($modifications[$rdn_change['attr']]);
+
+        $user_dn = $new_user_dn;
     }
+
+    // Perform any remaining attribute updates against the (possibly new) DN.
+    if (!empty($modifications)) {
+        $result = @ldap_modify($ldap, $user_dn, $modifications);
+        if (!$result) {
+            $error_msg = ldap_error($ldap);
+            lum_close_ldap_if_not_manage($ldap);
+            error_log("updateUser: Failed to update user $userIdentifier at $user_dn: " . $error_msg);
+            return false;
+        }
+    }
+
+    lum_close_ldap_if_not_manage($ldap);
+    return $user_dn;
 }
 
 /**

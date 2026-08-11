@@ -46,6 +46,7 @@ parameters:
         - '~Ternary operator condition is always false\.~'
         - '~If condition is always false\.~'
         - '~If condition is always true\.~'
+        - '~Else branch is unreachable because previous condition is always true\.~'
         # GD image color can be int|false when allocated
         - '~Parameter #[46] \$color of function image.+ expects int~'
         - '~Parameter #6 \$color of function imagettftext expects int~'

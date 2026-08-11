@@ -83,6 +83,10 @@ validate:
 #clean:
 #	docker-compose down -v --remove-orphans
 
+# Test image with LDAP extension so PHPUnit tests using ldap_escape/ldap_explode_dn
+# can run without requiring an external OpenLDAP server.
+TEST_PHP_IMAGE ?= $(APP_NAME)-test-php
+
 # =============================================================================
 # Docker Build Commands
 # =============================================================================
@@ -95,9 +99,10 @@ builder:
 	@docker buildx use $(BUILDER_NAME)
 	@docker buildx inspect --bootstrap >/dev/null
 
-# Build and push dev version to private registry (dev branch only unless DEV_ANY_BRANCH=1)
+# Build and push dev version to private registry (dev branch only unless DEV_ANY_BRANCH=1).
+# Depends on quality + test so mistakes are caught before the image is pushed.
 .PHONY: dev
-dev: builder
+dev: builder quality test
 	@if [ "$(DEV_ANY_BRANCH)" != "1" ] && [ "$(GIT_BRANCH)" != "dev" ]; then \
 		echo "Aborted. This task is only for the dev branch. Current: $(GIT_BRANCH). Use DEV_ANY_BRANCH=1 make dev to override."; exit 1; \
 	fi
@@ -207,7 +212,8 @@ test: ## Run tests (if available; uses Docker if php not in PATH)
 	if command -v php >/dev/null 2>&1; then \
 		vendor/bin/phpunit; \
 	else \
-		$(DOCKER_PHP) ./vendor/bin/phpunit; \
+		docker build -q -t $(TEST_PHP_IMAGE) - < Dockerfile.test; \
+		docker run --rm -v "$$(pwd)":/app -w /app $(TEST_PHP_IMAGE) ./vendor/bin/phpunit; \
 	fi
 
 cs: ## Check coding standards with PHPCS (uses Docker if php not in PATH; USE_LOCAL=1 or USE_DOCKER=1 to override)

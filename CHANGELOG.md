@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.1.5] - 2026-08-11
+
+### Fixed
+
+- Organization name validation with clearer user feedback and localized error messages
+- User management error handling, session display name, and LDAP user/RDN operations
+- Organization list link display and duplicate text on the view button
+- Guard preventing organization managers from removing their own manager role
+
+### Changed
+
+- Organization website links styled for clearer presentation in the management UI
+- Expanded test coverage for org validation, special characters, session names, and user RDN changes
+
 ## [1.1.4] - 2026-07-30
 
 ### Fixed

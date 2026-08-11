@@ -83,8 +83,10 @@ function renderOrgShowRecentStatusCell($ldapConnection, string $userDn, string $
 /**
  * Manager toggle (POST) for recent users on org show page.
  */
-function renderOrgShowRecentManagerToggle(string $userIdentifier, bool $isManager, bool $isLastManager): void
+function renderOrgShowRecentManagerToggle(string $userIdentifier, bool $isManager, bool $isLastManager, bool $isSelf): void
 {
+    $tooltip = $isSelf ? t('manage.org_users.msg.cannot_remove_self_manager')
+        : ($isLastManager ? t('manage.org_users.msg.last_manager_toggle_hint') : t('manage.common.toggle_manager_title'));
     ?>
                             <form method="post" class="d-inline-flex align-items-center justify-content-center">
                                 <?= csrfTokenField() ?>
@@ -93,8 +95,9 @@ function renderOrgShowRecentManagerToggle(string $userIdentifier, bool $isManage
                                 <div class="form-check form-switch m-0">
                                     <input class="form-check-input" type="checkbox" role="switch"
                                            <?= $isManager ? 'checked' : '' ?>
+                                           <?= $isSelf ? 'disabled' : '' ?>
                                            onchange="this.form.submit()"
-                                           title="<?php echo htmlspecialchars($isLastManager ? t('manage.org_users.msg.last_manager_toggle_hint') : t('manage.common.toggle_manager_title'), ENT_QUOTES, 'UTF-8'); ?>"
+                                           title="<?php echo htmlspecialchars($tooltip, ENT_QUOTES, 'UTF-8'); ?>"
                                            aria-label="<?php echo htmlspecialchars(t('manage.common.manager'), ENT_QUOTES, 'UTF-8'); ?>">
                                 </div>
                             </form>
@@ -108,9 +111,12 @@ function renderOrgUsersPageManagerToggle(
     string $userIdentifier,
     bool $isManager,
     bool $isLastManager,
+    bool $isSelf,
     ?string $orgUuid,
     string $orgName
 ): void {
+    $tooltip = $isSelf ? t('manage.org_users.msg.cannot_remove_self_manager')
+        : ($isLastManager ? t('manage.org_users.msg.last_manager_toggle_hint') : t('manage.common.toggle_manager_title'));
     ?>
                         <form method="post" class="d-inline-flex align-items-center justify-content-center">
                             <?= csrfTokenField() ?>
@@ -124,8 +130,9 @@ function renderOrgUsersPageManagerToggle(
                                     role="switch"
                                     id="org-manager-switch-<?= htmlspecialchars($userIdentifier, ENT_QUOTES, 'UTF-8') ?>"
                                     <?= $isManager ? 'checked' : '' ?>
+                                    <?= $isSelf ? 'disabled' : '' ?>
                                     onchange="this.form.submit()"
-                                    title="<?= htmlspecialchars($isLastManager ? t('manage.org_users.msg.last_manager_toggle_hint') : t('manage.common.toggle_manager_title'), ENT_QUOTES, 'UTF-8') ?>"
+                                    title="<?= htmlspecialchars($tooltip, ENT_QUOTES, 'UTF-8') ?>"
                                     aria-label="<?= htmlspecialchars(t('manage.common.manager'), ENT_QUOTES, 'UTF-8') ?>"
                                 >
                             </div>
@@ -155,7 +162,7 @@ function renderOrgShowRecentUserActions(string $orgUuid, array $user, bool $isMa
                                         <?php if ($isManager) : ?>
                                             <button type="button" class="btn btn-danger btn-sm" disabled title="<?php echo htmlspecialchars(t('manage.org_users.msg.cannot_delete_org_manager'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
                                         <?php else : ?>
-                                            <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteUser('<?php echo htmlspecialchars($deleteUserId, ENT_QUOTES, 'UTF-8'); ?>', '<?php echo htmlspecialchars($deleteUserName, ENT_QUOTES, 'UTF-8'); ?>')"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
+                                            <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteUser(<?php echo lumJsStringArg($deleteUserId); ?>, <?php echo lumJsStringArg($deleteUserName); ?>)"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -186,7 +193,7 @@ function renderOrgUsersPageActionCell(
                                 <?php if ($isManager) : ?>
                                     <button type="button" class="btn btn-danger btn-sm" disabled title="<?php echo htmlspecialchars(t('manage.org_users.msg.cannot_delete_org_manager'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
                                 <?php else : ?>
-                                    <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteUser('<?= htmlspecialchars($userIdentifier, ENT_QUOTES, 'UTF-8') ?>', '<?= htmlspecialchars(get_ldap_attribute($user, 'uid'), ENT_QUOTES, 'UTF-8') ?>')"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
+                                    <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteUser(<?= lumJsStringArg($userIdentifier) ?>, <?= lumJsStringArg(get_ldap_attribute($user, 'uid')) ?>)"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
                                 <?php endif; ?>
                             </div>
                         </div>

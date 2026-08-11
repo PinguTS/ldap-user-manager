@@ -148,17 +148,21 @@ if (isset($_POST['action']) && $_POST['action'] === 'toggle_recent_user_manager'
             $userDisplay = org_get_user_display($userDn, $userIdentifier);
             $orgManagerDns = org_get_manager_dns($org_name);
             if (org_dn_in_list($userDn, $orgManagerDns)) {
-                $result = removeUserFromOrgAdmin($org_name, $userDn);
-                if ($result[0]) {
-                    renderAlertBanner(t('manage.org_users.msg.removed_org_manager', ['user' => $userDisplay]), "warning");
+                if (org_manager_toggle_is_self($userDn)) {
+                    renderAlertBanner(t('manage.org_users.msg.cannot_remove_self_manager'), "warning");
                 } else {
-                    error_log("show/org toggle_manager: removeUserFromOrgAdmin failed: " . $result[1]);
-                    renderAlertBanner(t('manage.org_users.msg.update_org_manager_fail'), "danger");
+                    $result = removeUserFromOrgAdmin($org_name, $userDn);
+                    if ($result[0]) {
+                        renderAlertBanner(t('manage.org_users.msg.removed_org_manager', ['user' => (string) $userDisplay]), "warning");
+                    } else {
+                        error_log("show/org toggle_manager: removeUserFromOrgAdmin failed: " . $result[1]);
+                        renderAlertBanner(t('manage.org_users.msg.update_org_manager_fail'), "danger");
+                    }
                 }
             } else {
                 $result = addUserToOrgAdmin($org_name, $userDn);
                 if ($result[0]) {
-                    renderAlertBanner(t('manage.org_users.msg.assigned_org_manager', ['user' => $userDisplay]), "success");
+                    renderAlertBanner(t('manage.org_users.msg.assigned_org_manager', ['user' => (string) $userDisplay]), "success");
                 } else {
                     error_log("show/org toggle_manager: addUserToOrgAdmin failed: " . $result[1]);
                     renderAlertBanner(t('manage.org_users.msg.update_org_manager_fail'), "danger");
@@ -192,17 +196,17 @@ if (isset($_POST['action']) && $_POST['action'] === 'toggle_recent_user_active')
                 } else {
                     if ($targetState === 'enable') {
                         if (ldap_enable_user_account($ldapConnection, $userDn)) {
-                            renderAlertBanner(t('manage.users.msg.activate_ok', ['user' => $userDisplay]), "success");
+                            renderAlertBanner(t('manage.users.msg.activate_ok', ['user' => (string) $userDisplay]), "success");
                         } else {
                             error_log("show/org enable_user failed for $userDn: " . ldap_error($ldapConnection));
-                            renderAlertBanner(t('manage.users.msg.activate_fail', ['user' => $userDisplay]), "danger");
+                            renderAlertBanner(t('manage.users.msg.activate_fail', ['user' => (string) $userDisplay]), "danger");
                         }
                     } elseif ($targetState === 'disable') {
                         if (ldap_disable_user_account($ldapConnection, $userDn)) {
-                            renderAlertBanner(t('manage.users.msg.deactivate_ok', ['user' => $userDisplay]), "success");
+                            renderAlertBanner(t('manage.users.msg.deactivate_ok', ['user' => (string) $userDisplay]), "success");
                         } else {
                             error_log("show/org disable_user failed for $userDn: " . ldap_error($ldapConnection));
-                            renderAlertBanner(t('manage.users.msg.deactivate_fail', ['user' => $userDisplay]), "danger");
+                            renderAlertBanner(t('manage.users.msg.deactivate_fail', ['user' => (string) $userDisplay]), "danger");
                         }
                     }
                     lum_close_ldap_if_not_manage($ldapConnection);
@@ -236,8 +240,8 @@ if (isset($_POST['delete_user'])) {
                 if (!$groupCleanupSuccess) {
                     error_log('Warning: Failed to remove user from some groups before deletion (org show POST)');
                 }
-                if (ldap_delete($ldapConnection, $userDn)) {
-                    renderAlertBanner(t('manage.users.msg.delete_ok', ['user' => $userDisplay]), "success");
+                if (@ldap_delete($ldapConnection, $userDn)) {
+                    renderAlertBanner(t('manage.users.msg.delete_ok', ['user' => (string) $userDisplay]), "success");
                 } else {
                     error_log("show/org delete_user: ldap_delete failed for $userDn: " . ldap_error($ldapConnection));
                     renderAlertBanner(t('manage.org_users.msg.delete_fail_ldap'), "danger");
@@ -607,7 +611,7 @@ if ($orgExists) {
                 $role_display_map = [
                     $LDAP['org_admin_role'] => [
                         'label' => t('manage.roles.label.org_admin'),
-                        'description' => t('manage.orgs.show.role_desc.org_admin', ['org' => $org_name]),
+                        'description' => t_raw('manage.orgs.show.role_desc.org_admin', ['org' => (string) $org_name]),
                     ],
                     (getenv('LDAP_GROUP_DISABLED_ACCOUNTS') ?: 'disabledAccounts') => [
                         'label' => t('manage.roles.label.disabled_accounts'),
@@ -845,9 +849,9 @@ if ($orgExists) {
                 <div class="vr"></div>
                 <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.orgs.show.organization_membership_aria'), ENT_QUOTES, 'UTF-8'); ?>">
                     <?php if ($is_member_org) : ?>
-                        <button type="button" class="btn btn-secondary" onclick="confirmUnmemberOrganization('<?php echo htmlspecialchars($org_name); ?>')"><?php echo htmlspecialchars(t('manage.orgs.show.unmember'), ENT_QUOTES, 'UTF-8'); ?></button>
+                        <button type="button" class="btn btn-secondary" onclick="confirmUnmemberOrganization(<?php echo lumJsStringArg($org_name); ?>)"><?php echo htmlspecialchars(t('manage.orgs.show.unmember'), ENT_QUOTES, 'UTF-8'); ?></button>
                     <?php else : ?>
-                        <button type="button" class="btn btn-secondary" onclick="confirmMemberOrganization('<?php echo htmlspecialchars($org_name); ?>')"><?php echo htmlspecialchars(t('manage.orgs.show.member'), ENT_QUOTES, 'UTF-8'); ?></button>
+                        <button type="button" class="btn btn-secondary" onclick="confirmMemberOrganization(<?php echo lumJsStringArg($org_name); ?>)"><?php echo htmlspecialchars(t('manage.orgs.show.member'), ENT_QUOTES, 'UTF-8'); ?></button>
                     <?php endif; ?>
                 </div>
             <?php endif; ?>
@@ -857,11 +861,11 @@ if ($orgExists) {
                 <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.orgs.show.organization_status_aria'), ENT_QUOTES, 'UTF-8'); ?>">
                     <?php if ($org_disabled) : ?>
                         <?php if (currentUserCanEnableOrganization($org_name)) : ?>
-                            <button type="button" class="btn btn-success" onclick="confirmEnableOrganization('<?php echo htmlspecialchars($org_name); ?>')"><?php echo htmlspecialchars(t('manage.orgs.show.activate'), ENT_QUOTES, 'UTF-8'); ?></button>
+                            <button type="button" class="btn btn-success" onclick="confirmEnableOrganization(<?php echo lumJsStringArg($org_name); ?>)"><?php echo htmlspecialchars(t('manage.orgs.show.activate'), ENT_QUOTES, 'UTF-8'); ?></button>
                         <?php endif; ?>
                     <?php else : ?>
                         <?php if (currentUserCanDisableOrganization($org_name)) : ?>
-                            <button type="button" class="btn btn-warning" onclick="confirmDisableOrganization('<?php echo htmlspecialchars($org_name); ?>')"><?php echo htmlspecialchars(t('manage.orgs.show.deactivate'), ENT_QUOTES, 'UTF-8'); ?></button>
+                            <button type="button" class="btn btn-warning" onclick="confirmDisableOrganization(<?php echo lumJsStringArg($org_name); ?>)"><?php echo htmlspecialchars(t('manage.orgs.show.deactivate'), ENT_QUOTES, 'UTF-8'); ?></button>
                         <?php endif; ?>
                     <?php endif; ?>
                 </div>
@@ -870,7 +874,7 @@ if ($orgExists) {
             <?php if ($can_delete) : ?>
                 <div class="vr"></div>
                 <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.orgs.show.organization_delete_aria'), ENT_QUOTES, 'UTF-8'); ?>">
-                    <button type="button" class="btn btn-danger" onclick="confirmDeleteOrganization('<?php echo htmlspecialchars($org_name); ?>', '<?php echo htmlspecialchars($org_uuid); ?>')"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
+                    <button type="button" class="btn btn-danger" onclick="confirmDeleteOrganization(<?php echo lumJsStringArg($org_name); ?>, <?php echo lumJsStringArg($org_uuid); ?>)"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
                 </div>
             <?php endif; ?>
         </div>
@@ -905,6 +909,7 @@ if ($orgExists) {
                             $userIdentifier = (string) ($user['entryUUID'] ?? $user['uid'] ?? '');
                             $isManager = isset($user['dn']) && org_dn_in_list((string) $user['dn'], $orgManagerDns);
                             $isLastManager = $isManager && $orgManagerCount <= 1;
+                            $isSelf = isset($user['dn']) && org_manager_toggle_is_self((string) $user['dn']);
                             ?>
                         <tr>
                          <td><?php print safeDisplayName($user, 'cn', 'givenName', 'sn'); ?></td>
@@ -919,7 +924,7 @@ if ($orgExists) {
                             ?>
                          </td>
                          <td class="text-center">
-                            <?php renderOrgShowRecentManagerToggle($userIdentifier, $isManager, $isLastManager); ?>
+                            <?php renderOrgShowRecentManagerToggle($userIdentifier, $isManager, $isLastManager, $isSelf); ?>
                          </td>
                          <td>
                             <?php renderOrgShowRecentUserActions($org_uuid, $user, $isManager); ?>

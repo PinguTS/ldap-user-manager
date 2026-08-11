@@ -1,0 +1,9 @@
+FROM php:8.2-cli
+
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends libldap2-dev; \
+    arch="$(dpkg-architecture -q DEB_HOST_MULTIARCH)"; \
+    docker-php-ext-configure ldap --with-libdir="lib/${arch}"; \
+    docker-php-ext-install -j"$(nproc)" ldap; \
+    rm -rf /var/lib/apt/lists/*

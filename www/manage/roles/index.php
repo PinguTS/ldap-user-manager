@@ -32,9 +32,9 @@ if ($ldap_connection === false) {
             $username = get_username_from_identifier($ldap_connection, $user_identifier);
 
             if (ldap_add_member_to_group($ldap_connection, $role_name, $username)) {
-                renderAlertBanner(t('manage.roles.msg.add_ok', ['user' => $username, 'role' => $role_name]));
+                renderAlertBanner(t('manage.roles.msg.add_ok', ['user' => (string) $username, 'role' => (string) $role_name]));
             } else {
-                renderAlertBanner(t('manage.roles.msg.add_fail', ['user' => $username, 'role' => $role_name]), "danger", 15000);
+                renderAlertBanner(t('manage.roles.msg.add_fail', ['user' => (string) $username, 'role' => (string) $role_name]), "danger", 15000);
             }
         }
     }
@@ -55,9 +55,9 @@ if ($ldap_connection === false) {
                 renderAlertBanner(t('manage.roles.msg.cannot_remove_self_admin'), "danger", 15000);
             } else {
                 if (ldap_delete_member_from_group($ldap_connection, $role_name, $username)) {
-                    renderAlertBanner(t('manage.roles.msg.remove_ok', ['user' => $username, 'role' => $role_name]));
+                    renderAlertBanner(t('manage.roles.msg.remove_ok', ['user' => (string) $username, 'role' => (string) $role_name]));
                 } else {
-                    renderAlertBanner(t('manage.roles.msg.remove_fail', ['user' => $username, 'role' => $role_name]), "danger", 15000);
+                    renderAlertBanner(t('manage.roles.msg.remove_fail', ['user' => (string) $username, 'role' => (string) $role_name]), "danger", 15000);
                 }
             }
         }

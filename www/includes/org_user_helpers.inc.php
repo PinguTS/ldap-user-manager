@@ -90,6 +90,16 @@ function org_get_scoped_manager_count(string $orgName, array $orgManagerDns): in
 }
 
 /**
+ * Whether the given org user DN is the currently logged-in user.
+ */
+function org_manager_toggle_is_self(string $targetDn): bool
+{
+    global $USER_DN;
+
+    return is_string($USER_DN) && $USER_DN !== '' && strcasecmp($targetDn, $USER_DN) === 0;
+}
+
+/**
  * Resolve a user identifier (UUID, account attribute, or uid) to a DN within the org’s people OU.
  */
 function org_resolve_user_dn(string $orgName, string $userIdentifier): ?string
