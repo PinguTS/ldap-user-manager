@@ -99,9 +99,10 @@ builder:
 	@docker buildx use $(BUILDER_NAME)
 	@docker buildx inspect --bootstrap >/dev/null
 
-# Build and push dev version to private registry (dev branch only unless DEV_ANY_BRANCH=1)
+# Build and push dev version to private registry (dev branch only unless DEV_ANY_BRANCH=1).
+# Depends on quality + test so mistakes are caught before the image is pushed.
 .PHONY: dev
-dev: builder
+dev: builder quality test
 	@if [ "$(DEV_ANY_BRANCH)" != "1" ] && [ "$(GIT_BRANCH)" != "dev" ]; then \
 		echo "Aborted. This task is only for the dev branch. Current: $(GIT_BRANCH). Use DEV_ANY_BRANCH=1 make dev to override."; exit 1; \
 	fi
