@@ -162,7 +162,7 @@ function renderOrgShowRecentUserActions(string $orgUuid, array $user, bool $isMa
                                         <?php if ($isManager) : ?>
                                             <button type="button" class="btn btn-danger btn-sm" disabled title="<?php echo htmlspecialchars(t('manage.org_users.msg.cannot_delete_org_manager'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
                                         <?php else : ?>
-                                            <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteUser(<?php echo lum_js_string_arg($deleteUserId); ?>, <?php echo lum_js_string_arg($deleteUserName); ?>)"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
+                                            <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteUser(<?php echo lumJsStringArg($deleteUserId); ?>, <?php echo lumJsStringArg($deleteUserName); ?>)"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -193,7 +193,7 @@ function renderOrgUsersPageActionCell(
                                 <?php if ($isManager) : ?>
                                     <button type="button" class="btn btn-danger btn-sm" disabled title="<?php echo htmlspecialchars(t('manage.org_users.msg.cannot_delete_org_manager'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
                                 <?php else : ?>
-                                    <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteUser(<?= lum_js_string_arg($userIdentifier) ?>, <?= lum_js_string_arg(get_ldap_attribute($user, 'uid')) ?>)"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
+                                    <button type="button" class="btn btn-danger btn-sm" onclick="confirmDeleteUser(<?= lumJsStringArg($userIdentifier) ?>, <?= lumJsStringArg(get_ldap_attribute($user, 'uid')) ?>)"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
                                 <?php endif; ?>
                             </div>
                         </div>

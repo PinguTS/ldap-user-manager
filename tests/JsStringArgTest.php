@@ -9,7 +9,7 @@ use PHPUnit\Framework\TestCase;
 require_once __DIR__ . '/../www/includes/web_functions.inc.php';
 
 /**
- * Tests for lum_js_string_arg(), which encodes a string as a JavaScript literal
+ * Tests for lumJsStringArg(), which encodes a string as a JavaScript literal
  * inside an HTML attribute. The output must be a valid JSON string after the
  * browser entity-decodes the attribute, and it must not break out of the JS
  * string context regardless of the input.
@@ -18,7 +18,7 @@ final class JsStringArgTest extends TestCase
 {
     private function assertJsStringArgRoundTrips(string $input): void
     {
-        $output = lum_js_string_arg($input);
+        $output = lumJsStringArg($input);
 
         // After HTML entity decoding, the content must be a valid JSON string.
         $decoded = html_entity_decode($output, ENT_QUOTES | ENT_HTML5, 'UTF-8');

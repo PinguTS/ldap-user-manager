@@ -849,9 +849,9 @@ if ($orgExists) {
                 <div class="vr"></div>
                 <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.orgs.show.organization_membership_aria'), ENT_QUOTES, 'UTF-8'); ?>">
                     <?php if ($is_member_org) : ?>
-                        <button type="button" class="btn btn-secondary" onclick="confirmUnmemberOrganization(<?php echo lum_js_string_arg($org_name); ?>)"><?php echo htmlspecialchars(t('manage.orgs.show.unmember'), ENT_QUOTES, 'UTF-8'); ?></button>
+                        <button type="button" class="btn btn-secondary" onclick="confirmUnmemberOrganization(<?php echo lumJsStringArg($org_name); ?>)"><?php echo htmlspecialchars(t('manage.orgs.show.unmember'), ENT_QUOTES, 'UTF-8'); ?></button>
                     <?php else : ?>
-                        <button type="button" class="btn btn-secondary" onclick="confirmMemberOrganization(<?php echo lum_js_string_arg($org_name); ?>)"><?php echo htmlspecialchars(t('manage.orgs.show.member'), ENT_QUOTES, 'UTF-8'); ?></button>
+                        <button type="button" class="btn btn-secondary" onclick="confirmMemberOrganization(<?php echo lumJsStringArg($org_name); ?>)"><?php echo htmlspecialchars(t('manage.orgs.show.member'), ENT_QUOTES, 'UTF-8'); ?></button>
                     <?php endif; ?>
                 </div>
             <?php endif; ?>
@@ -861,11 +861,11 @@ if ($orgExists) {
                 <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.orgs.show.organization_status_aria'), ENT_QUOTES, 'UTF-8'); ?>">
                     <?php if ($org_disabled) : ?>
                         <?php if (currentUserCanEnableOrganization($org_name)) : ?>
-                            <button type="button" class="btn btn-success" onclick="confirmEnableOrganization(<?php echo lum_js_string_arg($org_name); ?>)"><?php echo htmlspecialchars(t('manage.orgs.show.activate'), ENT_QUOTES, 'UTF-8'); ?></button>
+                            <button type="button" class="btn btn-success" onclick="confirmEnableOrganization(<?php echo lumJsStringArg($org_name); ?>)"><?php echo htmlspecialchars(t('manage.orgs.show.activate'), ENT_QUOTES, 'UTF-8'); ?></button>
                         <?php endif; ?>
                     <?php else : ?>
                         <?php if (currentUserCanDisableOrganization($org_name)) : ?>
-                            <button type="button" class="btn btn-warning" onclick="confirmDisableOrganization(<?php echo lum_js_string_arg($org_name); ?>)"><?php echo htmlspecialchars(t('manage.orgs.show.deactivate'), ENT_QUOTES, 'UTF-8'); ?></button>
+                            <button type="button" class="btn btn-warning" onclick="confirmDisableOrganization(<?php echo lumJsStringArg($org_name); ?>)"><?php echo htmlspecialchars(t('manage.orgs.show.deactivate'), ENT_QUOTES, 'UTF-8'); ?></button>
                         <?php endif; ?>
                     <?php endif; ?>
                 </div>
@@ -874,7 +874,7 @@ if ($orgExists) {
             <?php if ($can_delete) : ?>
                 <div class="vr"></div>
                 <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo htmlspecialchars(t('manage.orgs.show.organization_delete_aria'), ENT_QUOTES, 'UTF-8'); ?>">
-                    <button type="button" class="btn btn-danger" onclick="confirmDeleteOrganization(<?php echo lum_js_string_arg($org_name); ?>, <?php echo lum_js_string_arg($org_uuid); ?>)"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
+                    <button type="button" class="btn btn-danger" onclick="confirmDeleteOrganization(<?php echo lumJsStringArg($org_name); ?>, <?php echo lumJsStringArg($org_uuid); ?>)"><?php echo htmlspecialchars(t('manage.common.delete'), ENT_QUOTES, 'UTF-8'); ?></button>
                 </div>
             <?php endif; ?>
         </div>

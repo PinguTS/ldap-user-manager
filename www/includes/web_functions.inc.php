@@ -1678,7 +1678,7 @@ function getAssetBase(): string
  *
  * @param mixed $value
  */
-function lum_js_string_arg($value): string
+function lumJsStringArg($value): string
 {
     $json = json_encode((string) $value, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_SLASHES);
     if ($json === false) {
@@ -1985,7 +1985,7 @@ function renderAttributeFields($attribute, $label, $values_r, $resource_identifi
                   <input type="text" class="form-control" id="<?php print $attribute; ?>" name="<?php print $attribute; ?>[]" value="<?php if (isset($values_r[0])) {
                         print $values_r[0];
                                                               } ?>">
-                  <button type="button" class="btn btn-secondary" onclick="addFieldTo(<?php print lum_js_string_arg($attribute); ?>)">+</button>
+                  <button type="button" class="btn btn-secondary" onclick="addFieldTo(<?php print lumJsStringArg($attribute); ?>)">+</button>
               </div>
             <?php
             if (isset($values_r['count']) and $values_r['count'] > 0) {

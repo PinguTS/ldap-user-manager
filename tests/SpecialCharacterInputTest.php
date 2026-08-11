@@ -135,7 +135,7 @@ final class SpecialCharacterInputTest extends TestCase
     /** @dataProvider payloadCatalogueForJs */
     public function testJsStringArgRoundTrips(string $payload): void
     {
-        $output = lum_js_string_arg($payload);
+        $output = lumJsStringArg($payload);
         $decoded = html_entity_decode($output, ENT_QUOTES | ENT_HTML5, 'UTF-8');
         self::assertStringStartsWith('"', $decoded);
         self::assertStringEndsWith('"', $decoded);
