@@ -63,7 +63,7 @@ Direct deployment allows you to install the LDAP User Manager directly on your A
 ### **Prerequisites**
 - Apache 2.4+ with `mod_rewrite`, `mod_headers`, `mod_expires`, `mod_deflate` OR
 - Nginx 1.18+ with `try_files` support
-- PHP 8.2+ with LDAP extension (PHP-FPM for Nginx)
+- PHP 8.5+ with LDAP extension (PHP-FPM for Nginx)
 - LDAP server access
 
 ### **Quick Start**

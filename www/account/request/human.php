@@ -79,4 +79,3 @@ for ($i = 0; $i < $num_chars; $i++) {
 
 header('Content-type: image/png');
 imagepng($image);
-imagedestroy($image);

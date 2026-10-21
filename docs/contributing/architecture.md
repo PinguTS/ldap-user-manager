@@ -6,7 +6,7 @@ This document describes the internal structure of LDAP User Manager for contribu
 
 | Component | Technology |
 |---|---|
-| Language | PHP 8.2 (plain PHP, no framework) |
+| Language | PHP 8.5 (plain PHP, no framework) |
 | Web server | Apache 2.4 (built into Docker image) |
 | LDAP server | OpenLDAP via `osixia/openldap` (Docker) |
 | OIDC provider | Dex |
@@ -119,6 +119,6 @@ User account locking uses `pwdAccountLockedTime` from the OpenLDAP `ppolicy` ove
 The `Dockerfile` uses a two-stage build:
 
 1. Composer stage: installs production PHP dependencies.
-2. `php:8.2-apache` stage: installs PHP extensions (`ldap`, `gd`, `intl`), Apache modules (`rewrite`, `ssl`, `headers`, etc.), copies application and vendor files, sets the session path.
+2. `php:8.5.12-apache` stage: installs PHP extensions (`ldap`, `gd`, `intl`), Apache modules (`rewrite`, `ssl`, `headers`, etc.), copies application and vendor files, sets the session path.
 
 The `entrypoint` script: loads `*_FILE` Docker secret variables, sets defaults for `APP_HTTP_HOST`/`APP_HTTP_PATH`/`SESSION_SAVE_PATH`, generates Apache vhosts, handles `APP_SERVE_HTTP_ONLY` and TLS certificate configuration, and when `APP_ENV` is not `development` runs the setup verification check to auto-lock the setup wizard.

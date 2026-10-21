@@ -87,12 +87,12 @@ The script automatically:
 
 ### **Apache Requirements**
 - Apache 2.4+ with mod_rewrite, mod_headers, mod_expires, mod_deflate
-- PHP 8.2+ with LDAP extension
+- PHP 8.5+ with LDAP extension
 - AllowOverride All in Apache configuration
 
 ### **Nginx Requirements**
 - Nginx 1.18+ with try_files support
-- PHP-FPM 8.2+ with LDAP extension
+- PHP-FPM 8.5+ with LDAP extension
 - Proper PHP-FPM socket configuration
 
 ### **General Requirements**

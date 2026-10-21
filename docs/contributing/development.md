@@ -27,7 +27,7 @@ This guide covers:
 - **Docker**: Version 20.10 or later
 - **Docker Compose**: Version 2.0 or later
 - **Git**: For version control
-- **PHP**: Version 8.0 or later (for local development)
+- **PHP**: Version 8.5 or later (for local development)
 - **Composer**: For PHP dependencies
 
 ### Optional Software
@@ -109,11 +109,11 @@ Raw equivalents (from the repo root):
 
 ```bash
 docker run --rm -v "$(pwd)":/app -w /app composer:2 install
-docker run --rm -v "$(pwd)":/app -w /app php:8.2-cli ./vendor/bin/phpunit
-docker run --rm -v "$(pwd)":/app -w /app php:8.2-cli ./vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=512M
+docker run --rm -v "$(pwd)":/app -w /app php:8.5.12-cli ./vendor/bin/phpunit
+docker run --rm -v "$(pwd)":/app -w /app php:8.5.12-cli ./vendor/bin/phpstan analyse --configuration=phpstan.neon --memory-limit=512M
 ```
 
-The app container (`ldap-user-manager` image) is built with **production** Composer deps only; tests and static analysis use **`php:8.2-cli`** against your mounted project (including `vendor/` from `make install`).
+The app container (`ldap-user-manager` image) is built with **production** Composer deps only; tests and static analysis use **`php:8.5.12-cli`** against your mounted project (including `vendor/` from `make install`).
 
 ## Development Configuration
 
