@@ -83,9 +83,6 @@ if ($ldap_search) {
             $data      = $this_record[$this_attribute][0];
             $finfo     = finfo_open(FILEINFO_MIME_TYPE);
             $mime_type = $finfo ? finfo_buffer($finfo, $data) : null;
-            if ($finfo) {
-                finfo_close($finfo);
-            }
             if (!$mime_type) {
                 $mime_type = 'application/octet-stream';
             }

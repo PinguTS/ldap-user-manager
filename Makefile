@@ -107,6 +107,7 @@ dev: builder quality test
 		echo "Aborted. This task is only for the dev branch. Current: $(GIT_BRANCH). Use DEV_ANY_BRANCH=1 make dev to override."; exit 1; \
 	fi
 	docker buildx build \
+		--pull \
 		--platform $(PLATFORMS) \
 		-t $(LOCAL_REGISTRY)/$(APP_NAME):dev \
 		-t $(LOCAL_REGISTRY)/$(APP_NAME):dev-$(GIT_SHA) \
@@ -122,13 +123,14 @@ dev: builder quality test
 # Local test for amd64 without push
 .PHONY: load-amd64
 load-amd64: builder
-	docker buildx build --platform linux/amd64 -t $(APP_NAME):test --load .
+	docker buildx build --pull --platform linux/amd64 -t $(APP_NAME):test --load .
 
 # Release to Docker Hub
 .PHONY: release
 release: builder
 	@if [ "$(VERSION)" = "0.0.0" ]; then echo "Please set VERSION=1.2.3"; exit 1; fi
 	docker buildx build \
+		--pull \
 		--platform $(PLATFORMS) \
 		-t $(DOCKERHUB_REPO):$(VERSION) \
 		-t $(DOCKERHUB_REPO):latest \
@@ -155,10 +157,10 @@ notify:
 # =============================================================================
 # Code Quality Commands (New additions)
 # =============================================================================
-# When PHP/Composer are not installed locally, use Docker (composer:2, php:8.2-cli).
+# When PHP/Composer are not installed locally, use Docker (composer:2, php:8.5.12-cli).
 # Set USE_LOCAL=1 to force local PHP/Composer (avoid Docker); set USE_DOCKER=1 to force Docker.
 COMPOSER_IMAGE ?= composer:2
-PHP_IMAGE ?= php:8.2-cli
+PHP_IMAGE ?= php:8.5.12-cli
 DOCKER_COMPOSER = docker run --rm -v "$$(pwd)":/app -w /app $(COMPOSER_IMAGE)
 DOCKER_PHP = docker run --rm -v "$$(pwd)":/app -w /app $(PHP_IMAGE)
 # PHPStan memory limit (default 128M in php.ini is often too low for large codebases)
@@ -212,7 +214,7 @@ test: ## Run tests (if available; uses Docker if php not in PATH)
 	if command -v php >/dev/null 2>&1; then \
 		vendor/bin/phpunit; \
 	else \
-		docker build -q -t $(TEST_PHP_IMAGE) - < Dockerfile.test; \
+		docker build --pull -q -t $(TEST_PHP_IMAGE) - < Dockerfile.test; \
 		docker run --rm -v "$$(pwd)":/app -w /app $(TEST_PHP_IMAGE) ./vendor/bin/phpunit; \
 	fi
 

@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.6] - 2026-10-21
+
+### Security
+
+- Upgrade Docker/runtime PHP to **8.5.12** (fixes php2shell CVE-2026-109618 / CVE-2026-109619)
+- Force `--pull` / `pull: true` on image builds so Hub base images are not reused from a vulnerable cache
+
+### Changed
+
+- Require PHP **8.5+** (`composer.json`, docs, CI)
+- Bump PHPStan to ^2.1 and Rector to ^2; adjust `phpstan.neon` for PHPStan 2
+- Remove PHP 8.5-deprecated `imagedestroy` / `finfo_close` calls
+
 ## [1.1.5] - 2026-08-11
 
 ### Fixed

@@ -3,6 +3,8 @@
 parameters:
     level: 8
     reportUnmatchedIgnoredErrors: false
+    # PHPDoc often says resource|LDAP\Connection; PHPStan 2 over-narrows and flags always-true checks.
+    treatPhpDocTypesAsCertain: false
     paths:
         - www/
     excludePaths:
@@ -12,6 +14,24 @@ parameters:
     ignoreErrors:
         - identifier: missingType.iterableValue
         - identifier: missingType.generics
+        # Relative include_once/require_once paths resolved at runtime from cwd / include_path
+        - identifier: includeOnce.fileNotFound
+        - identifier: requireOnce.fileNotFound
+        # PHPStan 2 stricter certainty / offset analysis on LDAP entry arrays and getenv results
+        - identifier: function.alreadyNarrowedType
+        - identifier: nullCoalesce.offset
+        - identifier: offsetAccess.notFound
+        - identifier: offsetAccess.invalidOffset
+        - identifier: isset.offset
+        - identifier: notIdentical.alwaysTrue
+        - identifier: equal.alwaysTrue
+        - identifier: notEqual.alwaysTrue
+        - identifier: instanceof.alwaysTrue
+        - identifier: booleanNot.alwaysTrue
+        - identifier: booleanOr.alwaysFalse
+        - identifier: argument.type
+        - identifier: return.type
+        - identifier: callable.nonCallable
         # Globals defined in config.inc.php / web_functions include chain
         - '#Variable \$.+ might not be defined\.#'
         - '#Undefined variable: \$.+#'

@@ -4,7 +4,7 @@ WORKDIR /app
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --no-interaction
 
-FROM php:8.2-apache
+FROM php:8.5.12-apache
 
 RUN set -eux; \
     apt-get update; \
