@@ -196,7 +196,7 @@ The system sets security headers (effective values depend on your deployment):
 **Role-based OpenLDAP ACLs:** For user-bind writes to work correctly (so each role — administrator, maintainer, org admin — can write only what it is permitted to change), OpenLDAP must have `olcAccess` rules that grant access based on `groupOfNames` membership. The setup pages at `/setup/run_checks.php` and `/setup/apply_user_bind_acls.php` verify and apply two layers:
 
 - **Step 1 — Baseline:** Self password write + authenticated read on the tree (minimum for login and role resolution).
-- **Step 2 — Role-based write:** Group-scoped write for system administrators (`manage` on the whole tree), system maintainers (`write` on the organisations subtree), and per-org admins (`write` on their org subtree via `dn.regex` + `group.expand`).
+- **Step 2 — Role-based write:** Group-scoped write for system administrators (`manage` on the whole tree), system maintainers (`write` on the organisations subtree, system people OU, and the member/disabled org status groups under `ou=roles`), and per-org admins (`write` on their org subtree via `dn.regex` + `group.expand`).
 
 Both steps provide copy/paste `ldapmodify` LDIF blocks pre-filled from your environment. See [`docs/ldap/userbind-acls.md`](../ldap/userbind-acls.md) for the complete rule set, explanation, and `ldapsearch` verification commands.
 

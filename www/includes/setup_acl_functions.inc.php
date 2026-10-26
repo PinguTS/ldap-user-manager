@@ -189,10 +189,12 @@ function setupVerifyUserBindAcls($conn): array
  *      Note: protection of admin-role users from maintainer modification is enforced at the
  *      PHP application layer (canMaintainerDisableUser / currentUserCanDeleteUser), because
  *      OpenLDAP ACLs cannot condition access on the *target entry's* group membership.
- *   5. Org admins per org — write on their specific org subtree via dn.regex + group.expand
+ *   5. System maintainers — write on global status groups (member / disabled orgs) under ou=roles
+ *      only; not the whole ou=roles (so they cannot alter administrators/maintainers groups).
+ *   6. Org admins per org — write on their specific org subtree via dn.regex + group.expand
  *      (by * break)
- *   6. Self write on own entry (by * break)
- *   7. Authenticated read — fallback for all other access, terminal deny for anonymous
+ *   7. Self write on own entry (by * break)
+ *   8. Authenticated read — fallback for all other access, terminal deny for anonymous
  *
  * @return list<string>
  */
@@ -201,12 +203,16 @@ function setupBuildRoleBasedAclSet(
     string $orgOu,
     string $adminRole,
     string $maintainerRole,
-    string $orgAdminRole
+    string $orgAdminRole,
+    string $memberOrgsCn = 'memberOrganizations',
+    string $disabledOrgsCn = 'disabledOrganizations'
 ): array {
     $rolesDn     = 'ou=roles,' . $baseDn;
     $orgBaseDn   = 'ou=' . $orgOu . ',' . $baseDn;
     // System users always live at ou=people,<base_dn> (see config.inc.php $LDAP['people_dn'])
     $peopleDn    = 'ou=people,' . $baseDn;
+    $memberDn    = 'cn=' . $memberOrgsCn . ',' . $rolesDn;
+    $disabledDn  = 'cn=' . $disabledOrgsCn . ',' . $rolesDn;
     // Base DN dots must be escaped for use inside a dn.regex literal
     $escapedBase = str_replace('.', '\\.', $baseDn);
 
@@ -221,11 +227,14 @@ function setupBuildRoleBasedAclSet(
         //    Admin-user protection is enforced at the PHP layer; LDAP ACLs cannot restrict by
         //    the target entry's group membership.
         'to dn.subtree="' . $peopleDn . '" by group/groupOfNames/member="cn=' . $maintainerRole . ',' . $rolesDn . '" write by * break',
-        // 5. Org admins: write on their own org subtree (dn.regex captures org name in $2; group.expand resolves per-org group)
+        // 5. System maintainers: write on global org status groups (member / disabled flags)
+        'to dn.exact="' . $memberDn . '" by group/groupOfNames/member="cn=' . $maintainerRole . ',' . $rolesDn . '" write by * break',
+        'to dn.exact="' . $disabledDn . '" by group/groupOfNames/member="cn=' . $maintainerRole . ',' . $rolesDn . '" write by * break',
+        // 6. Org admins: write on their own org subtree (dn.regex captures org name in $2; group.expand resolves per-org group)
         'to dn.regex="^(.+,)?o=([^,]+),ou=' . $orgOu . ',' . $escapedBase . '$" by group/groupOfNames/member.expand="cn=' . $orgAdminRole . ',ou=roles,o=$2,ou=' . $orgOu . ',' . $baseDn . '" write by * break',
-        // 6. Self write on own entry
+        // 7. Self write on own entry
         'to dn.subtree="' . $baseDn . '" by self write by * break',
-        // 7. Authenticated read for all remaining access — terminal deny for anonymous
+        // 8. Authenticated read for all remaining access — terminal deny for anonymous
         'to dn.subtree="' . $baseDn . '" by users read by * none',
     ];
 }
@@ -337,6 +346,8 @@ function setupVerifyRoleBasedAcls($conn): array
     $adminRole      = (string) ($LDAP['admin_role'] ?? 'administrators');
     $maintainerRole = (string) ($LDAP['maintainer_role'] ?? 'maintainers');
     $orgAdminRole   = (string) ($LDAP['org_admin_role'] ?? 'org_admin');
+    $memberOrgsCn   = getenv('LDAP_GROUP_MEMBER_ORGS') ?: 'memberOrganizations';
+    $disabledOrgsCn = getenv('LDAP_GROUP_DISABLED_ORGS') ?: 'disabledOrganizations';
 
     $mdb      = setupOlcMdbDn();
     $existing = setupReadMdbOlcAccess($conn, $mdb);
@@ -356,7 +367,15 @@ function setupVerifyRoleBasedAcls($conn): array
         ];
     }
 
-    $required = setupBuildRoleBasedAclSet($baseDn, $orgOu, $adminRole, $maintainerRole, $orgAdminRole);
+    $required = setupBuildRoleBasedAclSet(
+        $baseDn,
+        $orgOu,
+        $adminRole,
+        $maintainerRole,
+        $orgAdminRole,
+        $memberOrgsCn,
+        $disabledOrgsCn
+    );
     $present  = [];
     $missing  = [];
 
@@ -397,7 +416,7 @@ function setupVerifyRoleBasedAcls($conn): array
  * Strategy:
  *   - If all rules are already present and reachable (not blocked by legacy rules): no-op.
  *   - If legacy blocking rules are detected OR some rules already exist in a partial/wrong
- *     state: use replace: olcAccess with [EXTERNAL rule] + [6 LUM rules] atomically.
+ *     state: use replace: olcAccess with [EXTERNAL rule] + [LUM role-based rules] atomically.
  *   - If no blocking rules and no partial state: add only the missing rules.
  *
  * @param resource|\LDAP\Connection $conn
@@ -412,12 +431,22 @@ function setupApplyRoleBasedAclsToMdb($conn, string $mdbDn): bool
     $adminRole      = (string) ($LDAP['admin_role'] ?? 'administrators');
     $maintainerRole = (string) ($LDAP['maintainer_role'] ?? 'maintainers');
     $orgAdminRole   = (string) ($LDAP['org_admin_role'] ?? 'org_admin');
+    $memberOrgsCn   = getenv('LDAP_GROUP_MEMBER_ORGS') ?: 'memberOrganizations';
+    $disabledOrgsCn = getenv('LDAP_GROUP_DISABLED_ORGS') ?: 'disabledOrganizations';
 
     if ($baseDn === '') {
         return false;
     }
 
-    $required = setupBuildRoleBasedAclSet($baseDn, $orgOu, $adminRole, $maintainerRole, $orgAdminRole);
+    $required = setupBuildRoleBasedAclSet(
+        $baseDn,
+        $orgOu,
+        $adminRole,
+        $maintainerRole,
+        $orgAdminRole,
+        $memberOrgsCn,
+        $disabledOrgsCn
+    );
     $existing = setupReadMdbOlcAccess($conn, $mdbDn);
 
     // Determine which required rules are currently missing
@@ -448,7 +477,7 @@ function setupApplyRoleBasedAclsToMdb($conn, string $mdbDn): bool
     if ($hasLegacyBlocking || $hasPartialRules) {
         // Blocking rules or a partial state means a simple add would either fail (duplicate) or
         // produce unreachable rules. Replace the entire olcAccess attribute atomically:
-        //   [EXTERNAL manage rule (preserved from current config)] + [6 LUM rules]
+        //   [EXTERNAL manage rule (preserved from current config)] + [LUM role-based rules]
         $externalRule = setupFindExternalManageRule($existing);
         $replacement  = $externalRule !== null ? [$externalRule] : [];
         foreach ($required as $rule) {
@@ -522,12 +551,22 @@ function setupBuildRoleBasedAclLdif(string $mdbDn): string
     $adminRole      = (string) ($LDAP['admin_role'] ?? 'administrators');
     $maintainerRole = (string) ($LDAP['maintainer_role'] ?? 'maintainers');
     $orgAdminRole   = (string) ($LDAP['org_admin_role'] ?? 'org_admin');
+    $memberOrgsCn   = getenv('LDAP_GROUP_MEMBER_ORGS') ?: 'memberOrganizations';
+    $disabledOrgsCn = getenv('LDAP_GROUP_DISABLED_ORGS') ?: 'disabledOrganizations';
 
     if ($baseDn === '') {
         return '# LDAP_BASE_DN is not set — cannot generate LDIF.';
     }
 
-    $rules = setupBuildRoleBasedAclSet($baseDn, $orgOu, $adminRole, $maintainerRole, $orgAdminRole);
+    $rules = setupBuildRoleBasedAclSet(
+        $baseDn,
+        $orgOu,
+        $adminRole,
+        $maintainerRole,
+        $orgAdminRole,
+        $memberOrgsCn,
+        $disabledOrgsCn
+    );
 
     $lines   = [];
     $lines[] = '# This LDIF replaces ALL existing olcAccess rules with the LUM role-based set.';

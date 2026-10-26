@@ -1,5 +1,16 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- Maintainer organization list: trust validated session roles so the page no longer opens LDAP thousands of times per row (timeout / incomplete list)
+- Org list enrichment uses admin bind for status/count reads; drop duplicate disabled-status LDAP check
+
+### Changed
+
+- User-bind ACLs: grant maintainers `write` on `memberOrganizations` / `disabledOrganizations` status groups (member/disable flags); re-apply via `/setup/apply_user_bind_acls.php` on existing installs
+
 ## [1.1.6] - 2026-10-21
 
 ### Security

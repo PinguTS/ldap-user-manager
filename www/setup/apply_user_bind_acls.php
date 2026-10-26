@@ -214,7 +214,9 @@ renderHeader("{$ORGANISATION_NAME} — user-bind ACLs");
                 (string) ($LDAP['org_ou'] ?? 'organizations'),
                 (string) ($LDAP['admin_role'] ?? 'administrators'),
                 (string) ($LDAP['maintainer_role'] ?? 'maintainers'),
-                (string) ($LDAP['org_admin_role'] ?? 'org_admin')
+                (string) ($LDAP['org_admin_role'] ?? 'org_admin'),
+                getenv('LDAP_GROUP_MEMBER_ORGS') ?: 'memberOrganizations',
+                getenv('LDAP_GROUP_DISABLED_ORGS') ?: 'disabledOrganizations'
             )
             : [];
         foreach ($roleRules as $rule) :
@@ -225,8 +227,9 @@ renderHeader("{$ORGANISATION_NAME} — user-bind ACLs");
       <p class="text-muted small mb-2">
         Uses <code>group/groupOfNames/member</code> for global roles and
         <code>group/groupOfNames/member.expand</code> with <code>dn.regex</code> for per-org admins
-        (OpenLDAP 2.3+). Rules 1–5 use <code>by&nbsp;*&nbsp;break</code>; rule&nbsp;6 ends with
+        (OpenLDAP 2.3+). Early rules use <code>by&nbsp;*&nbsp;break</code>; the last rule ends with
         <code>by&nbsp;*&nbsp;none</code> (terminal deny for anonymous/non-authenticated access).
+        Maintainers also get write on the member/disabled org status groups under <code>ou=roles</code>.
         The LDAP rootDN (<code>cn=admin,...</code>) bypasses ACLs entirely — it does not need an
         explicit grant. See <code>docs/ldap/userbind-acls.md</code> for full explanation.
       </p>

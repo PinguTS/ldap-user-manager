@@ -162,8 +162,9 @@ if (!is_array($organizations)) {
     $organizations = [];
 }
 
-// Establish LDAP connection for status checks
-$ldap_connection = lum_ldap_data_connection();
+// Admin bind for status/count enrichment reads (same reliability pattern as org show + listOrganizations).
+// Writes (member/disable/delete) still use user-bind via lum_ldap_data_connection() in POST handlers.
+$ldap_connection = open_ldap_connection();
 if (!$ldap_connection) {
     $message = t('manage.orgs.ldap_conn_failed');
     $message_type = 'danger';
@@ -191,7 +192,8 @@ foreach ($display_organizations as $org) {
     $is_disabled = ($ldap_connection && $base_dn !== '' && $org_dn !== ''
         && function_exists('is_in_status_group')
         && is_in_status_group($ldap_connection, $org_dn, $disabled_group_cn, $base_dn));
-    $org_disabled = ($ldap_connection && ldap_organization_is_disabled($ldap_connection, $org_name_v));
+    // Same status group as $is_disabled — avoid a duplicate LDAP search via ldap_organization_is_disabled().
+    $org_disabled = $is_disabled;
 
     $last_change = function_exists('get_org_last_change_from_op_attrs')
         ? get_org_last_change_from_op_attrs(
@@ -511,9 +513,11 @@ function format_org_list_count_label(int $shown, int $total): string
                                         </div>
 
                                         <?php
-                                        $can_membership  = (currentUserIsGlobalAdmin() || currentUserIsMaintainer()) && $ldap_connection && $base_dn !== '' && $org_dn !== '' && function_exists('is_in_status_group');
-                                        $can_disable     = currentUserCanDisableOrganization($org_name);
-                                        $can_delete      = currentUserCanDeleteOrganization($org_name);
+                                        // Reuse page-level role flags — avoid per-row LDAP role re-checks.
+                                        $can_membership  = ($is_global_admin || $is_maintainer) && $ldap_connection && $base_dn !== '' && $org_dn !== '' && function_exists('is_in_status_group');
+                                        $can_disable     = $is_global_admin || $is_maintainer
+                                            || (!$is_global_admin && !$is_maintainer && currentUserCanDisableOrganization($org_name));
+                                        $can_delete      = $is_global_admin || $is_maintainer;
                                         ?>
 
                                         <div class="d-flex align-items-center justify-content-end flex-wrap gap-2" style="min-width: 260px;">

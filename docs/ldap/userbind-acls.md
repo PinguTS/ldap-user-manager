@@ -27,6 +27,7 @@ whether a request comes from `self`, another authenticated DN (`by users`), or a
 | Create / delete system users | ✔ | ✔ (non-admin only¹) | — |
 | Disable / activate system users | ✔ | ✔ (non-admin only¹) | — |
 | Manage organisations (create, disable, delete) | ✔ | ✔ | — |
+| Set / clear organisation **member** flag | ✔ | ✔ | — |
 | Manage org users (add, remove, disable) | ✔ | ✔ | ✔ (own org) |
 | Assign system roles (admin / maintainer) | ✔ | — | — |
 
@@ -96,7 +97,7 @@ to dn.subtree="dc=example,dc=com"
 Without role-based ACLs, the app must use the admin bind for every write. With them, users
 can bind as themselves and OpenLDAP enforces write permissions based on their group membership.
 
-Rules 1–6 use `by * break` so that subsequent rules continue to be evaluated. Rule 7 uses
+Rules 1–7 use `by * break` so that subsequent rules continue to be evaluated. Rule 8 uses
 `by * none` (terminal deny for non-authenticated access).
 
 ### Complete rule set (with explanations)
@@ -123,25 +124,35 @@ to dn.subtree="ou=organizations,dc=example,dc=com"
 
 # 4. System maintainers — write on the system people OU
 #    Needed for creating, deleting, and disabling system user accounts.
-#    ou=roles is NOT covered; maintainers cannot assign system roles via LDAP.
+#    ou=roles as a whole is NOT covered; maintainers cannot assign system roles via LDAP.
 #    Protection of admin-role users from maintainer modification is enforced at the
 #    PHP application layer — OpenLDAP ACLs cannot restrict by target group membership.
 to dn.subtree="ou=people,dc=example,dc=com"
     by group/groupOfNames/member="cn=maintainers,ou=roles,dc=example,dc=com" write
     by * break
 
-# 5. Org admins — write on their specific org subtree
+# 5. System maintainers — write on global org status groups only
+#    (member / disabled flags). CNs default to memberOrganizations / disabledOrganizations
+#    (LDAP_GROUP_MEMBER_ORGS / LDAP_GROUP_DISABLED_ORGS). Not the whole ou=roles.
+to dn.exact="cn=memberOrganizations,ou=roles,dc=example,dc=com"
+    by group/groupOfNames/member="cn=maintainers,ou=roles,dc=example,dc=com" write
+    by * break
+to dn.exact="cn=disabledOrganizations,ou=roles,dc=example,dc=com"
+    by group/groupOfNames/member="cn=maintainers,ou=roles,dc=example,dc=com" write
+    by * break
+
+# 6. Org admins — write on their specific org subtree
 #    dn.regex captures the org name in $2; group.expand resolves the per-org group DN
 to dn.regex="^(.+,)?o=([^,]+),ou=organizations,dc=example,dc=com$"
     by group/groupOfNames/member.expand="cn=org_admin,ou=roles,o=$2,ou=organizations,dc=example,dc=com" write
     by * break
 
-# 6. Self write on own entry
+# 7. Self write on own entry
 to dn.subtree="dc=example,dc=com"
     by self write
     by * break
 
-# 7. Authenticated read — fallback for all other access (terminal deny for anonymous)
+# 8. Authenticated read — fallback for all other access (terminal deny for anonymous)
 to dn.subtree="dc=example,dc=com"
     by users read
     by * none
@@ -158,7 +169,7 @@ to dn.subtree="dc=example,dc=com"
 | ACL order | OpenLDAP evaluates `olcAccess` in order; more specific rules (e.g. `attrs=`) should come first. The `{N}` prefix added by slapd is auto-assigned; do not rely on it. |
 | rootDN bypass | `cn=admin,<base>` is the OpenLDAP `olcRootDN`; it bypasses all ACLs regardless of what the rules say. No explicit ACL grant is needed for the service account used by the app. |
 
-### Why maintainers have write on `ou=people` but not `ou=roles`
+### Why maintainers have write on `ou=people` but not all of `ou=roles`
 
 The tree structure separates system users from role groups:
 
@@ -166,12 +177,17 @@ The tree structure separates system users from role groups:
 dc=example,dc=com
 ├── ou=people           ← system user accounts ($LDAP['people_dn'])
 ├── ou=organizations    ← organisations and their users / roles
-└── ou=roles            ← global role groups (administrators, maintainers)
+└── ou=roles            ← global role groups + status groups (member/disabled orgs)
 ```
 
 Maintainers need write on `ou=people` to create, delete, and modify system user accounts.
-They do **not** receive write on `ou=roles`, so they cannot promote a user to administrator
+They do **not** receive write on all of `ou=roles`, so they cannot promote a user to administrator
 or add themselves to the maintainers group by manipulating LDAP directly.
+
+They **do** receive `write` on the two global status-group entries
+(`cn=memberOrganizations` and `cn=disabledOrganizations` under `ou=roles`) so user-bound
+member/disable actions from `/manage` succeed. Those CNs follow `LDAP_GROUP_MEMBER_ORGS` /
+`LDAP_GROUP_DISABLED_ORGS`.
 
 The additional protection — that maintainers cannot act on users who *are* administrators —
 is enforced at the PHP layer. OpenLDAP cannot evaluate "deny if the target entry is a member

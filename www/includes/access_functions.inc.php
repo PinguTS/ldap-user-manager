@@ -17,11 +17,12 @@ declare(strict_types=1);
  */
 function currentUserIsGlobalAdmin(): bool
 {
-    global $LDAP, $LDAP_DEBUG, $USER_DN, $USER_ID, $IS_ADMIN;
+    global $LDAP, $LDAP_DEBUG, $USER_DN, $USER_ID, $IS_ADMIN, $VALIDATED;
 
-    // First check if we already have this information from the session
-    if (isset($IS_ADMIN) && $IS_ADMIN === true) {
-        return true;
+    // After login, trust the session role (true or false). Previously only true
+    // short-circuited, so maintainers re-opened LDAP on every call (e.g. org list).
+    if ($VALIDATED === true) {
+        return $IS_ADMIN === true;
     }
 
     // Ensure we have the user DN
@@ -127,11 +128,11 @@ function checkUserAdminRole(string $userDn): bool
  */
 function currentUserIsMaintainer(): bool
 {
-    global $LDAP, $USER_DN, $USER_ID, $IS_MAINTAINER;
+    global $USER_DN, $USER_ID, $IS_MAINTAINER, $VALIDATED;
 
-    // First check if we already have this information from the session
-    if (isset($IS_MAINTAINER) && $IS_MAINTAINER === true) {
-        return true;
+    // After login, trust the session role (true or false).
+    if ($VALIDATED === true) {
+        return $IS_MAINTAINER === true;
     }
 
     // Ensure we have the user DN
