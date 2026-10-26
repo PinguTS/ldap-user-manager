@@ -514,10 +514,9 @@ function format_org_list_count_label(int $shown, int $total): string
 
                                         <?php
                                         // Reuse page-level role flags — avoid per-row LDAP role re-checks.
-                                        $can_membership  = ($is_global_admin || $is_maintainer) && $ldap_connection && $base_dn !== '' && $org_dn !== '' && function_exists('is_in_status_group');
-                                        $can_disable     = $is_global_admin || $is_maintainer
-                                            || (!$is_global_admin && !$is_maintainer && currentUserCanDisableOrganization($org_name));
-                                        $can_delete      = $is_global_admin || $is_maintainer;
+                                        $can_membership = ($is_global_admin || $is_maintainer) && $ldap_connection && $base_dn !== '' && $org_dn !== '' && function_exists('is_in_status_group');
+                                        $can_disable    = $is_global_admin || $is_maintainer || currentUserCanDisableOrganization($org_name);
+                                        $can_delete     = $is_global_admin || $is_maintainer;
                                         ?>
 
                                         <div class="d-flex align-items-center justify-content-end flex-wrap gap-2" style="min-width: 260px;">
